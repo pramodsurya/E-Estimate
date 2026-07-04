@@ -93,6 +93,31 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
+# 7. Ensure latest.yml exists (sometimes electron-builder skips generating it)
+Write-Host ""
+Write-Host "Generating latest.yml..." -ForegroundColor Cyan
+$exeFile = Get-ChildItem "release" -Filter "E-Estimate-$newVersion-windows-x64.exe" | Select-Object -First 1
+if ($exeFile) {
+    $hash = (Get-FileHash -Path $exeFile.FullName -Algorithm SHA512).Hash.ToLower()
+    $size = $exeFile.Length
+    $date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+    $yml = @"
+version: $newVersion
+files:
+  - url: E-Estimate-$newVersion-windows-x64.exe
+    sha512: $hash
+    size: $size
+path: E-Estimate-$newVersion-windows-x64.exe
+sha512: $hash
+releaseDate: '$date'
+"@
+    $yml | Out-File -FilePath "release\latest.yml" -Encoding ascii
+    gh release upload "v$newVersion" "release\latest.yml" --repo pramodsurya/E-Estimate --clobber
+    Write-Host "[OK] latest.yml uploaded" -ForegroundColor Green
+} else {
+    Write-Host "WARNING: No .exe found, skipping latest.yml" -ForegroundColor Yellow
+}
+
 Write-Host ""
 Write-Host "====================================" -ForegroundColor Green
 Write-Host "  PUBLISHED: v$newVersion" -ForegroundColor Green
