@@ -11,12 +11,14 @@ const ItemSpreadsheet = lazy(loadItemSpreadsheet)
 const RateAnalysisDashboard = lazy(() => import('./rateanalysis/RateAnalysisDashboard'))
 const DtlLeadDashboard = lazy(() => import('./lead/DtlLeadDashboard'))
 const LeadDetailDashboard = lazy(() => import('./lead/LeadDetailDashboard'))
+const SeigniorageDashboard = lazy(() => import('./seigniorage/SeigniorageDashboard'))
 
 export default function WorkArea(): JSX.Element {
   const view = useStore((s) => s.view)
   const activity = useStore((s) => s.activity)
   const analysisSelection = useStore((s) => s.analysisSelection)
   const leadSelection = useStore((s) => s.leadSelection)
+  const seigniorageSelection = useStore((s) => s.seigniorageSelection)
   const selected = useSelectedNode()
 
   useEffect(() => {
@@ -36,6 +38,8 @@ export default function WorkArea(): JSX.Element {
     content = <DtlLeadDashboard />
   } else if (leadSelection) {
     content = <LeadDetailDashboard />
+  } else if (seigniorageSelection) {
+    content = <SeigniorageDashboard />
   } else if (analysisSelection) {
     content = <RateAnalysisDashboard />
   } else if (!selected || selected.kind === 'title') {

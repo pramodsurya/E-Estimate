@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, Database, Timer, Truck } from 'lucide-react'
 import { collectProjectItemGroups, type ItemUsageBranch } from '../../lib/projectItems'
 import { useStore } from '../../store/useStore'
 import EstimateLeadPanel from './EstimateLeadPanel'
+import SeignioragePanel from './SeignioragePanel'
 
 type BottomTab = 'seigniorage' | 'lead' | 'data'
 
@@ -10,6 +11,7 @@ export default function DataPanel(): JSX.Element | null {
   const project = useStore((state) => state.project)
   const selection = useStore((state) => state.analysisSelection)
   const openRateAnalysis = useStore((state) => state.openRateAnalysis)
+  const openSeigniorage = useStore((state) => state.openSeigniorage)
   const [tab, setTab] = useState<BottomTab>('data')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const groups = useMemo(
@@ -24,8 +26,11 @@ export default function DataPanel(): JSX.Element | null {
       <div className="data-tabs" role="tablist" aria-label="Project data">
         <button
           className={tab === 'seigniorage' ? 'active' : ''}
-          onClick={() => setTab('seigniorage')}
-          title="Seigniorage (later)"
+          onClick={() => {
+            setTab('seigniorage')
+            openSeigniorage()
+          }}
+          title="Seigniorage"
         >
           <Truck size={13} />
           Seigniorage
@@ -47,9 +52,7 @@ export default function DataPanel(): JSX.Element | null {
       {tab === 'lead' ? (
         <EstimateLeadPanel />
       ) : tab === 'seigniorage' ? (
-        <div className="panel-reserved">
-          Seigniorage is planned later.
-        </div>
+        <SeignioragePanel />
       ) : (
         <div className="data-tree">
           {groups.length === 0 ? (

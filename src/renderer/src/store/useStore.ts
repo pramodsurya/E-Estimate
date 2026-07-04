@@ -136,6 +136,10 @@ export interface LeadSelection {
   variantId?: string
 }
 
+export interface SeigniorageSelection {
+  seigCode: string | null
+}
+
 interface StoreState {
   view: AppView
   activity: ActivityView
@@ -156,6 +160,7 @@ interface StoreState {
   settings: SettingsState
   analysisSelection: AnalysisSelection | null
   leadSelection: LeadSelection | null
+  seigniorageSelection: SeigniorageSelection | null
 
   // lifecycle
   loadRecent: () => Promise<void>
@@ -209,6 +214,8 @@ interface StoreState {
   removeLeadApplication: (applicationId: string) => void
   openLeadMaterial: (selection: LeadSelection) => void
   closeLeadMaterial: () => void
+  openSeigniorage: (selection?: SeigniorageSelection) => void
+  closeSeigniorage: () => void
   saveLeadDetailReconstruction: (detail: LeadDetailReconstruction) => void
   restoreLeadDetailReconstruction: (detailCode: string, year: string) => void
   openRateAnalysis: (key: string, nodeId: string, recipeOnly?: boolean) => void
@@ -288,6 +295,7 @@ export const useStore = create<StoreState>((set, get) => {
     settings: { open: false, nodeId: null },
     analysisSelection: null,
     leadSelection: null,
+    seigniorageSelection: null,
 
     loadRecent: async () => {
       try {
@@ -318,7 +326,8 @@ export const useStore = create<StoreState>((set, get) => {
         addStructure: { open: false, kind: 'component', parentId: null },
         activity: 'explorer',
         analysisSelection: null,
-        leadSelection: null
+        leadSelection: null,
+        seigniorageSelection: null
       })
     },
 
@@ -338,7 +347,8 @@ export const useStore = create<StoreState>((set, get) => {
         selectedId: root.id,
         dirty: true,
         analysisSelection: null,
-        leadSelection: null
+        leadSelection: null,
+        seigniorageSelection: null
       })
     },
 
@@ -359,7 +369,8 @@ export const useStore = create<StoreState>((set, get) => {
         addStructure: { open: false, kind: 'component', parentId: null },
         activity: 'explorer',
         analysisSelection: null,
-        leadSelection: null
+        leadSelection: null,
+        seigniorageSelection: null
       })
       void get().loadRecent()
     },
@@ -383,7 +394,8 @@ export const useStore = create<StoreState>((set, get) => {
         addStructure: { open: false, kind: 'component', parentId: null },
         activity: 'explorer',
         analysisSelection: null,
-        leadSelection: null
+        leadSelection: null,
+        seigniorageSelection: null
       })
       void get().loadRecent()
     },
@@ -421,11 +433,18 @@ export const useStore = create<StoreState>((set, get) => {
         addStructure: { open: false, kind: 'component', parentId: null },
         settings: { open: false, nodeId: null },
         analysisSelection: null,
-        leadSelection: null
+        leadSelection: null,
+        seigniorageSelection: null
       })
     },
 
-    select: (id) => set({ selectedId: id, analysisSelection: null, leadSelection: null }),
+    select: (id) =>
+      set({
+        selectedId: id,
+        analysisSelection: null,
+        leadSelection: null,
+        seigniorageSelection: null
+      }),
 
     toggleExpand: (id) =>
       set((s) => ({ expanded: { ...s.expanded, [id]: !s.expanded[id] } })),
@@ -801,10 +820,21 @@ export const useStore = create<StoreState>((set, get) => {
       set({
         leadSelection: selection,
         analysisSelection: null,
+        seigniorageSelection: null,
         activity: 'explorer'
       }),
 
     closeLeadMaterial: () => set({ leadSelection: null }),
+
+    openSeigniorage: (selection = { seigCode: null }) =>
+      set({
+        seigniorageSelection: selection,
+        analysisSelection: null,
+        leadSelection: null,
+        activity: 'explorer'
+      }),
+
+    closeSeigniorage: () => set({ seigniorageSelection: null }),
 
     saveLeadDetailReconstruction: (detail) => {
       mutateProject((project) => ({
@@ -825,7 +855,12 @@ export const useStore = create<StoreState>((set, get) => {
     },
 
     openRateAnalysis: (key, nodeId, recipeOnly = false) =>
-      set({ analysisSelection: { key, nodeId, recipeOnly }, selectedId: nodeId, leadSelection: null }),
+      set({
+        analysisSelection: { key, nodeId, recipeOnly },
+        selectedId: nodeId,
+        leadSelection: null,
+        seigniorageSelection: null
+      }),
 
     closeRateAnalysis: () => set({ analysisSelection: null }),
 
