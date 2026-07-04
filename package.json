@@ -1,0 +1,48 @@
+{
+  "name": "e-estimate",
+  "version": "0.1.0",
+  "description": "E-Estimate — construction cost estimation desktop app (Telangana SOR/SSR)",
+  "main": "./out/main/index.js",
+  "author": "E-Estimate",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "package:win": "npm run build && electron-builder --win --x64 --dir",
+    "dist:win": "npm run build && electron-builder --win nsis --x64",
+    "publish:win": "npm run build && electron-builder --win nsis --x64 --publish always",
+    "test": "npm run test:lead",
+    "test:lead": "node scripts/test-lead.cjs",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "@univerjs/core": "^0.25.0",
+    "@univerjs/preset-sheets-core": "^0.25.0",
+    "@univerjs/preset-sheets-drawing": "^0.25.0",
+    "chart.js": "^4.4.4",
+    "electron-updater": "^6.8.9",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.451.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-leaflet": "^4.2.1",
+    "rxjs": "^7.8.2",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.12",
+    "@types/node": "^20.16.10",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "electron": "^31.7.7",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^2.3.0",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8"
+  }
+}

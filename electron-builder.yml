@@ -1,0 +1,38 @@
+appId: com.eestimate.desktop
+productName: E-Estimate
+
+directories:
+  output: release
+
+files:
+  - out/**/*
+  - package.json
+
+asar: true
+
+# ── Auto-update publish provider ──
+# Uses GitHub Releases (free, no server needed).
+# Create a GitHub token with "repo" scope and set it as GH_TOKEN env variable
+# before running the publish script.
+publish:
+  provider: github
+  owner: pramodsurya
+  repo: E-Estimate
+  releaseType: release
+
+win:
+  executableName: E-Estimate
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: E-Estimate-${version}-windows-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: E-Estimate
+  # Installer icon (optional — add a 256x256 .ico in build/ folder)
+  # installerIcon: build/icon.ico

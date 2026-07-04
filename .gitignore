@@ -1,0 +1,11 @@
+node_modules/
+out/
+dist/
+release/
+vendor/.downloads/
+vendor/.extract/
+vendor/win-x64/
+*.log
+.DS_Store
+.env
+.env.local
