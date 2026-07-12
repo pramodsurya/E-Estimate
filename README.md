@@ -22,6 +22,15 @@ npm run dist:win
 - `package:win` creates an unpacked application folder in `release`.
 - `dist:win` creates the Windows x64 NSIS installer in `release`.
 
+## Download
+
+The latest Windows `.exe` installer is published on GitHub Releases:
+
+- [E-Estimate v0.1.4 Windows installer](https://github.com/pramodsurya/E-Estimate/releases/tag/v0.1.4)
+- [Direct `.exe` download](https://github.com/pramodsurya/E-Estimate/releases/download/v0.1.4/E-Estimate-0.1.4-windows-x64.exe)
+
+Users who want the direct installer download can get it from the release assets on that page.
+
 ## Project Layout
 
 ```text
