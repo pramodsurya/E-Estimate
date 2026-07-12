@@ -20,9 +20,22 @@ $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
 $userPath    = [System.Environment]::GetEnvironmentVariable("Path", "User")
 $env:Path    = "$machinePath;$userPath"
 
+$gh = (Get-Command gh -ErrorAction SilentlyContinue).Source
+if (-not $gh) {
+    $ghCandidates = @(
+        "C:\Program Files\GitHub CLI\gh.exe",
+        "C:\Program Files (x86)\GitHub CLI\gh.exe"
+    )
+    $gh = $ghCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+}
+if (-not $gh) {
+    Write-Host "ERROR: GitHub CLI executable not found. Install GitHub CLI or add it to PATH." -ForegroundColor Red
+    exit 1
+}
+
 # 2. Ensure GH_TOKEN is set
 try {
-    $env:GH_TOKEN = gh auth token 2>$null
+    $env:GH_TOKEN = & $gh auth token 2>$null
 } catch { }
 if (-not $env:GH_TOKEN) {
     Write-Host "ERROR: Not logged into GitHub CLI. Run 'gh auth login' first." -ForegroundColor Red
@@ -87,7 +100,13 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-electron-builder --win nsis --x64 --publish always
+$electronBuilder = Join-Path $root "node_modules\.bin\electron-builder.cmd"
+if (-not (Test-Path $electronBuilder)) {
+    Write-Host "ERROR: electron-builder executable not found in node_modules\.bin" -ForegroundColor Red
+    exit 1
+}
+
+& $electronBuilder --win nsis --x64 --publish always
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Publish failed" -ForegroundColor Red
     exit 1
@@ -112,7 +131,7 @@ sha512: $hash
 releaseDate: '$date'
 "@
     $yml | Out-File -FilePath "release\latest.yml" -Encoding ascii
-    gh release upload "v$newVersion" "release\latest.yml" --repo pramodsurya/E-Estimate --clobber
+    & $gh release upload "v$newVersion" "release\latest.yml" --repo pramodsurya/E-Estimate --clobber
     Write-Host "[OK] latest.yml uploaded" -ForegroundColor Green
 } else {
     Write-Host "WARNING: No .exe found, skipping latest.yml" -ForegroundColor Yellow
