@@ -2,7 +2,9 @@
 // HTML and the Electron printToPDF options; the main process rasterizes it in a
 // hidden, isolated window and returns the PDF as base64 for in-app preview.
 
-import { BrowserWindow, ipcMain } from 'electron'
+import { promises as fs } from 'fs'
+import { join } from 'path'
+import { app, BrowserWindow, ipcMain } from 'electron'
 
 export interface PrintToPdfRequest {
   html: string
@@ -28,6 +30,7 @@ export interface PrintToPdfResult {
 
 async function renderPdf(req: PrintToPdfRequest): Promise<PrintToPdfResult> {
   let win: BrowserWindow | null = null
+  let temporaryPath: string | null = null
   try {
     win = new BrowserWindow({
       show: false,
@@ -41,31 +44,12 @@ async function renderPdf(req: PrintToPdfRequest): Promise<PrintToPdfResult> {
       }
     })
 
-    const loaded = win.webContents
-      ? new Promise<void>((resolve, reject) => {
-          const wc = win!.webContents
-          const onLoad = (): void => {
-            cleanup()
-            resolve()
-          }
-          const onFail = (_e: unknown, code: number, desc: string): void => {
-            cleanup()
-            reject(new Error(`Failed to load print document (${code}): ${desc}`))
-          }
-          const cleanup = (): void => {
-            wc.off('did-finish-load', onLoad)
-            wc.off('did-fail-load', onFail)
-          }
-          wc.once('did-finish-load', onLoad)
-          wc.once('did-fail-load', onFail)
-        })
-      : Promise.reject(new Error('No web contents'))
-
-    const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(req.html)}`
-    // Large documents can exceed data-URL limits in some platforms; fall back is
-    // not needed in practice for a single sheet, and avoids temp-file cleanup.
-    void win.loadURL(dataUrl)
-    await loaded
+    temporaryPath = join(
+      app.getPath('temp'),
+      `eestimate-print-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.html`
+    )
+    await fs.writeFile(temporaryPath, req.html, 'utf-8')
+    await win.loadFile(temporaryPath)
 
     // Give layout/fonts a tick to settle before snapshotting.
     await new Promise((r) => setTimeout(r, 80))
@@ -94,6 +78,7 @@ async function renderPdf(req: PrintToPdfRequest): Promise<PrintToPdfResult> {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   } finally {
     if (win && !win.isDestroyed()) win.destroy()
+    if (temporaryPath) await fs.unlink(temporaryPath).catch(() => undefined)
   }
 }
 

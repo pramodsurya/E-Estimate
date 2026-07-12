@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Printer, X } from 'lucide-react'
+import { Printer, Save, X } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import { resolveNodeSettings } from '../../lib/nodeSettings'
 import { buildPrintHtml } from '../../lib/printRender'
+import { fetchRateAnalysis } from '../../lib/rateAnalysis'
+import { descriptionRunsForDisplay, plainTextRun } from '../../lib/rateAnalysisVisibility'
 import type {
   CellRange,
   Margins,
@@ -12,6 +14,7 @@ import type {
   ProjectNode,
   ScaleMode
 } from '../../types/project'
+import type { RateAnalysisRecipe, RateAnalysisTextRun } from '../../types/rateAnalysis'
 import { nodeDisplayName } from '../nodeVisual'
 
 interface Props {
@@ -45,6 +48,49 @@ function marginsEqual(a: Margins, b: Margins): boolean {
   return a.top === b.top && a.right === b.right && a.bottom === b.bottom && a.left === b.left
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function runHtml(run: RateAnalysisTextRun): string {
+  let text = escapeHtml(run.text).replace(/\n/g, '<br/>')
+  if (run.bold) text = `<strong>${text}</strong>`
+  if (run.italic) text = `<em>${text}</em>`
+  if (run.underline) text = `<u>${text}</u>`
+  return text
+}
+
+function descriptionHtml(node: ProjectNode, recipe: RateAnalysisRecipe | null): string {
+  const runs =
+    recipe?.layout?.descriptionRuns && recipe.layout.descriptionRuns.length > 0
+      ? descriptionRunsForDisplay(recipe.description, recipe.layout.descriptionRuns)
+      : [plainTextRun(node.itemDescription || nodeDisplayName(node))]
+  return (
+    '<section class="ee-print-description">' +
+    `<header><strong>${escapeHtml(nodeDisplayName(node))}</strong>` +
+    `${node.unit ? `<span>Unit: ${escapeHtml(node.unit)}</span>` : ''}</header>` +
+    `<div>${runs.map(runHtml).join('')}</div>` +
+    '</section>'
+  )
+}
+
+function withDescription(sheetHtml: string, itemDescriptionHtml: string): string {
+  const css =
+    '.ee-print-description{font-family:"Times New Roman",serif;color:#111;margin:0 0 14px;line-height:1.45;}' +
+    '.ee-print-description header{display:flex;justify-content:space-between;gap:16px;margin:0 0 8px;}' +
+    '.ee-print-description header strong{font-size:18px;}' +
+    '.ee-print-description header span{font-size:12px;color:#555;white-space:nowrap;}' +
+    '.ee-print-description div{font-size:14px;white-space:normal;}'
+  const withCss = sheetHtml.includes('</style>')
+    ? sheetHtml.replace('</style>', `${css}</style>`)
+    : sheetHtml.replace('</head>', `<style>${css}</style></head>`)
+  return withCss.replace('<body>', `<body>${itemDescriptionHtml}`)
+}
+
 export default function PrintLayoutModal({
   node,
   getSnapshot,
@@ -53,6 +99,7 @@ export default function PrintLayoutModal({
 }: Props): JSX.Element {
   const project = useStore((s) => s.project)
   const setNodePrint = useStore((s) => s.setNodePrint)
+  const saveProject = useStore((s) => s.saveProject)
 
   const settings = useMemo(
     () => (project ? resolveNodeSettings(project.root, node.id) : null),
@@ -69,9 +116,9 @@ export default function PrintLayoutModal({
       scaleMode: node.print?.scaleMode ?? 'percent',
       scalePercent: node.print?.scalePercent ?? 100,
       fitToWidthPages: node.print?.fitToWidthPages ?? 1,
-      showHeader: node.print?.showHeader ?? false,
+      showHeader: false,
       header: node.print?.header ?? { center: '{title}' },
-      showFooter: node.print?.showFooter ?? true,
+      showFooter: false,
       footer: node.print?.footer ?? {
         left: '{project}',
         center: 'Page {page} of {pages}',
@@ -86,15 +133,12 @@ export default function PrintLayoutModal({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [status, setStatus] = useState<'idle' | 'rendering' | 'error' | 'empty'>('idle')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [recipe, setRecipe] = useState<RateAnalysisRecipe | null>(null)
   const genToken = useRef(0)
 
   const update = (patch: Partial<PrintConfig>): void => setCfg((c) => ({ ...c, ...patch }))
   const updateMargin = (side: keyof Margins, value: number): void =>
     setCfg((c) => ({ ...c, margins: { ...(c.margins ?? MARGIN_PRESETS.Normal), [side]: value } }))
-  const updateHeader = (key: 'left' | 'center' | 'right', value: string): void =>
-    setCfg((c) => ({ ...c, header: { ...c.header, [key]: value } }))
-  const updateFooter = (key: 'left' | 'center' | 'right', value: string): void =>
-    setCfg((c) => ({ ...c, footer: { ...c.footer, [key]: value } }))
 
   // Persist config (cheap, no undo history) whenever it changes.
   useEffect(() => {
@@ -103,12 +147,30 @@ export default function PrintLayoutModal({
 
   // Debounced preview regeneration.
   useEffect(() => {
+    let cancelled = false
+    if (!project?.meta.sorYear || !node.itemCode || !node.categoryKey || node.itemSource === 'OTHERS') {
+      setRecipe(null)
+      return
+    }
+    void fetchRateAnalysis(node, project.meta.sorYear, { zone: project.meta.sorZone ?? 'zone_3' })
+      .then((loaded) => {
+        if (!cancelled) setRecipe(loaded)
+      })
+      .catch(() => {
+        if (!cancelled) setRecipe(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [node, project?.meta.sorYear, project?.meta.sorZone])
+
+  useEffect(() => {
     const handle = window.setTimeout(() => {
       void regenerate()
     }, 350)
     return () => window.clearTimeout(handle)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cfg])
+  }, [cfg, recipe])
 
   const regenerate = async (): Promise<void> => {
     const token = ++genToken.current
@@ -145,7 +207,8 @@ export default function PrintLayoutModal({
       return
     }
     try {
-      const res = await window.api.print.toPdf(built.html, built.pdfOptions)
+      const html = withDescription(built.html, descriptionHtml(node, recipe))
+      const res = await window.api.print.toPdf(html, built.pdfOptions)
       if (token !== genToken.current) return
       if (res.ok && res.data) {
         setPdfUrl(`data:application/pdf;base64,${res.data}`)
@@ -172,6 +235,15 @@ export default function PrintLayoutModal({
     ) ?? 'Custom'
 
   const margins = cfg.margins ?? MARGIN_PRESETS.Normal
+
+  const saveAndClose = async (): Promise<void> => {
+    setNodePrint(node.id, cfg)
+    try {
+      await saveProject()
+    } finally {
+      onClose()
+    }
+  }
 
   return (
     <div className="pl-overlay" onMouseDown={onClose}>
@@ -274,7 +346,9 @@ export default function PrintLayoutModal({
                   onChange={(e) => update({ scaleMode: e.target.value as ScaleMode })}
                 >
                   <option value="percent">Adjust to %</option>
-                  <option value="fit-width">Fit columns to 1 page wide</option>
+                  <option value="fit-width">Fit all columns on one page</option>
+                  <option value="fit-height">Fit all rows on one page</option>
+                  <option value="fit-sheet">Fit sheet on one page</option>
                   <option value="fit-page">Fit columns to N pages wide</option>
                 </select>
               </label>
@@ -302,70 +376,6 @@ export default function PrintLayoutModal({
                   />
                 </label>
               ) : null}
-            </section>
-
-            <section className="pl-sec">
-              <h4>
-                <label className="pl-toggle">
-                  <input
-                    type="checkbox"
-                    checked={cfg.showHeader}
-                    onChange={(e) => update({ showHeader: e.target.checked })}
-                  />
-                  Header
-                </label>
-              </h4>
-              {cfg.showHeader ? (
-                <div className="pl-row pl-hf">
-                  <input
-                    placeholder="Left"
-                    value={cfg.header?.left ?? ''}
-                    onChange={(e) => updateHeader('left', e.target.value)}
-                  />
-                  <input
-                    placeholder="Center"
-                    value={cfg.header?.center ?? ''}
-                    onChange={(e) => updateHeader('center', e.target.value)}
-                  />
-                  <input
-                    placeholder="Right"
-                    value={cfg.header?.right ?? ''}
-                    onChange={(e) => updateHeader('right', e.target.value)}
-                  />
-                </div>
-              ) : null}
-              <h4 style={{ marginTop: 10 }}>
-                <label className="pl-toggle">
-                  <input
-                    type="checkbox"
-                    checked={cfg.showFooter}
-                    onChange={(e) => update({ showFooter: e.target.checked })}
-                  />
-                  Footer
-                </label>
-              </h4>
-              {cfg.showFooter ? (
-                <div className="pl-row pl-hf">
-                  <input
-                    placeholder="Left"
-                    value={cfg.footer?.left ?? ''}
-                    onChange={(e) => updateFooter('left', e.target.value)}
-                  />
-                  <input
-                    placeholder="Center"
-                    value={cfg.footer?.center ?? ''}
-                    onChange={(e) => updateFooter('center', e.target.value)}
-                  />
-                  <input
-                    placeholder="Right"
-                    value={cfg.footer?.right ?? ''}
-                    onChange={(e) => updateFooter('right', e.target.value)}
-                  />
-                </div>
-              ) : null}
-              <p className="pl-hint">
-                Tokens: {'{page}'} {'{pages}'} {'{date}'} {'{project}'} {'{title}'}
-              </p>
             </section>
 
             <section className="pl-sec">
@@ -423,9 +433,12 @@ export default function PrintLayoutModal({
         </div>
 
         <div className="pl-foot">
-          <span className="pl-foot-note">View only — close when done.</span>
-          <button className="btn" onClick={onClose}>
+          <span className="pl-foot-note">Layout changes are saved automatically.</span>
+          <button className="btn ghost" onClick={onClose}>
             Close
+          </button>
+          <button className="btn primary" onClick={() => void saveAndClose()}>
+            <Save size={14} /> Save &amp; Close
           </button>
         </div>
       </div>

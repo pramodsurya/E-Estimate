@@ -54,6 +54,17 @@ export interface RateAnalysisLine {
   }
   resourceCode?: string
   rateSource?: string
+  sorRef?: {
+    table: 'labour_rate' | 'machinery_rate'
+    code: string
+    component?: string
+  }
+  linkedRate?: {
+    rate: number
+    year: string
+    zone: 'zone_1' | 'zone_2' | 'zone_3'
+    source?: string
+  }
 }
 
 export interface RateAnalysisSection {
@@ -109,6 +120,46 @@ export interface RateAnalysisRecalculation {
   warnings: string[]
 }
 
+export type SeigMode = 'FULL_ITEM_QUANTITY' | 'RECIPE_MATERIAL_RATIO' | 'DIRECT_RECIPE_QTY'
+export type SeigQtyBasis = 'ITEM_QTY' | 'ITEM_QTY_X_RATIO' | 'RECIPE_MATERIAL_QTY'
+
+export interface SeigniorageMaterialPolicy {
+  seig_code: string | null
+  mode: SeigMode | null
+  quantity_basis: SeigQtyBasis | null
+  quantity_ratio: number | null
+  item_unit: string | null
+  charge_unit: string | null
+  conversion_factor: number | null
+  material_code: string | null
+  material_desc: string | null
+  material_key?: string
+  material_label?: string
+  recipe_material_qty: number | null
+  recipe_material_unit: string | null
+  status: string | null
+  notes: string | null
+  /** @deprecated v2 names */
+  recipe_material_desc?: string
+  quantity_unit?: string
+}
+
+export interface SeigniorageApplicabilityPolicy {
+  schema_version?: number
+  applicable?: boolean
+  source?: string | null
+  policy_basis?: { purpose?: string; evidence?: string[]; review_status?: string } | null
+  rows?: SeigniorageMaterialPolicy[]
+  /** @deprecated v2 name — use rows */
+  materials?: SeigniorageMaterialPolicy[]
+  reason?: string | null
+  generated_at?: string | null
+  /** Legacy */
+  seig_code?: string | null
+  rate_override?: number | null
+  notes?: string | null
+}
+
 export interface RateAnalysisRecipe {
   schemaVersion: 1
   itemKey: string
@@ -120,6 +171,9 @@ export interface RateAnalysisRecipe {
   unit: string
   outputQuantity: number
   year: string
+  zone?: 'zone_1' | 'zone_2' | 'zone_3'
+  areaAllowancePercent?: number
+  areaAllowanceLabel?: string
   overheadPercent: number
   sections: RateAnalysisSection[]
   /** Source-document formatting and visibility metadata. */
@@ -133,6 +187,8 @@ export interface RateAnalysisRecipe {
   publishedRate?: number
   publishedLabourComponent?: number
   leadApplicability?: unknown
+  /** Seigniorage policy from ssr_item.seigniorage_applicability (JSONB). */
+  seigniorageApplicability?: SeigniorageApplicabilityPolicy | null
   unresolvedLines?: number
 }
 

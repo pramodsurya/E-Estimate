@@ -685,6 +685,17 @@ function LineValue({
     return <>{showCalculatedAmount ? formatMoney(value) : storedValue !== undefined ? storedValue : formatMoney(value)}</>
   }
 
+  if (!editing && line.linkedRate && (column.key === 'rate' || column.key === 'amount')) {
+    return (
+      <span className="linked-rate-cell">
+        <span>{column.key === 'rate' ? formatMoney(line.linkedRate.rate) : formatMoney(line.amount)}</span>
+        <small>
+          Linked SOR {line.linkedRate.year}, {zoneLabel(line.linkedRate.zone)}
+        </small>
+      </span>
+    )
+  }
+
   return editing ? (
     <NumberInput value={value} onChange={(next) => onChange({ [column.key]: next })} />
   ) : (
@@ -698,6 +709,12 @@ function LineValue({
           : formatMoney(value)}
     </>
   )
+}
+
+function zoneLabel(zone: string): string {
+  if (zone === 'zone_1') return 'Zone I'
+  if (zone === 'zone_2') return 'Zone II'
+  return 'Zone III'
 }
 
 function TotalRow({

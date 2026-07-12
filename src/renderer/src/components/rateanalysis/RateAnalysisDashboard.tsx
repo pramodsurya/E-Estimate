@@ -32,6 +32,12 @@ function formatQuantity(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
 }
 
+function zoneLabel(zone: string): string {
+  if (zone === 'zone_1') return 'Zone I'
+  if (zone === 'zone_2') return 'Zone II'
+  return 'Zone III'
+}
+
 function leadApplicationChanged(left: LeadApplication, right: LeadApplication): boolean {
   return (
     left.itemCode !== right.itemCode ||
@@ -136,7 +142,11 @@ export default function RateAnalysisDashboard(): JSX.Element {
     setNotice('')
     setEditing(false)
 
-    void fetchRateAnalysis(itemNode, project.meta.sorYear)
+    void fetchRateAnalysis(itemNode, project.meta.sorYear, {
+      zone: project.meta.sorZone ?? 'zone_3',
+      areaAllowancePercent: project.meta.areaAllowancePercent,
+      areaAllowanceLabel: project.meta.areaAllowanceLabel
+    })
       .then((loaded) => {
         if (cancelled) return
         const active = override
@@ -165,7 +175,15 @@ export default function RateAnalysisDashboard(): JSX.Element {
     return () => {
       cancelled = true
     }
-  }, [project?.id, project?.meta.sorYear, selection?.key, selection?.nodeId])
+  }, [
+    project?.id,
+    project?.meta.sorYear,
+    project?.meta.sorZone,
+    project?.meta.areaAllowancePercent,
+    project?.meta.areaAllowanceLabel,
+    selection?.key,
+    selection?.nodeId
+  ])
 
   useEffect(() => {
     if (!project || !selection || !current || !group || leadApplications.length === 0) return
@@ -309,7 +327,8 @@ export default function RateAnalysisDashboard(): JSX.Element {
         <div className="rate-toolbar-title">
           <strong>{group.code}</strong>
           <span>
-            {project.meta.sorYear} | {group.usages.length} project usage
+            {project.meta.sorYear} | {zoneLabel(project.meta.sorZone ?? 'zone_3')} |{' '}
+            {group.usages.length} project usage
             {group.usages.length === 1 ? '' : 's'}
           </span>
         </div>

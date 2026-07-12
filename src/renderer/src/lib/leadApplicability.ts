@@ -94,6 +94,29 @@ export function isDisposalLeadMaterial(materialName: string): boolean {
   return normalizeDescription(materialName) === normalizeDescription(DISPOSAL_LEAD_MATERIAL_NAME)
 }
 
+export function canonicalLeadConveyanceClass(
+  materialName: string,
+  conveyanceClass: ConveyanceClass
+): ConveyanceClass {
+  if (isDisposalLeadMaterial(materialName)) return conveyanceClass
+  const text = normalizeDescription(materialName)
+  if (isFineAggregate(text) || /\bsand\b/.test(text)) return 'EARTH'
+  if (isCoarseAggregate(text) || /aggregate|rubble|stone|boulder|khandki/.test(text)) return 'STONE'
+  return normalizeMaterialConveyanceClass(materialName, conveyanceClass)
+}
+
+export function canonicalLeadMaterialRef(ref: LeadMaterialRef): LeadMaterialRef {
+  if (isDisposalLeadMaterial(ref.name)) {
+    return { ...ref, name: DISPOSAL_LEAD_MATERIAL_NAME }
+  }
+  const conveyanceClass = canonicalLeadConveyanceClass(ref.name, ref.conveyanceClass)
+  return {
+    ...ref,
+    name: materialNameFor(ref.name, conveyanceClass),
+    conveyanceClass
+  }
+}
+
 export function materialRefsForLeadInfo(info: LeadInfo, _description = ''): LeadMaterialRef[] {
   if (info.policy?.purpose === 'NO_EXTRA_LEAD' || info.policy?.purpose === 'REVIEW_REQUIRED') {
     return []
@@ -159,9 +182,10 @@ export function isEligibleForLead(group: ProjectItemGroup, variant: LeadVariant,
   if (group.source !== 'SSR') return false
   if (info.allLeads) return false
   const variantName = variant.materialName.toLowerCase()
+  const variantClass = canonicalLeadConveyanceClass(variant.materialName, variant.conveyanceClass)
   return materialRefsForLeadInfo(info, group.description).some(
     (ref) =>
-      ref.conveyanceClass === variant.conveyanceClass &&
+      ref.conveyanceClass === variantClass &&
       ref.name.toLowerCase() === variantName
   )
 }
@@ -206,17 +230,18 @@ export function quantityForVariant(
   }
 
   const materials = recipe.sections.find((section) => section.key === 'materials')?.lines ?? []
-  const targetUnit = leadQuantityUnitForClass(variant.conveyanceClass)
+  const variantClass = canonicalLeadConveyanceClass(variant.materialName, variant.conveyanceClass)
+  const targetUnit = leadQuantityUnitForClass(variantClass)
   const mappedNames = Object.entries(info.materials)
     .filter(
       ([name, classKey]) =>
-        classKey === variant.conveyanceClass &&
+        classKey === variantClass &&
         materialNameFor(name, classKey).toLowerCase() === variant.materialName.toLowerCase()
     )
     .map(([name]) => name)
   const directMatches = materialMatches(materials, [
     variant.materialName,
-    ...materialAliases(variant.materialName, variant.conveyanceClass),
+    ...materialAliases(variant.materialName, variantClass),
     ...mappedNames
   ])
   if (directMatches.length) {
@@ -234,7 +259,7 @@ export function quantityForVariant(
       source: `Matched ${directMatches.map((line) => line.description).join(', ')}, but unit conversion to ${targetUnit} is unavailable; using 1 ${targetUnit}.`
     }
   }
-  if (info.earthwork && info.classes.includes(variant.conveyanceClass)) {
+  if (info.earthwork && info.classes.includes(variantClass)) {
     const converted = convertQuantityToLeadUnit(recipe.outputQuantity || 1, recipe.unit, targetUnit)
     return {
       quantity: converted ?? (recipe.outputQuantity || 1),
@@ -340,6 +365,7 @@ function normalizeMaterialConveyanceClass(
   conveyanceClass: ConveyanceClass
 ): ConveyanceClass {
   const text = normalizeDescription(description)
+  if (isFineAggregate(text) || /\bsand\b/.test(text)) return 'EARTH'
   if (isCoarseAggregate(text)) return 'STONE'
   return conveyanceClass
 }

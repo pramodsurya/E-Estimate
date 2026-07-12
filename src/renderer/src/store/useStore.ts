@@ -2,23 +2,28 @@ import { useMemo } from 'react'
 import { create } from 'zustand'
 import type {
   ChartDef,
+  ConveyanceClass,
   EestimateProject,
   LeadApplication,
   LeadDetailReconstruction,
   ItemEditorType,
   LeadAssignment,
   LeadChart,
+  LeadMapDirection,
   LeadPoint,
+  LeadPrintSettings,
   LeadVariant,
   ProjectLocation,
   NodeSettings,
   PrintConfig,
   ProjectMeta,
   ProjectNode,
+  SeignioragePrintSettings,
   SpreadsheetDocument
 } from '../types/project'
 import type { MasterItem } from '../lib/masterData'
 import { projectItemKey } from '../lib/projectItems'
+import { canonicalLeadConveyanceClass } from '../lib/leadApplicability'
 import type { RateAnalysisRecipe } from '../types/rateAnalysis'
 import type { RecentEntry } from '../../../preload/index.d'
 import {
@@ -83,9 +88,62 @@ function normalizeLeadChart(chart: LeadChart | undefined): LeadChart {
       : [],
     itemChoices: Array.isArray(chart?.itemChoices) ? chart.itemChoices : [],
     variants: Array.isArray(chart?.variants)
-      ? chart.variants.map((variant) => ({ ...variant, active: variant.active !== false }))
+      ? chart.variants.map(normalizeLeadVariant)
       : [],
-    applications: Array.isArray(chart?.applications) ? chart.applications : []
+    applications: Array.isArray(chart?.applications) ? chart.applications : [],
+    mapDirections: Array.isArray(chart?.mapDirections)
+      ? chart.mapDirections.map(normalizeLeadMapDirection)
+      : [],
+    printSettings: normalizeLeadPrintSettings(chart?.printSettings)
+  }
+}
+
+function normalizeLeadMapDirection(direction: LeadMapDirection): LeadMapDirection {
+  return {
+    ...direction,
+    label: direction.label?.trim() || 'Lead direction',
+    color: direction.color || '#0e639c',
+    points: Array.isArray(direction.points)
+      ? direction.points.filter(
+          (point) => Number.isFinite(point.lat) && Number.isFinite(point.lon)
+        )
+      : [],
+    active: direction.active !== false,
+    createdAt: direction.createdAt || new Date().toISOString()
+  }
+}
+
+function normalizeLeadPrintSettings(settings: LeadPrintSettings | undefined): LeadPrintSettings {
+  return {
+    pageSize: settings?.pageSize ?? 'A4',
+    margins: settings?.margins ?? { top: 15, right: 12, bottom: 15, left: 12 },
+    pages: {
+      chart: { orientation: settings?.pages?.chart?.orientation ?? 'portrait' },
+      calculation: { orientation: settings?.pages?.calculation?.orientation ?? 'portrait' },
+      map: { orientation: settings?.pages?.map?.orientation ?? 'landscape' }
+    },
+    showMapLabels: settings?.showMapLabels ?? true,
+    showRouteArrows: settings?.showRouteArrows ?? true,
+    showBaseMap: settings?.showBaseMap ?? true
+  }
+}
+
+function normalizeLeadVariant(variant: LeadVariant): LeadVariant {
+  return {
+    ...variant,
+    conveyanceClass: canonicalLeadConveyanceClass(variant.materialName, variant.conveyanceClass),
+    active: variant.active !== false
+  }
+}
+
+function normalizeLeadSelection(selection: LeadSelection): LeadSelection {
+  if (!selection.conveyanceClass) return selection
+  return {
+    ...selection,
+    conveyanceClass: canonicalLeadConveyanceClass(
+      selection.materialName,
+      selection.conveyanceClass as ConveyanceClass
+    )
   }
 }
 
@@ -93,6 +151,11 @@ function normalizeLeadChart(chart: LeadChart | undefined): LeadChart {
 function normalizeLoaded(data: EestimateProject): EestimateProject {
   return {
     ...data,
+    meta: {
+      ...data.meta,
+      sorZone: data.meta.sorZone ?? 'zone_3',
+      areaAllowancePercent: data.meta.areaAllowancePercent ?? 0
+    },
     id: data.id || newId(),
     root: normalizeNode(data.root),
     leadChart: normalizeLeadChart(data.leadChart),
@@ -138,6 +201,7 @@ export interface LeadSelection {
 
 export interface SeigniorageSelection {
   seigCode: string | null
+  materialKey?: string | null
 }
 
 interface StoreState {
@@ -164,6 +228,7 @@ interface StoreState {
 
   // lifecycle
   loadRecent: () => Promise<void>
+  restoreLastSession: () => Promise<void>
   setActivity: (a: ActivityView) => void
   setGlobalSearch: (q: string) => void
   setExplorerFilter: (q: string) => void
@@ -212,6 +277,10 @@ interface StoreState {
   removeLeadVariant: (variantId: string) => void
   upsertLeadApplication: (application: LeadApplication) => void
   removeLeadApplication: (applicationId: string) => void
+  upsertLeadMapDirection: (direction: LeadMapDirection) => void
+  removeLeadMapDirection: (directionId: string) => void
+  updateLeadPrintSettings: (settings: LeadPrintSettings) => void
+  updateSeignioragePrintSettings: (settings: SeignioragePrintSettings) => void
   openLeadMaterial: (selection: LeadSelection) => void
   closeLeadMaterial: () => void
   openSeigniorage: (selection?: SeigniorageSelection) => void
@@ -238,6 +307,59 @@ interface StoreState {
 }
 
 const MAX_HISTORY = 100
+const LAST_PROJECT_KEY = 'eestimate:last-project'
+const PROJECT_SESSION_PREFIX = 'eestimate:session:'
+
+export interface ProjectSession {
+  selectedId: string | null
+  expanded: Record<string, boolean>
+  activity: ActivityView
+  analysisSelection?: AnalysisSelection | null
+  leadSelection?: LeadSelection | null
+  seigniorageSelection?: SeigniorageSelection | null
+}
+
+function sessionKey(path: string): string {
+  return `${PROJECT_SESSION_PREFIX}${path}`
+}
+
+function readProjectSession(path: string, project: EestimateProject): ProjectSession {
+  const fallback: ProjectSession = {
+    selectedId: project.root.id,
+    expanded: { [project.root.id]: true },
+    activity: 'explorer'
+  }
+  try {
+    const parsed = JSON.parse(localStorage.getItem(sessionKey(path)) ?? '') as Partial<ProjectSession>
+    return {
+      selectedId:
+        parsed.selectedId && findNode(project.root, parsed.selectedId)
+          ? parsed.selectedId
+          : project.root.id,
+      expanded:
+        parsed.expanded && typeof parsed.expanded === 'object'
+          ? parsed.expanded
+          : fallback.expanded,
+      activity: ['explorer', 'search', 'lead', 'sourcecontrol'].includes(parsed.activity ?? '')
+        ? (parsed.activity as ActivityView)
+        : 'explorer',
+      analysisSelection: parsed.analysisSelection ?? null,
+      leadSelection: parsed.leadSelection ? normalizeLeadSelection(parsed.leadSelection) : null,
+      seigniorageSelection: parsed.seigniorageSelection ?? null
+    }
+  } catch {
+    return fallback
+  }
+}
+
+export function persistProjectSession(path: string, session: ProjectSession): void {
+  try {
+    localStorage.setItem(LAST_PROJECT_KEY, path)
+    localStorage.setItem(sessionKey(path), JSON.stringify(session))
+  } catch {
+    // Session restoration is best-effort and must never block project editing.
+  }
+}
 
 export const useStore = create<StoreState>((set, get) => {
   /** Apply a pure mutation to the current project, recording undo history. */
@@ -306,6 +428,12 @@ export const useStore = create<StoreState>((set, get) => {
       }
     },
 
+    restoreLastSession: async () => {
+      const path = localStorage.getItem(LAST_PROJECT_KEY)
+      if (!path || get().project) return
+      await get().openRecent(path)
+    },
+
     setActivity: (a) => set({ activity: a }),
     setGlobalSearch: (q) => set({ globalSearch: q }),
     setExplorerFilter: (q) => set({ explorerFilter: q }),
@@ -357,46 +485,54 @@ export const useStore = create<StoreState>((set, get) => {
       if (res.canceled) return
       if (res.error || !res.data) return
       const data = normalizeLoaded(res.data)
+      const path = res.path ?? null
+      const session = path ? readProjectSession(path, data) : null
       set({
         project: data,
-        filePath: res.path ?? null,
+        filePath: path,
         view: 'project',
-        selectedId: data.root.id,
-        expanded: { [data.root.id]: true },
+        selectedId: session?.selectedId ?? data.root.id,
+        expanded: session?.expanded ?? { [data.root.id]: true },
         dirty: false,
         past: [],
         future: [],
         addStructure: { open: false, kind: 'component', parentId: null },
-        activity: 'explorer',
-        analysisSelection: null,
-        leadSelection: null,
-        seigniorageSelection: null
+        activity: session?.activity ?? 'explorer',
+        analysisSelection: session?.analysisSelection ?? null,
+        leadSelection: session?.leadSelection ?? null,
+        seigniorageSelection: session?.seigniorageSelection ?? null
       })
+      if (path) localStorage.setItem(LAST_PROJECT_KEY, path)
       void get().loadRecent()
     },
 
     openRecent: async (path) => {
       const res = await window.api.project.openPath(path)
       if (res.error || !res.data) {
+        if (localStorage.getItem(LAST_PROJECT_KEY) === path) {
+          localStorage.removeItem(LAST_PROJECT_KEY)
+        }
         void get().loadRecent()
         return
       }
       const data = normalizeLoaded(res.data)
+      const session = readProjectSession(path, data)
       set({
         project: data,
         filePath: res.path ?? null,
         view: 'project',
-        selectedId: data.root.id,
-        expanded: { [data.root.id]: true },
+        selectedId: session.selectedId,
+        expanded: session.expanded,
         dirty: false,
         past: [],
         future: [],
         addStructure: { open: false, kind: 'component', parentId: null },
-        activity: 'explorer',
-        analysisSelection: null,
-        leadSelection: null,
-        seigniorageSelection: null
+        activity: session.activity,
+        analysisSelection: session.analysisSelection ?? null,
+        leadSelection: session.leadSelection ?? null,
+        seigniorageSelection: session.seigniorageSelection ?? null
       })
+      localStorage.setItem(LAST_PROJECT_KEY, path)
       void get().loadRecent()
     },
 
@@ -405,7 +541,12 @@ export const useStore = create<StoreState>((set, get) => {
       if (!project) return
       const res = await window.api.project.save(project, filePath, project.meta.name || 'Project')
       if (res.canceled) return
-      set({ filePath: res.path ?? filePath, dirty: false })
+      const savedPath = res.path ?? filePath
+      set((state) => ({
+        filePath: savedPath,
+        dirty: state.project?.updatedAt === project.updatedAt ? false : state.dirty
+      }))
+      if (savedPath) localStorage.setItem(LAST_PROJECT_KEY, savedPath)
       void get().loadRecent()
     },
 
@@ -414,7 +555,12 @@ export const useStore = create<StoreState>((set, get) => {
       if (!project) return
       const res = await window.api.project.saveAs(project, project.meta.name || 'Project')
       if (res.canceled) return
-      set({ filePath: res.path ?? null, dirty: false })
+      const savedPath = res.path ?? null
+      set((state) => ({
+        filePath: savedPath,
+        dirty: state.project?.updatedAt === project.updatedAt ? false : state.dirty
+      }))
+      if (savedPath) localStorage.setItem(LAST_PROJECT_KEY, savedPath)
       void get().loadRecent()
     },
 
@@ -752,6 +898,7 @@ export const useStore = create<StoreState>((set, get) => {
     upsertLeadVariant: (variant) => {
       mutateProject((project) => {
         const chart = normalizeLeadChart(project.leadChart)
+        const nextVariant = normalizeLeadVariant(variant)
         const exists = chart.variants?.some((candidate) => candidate.id === variant.id)
         return {
           ...project,
@@ -759,9 +906,9 @@ export const useStore = create<StoreState>((set, get) => {
             ...chart,
             variants: exists
               ? chart.variants?.map((candidate) =>
-                  candidate.id === variant.id ? variant : candidate
+                  candidate.id === variant.id ? nextVariant : candidate
                 )
-              : [...(chart.variants ?? []), variant]
+              : [...(chart.variants ?? []), nextVariant]
           }
         }
       })
@@ -777,6 +924,9 @@ export const useStore = create<StoreState>((set, get) => {
             variants: (chart.variants ?? []).filter((variant) => variant.id !== variantId),
             applications: (chart.applications ?? []).filter(
               (application) => application.variantId !== variantId
+            ),
+            mapDirections: (chart.mapDirections ?? []).filter(
+              (direction) => direction.variantId !== variantId
             )
           }
         }
@@ -816,9 +966,66 @@ export const useStore = create<StoreState>((set, get) => {
       })
     },
 
+    upsertLeadMapDirection: (direction) => {
+      mutateProject((project) => {
+        const chart = normalizeLeadChart(project.leadChart)
+        const nextDirection = normalizeLeadMapDirection({
+          ...direction,
+          updatedAt: new Date().toISOString()
+        })
+        const exists = chart.mapDirections?.some((candidate) => candidate.id === direction.id)
+        return {
+          ...project,
+          leadChart: {
+            ...chart,
+            mapDirections: exists
+              ? chart.mapDirections?.map((candidate) =>
+                  candidate.id === direction.id ? nextDirection : candidate
+                )
+              : [...(chart.mapDirections ?? []), nextDirection]
+          }
+        }
+      })
+    },
+
+    removeLeadMapDirection: (directionId) => {
+      mutateProject((project) => {
+        const chart = normalizeLeadChart(project.leadChart)
+        return {
+          ...project,
+          leadChart: {
+            ...chart,
+            mapDirections: (chart.mapDirections ?? []).filter(
+              (direction) => direction.id !== directionId
+            )
+          }
+        }
+      })
+    },
+
+    updateLeadPrintSettings: (settings) => {
+      mutateProject((project) => {
+        const chart = normalizeLeadChart(project.leadChart)
+        return {
+          ...project,
+          leadChart: {
+            ...chart,
+            printSettings: normalizeLeadPrintSettings(settings)
+          }
+        }
+      })
+    },
+
+    updateSeignioragePrintSettings: (settings) => {
+      mutateProject((project) => ({
+        ...project,
+        seignioragePrintSettings: settings
+      }))
+    },
+
     openLeadMaterial: (selection) =>
       set({
-        leadSelection: selection,
+        leadSelection: normalizeLeadSelection(selection),
         analysisSelection: null,
         seigniorageSelection: null,
         activity: 'explorer'

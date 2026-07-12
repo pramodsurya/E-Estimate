@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import L from 'leaflet'
-import { Check, MapPin, Plus, RefreshCcw, Route, Trash2 } from 'lucide-react'
+import { Check, MapPin, Plus, Printer, RefreshCcw, Route, Settings, Trash2 } from 'lucide-react'
 import { MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
@@ -14,6 +14,7 @@ import {
 } from '../../lib/lead'
 import {
   basisForData,
+  canonicalLeadConveyanceClass,
   isEligibleForLead,
   liftInfoForData,
   materialRefsForLeadInfo,
@@ -25,14 +26,22 @@ import { calculateRateAnalysis, fetchRateAnalysis } from '../../lib/rateAnalysis
 import { collectProjectItemGroups, type ProjectItemGroup } from '../../lib/projectItems'
 import { newId } from '../../lib/tree'
 import { useStore } from '../../store/useStore'
+import LeadPrintPreviewModal from './LeadPrintPreviewModal'
+import LeadMapDirectionEditor, {
+  blankLeadMapDirectionDraft,
+  draftFromLeadMapDirection,
+  type LeadMapDirectionDraft
+} from './LeadMapDirectionEditor'
 import type {
   ConveyanceClass,
   LeadChargeCode,
   LeadApplication,
   LeadAssignment,
+  LeadMapDirection,
   LeadPoint,
   LeadPointKind,
   LeadRateCalculationDetail,
+  LeadRoadCondition,
   LeadVariant,
   ProjectNode,
   ProjectLocation
@@ -40,26 +49,14 @@ import type {
 
 const TELANGANA_CENTER: [number, number] = [17.9, 79.6]
 
-const sourceIcon = L.divIcon({
-  className: 'lead-map-pin',
-  html: '<span></span>',
-  iconSize: [20, 20],
-  iconAnchor: [10, 20]
-})
-
-const siteIcon = L.divIcon({
-  className: 'lead-map-pin lead-map-pin-site',
-  html: '<span></span>',
-  iconSize: [22, 22],
-  iconAnchor: [11, 22]
-})
-
-const draftIcon = L.divIcon({
-  className: 'lead-map-pin lead-map-pin-draft',
-  html: '<span></span>',
-  iconSize: [18, 18],
-  iconAnchor: [9, 18]
-})
+function leadMapPinIcon(label: string, color: string, className = ''): L.DivIcon {
+  return L.divIcon({
+    className: `lead-map-logo-pin ${className}`,
+    html: `<span style="background:${color}"><b>${label}</b></span>`,
+    iconSize: [34, 42],
+    iconAnchor: [17, 42]
+  })
+}
 
 const money = new Intl.NumberFormat('en-IN', {
   minimumFractionDigits: 2,
@@ -126,6 +123,10 @@ interface VariantDraft {
   ruleMode: 'auto' | 'manual'
   chargeCode: LeadChargeCode
   conveyanceClass: ConveyanceClass
+  roadCondition: LeadRoadCondition
+  ghatSegmentKm: string
+  ceSegmentKm: string
+  ceMultiplier: string
   mechanicalConveyanceReachesFinalPoint: 'yes' | 'no'
   leadKm: string
   liftM: string
@@ -211,6 +212,9 @@ export default function LeadDetailDashboard(): JSX.Element {
   const removeVariant = useStore((state) => state.removeLeadVariant)
   const upsertApplication = useStore((state) => state.upsertLeadApplication)
   const removeApplication = useStore((state) => state.removeLeadApplication)
+  const upsertMapDirection = useStore((state) => state.upsertLeadMapDirection)
+  const removeMapDirection = useStore((state) => state.removeLeadMapDirection)
+  const updateLeadPrintSettings = useStore((state) => state.updateLeadPrintSettings)
   const splitDataItem = useStore((state) => state.splitDataItem)
   const openRateAnalysis = useStore((state) => state.openRateAnalysis)
 
@@ -219,6 +223,8 @@ export default function LeadDetailDashboard(): JSX.Element {
   const assignments = chart.assignments ?? []
   const variants = chart.variants ?? []
   const applications = chart.applications ?? []
+  const mapDirections = chart.mapDirections ?? []
+  const printSettings = chart.printSettings
   const site = project?.meta.location ?? null
 
   const materialName = selection?.materialName ?? ''
@@ -226,18 +232,25 @@ export default function LeadDetailDashboard(): JSX.Element {
   const disposalLead = isDisposalLeadMaterial(materialName)
   const materialVariants = useMemo(
     () =>
-      variants.filter(
-        (variant) =>
+      variants
+        .map((variant) => ({
+          ...variant,
+          conveyanceClass: canonicalLeadConveyanceClass(variant.materialName, variant.conveyanceClass)
+        }))
+        .filter((variant) =>
           variant.materialName.toLowerCase() === materialName.toLowerCase() &&
           (disposalLead || variant.conveyanceClass === conveyanceClass)
-      ),
+        ),
     [conveyanceClass, disposalLead, materialName, variants]
   )
   const materialAssignments = useMemo(
     () =>
       assignments.filter(
         (assignment) =>
-          (disposalLead || assignment.conveyanceClass === conveyanceClass) &&
+          (disposalLead ||
+            (assignment.conveyanceClass &&
+              canonicalLeadConveyanceClass(materialName, assignment.conveyanceClass) ===
+                conveyanceClass)) &&
           (disposalLead
             ? assignment.materialCode === materialName
             : !assignment.materialCode || assignment.materialCode === materialName)
@@ -257,6 +270,12 @@ export default function LeadDetailDashboard(): JSX.Element {
   const [variantBreakdowns, setVariantBreakdowns] = useState<Record<string, LeadChargeBreakdown>>({})
   const [splitDraft, setSplitDraft] = useState<SplitDraft | null>(null)
   const [overrideDraft, setOverrideDraft] = useState<LeadOverrideDraft | null>(null)
+  const [printPreviewOpen, setPrintPreviewOpen] = useState(false)
+  const [mapEditingOpen, setMapEditingOpen] = useState(false)
+  const [directionDraft, setDirectionDraft] = useState<LeadMapDirectionDraft>(() =>
+    blankLeadMapDirectionDraft()
+  )
+  const [directionDrawing, setDirectionDrawing] = useState(false)
   const [busy, setBusy] = useState('')
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
@@ -298,14 +317,23 @@ export default function LeadDetailDashboard(): JSX.Element {
         isEligibleForLead(group, selectedVariant, parseLeadInfo(metadata.get(group.code)))
       )
     : []
-  const eligibleGroups = disposalLead ? availableGroups : selectedVariant ? applyableGroups : availableGroups
+  const eligibleGroups = disposalLead
+    ? availableGroups
+    : selectedVariant
+      ? applyableGroups.length > 0
+        ? applyableGroups
+        : availableGroups
+      : availableGroups
+  const eligibleMismatch =
+    !disposalLead && selectedVariant && applyableGroups.length === 0 && availableGroups.length > 0
   const materialApplications = applications.filter((application) =>
     materialVariants.some((variant) => variant.id === application.variantId)
   )
   const draftRuleLabels = disposalLead
-    ? disposalRuleLabelsForLeadKm(numeric(variantDraft.leadKm) ?? 0)
+    ? disposalRuleLabelsForLeadKm(equivalentLeadKmForDraft(variantDraft))
     : ruleLabelsForDraft(variantDraft)
-  const draftLeadKm = numeric(variantDraft.leadKm) ?? 0
+  const draftActualLeadKm = numeric(variantDraft.leadKm) ?? 0
+  const draftLeadKm = equivalentLeadKmForDraft(variantDraft)
   const draftLiftM = numeric(variantDraft.liftM) ?? 0
   const draftLiftApplies = draftRuleLabels.includes('COM-LDLFT-6')
   const selectedVariantBreakdown = selectedVariant ? variantBreakdowns[selectedVariant.id] : null
@@ -320,6 +348,11 @@ export default function LeadDetailDashboard(): JSX.Element {
   useEffect(() => {
     if (!selectedVariantId && materialVariants.length) setSelectedVariantId(materialVariants[0].id)
   }, [materialVariants, selectedVariantId])
+
+  useEffect(() => {
+    if (directionDraft.variantId || directionDraft.points.length || directionDraft.id) return
+    setDirectionDraft(blankLeadMapDirectionDraft(materialVariants[0]))
+  }, [directionDraft.id, directionDraft.points.length, directionDraft.variantId, materialVariants])
 
   useEffect(() => {
     setSourceDraft(blankSourceDraft(points, materialName, disposalLead))
@@ -476,7 +509,10 @@ export default function LeadDetailDashboard(): JSX.Element {
   }
 
   const saveVariant = (): void => {
-    const leadKm = numeric(variantDraft.leadKm)
+    const actualLeadKm = numeric(variantDraft.leadKm)
+    const equivalentLeadKm = equivalentLeadKmForDraft(variantDraft)
+    const roadMultiplier = roadMultiplierForDraft(variantDraft)
+    const roadSegmentKm = roadSegmentKmForDraft(variantDraft)
     const liftM = numeric(variantDraft.liftM)
     const startLocation = pointLocationForId(variantDraft.startPointId, pointsById, site)
     const endLocation = pointLocationForId(variantDraft.endPointId, pointsById, site)
@@ -493,12 +529,19 @@ export default function LeadDetailDashboard(): JSX.Element {
       return
     }
     if (
-      leadKm === null ||
-      leadKm < 0 ||
+      actualLeadKm === null ||
+      actualLeadKm < 0 ||
       liftM === null ||
       liftM < 0
     ) {
       setError('Enter valid lead and lift values.')
+      return
+    }
+    if (
+      variantDraft.roadCondition === 'ce_exceptional' &&
+      (roadMultiplier < 1 || roadMultiplier > 2.5)
+    ) {
+      setError('CE-approved exceptional multiplier must be between 1.0 and 2.5.')
       return
     }
     const mechanicalLead = isMechanicalLead(variantDraft)
@@ -526,7 +569,11 @@ export default function LeadDetailDashboard(): JSX.Element {
         : mechanicalLead
         ? variantDraft.mechanicalConveyanceReachesFinalPoint === 'yes'
         : false,
-      leadKm,
+      actualLeadKm,
+      roadCondition: variantDraft.roadCondition,
+      roadSegmentKm,
+      roadMultiplier,
+      leadKm: equivalentLeadKm,
       liftM: disposalLead ? 0 : liftM,
       handlingMode: disposalLead ? 'none' : variantDraft.handlingMode,
       includedBasis: 'none',
@@ -740,6 +787,9 @@ export default function LeadDetailDashboard(): JSX.Element {
           <button className="btn ghost" onClick={closeLeadMaterial}>
             Back
           </button>
+          <button className="btn ghost" onClick={() => setPrintPreviewOpen(true)}>
+            <Printer size={15} /> Print Preview
+          </button>
           <button className="btn ghost" onClick={() => setVariantDraft(blankVariantDraft(disposalLead))}>
             <RefreshCcw size={15} /> Reset
           </button>
@@ -760,6 +810,23 @@ export default function LeadDetailDashboard(): JSX.Element {
       </div>
       {notice && <div className="rate-notice">{notice}</div>}
       {error && <div className="rate-warning">{error}</div>}
+      {printPreviewOpen && (
+        <LeadPrintPreviewModal
+          year={project.meta.sorYear}
+          variants={variants}
+          applications={applications}
+          assignments={assignments}
+          points={variantPointOptions}
+          site={site}
+          mapDirections={mapDirections}
+          printSettings={printSettings}
+          onUpdatePrintSettings={updateLeadPrintSettings}
+          onUpsertPoint={upsertPoint}
+          onUpsertMapDirection={upsertMapDirection}
+          onRemoveMapDirection={removeMapDirection}
+          onClose={() => setPrintPreviewOpen(false)}
+        />
+      )}
       {splitDraft && (
         <div className="lead-split-dialog-backdrop" role="presentation">
           <div
@@ -887,20 +954,64 @@ export default function LeadDetailDashboard(): JSX.Element {
 
       <div className="lead-detail-layout">
         <section className="lead-main-panel">
-          <div className="card-title">Map</div>
+          <div className="lead-panel-title-row">
+            <div className="card-title">Map</div>
+            <button
+              className="btn ghost"
+              type="button"
+              onClick={() => setMapEditingOpen((open) => !open)}
+            >
+              <Settings size={15} /> Map Editing
+            </button>
+          </div>
           <LeadMap
             site={site}
             points={variantPointOptions}
+            variants={materialVariants}
+            assignments={assignments}
+            directions={mapDirections}
+            directionDraft={directionDraft}
+            selectedVariantId={selectedVariant?.id ?? ''}
             draft={draftPosition(sourceDraft)}
             onDeletePoint={deleteMapPoint}
-            onPick={(lat, lon) =>
+            onPick={(lat, lon) => {
+              if (directionDrawing) {
+                setDirectionDraft((current) => ({
+                  ...current,
+                  points: [...current.points, { lat, lon }]
+                }))
+                return
+              }
               setSourceDraft((current) => ({
                 ...current,
                 lat: lat.toFixed(6),
                 lon: lon.toFixed(6)
               }))
-            }
+            }}
           />
+          {mapEditingOpen && (
+            <LeadMapDirectionEditor
+              variants={materialVariants}
+              assignments={assignments}
+              directions={mapDirections}
+              points={variantPointOptions}
+              site={site}
+              draft={directionDraft}
+              drawing={directionDrawing}
+              onDraftChange={setDirectionDraft}
+              onDrawingChange={setDirectionDrawing}
+              onSave={(direction) => {
+                upsertMapDirection(direction)
+                setDirectionDraft(draftFromLeadMapDirection(direction))
+                setDirectionDrawing(false)
+                setNotice('Map direction saved.')
+              }}
+              onDelete={(directionId) => {
+                removeMapDirection(directionId)
+                setNotice('Map direction deleted.')
+              }}
+            />
+          )}
         </section>
 
         <section className="lead-side-panel">
@@ -986,9 +1097,25 @@ export default function LeadDetailDashboard(): JSX.Element {
               />
             </label>
           </div>
-          <button className="btn lead-wide-btn" onClick={addSource}>
-            <MapPin size={15} /> {disposalLead ? 'Add Dump Area' : 'Add Point'}
-          </button>
+          <div className="lead-point-actions">
+            <button className="btn" type="button" onClick={addSource}>
+              <MapPin size={15} /> {disposalLead ? 'Add Dump Area' : 'Add Point'}
+            </button>
+            <button
+              className="btn ghost"
+              type="button"
+              disabled={!sourceDraft.lat && !sourceDraft.lon}
+              onClick={() =>
+                setSourceDraft((current) => ({
+                  ...current,
+                  lat: '',
+                  lon: ''
+                }))
+              }
+            >
+              Clear Point
+            </button>
+          </div>
         </section>
 
         <section className="lead-main-panel">
@@ -1039,7 +1166,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                       </span>
                       <span className="lead-variant-measures">
                         {disposalLead && <span>{disposalClassLabel(variant.conveyanceClass)}</span>}
-                        <span>Lead {km.format(variant.leadKm)} km</span>
+                        <span>{variantLeadMeasureLabel(variant)}</span>
                         {variantLiftApplies && <span>Lift {metre.format(variant.liftM)} m</span>}
                       </span>
                       <small>{variantRuleLabels.join(' + ') || 'No charge'}</small>
@@ -1175,7 +1302,7 @@ export default function LeadDetailDashboard(): JSX.Element {
               </div>
             </div>
             <label className="span-2">
-              {variantDraft.distanceMode === 'auto' ? 'Calculated lead km' : 'Manual lead km'}
+              {variantDraft.distanceMode === 'auto' ? 'Calculated actual route km' : 'Manual actual route km'}
               <input
                 className="text-input"
                 type="number"
@@ -1187,6 +1314,92 @@ export default function LeadDetailDashboard(): JSX.Element {
                 }
               />
             </label>
+            <label className="span-2">
+              Road condition
+              <select
+                className="select-input"
+                value={variantDraft.roadCondition}
+                onChange={(event) =>
+                  setVariantDraft((current) => ({
+                    ...current,
+                    roadCondition: event.target.value as LeadRoadCondition
+                  }))
+                }
+              >
+                <option value="normal">Normal / rough / kuccha road - actual distance only</option>
+                <option value="certified_ghat">Certified ghat road / steeper than 1 in 20 - 1.5x</option>
+                <option value="ce_exceptional">CE-approved exceptional case - up to 2.5x</option>
+              </select>
+            </label>
+            {variantDraft.roadCondition === 'certified_ghat' && (
+              <>
+                <div className="lead-road-warning span-2">
+                  Use 1.5x only for ghat road or road steeper than 1 in 20 with Superintending Engineer certificate.
+                </div>
+                <label className="span-2">
+                  Certified ghat / steeper than 1 in 20 segment km
+                  <input
+                    className="text-input"
+                    type="number"
+                    min="0"
+                    step="0.001"
+                    value={variantDraft.ghatSegmentKm}
+                    onChange={(event) =>
+                      setVariantDraft((current) => ({
+                        ...current,
+                        ghatSegmentKm: event.target.value
+                      }))
+                    }
+                  />
+                </label>
+              </>
+            )}
+            {variantDraft.roadCondition === 'ce_exceptional' && (
+              <>
+                <div className="lead-road-warning span-2">
+                  Exceptional multiplier up to 2.5x requires Chief Engineer permission; enter only the approved segment and multiplier.
+                </div>
+                <label className="span-2">
+                  CE-approved exceptional segment km
+                  <input
+                    className="text-input"
+                    type="number"
+                    min="0"
+                    step="0.001"
+                    value={variantDraft.ceSegmentKm}
+                    onChange={(event) =>
+                      setVariantDraft((current) => ({
+                        ...current,
+                        ceSegmentKm: event.target.value
+                      }))
+                    }
+                  />
+                </label>
+                <label className="span-2">
+                  CE multiplier
+                  <input
+                    className="text-input"
+                    type="number"
+                    min="1"
+                    max="2.5"
+                    step="0.1"
+                    value={variantDraft.ceMultiplier}
+                    onChange={(event) =>
+                      setVariantDraft((current) => ({
+                        ...current,
+                        ceMultiplier: event.target.value
+                      }))
+                    }
+                  />
+                </label>
+              </>
+            )}
+            <div className="lead-road-preview span-2">
+              <span>{roadConditionSummary(variantDraft)}</span>
+              <strong>
+                Equivalent lead for chart: {km.format(draftLeadKm)} km
+              </strong>
+            </div>
 
             {disposalLead ? (
               <div className="lead-rule-help span-2">
@@ -1354,7 +1567,8 @@ export default function LeadDetailDashboard(): JSX.Element {
             )}
             <div className="lead-variant-draft-summary span-2">
               {disposalLead && <span>{disposalClassLabel(variantDraft.conveyanceClass)}</span>}
-              <span>Lead {km.format(draftLeadKm)} km</span>
+              <span>Actual {km.format(draftActualLeadKm)} km</span>
+              <span>Chart lead {km.format(draftLeadKm)} km</span>
               {draftLiftApplies && <span>Lift {metre.format(draftLiftM)} m</span>}
             </div>
             <div className="lead-code-summary span-2">
@@ -1423,7 +1637,11 @@ export default function LeadDetailDashboard(): JSX.Element {
           </div>
           <div className="lead-target-list">
             {eligibleGroups.length === 0 ? (
-              <div className="list-empty">No DATA item currently exposes {materialName} lead.</div>
+              <div className="list-empty">
+                {eligibleMismatch
+                  ? `This variant's material class (${conveyanceClassLabel(selectedVariant!.conveyanceClass)}) does not match the selected sidebar material (${conveyanceClassLabel(conveyanceClass)}). Delete and recreate this variant, or select the correct material from the sidebar.`
+                  : `No DATA item currently exposes ${materialName} lead.`}
+              </div>
             ) : (
               eligibleGroups.map((group) => {
                 const applied = selectedVariant
@@ -1582,12 +1800,22 @@ function LeadRateCalculation({
 function LeadMap({
   site,
   points,
+  variants,
+  assignments,
+  directions,
+  directionDraft,
+  selectedVariantId,
   draft,
   onDeletePoint,
   onPick
 }: {
   site: ProjectLocation | null
   points: LeadSelectablePoint[]
+  variants: LeadVariant[]
+  assignments: LeadAssignment[]
+  directions: LeadMapDirection[]
+  directionDraft: LeadMapDirectionDraft
+  selectedVariantId: string
   draft: { lat: number; lon: number } | null
   onDeletePoint: (pointId: string) => void
   onPick: (lat: number, lon: number) => void
@@ -1597,6 +1825,17 @@ function LeadMap({
     : points[0]
       ? [points[0].lat, points[0].lon]
       : TELANGANA_CENTER
+  const mapLines = buildDashboardMapLines(variants, assignments, points, site, directions)
+  const draftLine =
+    directionDraft.points.length > 1
+      ? {
+          id: 'draft-direction',
+          label: directionDraft.label || 'Draft direction',
+          color: directionDraft.color || '#0e639c',
+          points: directionDraft.points,
+          dashed: true
+        }
+      : null
 
   return (
     <div className="lead-map">
@@ -1607,13 +1846,27 @@ function LeadMap({
         />
         <MapClick onPick={onPick} />
         {site && (
-          <Marker position={[site.lat, site.lng]} icon={siteIcon}>
-            <Tooltip>Work site</Tooltip>
+          <Marker
+            position={[site.lat, site.lng]}
+            icon={leadMapPinIcon('P', pointColorForCoordinate(site.lat, site.lng, mapLines) ?? '#0e639c', 'project')}
+          >
+            <Tooltip permanent direction="top" offset={[0, -38]}>
+              Work Location
+            </Tooltip>
           </Marker>
         )}
         {points.map((point) => (
-          <Marker key={point.id} position={[point.lat, point.lon]} icon={sourceIcon}>
-            <Tooltip>{point.code} {point.name ? `- ${point.name}` : ''}</Tooltip>
+          <Marker
+            key={point.id}
+            position={[point.lat, point.lon]}
+            icon={leadMapPinIcon(
+              pointLogoLabel(point, assignments),
+              pointColorForCoordinate(point.lat, point.lon, mapLines) ?? pointFallbackColor(point, assignments)
+            )}
+          >
+            <Tooltip permanent direction="top" offset={[0, -38]}>
+              {point.code}{point.name ? ` - ${point.name}` : ''}
+            </Tooltip>
             <Popup>
               <div className="lead-map-popup">
                 <strong>{point.code}</strong>
@@ -1627,22 +1880,186 @@ function LeadMap({
             </Popup>
           </Marker>
         ))}
-        {site &&
-          points.map((point) => (
-            <Polyline
-              key={`line-${point.id}`}
-              positions={[[site.lat, site.lng], [point.lat, point.lon]]}
-              pathOptions={{ color: '#4ec9b0', weight: 2, opacity: 0.6, dashArray: '4 6' }}
+        {mapLines.map((line) => (
+          <Polyline
+            key={line.id}
+            positions={line.points.map((point) => [point.lat, point.lon])}
+            pathOptions={{
+              color: line.color,
+              weight: line.variantId === selectedVariantId ? 5 : 3,
+              opacity: line.variantId === selectedVariantId ? 0.95 : 0.75,
+              dashArray: line.dashed ? '6 7' : undefined
+            }}
+          >
+            <Tooltip sticky>{line.label}</Tooltip>
+          </Polyline>
+        ))}
+        {mapLines.map((line) => {
+          const end = line.points.at(-1)
+          if (!end) return null
+          return (
+            <Marker
+              key={`arrow-${line.id}`}
+              position={[end.lat, end.lon]}
+              icon={directionArrowIcon(line.color)}
+              interactive={false}
             />
-          ))}
+          )
+        })}
+        {draftLine && (
+          <Polyline
+            positions={draftLine.points.map((point) => [point.lat, point.lon])}
+            pathOptions={{
+              color: draftLine.color,
+              weight: 4,
+              opacity: 0.9,
+              dashArray: '6 7'
+            }}
+          >
+            <Tooltip sticky>{draftLine.label}</Tooltip>
+          </Polyline>
+        )}
         {draft && (
-          <Marker position={[draft.lat, draft.lon]} icon={draftIcon}>
-            <Tooltip>New location</Tooltip>
+          <Marker position={[draft.lat, draft.lon]} icon={leadMapPinIcon('+', '#0e639c', 'draft')}>
+            <Tooltip permanent direction="top" offset={[0, -38]}>Draft - Add Point</Tooltip>
           </Marker>
         )}
       </MapContainer>
     </div>
   )
+}
+
+interface DashboardMapLine {
+  id: string
+  label: string
+  color: string
+  points: Array<{ lat: number; lon: number }>
+  variantId?: string
+  dashed?: boolean
+}
+
+function buildDashboardMapLines(
+  variants: LeadVariant[],
+  assignments: LeadAssignment[],
+  points: LeadSelectablePoint[],
+  site: ProjectLocation | null,
+  directions: LeadMapDirection[]
+): DashboardMapLine[] {
+  const customVariantIds = new Set(
+    directions
+      .filter((direction) => direction.active !== false && direction.variantId)
+      .map((direction) => direction.variantId!)
+  )
+  const lines: DashboardMapLine[] = directions
+    .filter((direction) => direction.active !== false && direction.points.length >= 2)
+    .map((direction) => ({
+      id: direction.id,
+      label: direction.label,
+      color: direction.color || '#0e639c',
+      points: direction.points,
+      variantId: direction.variantId
+    }))
+  const colors = ['#4ec9b0', '#ce9178', '#c586c0', '#dcdcaa', '#569cd6']
+  for (const [index, variant] of variants.entries()) {
+    if (customVariantIds.has(variant.id)) continue
+    const route = routePointsForMapVariant(variant, assignments, points, site)
+    if (!route) continue
+    lines.push({
+      id: `auto-${variant.id}`,
+      label: variant.variantName || `${variant.materialName} ${km.format(variant.leadKm)} km`,
+      color: colors[index % colors.length],
+      points: route,
+      variantId: variant.id,
+      dashed: true
+    })
+  }
+  return lines
+}
+
+function routePointsForMapVariant(
+  variant: LeadVariant,
+  assignments: LeadAssignment[],
+  points: LeadSelectablePoint[],
+  site: ProjectLocation | null
+): Array<{ lat: number; lon: number }> | null {
+  const pointsById = new Map(points.map((point) => [point.id, point]))
+  const assignment = variant.assignmentId
+    ? assignments.find((candidate) => candidate.id === variant.assignmentId)
+    : null
+  const start =
+    (variant.startPointId ? pointsById.get(variant.startPointId) : null) ??
+    (assignment ? pointsById.get(assignment.pointId) : null) ??
+    siteToLeadPoint(site)
+  const end = (variant.endPointId ? pointsById.get(variant.endPointId) : null) ?? siteToLeadPoint(site)
+  if (!start || !end || (start.lat === end.lat && pointLon(start) === pointLon(end))) return null
+  return [
+    { lat: start.lat, lon: pointLon(start) },
+    { lat: end.lat, lon: pointLon(end) }
+  ]
+}
+
+function siteToLeadPoint(site: ProjectLocation | null): (ProjectLocation & { lon: number }) | null {
+  return site ? { ...site, lon: site.lng } : null
+}
+
+function pointLon(point: LeadSelectablePoint | (ProjectLocation & { lon: number })): number {
+  return point.lon
+}
+
+function pointColorForCoordinate(
+  lat: number,
+  lon: number,
+  lines: DashboardMapLine[]
+): string | null {
+  for (const line of lines) {
+    if (
+      line.points.some(
+        (point) => Math.abs(point.lat - lat) < 0.000001 && Math.abs(point.lon - lon) < 0.000001
+      )
+    ) {
+      return line.color
+    }
+  }
+  return null
+}
+
+function pointLogoLabel(point: LeadSelectablePoint, assignments: LeadAssignment[]): string {
+  if (point.kind === 'site') return 'P'
+  const material = assignments
+    .find((assignment) => assignment.pointId === point.id)
+    ?.materialCode?.toLowerCase()
+  if (material?.includes('cement')) return 'C'
+  if (material?.includes('sand')) return 'S'
+  if (material?.includes('stone')) return 'ST'
+  if (material?.includes('disposal')) return 'D'
+  if (point.kind === 'sand_reach') return 'S'
+  if (point.kind === 'godown') return 'C'
+  if (point.kind === 'stockyard') return 'ST'
+  if (point.kind === 'water') return 'W'
+  if (point.kind === 'quarry') return 'Q'
+  return point.code.slice(0, 2).toUpperCase()
+}
+
+function pointFallbackColor(point: LeadSelectablePoint, assignments: LeadAssignment[]): string {
+  const material = assignments
+    .find((assignment) => assignment.pointId === point.id)
+    ?.materialCode?.toLowerCase()
+  if (point.kind === 'site') return '#0e639c'
+  if (material?.includes('cement') || point.kind === 'godown') return '#8e8e93'
+  if (material?.includes('sand') || point.kind === 'sand_reach') return '#d9a441'
+  if (material?.includes('stone') || point.kind === 'quarry') return '#7a7f86'
+  if (material?.includes('disposal') || point.kind === 'stockyard') return '#8f6a3d'
+  if (point.kind === 'water') return '#2f9ed8'
+  return '#ce9178'
+}
+
+function directionArrowIcon(color: string): L.DivIcon {
+  return L.divIcon({
+    className: 'lead-map-arrow',
+    html: `<span style="color:${color}">&rarr;</span>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11]
+  })
 }
 
 function MapClick({ onPick }: { onPick: (lat: number, lon: number) => void }): null {
@@ -1772,11 +2189,72 @@ function blankVariantDraft(disposalLead = false): VariantDraft {
     ruleMode: 'auto',
     chargeCode: 'AUTO',
     conveyanceClass: 'EARTH',
+    roadCondition: 'normal',
+    ghatSegmentKm: '0',
+    ceSegmentKm: '0',
+    ceMultiplier: '2.5',
     mechanicalConveyanceReachesFinalPoint: 'yes',
     leadKm: '0',
     liftM: '0',
     handlingMode: 'none'
   }
+}
+
+function equivalentLeadKmForDraft(draft: VariantDraft): number {
+  const actualLeadKm = numeric(draft.leadKm) ?? 0
+  const segmentKm = roadSegmentKmForDraft(draft)
+  const normalKm = Math.max(actualLeadKm - segmentKm, 0)
+  return roundKm(normalKm + segmentKm * roadMultiplierForDraft(draft))
+}
+
+function roadMultiplierForDraft(draft: VariantDraft): number {
+  if (draft.roadCondition === 'certified_ghat') {
+    return 1.5
+  }
+  if (draft.roadCondition === 'ce_exceptional') {
+    const multiplier = numeric(draft.ceMultiplier) ?? 1
+    return Math.min(Math.max(multiplier, 1), 2.5)
+  }
+  return 1
+}
+
+function roadSegmentKmForDraft(draft: VariantDraft): number {
+  const actualLeadKm = numeric(draft.leadKm) ?? 0
+  if (draft.roadCondition === 'certified_ghat') {
+    return clampKm(numeric(draft.ghatSegmentKm) ?? 0, actualLeadKm)
+  }
+  if (draft.roadCondition === 'ce_exceptional') {
+    return clampKm(numeric(draft.ceSegmentKm) ?? 0, actualLeadKm)
+  }
+  return 0
+}
+
+function clampKm(value: number, max: number): number {
+  return Math.min(Math.max(value, 0), Math.max(max, 0))
+}
+
+function roadConditionSummary(draft: VariantDraft): string {
+  const actualLeadKm = numeric(draft.leadKm) ?? 0
+  const segmentKm = roadSegmentKmForDraft(draft)
+  const normalKm = Math.max(actualLeadKm - segmentKm, 0)
+  if (draft.roadCondition === 'certified_ghat') {
+    return `${km.format(normalKm)} km normal + ${km.format(segmentKm)} km certified ghat/steep road x 1.5. SE certificate required.`
+  }
+  if (draft.roadCondition === 'ce_exceptional') {
+    return `${km.format(normalKm)} km normal + ${km.format(segmentKm)} km CE-approved exceptional road x ${roadMultiplierForDraft(draft)}. CE permission required.`
+  }
+  return 'Normal / rough / kuccha road uses actual measured distance only.'
+}
+
+function variantLeadMeasureLabel(variant: LeadVariant): string {
+  const actualLeadKm = variant.actualLeadKm ?? variant.leadKm
+  const multiplier = variant.roadMultiplier ?? 1
+  const segmentKm = variant.roadSegmentKm ?? 0
+  if (multiplier > 1 && Math.abs(actualLeadKm - variant.leadKm) > 0.0005) {
+    const normalKm = Math.max(actualLeadKm - segmentKm, 0)
+    return `Lead ${km.format(variant.leadKm)} km (${km.format(normalKm)} + ${km.format(segmentKm)} x ${multiplier})`
+  }
+  return `Lead ${km.format(variant.leadKm)} km`
 }
 
 function disposalClassLabel(conveyanceClass: ConveyanceClass): string {
@@ -1816,12 +2294,17 @@ function isLiftSelected(draft: Pick<VariantDraft, 'liftM'>): boolean {
 }
 
 function primaryLeadCode(draft: Pick<VariantDraft, 'leadKm'>): LeadChargeCode {
-  const leadKm = numeric(draft.leadKm) ?? 0
+  const leadKm = 'roadCondition' in draft
+    ? equivalentLeadKmForDraft(draft as VariantDraft)
+    : numeric(draft.leadKm) ?? 0
   return leadKm <= 0.15 ? 'COM-LDLFT-1' : 'COM-LDLFT-2'
 }
 
-function isMechanicalLead(draft: Pick<VariantDraft, 'leadKm'>): boolean {
-  return (numeric(draft.leadKm) ?? 0) > 0.15
+function isMechanicalLead(draft: Pick<VariantDraft, 'leadKm'> | VariantDraft): boolean {
+  const leadKm = 'roadCondition' in draft
+    ? equivalentLeadKmForDraft(draft)
+    : numeric(draft.leadKm) ?? 0
+  return leadKm > 0.15
 }
 
 function isLiftBlocked(
@@ -1832,7 +2315,7 @@ function isLiftBlocked(
 
 function ruleLabelsForDraft(draft: VariantDraft): string[] {
   return ruleLabels({
-    leadKm: draft.leadKm,
+    leadKm: equivalentLeadKmForDraft(draft),
     liftM: draft.liftM,
     mechanicalConveyanceReachesFinalPoint: draft.mechanicalConveyanceReachesFinalPoint === 'yes',
     handlingMode: draft.handlingMode

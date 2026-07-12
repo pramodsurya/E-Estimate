@@ -13,8 +13,11 @@ import type {
   SpreadsheetDocument
 } from '../types/project'
 
-const DEFAULT_ROWS = 100
-const DEFAULT_COLUMNS = 26
+// Keep a practical Excel-like working area available without eagerly creating
+// cell objects. Univer virtualizes the empty grid, so these dimensions do not
+// materially increase the saved workbook size.
+const DEFAULT_ROWS = 1000
+const DEFAULT_COLUMNS = 100
 
 function safeId(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, '-')
@@ -53,9 +56,24 @@ export function isLegacySpreadsheetDocument(
 }
 
 export function createUniverWorkbookData(node: ProjectNode): Partial<IWorkbookData> {
-  if (isUniverWorkbookData(node.spreadsheet)) return node.spreadsheet
+  if (isUniverWorkbookData(node.spreadsheet)) return ensureWorkbookCapacity(node.spreadsheet)
   if (isLegacySpreadsheetDocument(node.spreadsheet)) return legacyToUniverWorkbook(node)
   return blankUniverWorkbook(node, DEFAULT_ROWS, DEFAULT_COLUMNS, {})
+}
+
+function ensureWorkbookCapacity(workbook: IWorkbookData): Partial<IWorkbookData> {
+  const sheets = Object.fromEntries(
+    Object.entries(workbook.sheets).map(([id, sheet]) => [
+      id,
+      {
+        ...sheet,
+        rowCount: Math.max(sheet.rowCount ?? 0, DEFAULT_ROWS),
+        columnCount: Math.max(sheet.columnCount ?? 0, DEFAULT_COLUMNS)
+      }
+    ])
+  )
+
+  return { ...workbook, sheets }
 }
 
 function blankUniverWorkbook(
@@ -117,7 +135,12 @@ function legacyToUniverWorkbook(node: ProjectNode): Partial<IWorkbookData> {
     cellData[row][column] = data
   }
 
-  return blankUniverWorkbook(node, legacy.rows, legacy.columns, cellData)
+  return blankUniverWorkbook(
+    node,
+    Math.max(legacy.rows, DEFAULT_ROWS),
+    Math.max(legacy.columns, DEFAULT_COLUMNS),
+    cellData
+  )
 }
 
 function legacyCellToUniver(cell: SpreadsheetCell): ICellData | null {

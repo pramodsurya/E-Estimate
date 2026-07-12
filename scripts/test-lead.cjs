@@ -39,6 +39,7 @@ const {
 } = leadExports
 const {
   basisForData,
+  canonicalLeadConveyanceClass,
   liftInfoForData,
   materialRefsForLeadInfo,
   parseLeadInfo,
@@ -376,9 +377,9 @@ function calculate(input) {
     }
   })
   const refs = materialRefsForLeadInfo(info)
-  assert.ok(refs.some((ref) => ref.name === 'Sand' && ref.conveyanceClass === 'STONE'))
+  assert.ok(refs.some((ref) => ref.name === 'Sand' && ref.conveyanceClass === 'EARTH'))
   assert.ok(refs.some((ref) => ref.name === 'Stone' && ref.conveyanceClass === 'STONE'))
-  assert.ok(!info.classes.includes('EARTH'))
+  assert.ok(info.classes.includes('EARTH'))
 
   const recipe = {
     unit: 'CUM',
@@ -401,9 +402,14 @@ function calculate(input) {
   assert.equal(cement.quantity, 6.885)
   assert.equal(cement.unit, 'tonne')
 
-  const sand = quantityForVariant(recipe, { materialName: 'Sand', conveyanceClass: 'STONE' }, info)
+  const sand = quantityForVariant(recipe, { materialName: 'Sand', conveyanceClass: 'EARTH' }, info)
   assert.equal(sand.quantity, 10.8)
   assert.equal(sand.unit, 'cum')
+
+  const staleSand = quantityForVariant(recipe, { materialName: 'Sand', conveyanceClass: 'STONE' }, info)
+  assert.equal(canonicalLeadConveyanceClass('Sand', 'STONE'), 'EARTH')
+  assert.equal(staleSand.quantity, 10.8)
+  assert.equal(staleSand.unit, 'cum')
 
   const stone = quantityForVariant(recipe, { materialName: 'Stone', conveyanceClass: 'STONE' }, info)
   assert.equal(stone.quantity, 24.3)

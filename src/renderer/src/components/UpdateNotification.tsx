@@ -15,6 +15,8 @@ interface UpdateInfo {
   releaseName?: string
 }
 
+type UpdateApi = Window['api']
+
 export default function UpdateNotification(): JSX.Element | null {
   const [stage, setStage] = useState<UpdateStage>('idle')
   const [info, setInfo] = useState<UpdateInfo>({})
@@ -23,7 +25,7 @@ export default function UpdateNotification(): JSX.Element | null {
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
-    const api = (window as { api?: import('../../preload/index').EestimateApi }).api
+    const api = (window as Window & { api?: UpdateApi }).api
     if (!api?.update) return
 
     const unsubs: (() => void)[] = []
@@ -76,12 +78,12 @@ export default function UpdateNotification(): JSX.Element | null {
 
   // ── Actions ──
   const handleDownload = () => {
-    const api = (window as { api?: import('../../preload/index').EestimateApi }).api
+    const api = (window as Window & { api?: UpdateApi }).api
     api?.update.download()
   }
 
   const handleInstall = () => {
-    const api = (window as { api?: import('../../preload/index').EestimateApi }).api
+    const api = (window as Window & { api?: UpdateApi }).api
     api?.update.install()
   }
 

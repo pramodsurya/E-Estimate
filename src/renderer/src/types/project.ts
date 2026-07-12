@@ -34,7 +34,7 @@ export interface CellRange {
   endColumn: number
 }
 
-export type ScaleMode = 'percent' | 'fit-width' | 'fit-page'
+export type ScaleMode = 'percent' | 'fit-width' | 'fit-height' | 'fit-sheet' | 'fit-page'
 
 export interface HeaderFooterParts {
   left?: string
@@ -76,6 +76,7 @@ export interface PrintConfig {
   repeatHeaderRows?: number
   /** Print the A/B/C column letters and 1/2/3 row numbers. */
   showRowColHeaders?: boolean
+
 }
 
 export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'doughnut' | 'scatter'
@@ -192,6 +193,7 @@ export type LeadPointKind = 'site' | 'quarry' | 'sand_reach' | 'godown' | 'water
 export type LeadHandlingMode = 'none' | 'manual_no_idle' | 'manual_with_idle' | 'mechanical'
 export type LeadIncludedBasis = 'none' | 'initial_50m' | 'initial_1km' | 'all_leads'
 export type LeadRateSource = 'chart' | 'dtl' | 'manual'
+export type LeadRoadCondition = 'normal' | 'certified_ghat' | 'ce_exceptional'
 export type LeadTransportPurpose =
   | 'EXCAVATED_DISPOSAL'
   | 'MATERIAL_SUPPLY'
@@ -231,6 +233,43 @@ export interface LeadPoint {
   lon: number
 }
 
+export interface LeadMapCoordinate {
+  lat: number
+  lon: number
+}
+
+export interface LeadMapDirection {
+  id: string
+  label: string
+  color: string
+  points: LeadMapCoordinate[]
+  variantId?: string
+  active: boolean
+  createdAt: string
+  updatedAt?: string
+}
+
+export type LeadPrintPageKey = 'chart' | 'calculation' | 'map'
+
+export interface LeadPrintPageSettings {
+  orientation?: Orientation
+}
+
+export interface LeadPrintSettings {
+  pageSize?: PaperSize
+  margins?: Margins
+  pages?: Partial<Record<LeadPrintPageKey, LeadPrintPageSettings>>
+  showMapLabels?: boolean
+  showRouteArrows?: boolean
+  showBaseMap?: boolean
+}
+
+export interface SeignioragePrintSettings {
+  pageSize?: PaperSize
+  orientation?: Orientation
+  margins?: Margins
+}
+
 export interface LeadAssignment {
   id: string
   pointId: string
@@ -260,6 +299,13 @@ export interface LeadVariant {
   mechanicalConveyanceReachesFinalPoint?: boolean
   includedInitialLiftM?: number | null
   includesAllLifts?: boolean
+  /** Actual measured route distance. `leadKm` remains the payable/equivalent chart lead. */
+  actualLeadKm?: number | null
+  roadCondition?: LeadRoadCondition
+  roadSegmentKm?: number
+  roadMultiplier?: number
+  hasSECertificate?: boolean
+  hasCEApproval?: boolean
   leadKm: number
   liftM: number
   handlingMode: LeadHandlingMode
@@ -360,11 +406,21 @@ export interface LeadChart {
   itemChoices: ItemLeadChoice[]
   variants?: LeadVariant[]
   applications?: LeadApplication[]
+  mapDirections?: LeadMapDirection[]
+  printSettings?: LeadPrintSettings
 }
 
 export interface ProjectMeta {
   name: string
   sorYear: string
+  /** Active annual-rate zone. Zone III is the display/calculation default. */
+  sorZone?: 'zone_1' | 'zone_2' | 'zone_3'
+  /**
+   * Area allowance is separate from zone. It is applied, when used, to the
+   * labour component only.
+   */
+  areaAllowancePercent?: number
+  areaAllowanceLabel?: string
   location: ProjectLocation | null
   flags: string[]
 }
@@ -381,6 +437,10 @@ export interface EestimateProject {
   rateAnalysisOverrides?: Record<string, RateAnalysisRecipe>
   /** Project-local DTL Lead reconstruction edits keyed by detailCode:year. */
   leadDetailOverrides?: Record<string, LeadDetailReconstruction>
+  /** Per-item seigniorage charge overrides keyed by projectItemKey. */
+  seigniorageOverrides?: Record<string, { seigCode: string | null; rate?: number | null }>
+  /** Seigniorage print preview layout settings. */
+  seignioragePrintSettings?: SeignioragePrintSettings
   createdAt: string
   updatedAt: string
 }

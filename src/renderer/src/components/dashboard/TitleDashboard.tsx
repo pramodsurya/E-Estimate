@@ -14,6 +14,8 @@ export default function TitleDashboard(): JSX.Element | null {
   const { meta, root } = project
   const components = root.children.filter((c) => c.kind === 'component')
   const pages = root.children.filter((c) => c.kind === 'page')
+  const zone =
+    meta.sorZone === 'zone_1' ? 'Zone I' : meta.sorZone === 'zone_2' ? 'Zone II' : 'Zone III'
 
   return (
     <div className="dashboard">
@@ -44,6 +46,18 @@ export default function TitleDashboard(): JSX.Element | null {
           <div className="meta-row">
             <span className="meta-key">SOR / SSR Year</span>
             <span className="meta-val">{meta.sorYear || '—'}</span>
+          </div>
+          <div className="meta-row">
+            <span className="meta-key">Active Zone</span>
+            <span className="meta-val">{zone}</span>
+          </div>
+          <div className="meta-row">
+            <span className="meta-key">Area Allowance</span>
+            <span className="meta-val">
+              {meta.areaAllowancePercent
+                ? `${meta.areaAllowanceLabel ?? 'Area allowance'} (${meta.areaAllowancePercent}%)`
+                : 'None'}
+            </span>
           </div>
           <div className="meta-row">
             <span className="meta-key">Location</span>

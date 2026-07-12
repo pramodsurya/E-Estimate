@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CircleDot, Route } from 'lucide-react'
 import {
+  canonicalLeadMaterialRef,
   isDisposalLeadMaterial,
   materialRefsForLeadInfo,
   parseLeadInfo,
   type LeadMaterialRef
 } from '../../lib/leadApplicability'
-import { fetchSsrLeadApplicability } from '../../lib/lead'
+import { fetchSsrLeadApplicability, conveyanceClassLabel } from '../../lib/lead'
 import { collectProjectItemGroups } from '../../lib/projectItems'
 import { useStore } from '../../store/useStore'
 import type { ConveyanceClass, LeadApplication, LeadVariant } from '../../types/project'
@@ -109,6 +110,7 @@ export default function EstimateLeadPanel(): JSX.Element {
                 <CircleDot size={12} />
                 <span>
                   <strong>{item.name}</strong>
+                  <small>{leadAbstractClassLabel(item.name, item.conveyanceClass)}</small>
                   <small>
                     {item.variantCount} variant{item.variantCount === 1 ? '' : 's'} |{' '}
                     {item.linkedCount} linked DATA
@@ -128,6 +130,13 @@ export default function EstimateLeadPanel(): JSX.Element {
   )
 }
 
+function leadAbstractClassLabel(name: string, conveyanceClass: ConveyanceClass): string {
+  const material = name.trim().toLowerCase()
+  if (material === 'sand') return 'Sand / fine aggregate'
+  if (material === 'stone') return 'Stone / coarse aggregate'
+  return conveyanceClassLabel(conveyanceClass)
+}
+
 function buildLeadAbstract(
   dataRows: Array<{ code: string; description: string; metadata: unknown; source: string }>,
   variants: LeadVariant[],
@@ -136,15 +145,16 @@ function buildLeadAbstract(
   const byKey = new Map<string, LeadAbstractItem>()
 
   const ensure = (ref: LeadMaterialRef): LeadAbstractItem => {
-    const key = isDisposalLeadMaterial(ref.name)
-      ? `disposal:${ref.name.toLowerCase()}`
-      : `${ref.conveyanceClass}:${ref.name.toLowerCase()}`
+    const canonical = canonicalLeadMaterialRef(ref)
+    const key = isDisposalLeadMaterial(canonical.name)
+      ? `disposal:${canonical.name.toLowerCase()}`
+      : `${canonical.conveyanceClass}:${canonical.name.toLowerCase()}`
     let item = byKey.get(key)
     if (!item) {
       item = {
         key,
-        name: ref.name,
-        conveyanceClass: ref.conveyanceClass,
+        name: canonical.name,
+        conveyanceClass: canonical.conveyanceClass,
         dataCount: 0,
         variantCount: 0,
         linkedCount: 0,

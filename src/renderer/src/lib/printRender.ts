@@ -597,13 +597,24 @@ export function buildPrintHtml(
   // extend beyond the table, so everything fits the page together.
   const paper = PAPER_MM[geom.pageSize]
   const pageWmm = landscape ? paper.h : paper.w
+  const pageHmm = landscape ? paper.w : paper.h
   const printableWmm = pageWmm - geom.margins.left - geom.margins.right
+  const printableHmm = pageHmm - geom.margins.top - geom.margins.bottom
   const printableWpx = printableWmm * PX_PER_MM
+  const printableHpx = printableHmm * PX_PER_MM
   let scale = 1
   if (config.scaleMode === 'percent') {
     scale = Math.min(4, Math.max(0.1, (config.scalePercent ?? 100) / 100))
   } else if (config.scaleMode === 'fit-width') {
     scale = Math.min(1, printableWpx / Math.max(1, maxRight))
+  } else if (config.scaleMode === 'fit-height') {
+    scale = Math.min(1, printableHpx / Math.max(1, maxBottom))
+  } else if (config.scaleMode === 'fit-sheet') {
+    scale = Math.min(
+      1,
+      printableWpx / Math.max(1, maxRight),
+      printableHpx / Math.max(1, maxBottom)
+    )
   } else if (config.scaleMode === 'fit-page') {
     const pages = Math.max(1, config.fitToWidthPages ?? 1)
     scale = Math.min(1, (printableWpx * pages) / Math.max(1, maxRight))

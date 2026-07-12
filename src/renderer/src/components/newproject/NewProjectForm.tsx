@@ -18,12 +18,25 @@ const FALLBACK_FLAGS: FlagDef[] = [
   { type: 'NIGHT_WORK', label: 'Night Work', description: null }
 ]
 
+const AREA_ALLOWANCES = [
+  { label: 'None', percent: 0 },
+  { label: 'Municipal Corporations except Greater Hyderabad', percent: 25 },
+  { label: 'Greater Hyderabad and prescribed 12 km belt', percent: 40 },
+  { label: 'District Headquarters and remaining Municipal limits', percent: 20 },
+  { label: 'Jail compounds', percent: 20 },
+  { label: 'Listed Industrial Areas', percent: 20 },
+  { label: 'Agency/Tribal up to 16 km from all-weather route', percent: 25 },
+  { label: 'Agency/Tribal beyond 16 km', percent: 40 }
+]
+
 export default function NewProjectForm(): JSX.Element {
   const createProject = useStore((s) => s.createProject)
 
   const [name, setName] = useState('')
   const [years, setYears] = useState<string[]>([])
   const [sorYear, setSorYear] = useState('')
+  const [sorZone, setSorZone] = useState<'zone_1' | 'zone_2' | 'zone_3'>('zone_3')
+  const [areaAllowanceIndex, setAreaAllowanceIndex] = useState(0)
   const [flagDefs, setFlagDefs] = useState<FlagDef[]>([])
   const [flags, setFlags] = useState<Set<string>>(new Set())
   const [location, setLocation] = useState<ProjectLocation | null>(null)
@@ -120,9 +133,13 @@ export default function NewProjectForm(): JSX.Element {
 
   const submit = (): void => {
     if (!valid || !location) return
+    const areaAllowance = AREA_ALLOWANCES[areaAllowanceIndex] ?? AREA_ALLOWANCES[0]
     createProject({
       name: name.trim(),
       sorYear,
+      sorZone,
+      areaAllowancePercent: areaAllowance.percent,
+      areaAllowanceLabel: areaAllowance.percent ? areaAllowance.label : undefined,
       location,
       flags: Array.from(flags)
     })
@@ -171,6 +188,33 @@ export default function NewProjectForm(): JSX.Element {
               {years.map((y) => (
                 <option key={y} value={y}>
                   {y}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field" style={{ maxWidth: 180 }}>
+            <label className="field-label">Zone</label>
+            <select
+              className="select-input"
+              value={sorZone}
+              onChange={(e) => setSorZone(e.target.value as typeof sorZone)}
+            >
+              <option value="zone_1">Zone I</option>
+              <option value="zone_2">Zone II</option>
+              <option value="zone_3">Zone III</option>
+            </select>
+          </div>
+          <div className="field" style={{ minWidth: 280 }}>
+            <label className="field-label">Area allowance</label>
+            <select
+              className="select-input"
+              value={areaAllowanceIndex}
+              onChange={(e) => setAreaAllowanceIndex(Number(e.target.value))}
+            >
+              {AREA_ALLOWANCES.map((allowance, index) => (
+                <option key={allowance.label} value={index}>
+                  {allowance.label}
+                  {allowance.percent ? ` (${allowance.percent}%)` : ''}
                 </option>
               ))}
             </select>
