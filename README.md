@@ -1,85 +1,53 @@
 # E-Estimate
 
-Construction cost-estimation desktop app for Telangana SOR/SSR. Electron, React, and TypeScript
-shell with a VS Code and Fusion 360 feel.
+E-Estimate is a desktop app for construction cost estimation (Telangana SOR/SSR).
 
-## Run
+Quick start
 
 ```bash
 npm install
 npm run dev
-npm run build
-npm run typecheck
 ```
 
-## Windows x64 Build
+Build and package (Windows x64)
 
 ```powershell
-npm run package:win
+npm run build
 npm run dist:win
 ```
 
-- `package:win` creates an unpacked application folder in `release`.
-- `dist:win` creates the Windows x64 NSIS installer in `release`.
+Download
 
-## Download
+The latest Windows installer is available from the project's GitHub Releases. Current packaged
+version: v0.1.4
 
-The latest Windows `.exe` installer is published on GitHub Releases:
+- Releases page: https://github.com/pramodsurya/E-Estimate/releases
+- Direct download: https://github.com/pramodsurya/E-Estimate/releases/download/v0.1.4/E-Estimate-0.1.4-windows-x64.exe
 
-- [E-Estimate v0.1.4 Windows installer](https://github.com/pramodsurya/E-Estimate/releases/tag/v0.1.4)
-- [Direct `.exe` download](https://github.com/pramodsurya/E-Estimate/releases/download/v0.1.4/E-Estimate-0.1.4-windows-x64.exe)
+Configuration
 
-Users who want the direct installer download can get it from the release assets on that page.
+- Use environment variables for runtime secrets and service endpoints. Do not commit secret keys.
+- Common variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_KEY`, `VITE_OSRM_URL`.
 
-## Project Layout
+Project layout (high level)
 
-```text
+```
 src/
-  main/        Electron main process, project file IPC, recent projects
-  preload/     contextBridge API
-  renderer/    React UI
-    src/
-      components/   shell, explorer, dashboards, editors, rate analysis, modals
-      store/        Zustand project state, selection, undo/redo
-      lib/          tree helpers, Supabase queries, recipe calculations
-      types/        project and rate-analysis models
+  main/       Electron main process and project I/O
+  preload/    contextBridge API
+  renderer/   React UI and frontend source
 ```
 
-## Data
+Security and release notes
 
-Master data is read live from Supabase with the publishable key in
-`src/renderer/src/lib/supabase.ts`. It can be overridden with
-`VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY`.
+- Do NOT store API keys, private tokens, or production credentials in the repository.
+- Ensure Row Level Security is enabled for any Supabase public schema used in production.
+- Add appropriate Content-Security-Policy and secure response headers before shipping releases.
 
-- SSR items and recipe definitions: `ssr_item`
-- SSR year-specific rates and totals: `ssr_year`
-- Lead/lift/loading master data: `lead_charge`, `lead_rate`, `lead_note`
-- SOR items: `material`, `labour`, `machinery`, `plumbing`, `electrical`, `civil`
-- SOR/SSR years and flags: `allowance_rule`
-- Rate-analysis recipes: unified SSR JSON from `ssr_item` / `ssr_year`, SOR rate tables, and
-  `sor_constant`
+Where to contribute
 
-Projects are saved as JSON in a custom `.eestimate` file.
+- Issues and pull requests: https://github.com/pramodsurya/E-Estimate
 
-Recipe defaults and SSR summary values are read from Supabase for the project's SOR year. User
-edits are stored in the project file and shared by every occurrence of the same item code. SSR
-values are not recalculated on load. Editing a line's quantity or rate updates only that line's
-amount and its section total. `Defaults` restores the Supabase recipe.
+License
 
-## Implemented
-
-The app includes the desktop shell, project creation, Explorer hierarchy, Supabase item selection,
-project pages, the native document editor, the Univer spreadsheet editor, the bottom Data usage
-tree, editable rate-analysis dashboards, a left DTL Lead reconstruction workspace, and a bottom
-Lead Abstract workflow that opens right-side map/location/variant pages for applying
-Supabase-backed lead/lift charges to DATA items.
-
-## Deferred
-
-Quantity/data extraction, PDF export, Seigniorage, item-level automatic lead reconstruction, local
-git, the bundled Python engine, and SQLite cache remain later work.
-
-## Notes
-
-- No Content-Security-Policy meta is set yet. Add production response headers before packaging.
-- The Supabase public schema must use Row Level Security before release.
+See `package.json` for license and author information.
