@@ -1,4 +1,18 @@
-import { Eye, FilePlus2, Layers, LayoutDashboard, ListPlus, Plus, Printer, Settings, X } from 'lucide-react'
+import {
+  ChevronRight,
+  Eye,
+  FilePlus2,
+  IndianRupee,
+  Layers,
+  LayoutDashboard,
+  ListPlus,
+  Minus,
+  Plus,
+  Printer,
+  Settings,
+  Type,
+  X
+} from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react'
 import { useStore } from '../../store/useStore'
 import type {
@@ -15,6 +29,7 @@ import { descriptionRunsForDisplay, plainTextRun } from '../../lib/rateAnalysisV
 import { buildPrintHtml } from '../../lib/printRender'
 import { resolveNodeSettings } from '../../lib/nodeSettings'
 import { createUniverWorkbookData } from '../../lib/univerSpreadsheet'
+import { rateAnalysisOverrideForNode } from '../../lib/projectItems'
 import type { RateAnalysisRecipe, RateAnalysisTextRun } from '../../types/rateAnalysis'
 import { buildCombinedComponentPdf } from '../../lib/componentPrint'
 import PdfPageStack from '../print/PdfPageStack'
@@ -42,6 +57,8 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
   const [combinedPdfUrl, setCombinedPdfUrl] = useState<string | null>(null)
   const [combinedPrintStatus, setCombinedPrintStatus] = useState<'idle' | 'rendering' | 'error'>('idle')
   const [combinedPrintError, setCombinedPrintError] = useState<string | null>(null)
+  const [previewZoom, setPreviewZoom] = useState(100)
+  const [masterFontPercent, setMasterFontPercent] = useState(100)
   const combinedFrameRef = useRef<HTMLIFrameElement>(null)
 
   const subcomponents = node.children.filter((c) => c.kind === 'subcomponent')
@@ -51,6 +68,8 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
 
   const sorYear = project?.meta.sorYear ?? ''
   const sorZone = project?.meta.sorZone ?? 'zone_3'
+  const areaAllowancePercent = project?.meta.areaAllowancePercent ?? 0
+  const areaAllowanceLabel = project?.meta.areaAllowanceLabel
 
   // All descendant item nodes (for rate loading + the component total).
   const allItems = useMemo(() => {
@@ -70,7 +89,14 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
     let cancelled = false
     const load = async (): Promise<void> => {
       const entries = await Promise.all(
-        allItems.map(async (it) => [it.id, await fetchItemRate(it, sorYear, { zone: sorZone })] as const)
+        allItems.map(async (it) => [
+          it.id,
+          await fetchItemRate(it, sorYear, {
+            zone: sorZone,
+            areaAllowancePercent,
+            areaAllowanceLabel
+          })
+        ] as const)
       )
       if (cancelled) return
       const map: Record<string, number> = {}
@@ -81,7 +107,7 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
     return () => {
       cancelled = true
     }
-  }, [allItems, sorYear, sorZone])
+  }, [allItems, sorYear, sorZone, areaAllowancePercent, areaAllowanceLabel])
 
   useEffect(() => {
     let cancelled = false
@@ -89,8 +115,26 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
       const entries = await Promise.all(
         allItems.map(async (it) => {
           try {
-            const recipe = await fetchRateAnalysis(it, sorYear, { zone: sorZone })
-            return [it.id, recipe] as const
+            const recipe = await fetchRateAnalysis(it, sorYear, {
+              zone: sorZone,
+              areaAllowancePercent,
+              areaAllowanceLabel
+            })
+            const saved = project ? rateAnalysisOverrideForNode(project, it) : null
+            return [
+              it.id,
+              saved
+                ? {
+                    ...recipe,
+                    ...saved,
+                    year: recipe.year,
+                    zone: recipe.zone,
+                    layout: recipe.layout,
+                    sourceFigures: recipe.sourceFigures,
+                    publishedRateBlocks: recipe.publishedRateBlocks
+                  }
+                : recipe
+            ] as const
           } catch {
             return [it.id, null] as const
           }
@@ -105,13 +149,40 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
     return () => {
       cancelled = true
     }
-  }, [allItems, sorYear, sorZone])
+  }, [
+    allItems,
+    sorYear,
+    sorZone,
+    areaAllowancePercent,
+    areaAllowanceLabel,
+    project?.rateAnalysisOverrides,
+    project?.rateAnalysisScopedOverrides
+  ])
 
   const rateOf = (n: ProjectNode): number | undefined => rates[n.id]
   const componentTotal = componentItemsTotal(project, node, rateOf)
+  const directComponentTotal = items.reduce(
+    (total, item) => total + (getItemFinal(project, item, rateOf(item)).amount ?? 0),
+    0
+  )
+  const subcomponentSummaries = subcomponents.map((subcomponent) => ({
+    node: subcomponent,
+    itemCount: countDescendantItems(subcomponent),
+    total: componentItemsTotal(project, subcomponent, rateOf)
+  }))
+  const subcomponentsTotal = subcomponentSummaries.reduce((total, summary) => total + summary.total, 0)
+  const directItemCount = items.length
+  const subcomponentItemCount = subcomponentSummaries.reduce(
+    (total, summary) => total + summary.itemCount,
+    0
+  )
+  const costedDirectItemCount = items.filter(
+    (item) => getItemFinal(project, item, rateOf(item)).amount !== null
+  ).length
+  const directCostPercent = componentTotal > 0 ? (directComponentTotal / componentTotal) * 100 : 0
 
   useEffect(() => {
-    if (!printPreviewOpen || !project) return
+    if ((!printPreviewOpen && !printView) || !project) return
     let cancelled = false
     let objectUrl: string | null = null
     setCombinedPrintStatus('rendering')
@@ -119,10 +190,10 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
     void buildCombinedComponentPdf({
       project,
       section: node,
-      items: allItems,
       recipes,
       rateOf,
-      total: componentTotal
+      total: componentTotal,
+      fontScale: masterFontPercent / 100
     })
       .then((bytes) => {
         if (cancelled) return
@@ -142,21 +213,10 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
       cancelled = true
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [printPreviewOpen, project, node, allItems, recipes, rates, componentTotal])
-
-  const printPage = (
-    <ComponentPrintPage
-      projectName={project?.meta.name ?? ''}
-      node={node}
-      project={project}
-      rateOf={rateOf}
-      total={componentTotal}
-      recipes={recipes}
-    />
-  )
+  }, [printPreviewOpen, printView, project, node, allItems, recipes, rates, componentTotal, masterFontPercent])
 
   return (
-    <div className={`dashboard ${printView ? 'component-print-view' : ''}`}>
+    <div className={`dashboard component-dashboard ${printView ? 'component-print-view' : ''}`}>
       <div className="dash-header">
         <div>
           <div className="dash-eyebrow">{isSub ? 'Sub-component' : 'Component'}</div>
@@ -193,122 +253,200 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
       {printView ? (
         <div className="component-print-workspace">
           <div className="component-print-toolbar">
-            <span>Print view shows this section as it will be printed.</span>
-            <button className="btn" onClick={() => window.print()}>
+            <span>This is the actual paginated print output.</span>
+            <div className="component-print-controls">
+              <button className="btn-mini" onClick={() => setPreviewZoom((z) => Math.max(25, z - 10))}><Minus size={13} /></button>
+              <label>Zoom
+                <input type="range" min="25" max="200" step="5" value={previewZoom} onChange={(e) => setPreviewZoom(Number(e.target.value))} />
+                <b>{previewZoom}%</b>
+              </label>
+              <button className="btn-mini" onClick={() => setPreviewZoom((z) => Math.min(200, z + 10))}><Plus size={13} /></button>
+              <label><Type size={14} /> Master font
+                <input type="range" min="75" max="175" step="5" value={masterFontPercent} onChange={(e) => setMasterFontPercent(Number(e.target.value))} />
+                <b>{masterFontPercent}%</b>
+              </label>
+            </div>
+            <button className="btn" disabled={!combinedPdfUrl} onClick={() => combinedFrameRef.current?.contentWindow?.print()}>
               <Printer size={14} /> Print
             </button>
           </div>
-          {printPage}
+          <div className="component-print-edit-strip">
+            {allItems.map((item) => (
+              <button className="btn ghost" key={item.id} onClick={() => select(item.id)}>
+                Edit {item.itemEditorType === 'document' ? 'Word' : 'Excel'}: {nodeDisplayName(item)}
+              </button>
+            ))}
+          </div>
+          <div className="component-print-live-pages">
+            {combinedPrintStatus === 'rendering' ? (
+              <div className="component-print-preview-message">Updating printed pages...</div>
+            ) : combinedPrintStatus === 'error' ? (
+              <div className="component-print-preview-message error">{combinedPrintError}</div>
+            ) : combinedPdfUrl ? (
+              <>
+                <PdfPageStack src={combinedPdfUrl} zoom={previewZoom} />
+                <iframe
+                  ref={combinedFrameRef}
+                  className="component-print-pdf-source"
+                  title="Print document"
+                  src={combinedPdfUrl}
+                />
+              </>
+            ) : null}
+          </div>
         </div>
       ) : (
-      <div className="dash-grid">
-        <div className="dash-card">
-          <div className="card-title">Summary</div>
-          <div className="meta-row">
-            <span className="meta-key">Sub-components</span>
-            <span className="meta-val">{subcomponents.length}</span>
-          </div>
-          <div className="meta-row">
-            <span className="meta-key">Items</span>
-            <span className="meta-val">{items.length}</span>
-          </div>
-          <div className="meta-row">
-            <span className="meta-key">Pages</span>
-            <span className="meta-val">{pages.length}</span>
-          </div>
-        </div>
-
-        <div className="dash-card">
-          <div className="card-title">Component Cost</div>
-          <div className="total-figure">{componentTotal > 0 ? `₹ ${money.format(componentTotal)}` : '—'}</div>
-          <div className="list-empty">
-            {componentTotal > 0
-              ? 'Sum of item amounts (fixed final number × rate).'
-              : 'Fix a final number on items (with a rate) to total here.'}
-          </div>
-        </div>
-
-        <div className="dash-card">
-          <div className="card-title">Structure</div>
-          <div className="placeholder-box">Structure view — later part.</div>
-        </div>
-
-        {!isSub && (
-          <div className="dash-card span-2">
-            <div className="card-title">
-              Sub-components
-              <button className="btn ghost" onClick={() => addSubcomponent(node.id)}>
-                <Plus size={14} /> Add
-              </button>
+      <div className="component-dashboard-body">
+        <section className="component-cost-overview">
+          <div className="component-cost-primary">
+            <div className="component-section-label">
+              <IndianRupee size={15} /> Total estimated cost
             </div>
-            {subcomponents.length ? (
-              <div className="list-rows">
-                {subcomponents.map((c) => (
-                  <div key={c.id} className="list-row" onClick={() => select(c.id)}>
-                    <NodeIcon node={c} size={15} />
-                    <span className="lr-name">{c.name}</span>
-                    <span className="lr-tag">{c.children.length} item(s)</span>
-                  </div>
-                ))}
+            <div className="component-grand-total">
+              {componentTotal > 0 ? `₹ ${money.format(componentTotal)}` : '₹ 0'}
+            </div>
+            <p>
+              Fixed quantities × adopted rates across this {isSub ? 'sub-component' : 'component'}.
+            </p>
+            {!isSub && componentTotal > 0 && (
+              <div className="component-cost-bar" aria-label="Cost composition">
+                <span style={{ width: `${directCostPercent}%` }} />
+                <i style={{ width: `${100 - directCostPercent}%` }} />
               </div>
-            ) : (
-              <div className="list-empty">No sub-components yet.</div>
             )}
           </div>
+          <div className="component-cost-breakdown">
+            <div>
+              <span>{isSub ? 'Own items' : 'Component items'}</span>
+              <strong>₹ {money.format(directComponentTotal)}</strong>
+              <small>{directItemCount} direct item{directItemCount === 1 ? '' : 's'}</small>
+            </div>
+            {!isSub && (
+              <div>
+                <span>Sub-components</span>
+                <strong>₹ {money.format(subcomponentsTotal)}</strong>
+                <small>{subcomponents.length} sub-component{subcomponents.length === 1 ? '' : 's'}</small>
+              </div>
+            )}
+            <div>
+              <span>Ready for costing</span>
+              <strong>{costedDirectItemCount} / {directItemCount}</strong>
+              <small>Direct items with quantity and rate</small>
+            </div>
+            <div>
+              <span>Supporting pages</span>
+              <strong>{pages.length}</strong>
+              <small>Attached to this section</small>
+            </div>
+          </div>
+        </section>
+
+        {!isSub && (
+          <section className="component-panel">
+            <div className="component-panel-heading">
+              <div>
+                <span className="component-section-label"><Layers size={15} /> Sub-components</span>
+                <h2>Cost by sub-component</h2>
+                <p>{subcomponentItemCount} item{subcomponentItemCount === 1 ? '' : 's'} grouped separately from this component’s own abstract.</p>
+              </div>
+              <button className="btn ghost" onClick={() => addSubcomponent(node.id)}>
+                <Plus size={14} /> Add Sub-component
+              </button>
+            </div>
+            {subcomponentSummaries.length ? (
+              <div className="component-subcomponent-list">
+                {subcomponentSummaries.map((summary, index) => (
+                  <button
+                    type="button"
+                    key={summary.node.id}
+                    className="component-subcomponent-row"
+                    onClick={() => select(summary.node.id)}
+                  >
+                    <span className="component-subcomponent-index">{String(index + 1).padStart(2, '0')}</span>
+                    <span className="component-subcomponent-name">
+                      <NodeIcon node={summary.node} size={17} />
+                      <span>
+                        <strong>{summary.node.name}</strong>
+                        <small>{summary.itemCount} item{summary.itemCount === 1 ? '' : 's'}</small>
+                      </span>
+                    </span>
+                    <span className="component-subcomponent-share">
+                      {componentTotal > 0 ? `${money.format((summary.total / componentTotal) * 100)}% of total` : 'No cost yet'}
+                    </span>
+                    <strong className="component-subcomponent-cost">₹ {money.format(summary.total)}</strong>
+                    <ChevronRight size={18} />
+                  </button>
+                ))}
+                <div className="component-subcomponent-total">
+                  <span>Sub-component total</span>
+                  <strong>₹ {money.format(subcomponentsTotal)}</strong>
+                </div>
+              </div>
+            ) : (
+              <div className="component-empty-state">
+                <Layers size={22} />
+                <div><strong>No sub-components</strong><span>Create one when a part of the work needs its own abstract and cost.</span></div>
+              </div>
+            )}
+          </section>
         )}
 
-        <div className="dash-card span-2">
-          <div className="card-title">
-            Items
-            <button className="btn ghost" onClick={() => openAddItem(node.id)}>
+        <section className="component-panel">
+          <div className="component-panel-heading">
+            <div>
+              <span className="component-section-label"><ListPlus size={15} /> {isSub ? 'Sub-component items' : 'Component items'}</span>
+              <h2>Direct items</h2>
+              <p>{isSub ? 'These items form this sub-component’s General Abstract.' : 'Only these items appear in the main Component Abstract.'}</p>
+            </div>
+            <button className="btn" onClick={() => openAddItem(node.id)}>
               <Plus size={14} /> Add Item
             </button>
           </div>
           {items.length ? (
-            <div className="list-rows">
-              {items.map((it) => {
-                const final = getItemFinal(project, it, rates[it.id])
+            <div className="component-items-table">
+              <div className="component-items-head">
+                <span>Item</span><span>Quantity</span><span>Rate</span><span>Amount</span><span />
+              </div>
+              {items.map((item) => {
+                const final = getItemFinal(project, item, rates[item.id])
                 return (
-                  <div key={it.id} className="list-row" onClick={() => select(it.id)}>
-                    <NodeIcon node={it} size={15} />
-                    <span className="lr-name" title={it.itemDescription}>
-                      {nodeDisplayName(it)}
+                  <button type="button" key={item.id} className="component-item-row" onClick={() => select(item.id)}>
+                    <span className="component-item-name" title={item.itemDescription}>
+                      <NodeIcon node={item} size={16} />
+                      <span><strong>{nodeDisplayName(item)}</strong><small>{item.itemDescription || item.itemSource || 'Estimate item'}</small></span>
                     </span>
-                    {it.splitFromItemKey && <span className="lr-tag">{it.itemCode}</span>}
-                    <span className="lr-qty">
-                      {final.qty != null
-                        ? `${qtyFmt.format(final.qty)}${it.unit ? ` ${it.unit}` : ''}`
-                        : it.unit
-                          ? it.unit
-                          : '—'}
-                    </span>
-                    <span className="lr-rate">
-                      {final.rate != null ? `× ₹${money.format(final.rate)}` : ''}
-                    </span>
-                    <span className="lr-amount">
-                      {final.amount != null ? `= ₹${money.format(final.amount)}` : ''}
-                    </span>
-                  </div>
+                    <span>{final.qty != null ? `${qtyFmt.format(final.qty)} ${item.unit ?? final.unit ?? ''}` : '—'}</span>
+                    <span>{final.rate != null ? `₹ ${money.format(final.rate)}` : '—'}</span>
+                    <strong>{final.amount != null ? `₹ ${money.format(final.amount)}` : 'Not costed'}</strong>
+                    <ChevronRight size={17} />
+                  </button>
                 )
               })}
+              <div className="component-items-total">
+                <span>Direct items total</span><strong>₹ {money.format(directComponentTotal)}</strong>
+              </div>
             </div>
           ) : (
-            <div className="list-empty">No items yet. Use “Add Item”.</div>
+            <div className="component-empty-state">
+              <ListPlus size={22} />
+              <div><strong>No direct items</strong><span>Add an item to begin costing this section.</span></div>
+            </div>
           )}
-        </div>
+        </section>
 
         {pages.length > 0 && (
-          <div className="dash-card span-2">
-            <div className="card-title">Pages</div>
-            <div className="list-rows">
-              {pages.map((p) => (
-                <div key={p.id} className="list-row" onClick={() => select(p.id)}>
-                  <NodeIcon node={p} size={15} />
-                  <span className="lr-name">{p.name}</span>
-                </div>
+          <section className="component-panel component-pages-panel">
+            <div className="component-panel-heading">
+              <div><span className="component-section-label"><FilePlus2 size={15} /> Supporting pages</span><h2>Pages</h2></div>
+            </div>
+            <div className="component-page-list">
+              {pages.map((page) => (
+                <button type="button" key={page.id} onClick={() => select(page.id)}>
+                  <NodeIcon node={page} size={16} /><span>{page.name}</span><ChevronRight size={16} />
+                </button>
               ))}
             </div>
-          </div>
+          </section>
         )}
       </div>
       )}
@@ -321,6 +459,12 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
                 <span>{node.name}</span>
               </div>
               <div>
+                <div className="component-print-controls">
+                  <button className="btn-mini" onClick={() => setPreviewZoom((z) => Math.max(25, z - 10))}><Minus size={13} /></button>
+                  <label>Zoom <input type="range" min="25" max="200" step="5" value={previewZoom} onChange={(e) => setPreviewZoom(Number(e.target.value))} /><b>{previewZoom}%</b></label>
+                  <button className="btn-mini" onClick={() => setPreviewZoom((z) => Math.min(200, z + 10))}><Plus size={13} /></button>
+                  <label><Type size={13} /> Master font <input type="range" min="75" max="175" step="5" value={masterFontPercent} onChange={(e) => setMasterFontPercent(Number(e.target.value))} /><b>{masterFontPercent}%</b></label>
+                </div>
                 <button
                   className="btn ghost"
                   disabled={!combinedPdfUrl}
@@ -341,7 +485,7 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
                   <div className="component-print-preview-message error">{combinedPrintError}</div>
                 ) : combinedPdfUrl ? (
                   <>
-                    <PdfPageStack src={combinedPdfUrl} />
+                    <PdfPageStack src={combinedPdfUrl} zoom={previewZoom} />
                     <iframe
                       ref={combinedFrameRef}
                       className="component-print-pdf-source"
@@ -366,6 +510,8 @@ function ComponentPrintPage({
   rateOf,
   total,
   recipes
+  ,onEdit
+  ,fontScale
 }: {
   projectName: string
   node: ProjectNode
@@ -373,6 +519,8 @@ function ComponentPrintPage({
   rateOf: (node: ProjectNode) => number | undefined
   total: number
   recipes: Record<string, RateAnalysisRecipe>
+  onEdit: (id: string) => void
+  fontScale: number
 }): JSX.Element {
   const directItems = node.children.filter((child) => child.kind === 'item')
   const subSections = node.children.filter(
@@ -380,7 +528,7 @@ function ComponentPrintPage({
   )
 
   return (
-    <section className="component-print-page">
+    <section className="component-print-page" style={{ fontSize: `${fontScale}em` }}>
       <header className="component-print-header">
         <div>
           <span>{projectName || 'E-Estimate'}</span>
@@ -396,6 +544,7 @@ function ComponentPrintPage({
         project={project}
         rateOf={rateOf}
         recipes={recipes}
+        onEdit={onEdit}
       />
 
       {subSections.map((section, index) => (
@@ -405,6 +554,7 @@ function ComponentPrintPage({
           project={project}
           rateOf={rateOf}
           recipes={recipes}
+          onEdit={onEdit}
           index={index + 1}
         />
       ))}
@@ -427,12 +577,14 @@ function ComponentPrintSection({
   rateOf,
   index,
   recipes
+  ,onEdit
 }: {
   node: ProjectNode
   project: EestimateProject | null
   rateOf: (node: ProjectNode) => number | undefined
   index: number
   recipes: Record<string, RateAnalysisRecipe>
+  onEdit: (id: string) => void
 }): JSX.Element {
   const items = node.children.filter((child) => child.kind === 'item')
   const children = node.children.filter(
@@ -453,6 +605,7 @@ function ComponentPrintSection({
         project={project}
         rateOf={rateOf}
         recipes={recipes}
+        onEdit={onEdit}
       />
       {children.map((child, childIndex) => (
         <ComponentPrintSection
@@ -461,6 +614,7 @@ function ComponentPrintSection({
           project={project}
           rateOf={rateOf}
           recipes={recipes}
+          onEdit={onEdit}
           index={childIndex + 1}
         />
       ))}
@@ -474,12 +628,14 @@ function ComponentPrintItems({
   project,
   rateOf,
   recipes
+  ,onEdit
 }: {
   title: string
   items: ProjectNode[]
   project: EestimateProject | null
   rateOf: (node: ProjectNode) => number | undefined
   recipes: Record<string, RateAnalysisRecipe>
+  onEdit: (id: string) => void
 }): JSX.Element | null {
   if (items.length === 0) return null
 
@@ -523,6 +679,7 @@ function ComponentPrintItems({
           item={item}
           project={project}
           recipe={recipes[item.id]}
+          onEdit={onEdit}
         />
       ))}
     </>
@@ -533,16 +690,23 @@ function ComponentPrintItemDetail({
   item,
   project,
   recipe
+  ,onEdit
 }: {
   item: ProjectNode
   project: EestimateProject | null
   recipe?: RateAnalysisRecipe
+  onEdit: (id: string) => void
 }): JSX.Element {
   return (
     <section className="component-print-item-detail">
       <div className="component-print-item-title">
         <strong>{nodeDisplayName(item)}</strong>
-        <span>{item.unit ? `Unit: ${item.unit}` : item.itemSource ?? ''}</span>
+        <div className="component-print-item-actions">
+          <span>{item.unit ? `Unit: ${item.unit}` : item.itemSource ?? ''}</span>
+          <button className="btn-mini" type="button" onClick={() => onEdit(item.id)}>
+            Edit {item.itemEditorType === 'document' ? 'Word' : 'Excel'}
+          </button>
+        </div>
       </div>
       <div className="component-print-item-description">
         <PrintDescription item={item} recipe={recipe} />
@@ -714,4 +878,17 @@ function noScrollPrintHtml(html: string, scale: number): string {
 
 function formatMoney(value: number): string {
   return Number.isFinite(value) ? `Rs. ${money.format(value)}` : '-'
+}
+
+function countDescendantItems(node: ProjectNode): number {
+  let count = 0
+  const visit = (current: ProjectNode): void => {
+    if (current.kind === 'item') {
+      count += 1
+      return
+    }
+    current.children.forEach(visit)
+  }
+  node.children.forEach(visit)
+  return count
 }

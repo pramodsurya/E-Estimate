@@ -32,7 +32,10 @@ export function NodeIcon({ node, size = 15 }: { node: ProjectNode; size?: number
 
 export function nodeDisplayName(node: ProjectNode): string {
   if (node.kind === 'item' && node.splitFromItemKey) return node.name
-  return node.kind === 'item' && node.itemCode ? node.itemCode : node.name
+  if (node.kind === 'item' && node.itemCode) {
+    return node.dataVariant ? `${node.itemCode} - ${node.dataVariant.label}` : node.itemCode
+  }
+  return node.name
 }
 
 /** SOR/SSR item names are locked; only "Others" items and structural nodes can be renamed. */

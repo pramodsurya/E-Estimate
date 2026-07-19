@@ -4,7 +4,12 @@
 import type { IWorkbookData } from '@univerjs/core'
 import type { EestimateProject, ProjectNode } from '../types/project'
 import { isUniverWorkbookData } from './univerSpreadsheet'
-import { projectItemKey } from './projectItems'
+import {
+  collectProjectItemGroups,
+  projectItemKey,
+  rateAnalysisOverrideForNode
+} from './projectItems'
+import { scopedLeadRateAddition } from './leadApplications'
 import { calculateRateAnalysis } from './rateAnalysis'
 
 export function colLabel(index: number): string {
@@ -53,7 +58,7 @@ export function readFinalValueFromSnapshot(node: ProjectNode): number | null {
 /** Item rate per unit, if a rate analysis recipe exists for the item. */
 export function getItemRate(project: EestimateProject | null, node: ProjectNode): number | null {
   if (!project) return null
-  const recipe = project.rateAnalysisOverrides?.[projectItemKey(node)]
+  const recipe = rateAnalysisOverrideForNode(project, node)
   if (!recipe) return null
   try {
     const r = calculateRateAnalysis(recipe).ratePerUnit
@@ -61,6 +66,25 @@ export function getItemRate(project: EestimateProject | null, node: ProjectNode)
   } catch {
     return null
   }
+}
+
+/** Lead rate additions assigned to this exact Item/component usage. */
+export function getItemLeadRate(project: EestimateProject | null, node: ProjectNode): number {
+  if (!project || node.kind !== 'item') return 0
+  const itemKey = projectItemKey(node)
+  const group = collectProjectItemGroups(project.root).find((candidate) => candidate.key === itemKey)
+  const isLegacyTarget = group?.usages[0]?.node.id === node.id
+  const recipe = rateAnalysisOverrideForNode(project, node)
+  const outputQuantity = recipe?.outputQuantity || 0
+
+  return scopedLeadRateAddition(
+    project.leadChart?.applications ?? [],
+    itemKey,
+    node.id,
+    isLegacyTarget,
+    outputQuantity,
+    recipe?.dataVariant?.addonId ?? node.dataVariant?.addonId
+  )
 }
 
 export interface ItemFinal {
@@ -79,11 +103,13 @@ export function getItemFinal(
   dataRate?: number | null
 ): ItemFinal {
   const qty = readFinalValueFromSnapshot(node)
-  // Priority: manual override on the node, then the data rate, then the
-  // rate-analysis recipe rate.
+  // Priority: manual Item rate, then the applicable shared/component DATA
+  // override, then the untouched Supabase rate.
   const manual =
     typeof node.rate === 'number' && Number.isFinite(node.rate) ? node.rate : null
-  const rate = manual ?? (typeof dataRate === 'number' ? dataRate : null) ?? getItemRate(project, node)
+  const projectDataRate = getItemRate(project, node)
+  const baseRate = manual ?? projectDataRate ?? (typeof dataRate === 'number' ? dataRate : null)
+  const rate = baseRate == null ? null : baseRate + getItemLeadRate(project, node)
   const amount = qty != null && rate != null ? qty * rate : null
   return { qty, rate, amount, unit: node.unit ?? null }
 }

@@ -17,7 +17,10 @@ export function createDraftProject(): EestimateProject {
     root: createNode('title', 'Title'),
     leadChart: { points: [], assignments: [], itemChoices: [], variants: [], applications: [] },
     rateAnalysisOverrides: {},
+    rateAnalysisScopedOverrides: {},
     leadDetailOverrides: {},
+    miscellaneousItems: [],
+    earthworkOverrides: {},
     createdAt: now,
     updatedAt: now
   }

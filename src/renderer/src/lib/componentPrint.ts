@@ -6,17 +6,17 @@ import { buildPrintHtml, type PdfOptions } from './printRender'
 import { resolveNodeSettings } from './nodeSettings'
 import { descriptionRunsForDisplay, plainTextRun } from './rateAnalysisVisibility'
 import { nodeDisplayName } from '../components/nodeVisual'
-import { getItemFinal } from './finalNumber'
+import { componentItemsTotal, getItemFinal } from './finalNumber'
 
 const DEFAULT_MARGINS: Margins = { top: 20, right: 15, bottom: 20, left: 25 }
 
 export interface CombinedPrintInput {
   project: EestimateProject
   section: ProjectNode
-  items: ProjectNode[]
   recipes: Record<string, RateAnalysisRecipe>
   rateOf: (node: ProjectNode) => number | undefined
   total: number
+  fontScale?: number
 }
 
 interface ItemRender {
@@ -33,6 +33,12 @@ function escapeHtml(value: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+function formatNumber(value: number | null, maximumFractionDigits = 2): string {
+  return value === null
+    ? ''
+    : value.toLocaleString('en-IN', { maximumFractionDigits })
 }
 
 function runHtml(run: RateAnalysisTextRun): string {
@@ -88,22 +94,36 @@ function basePdfOptions(pageSize: PaperSize, orientation: Orientation): PdfOptio
   }
 }
 
-function abstractHtml(input: CombinedPrintInput): string {
-  const rows = input.items.map((item, index) => {
+function abstractHtml(
+  input: CombinedPrintInput,
+  section: ProjectNode,
+  items: ProjectNode[],
+  total: number,
+  subcomponentSummaries: Array<{ section: ProjectNode; total: number }> = []
+): string {
+  const fontScale = input.fontScale ?? 1
+  const itemRows = items.map((item, index) => {
     const final = getItemFinal(input.project, item, input.rateOf(item))
-    return `<tr><td>${index + 1}</td><td><strong>${escapeHtml(nodeDisplayName(item))}</strong><br><span>${escapeHtml(item.itemDescription ?? '')}</span></td><td>${escapeHtml(item.unit ?? final.unit ?? '')}</td><td>${final.qty ?? ''}</td><td>${final.rate ?? ''}</td><td>${final.amount ?? ''}</td></tr>`
+    return `<tr><td class="abstract-sl">${index + 1}</td><td class="abstract-description"><strong>${escapeHtml(nodeDisplayName(item))}</strong><br><span>${escapeHtml(item.itemDescription ?? '')}</span></td><td class="abstract-unit">${escapeHtml(item.unit ?? final.unit ?? '')}</td><td class="abstract-number">${formatNumber(final.qty, 3)}</td><td class="abstract-number">${formatNumber(final.rate)}</td><td class="abstract-number abstract-amount">${formatNumber(final.amount)}</td></tr>`
   }).join('')
+  const summaryRows = subcomponentSummaries.map(({ section: subcomponent, total: subcomponentTotal }, index) =>
+    `<tr class="abstract-subcomponent"><td class="abstract-sl">S${index + 1}</td><td class="abstract-description"><strong>${escapeHtml(subcomponent.name)}</strong><br><span>Sub-component · separate General Abstract follows</span></td><td class="abstract-unit">LS</td><td class="abstract-number"></td><td class="abstract-number"></td><td class="abstract-number abstract-amount">${formatNumber(subcomponentTotal)}</td></tr>`
+  ).join('')
+  const abstractLabel = section.kind === 'subcomponent' ? 'Sub-component General Abstract' : 'Component Abstract'
+  const totalLabel = section.kind === 'subcomponent' ? 'Sub-component Total' : 'Component Total'
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    body{margin:0;padding:16mm 14mm;font:11px Arial;color:#111}
+    body{margin:0;padding:16mm 14mm;font:${11 * fontScale}px Arial;color:#111}
     header{display:flex;justify-content:space-between;gap:20px;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:12px}
-    h1{font-size:18px;margin:3px 0}.total{font-size:16px;font-weight:700}
-    table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #777;padding:5px;vertical-align:top}
-    th{background:#eee}td:nth-child(1){width:7%;text-align:center}td:nth-child(3){width:10%}td:nth-child(n+4){width:12%;text-align:right}
-    td span{font-size:9px;color:#444}footer{display:flex;justify-content:space-between;border-top:2px solid #111;margin-top:12px;padding-top:8px;font-size:14px}
-  </style></head><body><header><div><small>${escapeHtml(input.project.meta.name)}</small><h1>${escapeHtml(input.section.name)}</h1><b>Abstract</b></div><div class="total">Rs. ${input.total.toLocaleString('en-IN')}</div></header>
-  <table><thead><tr><th>Sl.</th><th>Description</th><th>Unit</th><th>Quantity</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
-  <footer><span>Section Total</span><strong>Rs. ${input.total.toLocaleString('en-IN')}</strong></footer></body></html>`
+    h1{font-size:${18 * fontScale}px;margin:3px 0}.total{font-size:${16 * fontScale}px;font-weight:700}
+    table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #777;padding:5px 6px;vertical-align:top;white-space:normal}
+    th{background:#eee;text-align:center;line-height:1.2;overflow-wrap:break-word}
+    .abstract-sl{text-align:center}.abstract-description{line-height:1.35;overflow-wrap:anywhere;word-break:normal}.abstract-description strong{display:inline-block;margin-bottom:2px}.abstract-unit{text-align:center;overflow-wrap:anywhere}.abstract-number{text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+    .abstract-subcomponent td{background:#edf5fa;border-top:2px solid #447a9c}.abstract-subcomponent .abstract-description strong{color:#174d6c}
+    td span{font-size:${9 * fontScale}px;color:#444}footer{display:flex;justify-content:space-between;border-top:2px solid #111;margin-top:12px;padding-top:8px;font-size:${14 * fontScale}px}
+  </style></head><body><header><div><small>${escapeHtml(input.project.meta.name)}</small><h1>${escapeHtml(section.name)}</h1><b>${abstractLabel}</b></div><div class="total">Rs. ${total.toLocaleString('en-IN')}</div></header>
+  <table><colgroup><col style="width:5%"><col style="width:54%"><col style="width:7%"><col style="width:10%"><col style="width:10%"><col style="width:14%"></colgroup><thead><tr><th>Sl.</th><th>Description</th><th>Unit</th><th>Quantity</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${itemRows}${summaryRows}</tbody></table>
+  <footer><span>${totalLabel}</span><strong>Rs. ${total.toLocaleString('en-IN')}</strong></footer></body></html>`
 }
 
 function splitSheetStart(body: string): { first: string; remaining: string } {
@@ -131,7 +151,12 @@ function splitSheetStart(body: string): { first: string; remaining: string } {
   return { first, remaining }
 }
 
-function groupHtml(group: ItemRender[], projectName: string): string {
+function groupHtml(
+  group: ItemRender[],
+  projectName: string,
+  fontScale: number,
+  section: ProjectNode
+): string {
   const sections = group.map(({ item, config, body, scale, description }) => {
     const margins = config.margins
     const header = `<div class="item-heading"><div><strong>${escapeHtml(nodeDisplayName(item))}</strong>${item.unit ? `<span>Unit: ${escapeHtml(item.unit)}</span>` : ''}</div><p>${description}</p></div>`
@@ -141,10 +166,10 @@ function groupHtml(group: ItemRender[], projectName: string): string {
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     html,body{margin:0;color:#111;background:#fff;font-family:"Times New Roman",serif}
-    body{padding:10mm 0}.item-flow{width:100%;break-inside:auto;margin:0 0 3mm}.item-start{break-inside:avoid;page-break-inside:avoid}.item-heading{border-top:1px solid #888;padding-top:5px;margin-bottom:8px;break-after:avoid;page-break-after:avoid}.item-heading>div{display:flex;justify-content:space-between;gap:12px}.item-heading strong{font-size:15px}.item-heading span{font:11px Arial}.item-heading p{font-size:12px;line-height:1.4;margin:5px 0 0}
+    body{padding:10mm 0}.section-banner{margin:0 15mm 7mm;padding:7px 9px;border-left:4px solid #447a9c;background:#edf5fa;font-family:Arial}.section-banner small{display:block;color:#4e6675;font-size:${9 * fontScale}px;text-transform:uppercase;letter-spacing:.6px}.section-banner strong{display:block;margin-top:2px;color:#163f57;font-size:${14 * fontScale}px}.item-flow{width:100%;break-inside:auto;margin:0 0 3mm}.item-start{break-inside:avoid;page-break-inside:avoid}.item-heading{border-top:1px solid #888;padding-top:5px;margin-bottom:8px;break-after:avoid;page-break-after:avoid}.item-heading>div{display:flex;justify-content:space-between;gap:12px}.item-heading strong{font-size:${15 * fontScale}px}.item-heading span{font:${11 * fontScale}px Arial}.item-heading p{font-size:${12 * fontScale}px;line-height:1.4;margin:5px 0 0}
     .sheet{transform-origin:top left}.sheet table{border-collapse:collapse;table-layout:fixed}.sheet td,.sheet th{word-break:break-word}
     @media print{.item-flow{break-inside:auto}.item-start{break-inside:avoid;page-break-inside:avoid}}
-  </style></head><body data-project="${escapeHtml(projectName)}">${sections}</body></html>`
+  </style></head><body data-project="${escapeHtml(projectName)}"><div class="section-banner"><small>${section.kind === 'subcomponent' ? 'Sub-component items' : 'Component items'}</small><strong>${escapeHtml(section.name)}</strong></div>${sections}</body></html>`
 }
 
 function decodeBase64(value: string): Uint8Array {
@@ -155,40 +180,79 @@ function decodeBase64(value: string): Uint8Array {
 }
 
 export async function buildCombinedComponentPdf(input: CombinedPrintInput): Promise<Uint8Array> {
-  const rendered: ItemRender[] = input.items.map((item) => {
-    const config = itemPrintConfig(input.project, item)
-    const built = buildPrintHtml(
-      createUniverWorkbookData(item) as never,
-      config,
-      { pageSize: config.pageSize, orientation: config.orientation, margins: config.margins },
-      { projectName: input.project.meta.name, title: nodeDisplayName(item) },
-      item.charts ?? []
-    )
-    return {
-      item,
-      config,
-      body: extractBody(built.html),
-      scale: built.pdfOptions.scale,
-      description: itemDescription(item, input.recipes[item.id])
-    }
-  })
+  const renderItems = (items: ProjectNode[]): ItemRender[] => items.map((item) => {
+      const config = itemPrintConfig(input.project, item)
+      if (item.itemEditorType === 'document') {
+        return {
+          item,
+          config,
+          body: `<div class="document-content" style="font-size:${12 * (input.fontScale ?? 1)}px">${escapeHtml(item.document?.trim() || 'No document content saved.').replace(/\n/g, '<br>')}</div>`,
+          scale: 1,
+          description: itemDescription(item, input.recipes[item.id])
+        }
+      }
+      const built = buildPrintHtml(
+        createUniverWorkbookData(item) as never,
+        config,
+        { pageSize: config.pageSize, orientation: config.orientation, margins: config.margins },
+        { projectName: input.project.meta.name, title: nodeDisplayName(item) },
+        item.charts ?? []
+      )
+      return {
+        item,
+        config,
+        // Spreadsheet cell formatting is deliberately preserved. The master
+        // report font controls descriptions/abstract/document text; users keep
+        // precise Excel fonts, row heights and column widths in the sheet editor.
+        body: extractBody(built.html),
+        scale: built.pdfOptions.scale,
+        description: itemDescription(item, input.recipes[item.id])
+      }
+    })
 
-  const groups = new Map<string, ItemRender[]>()
-  for (const entry of rendered) {
-    const key = `${entry.config.pageSize}:${entry.config.orientation}`
-    groups.set(key, [...(groups.get(key) ?? []), entry])
+  const itemPageRequests = (
+    section: ProjectNode,
+    items: ProjectNode[]
+  ): Array<{ html: string; options: PdfOptions }> => {
+    const groups = new Map<string, ItemRender[]>()
+    for (const entry of renderItems(items)) {
+      const key = `${entry.config.pageSize}:${entry.config.orientation}`
+      groups.set(key, [...(groups.get(key) ?? []), entry])
+    }
+    return Array.from(groups.values()).map((group) => {
+      const first = group[0]
+      return {
+        html: groupHtml(group, input.project.meta.name, input.fontScale ?? 1, section),
+        options: basePdfOptions(first.config.pageSize, first.config.orientation)
+      }
+    })
   }
 
+  const directItems = sectionOwnedItems(input.section)
+  const subcomponents = input.section.kind === 'component'
+    ? input.section.children.filter((child) => child.kind === 'subcomponent')
+    : []
+  const subcomponentSummaries = subcomponents.map((section) => ({
+    section,
+    total: componentItemsTotal(input.project, section, input.rateOf)
+  }))
   const requests: Array<{ html: string; options: PdfOptions }> = [{
-    html: abstractHtml(input),
+    html: abstractHtml(input, input.section, directItems, input.total, subcomponentSummaries),
     options: basePdfOptions('A4', 'portrait')
   }]
-  for (const group of groups.values()) {
-    const first = group[0]
+
+  // Main component item pages are printed first. Sub-component items never enter
+  // the main Component Abstract or its item-page group.
+  requests.push(...itemPageRequests(input.section, directItems))
+
+  // Every sub-component gets its own General Abstract and item pages at the end.
+  for (const summary of subcomponentSummaries) {
+    const subcomponentItems = sectionOwnedItems(summary.section)
     requests.push({
-      html: groupHtml(group, input.project.meta.name),
-      options: basePdfOptions(first.config.pageSize, first.config.orientation)
+      html: abstractHtml(input, summary.section, subcomponentItems, summary.total),
+      options: basePdfOptions('A4', 'portrait')
     })
+    requests.push(...itemPageRequests(summary.section, subcomponentItems))
   }
 
   const merged = await PDFDocument.create()
@@ -200,4 +264,16 @@ export async function buildCombinedComponentPdf(input: CombinedPrintInput): Prom
     pages.forEach((page) => merged.addPage(page))
   }
   return merged.save()
+}
+
+function sectionOwnedItems(section: ProjectNode): ProjectNode[] {
+  const items: ProjectNode[] = []
+  const visit = (node: ProjectNode): void => {
+    for (const child of node.children) {
+      if (child.kind === 'item') items.push(child)
+      else if (child.kind !== 'component' && child.kind !== 'subcomponent') visit(child)
+    }
+  }
+  visit(section)
+  return items
 }

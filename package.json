@@ -1,6 +1,6 @@
 {
   "name": "e-estimate",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "E-Estimate — construction cost estimation desktop app (Telangana SOR/SSR)",
   "main": "./out/main/index.js",
   "author": "E-Estimate",
@@ -12,8 +12,12 @@
     "package:win": "npm run build && electron-builder --win --x64 --dir",
     "dist:win": "npm run build && electron-builder --win nsis --x64",
     "publish:win": "npm run build && electron-builder --win nsis --x64 --publish always",
-    "test": "npm run test:lead",
+    "test": "npm run test:lead && npm run test:data-variants && npm run test:rate-analysis && npm run test:charts && npm run test:project-items",
     "test:lead": "node scripts/test-lead.cjs",
+    "test:data-variants": "node scripts/test-data-variants.cjs",
+    "test:rate-analysis": "node scripts/test-rate-analysis.cjs",
+    "test:charts": "node scripts/test-chart-data.cjs",
+    "test:project-items": "node scripts/test-project-items.cjs",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web"

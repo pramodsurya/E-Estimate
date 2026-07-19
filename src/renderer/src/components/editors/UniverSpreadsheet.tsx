@@ -19,7 +19,12 @@ import {
 } from '../../lib/univerSpreadsheet'
 import { useStore } from '../../store/useStore'
 import { findNode } from '../../lib/tree'
-import { buildChartConfig, type CellValue } from '../../lib/chartData'
+import {
+  buildChartConfig,
+  chartValuesContainData,
+  readChartValuesFromSnapshot,
+  type CellValue
+} from '../../lib/chartData'
 import { cellToA1, readFinalValueFromSnapshot } from '../../lib/finalNumber'
 import type { CellRange, ChartDef, ProjectNode } from '../../types/project'
 import { nodeDisplayName } from '../nodeVisual'
@@ -225,17 +230,28 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
   /* ---------------- Charts ---------------- */
 
   /** Read the chart's data range and push a fresh Chart.js config to its view. */
-  const publishChart = (def: ChartDef): void => {
+  const publishChart = (def: ChartDef): boolean => {
     const ws = apiRef.current?.getActiveWorkbook()?.getActiveSheet()
-    if (!ws) return
     let values: CellValue[][] = []
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      values = ((ws.getRange(rangeToA1(def.range)) as any)?.getValues() ?? []) as CellValue[][]
-    } catch {
-      values = []
+    if (ws) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        values = ((ws.getRange(rangeToA1(def.range)) as any)?.getValues() ?? []) as CellValue[][]
+      } catch {
+        values = []
+      }
     }
+
+    // During workbook restoration Univer can render the floating chart before
+    // its active-sheet facade is readable. The saved workbook already contains
+    // the same cells, so use it as a deterministic startup fallback.
+    if (!chartValuesContainData(values)) {
+      const snapshotValues = readChartValuesFromSnapshot(getSnapshot() ?? node.spreadsheet, def.range)
+      if (chartValuesContainData(snapshotValues)) values = snapshotValues
+    }
+
     publishConfig(def.id, buildChartConfig(values, def))
+    return chartValuesContainData(values)
   }
 
   /** Mount a chart's floating-DOM view over the sheet. */
@@ -370,6 +386,7 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
   useLayoutEffect(() => {
     const container = containerRef.current
     if (!container) return
+    let resizeFrame: number | null = null
 
     const updateHostReady = (): void => {
       const rect = container.getBoundingClientRect()
@@ -377,6 +394,10 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
       setHostReady((current) =>
         current.nodeId === next.nodeId && current.ready === next.ready ? current : next
       )
+      if (next.ready && apiRef.current) {
+        if (resizeFrame) window.cancelAnimationFrame(resizeFrame)
+        resizeFrame = window.requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
+      }
     }
 
     setError(null)
@@ -385,10 +406,12 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
       current.nodeId === node.id && !current.ready ? current : { nodeId: node.id, ready: false }
     )
     updateHostReady()
+    resizeFrame = window.requestAnimationFrame(updateHostReady)
     const observer = new ResizeObserver(updateHostReady)
     observer.observe(container)
 
     return () => {
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame)
       observer.disconnect()
     }
   }, [node.id])
@@ -413,6 +436,9 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
     let chartTimer: number | null = null
     let loadingTimer: number | null = null
     let resizeFrame: number | null = null
+    let initializeFrame: number | null = null
+    const chartRestoreTimers: number[] = []
+    let renderedRestoreScheduled = false
     let lastSerialized = ''
 
     const persist = (): void => {
@@ -457,6 +483,22 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
       })
     }
 
+    const restoreSavedCharts = (): void => {
+      if (disposed) return
+      const project = useStore.getState().project
+      if (!project) return
+      const fresh = findNode(project.root, node.id)
+      for (const def of fresh?.charts ?? []) {
+        addChartFloat(def)
+        publishChart(def)
+      }
+    }
+
+    const scheduleChartRestore = (delay: number): void => {
+      const timer = window.setTimeout(restoreSavedCharts, delay)
+      chartRestoreTimers.push(timer)
+    }
+
     schedulePersistRef.current = schedulePersist
     scheduleChartSyncRef.current = scheduleChartSync
 
@@ -479,7 +521,13 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
         registerSheetsPreset(univer, container)
 
         const univerAPI = FUniver.newAPI(univer) as UniverSheetsApi
-        renderedDisposable = univerAPI.getHooks().onRendered(markLoaded)
+        renderedDisposable = univerAPI.getHooks().onRendered(() => {
+          markLoaded()
+          if (renderedRestoreScheduled) return
+          renderedRestoreScheduled = true
+          scheduleChartRestore(0)
+          scheduleChartRestore(120)
+        })
         workbook = univerAPI.createWorkbook(workbookData)
         apiRef.current = univerAPI
         workbookRef.current = workbook
@@ -495,13 +543,10 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
         lastSerialized = serializeSnapshot(initialSnapshot)
         if (!alreadyUniver || removedStaleCharts > 0) setNodeSpreadsheet(node.id, initialSnapshot)
 
-        for (const def of node.charts ?? []) {
-          addChartFloat(def)
-          publishChart(def)
-        }
-
         // Chart views report their rendered PNG (for print), and request edit /
-        // delete; the ribbon command requests insert.
+        // delete; the ribbon command requests insert. Register these listeners
+        // before mounting restored floats so their first refresh request cannot
+        // be lost during startup.
         unsubPng = subscribePng((chartId, png) => updateNodeChart(node.id, chartId, { png }))
         unsubDelete = subscribeDelete((chartId) => {
           removeChartFloat(chartId)
@@ -526,6 +571,10 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
           publishChart(def)
         })
 
+        restoreSavedCharts()
+        scheduleChartRestore(100)
+        scheduleChartRestore(500)
+
         // Add the "Insert Chart" item to Univer's native Insert ribbon.
         ribbonDisposable = registerChartRibbonMenu(univerAPI)
 
@@ -541,7 +590,12 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
         setLoading(false)
       }
     }
-    initialize()
+    // Let Suspense, the work-area flex layout and React StrictMode finish their
+    // mount cycle before Univer measures its canvas. Initializing immediately
+    // can leave the first opened workbook with a zero-sized blank renderer.
+    initializeFrame = window.requestAnimationFrame(() => {
+      initializeFrame = window.requestAnimationFrame(initialize)
+    })
 
     return () => {
       disposed = true
@@ -551,6 +605,8 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
       if (chartTimer) window.clearTimeout(chartTimer)
       if (loadingTimer) window.clearTimeout(loadingTimer)
       if (resizeFrame) window.cancelAnimationFrame(resizeFrame)
+      if (initializeFrame) window.cancelAnimationFrame(initializeFrame)
+      chartRestoreTimers.forEach((timer) => window.clearTimeout(timer))
       commandDisposable?.dispose()
       renderedDisposable?.dispose()
       syncChartPositions()

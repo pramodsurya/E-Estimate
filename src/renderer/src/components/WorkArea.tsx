@@ -49,7 +49,7 @@ export default function WorkArea(): JSX.Element {
   } else if (selected.kind === 'page') {
     content = <PageEditor node={selected} />
   } else {
-    content = <ItemSpreadsheet node={selected} />
+    content = <ItemSpreadsheet key={selected.id} node={selected} />
   }
 
   return (

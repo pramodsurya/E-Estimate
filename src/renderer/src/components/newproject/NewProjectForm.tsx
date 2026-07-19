@@ -1,67 +1,89 @@
 import { useEffect, useState } from 'react'
-import { Check, MapPin, Search } from 'lucide-react'
+import { Check, LoaderCircle, MapPin, Search } from 'lucide-react'
 import { useStore } from '../../store/useStore'
-import { fetchFlags, fetchSorYears, type FlagDef } from '../../lib/masterData'
-import type { ProjectLocation } from '../../types/project'
+import { fetchSorYears, resolveAreaAllowance } from '../../lib/masterData'
+import type { ProjectAreaAllowance, ProjectLocation, ProjectMeta } from '../../types/project'
 import LocationMap from './LocationMap'
 
-const FALLBACK_YEARS = ['2025-26']
-const FALLBACK_FLAGS: FlagDef[] = [
-  { type: 'GHMC', label: 'GHMC', description: null },
-  { type: 'MUNICIPALITY', label: 'Municipality', description: null },
-  { type: 'CORPORATION', label: 'Corporation', description: null },
-  { type: 'AGENCY_TRIBAL', label: 'Agency Tribal', description: null },
-  { type: 'INDUSTRIAL', label: 'Industrial', description: null },
-  { type: 'GHAT_NORMAL', label: 'Ghat Normal', description: null },
-  { type: 'GHAT_EXCEPTIONAL', label: 'Ghat Exceptional', description: null },
-  { type: 'JAIL', label: 'Jail', description: null },
-  { type: 'NIGHT_WORK', label: 'Night Work', description: null }
-]
+const FALLBACK_YEARS = ['2026-27', '2025-26', '2024-25', '2023-24']
+const ALLOWANCE_TYPES = [
+  { value: 'GHMC', label: 'GHMC' },
+  { value: 'CORPORATION', label: 'Corporation' },
+  { value: 'MUNICIPALITY', label: 'Municipality' },
+  { value: 'INDUSTRIAL', label: 'Industrial area' },
+  { value: 'AGENCY_TRIBAL', label: 'Agency / Tribal' },
+  { value: '', label: 'None' }
+] as const
 
-const AREA_ALLOWANCES = [
-  { label: 'None', percent: 0 },
-  { label: 'Municipal Corporations except Greater Hyderabad', percent: 25 },
-  { label: 'Greater Hyderabad and prescribed 12 km belt', percent: 40 },
-  { label: 'District Headquarters and remaining Municipal limits', percent: 20 },
-  { label: 'Jail compounds', percent: 20 },
-  { label: 'Listed Industrial Areas', percent: 20 },
-  { label: 'Agency/Tribal up to 16 km from all-weather route', percent: 25 },
-  { label: 'Agency/Tribal beyond 16 km', percent: 40 }
-]
+interface ProjectDetailsFormProps {
+  mode?: 'create' | 'edit'
+  initialMeta?: ProjectMeta
+  onSaved?: () => void
+}
 
-export default function NewProjectForm(): JSX.Element {
+export function ProjectDetailsForm({
+  mode = 'create',
+  initialMeta,
+  onSaved
+}: ProjectDetailsFormProps): JSX.Element {
   const createProject = useStore((s) => s.createProject)
+  const updateMeta = useStore((s) => s.updateMeta)
 
-  const [name, setName] = useState('')
+  const [name, setName] = useState(initialMeta?.name ?? '')
   const [years, setYears] = useState<string[]>([])
-  const [sorYear, setSorYear] = useState('')
-  const [sorZone, setSorZone] = useState<'zone_1' | 'zone_2' | 'zone_3'>('zone_3')
-  const [areaAllowanceIndex, setAreaAllowanceIndex] = useState(0)
-  const [flagDefs, setFlagDefs] = useState<FlagDef[]>([])
-  const [flags, setFlags] = useState<Set<string>>(new Set())
-  const [location, setLocation] = useState<ProjectLocation | null>(null)
+  const [sorYear, setSorYear] = useState(initialMeta?.sorYear ?? '')
+  const [sorZone, setSorZone] = useState<'zone_1' | 'zone_2' | 'zone_3'>(
+    initialMeta?.sorZone ?? 'zone_3'
+  )
+  const [location, setLocation] = useState<ProjectLocation | null>(initialMeta?.location ?? null)
+  const [areaAllowance, setAreaAllowance] = useState<ProjectAreaAllowance | null>(
+    initialMeta?.areaAllowance ??
+      (initialMeta
+        ? {
+            type: null,
+            label: initialMeta.areaAllowanceLabel ?? 'No location-based area allowance',
+            percent: initialMeta.areaAllowancePercent ?? 0
+          }
+        : null)
+  )
+  const [resolvingAllowance, setResolvingAllowance] = useState(false)
+  const [allowanceError, setAllowanceError] = useState<string | null>(null)
+  const [allowanceMode, setAllowanceMode] = useState<'automatic' | 'manual'>(
+    initialMeta?.areaAllowance?.source === 'manual' ? 'manual' : 'automatic'
+  )
+  const [manualAllowanceType, setManualAllowanceType] = useState(
+    initialMeta?.areaAllowance?.source === 'manual' ? initialMeta.areaAllowance.type ?? '' : ''
+  )
 
-  const [searchText, setSearchText] = useState('')
+  const [searchText, setSearchText] = useState(initialMeta?.location?.label ?? '')
   const [searching, setSearching] = useState(false)
   const [recenterToken, setRecenterToken] = useState(0)
-  const [latInput, setLatInput] = useState('')
-  const [lngInput, setLngInput] = useState('')
+  const [latInput, setLatInput] = useState(
+    initialMeta?.location ? initialMeta.location.lat.toFixed(6) : ''
+  )
+  const [lngInput, setLngInput] = useState(
+    initialMeta?.location ? initialMeta.location.lng.toFixed(6) : ''
+  )
   const [loadError, setLoadError] = useState<string | null>(null)
+  const hasSorZones = sorYear === '2026-27'
 
   useEffect(() => {
     let alive = true
     void (async () => {
       try {
-        const y = await fetchSorYears()
+        const loaded = await fetchSorYears()
         if (!alive) return
-        const list = y.length ? y : FALLBACK_YEARS
+        const base = loaded.length ? loaded : FALLBACK_YEARS
+        const list = initialMeta?.sorYear && !base.includes(initialMeta.sorYear)
+          ? [initialMeta.sorYear, ...base]
+          : base
         setYears(list)
-        setSorYear((cur) => cur || list[0] || '')
+        setSorYear((current) => current || list[0] || '')
       } catch {
         if (!alive) return
         setYears(FALLBACK_YEARS)
-        setSorYear((cur) => cur || FALLBACK_YEARS[0])
-        setLoadError('Could not reach Supabase — using offline defaults.')
+        setSorYear((current) => current || FALLBACK_YEARS[0])
+        setLoadError('Could not reach Supabase — using offline year defaults.')
       }
     })()
     return () => {
@@ -70,20 +92,40 @@ export default function NewProjectForm(): JSX.Element {
   }, [])
 
   useEffect(() => {
-    if (!sorYear) return
+    if (!hasSorZones) setSorZone('zone_3')
+  }, [hasSorZones])
+
+  useEffect(() => {
+    if (!location || !sorYear) {
+      setAreaAllowance(null)
+      setAllowanceError(null)
+      return
+    }
     let alive = true
-    void (async () => {
-      try {
-        const f = await fetchFlags(sorYear)
-        if (alive) setFlagDefs(f.length ? f : FALLBACK_FLAGS)
-      } catch {
-        if (alive) setFlagDefs(FALLBACK_FLAGS)
-      }
-    })()
+    setResolvingAllowance(true)
+    setAllowanceError(null)
+    void resolveAreaAllowance(
+      location,
+      sorYear,
+      allowanceMode === 'manual' ? manualAllowanceType || null : undefined
+    )
+      .then((resolved) => {
+        if (alive) setAreaAllowance(resolved)
+      })
+      .catch((reason: unknown) => {
+        if (!alive) return
+        setAreaAllowance(null)
+        setAllowanceError(
+          reason instanceof Error ? reason.message : 'Could not determine area allowance.'
+        )
+      })
+      .finally(() => {
+        if (alive) setResolvingAllowance(false)
+      })
     return () => {
       alive = false
     }
-  }, [sorYear])
+  }, [location?.lat, location?.lng, sorYear, allowanceMode, manualAllowanceType])
 
   const pick = (lat: number, lng: number, label?: string): void => {
     setLocation({ lat, lng, label })
@@ -92,20 +134,20 @@ export default function NewProjectForm(): JSX.Element {
   }
 
   const searchLocation = async (): Promise<void> => {
-    const q = searchText.trim()
-    if (!q) return
+    const query = searchText.trim()
+    if (!query) return
     setSearching(true)
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`
       )
-      const data = (await res.json()) as { lat: string; lon: string; display_name: string }[]
+      const data = (await response.json()) as { lat: string; lon: string; display_name: string }[]
       if (data[0]) {
         pick(parseFloat(data[0].lat), parseFloat(data[0].lon), data[0].display_name)
-        setRecenterToken((t) => t + 1)
+        setRecenterToken((token) => token + 1)
       }
     } catch {
-      /* ignore search failures */
+      setLoadError('Location search failed. You can still click the map or enter coordinates.')
     } finally {
       setSearching(false)
     }
@@ -116,47 +158,56 @@ export default function NewProjectForm(): JSX.Element {
     const lng = parseFloat(lngInput)
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
       pick(lat, lng)
-      setRecenterToken((t) => t + 1)
+      setRecenterToken((token) => token + 1)
     }
   }
 
-  const toggleFlag = (type: string): void => {
-    setFlags((prev) => {
-      const next = new Set(prev)
-      if (next.has(type)) next.delete(type)
-      else next.add(type)
-      return next
-    })
-  }
-
-  const valid = name.trim().length > 0 && !!sorYear && !!location
+  const valid =
+    name.trim().length > 0 &&
+    Boolean(sorYear) &&
+    Boolean(location) &&
+    Boolean(areaAllowance) &&
+    !resolvingAllowance &&
+    !allowanceError
 
   const submit = (): void => {
-    if (!valid || !location) return
-    const areaAllowance = AREA_ALLOWANCES[areaAllowanceIndex] ?? AREA_ALLOWANCES[0]
-    createProject({
+    if (!valid || !location || !areaAllowance) return
+    const meta: ProjectMeta = {
       name: name.trim(),
       sorYear,
       sorZone,
       areaAllowancePercent: areaAllowance.percent,
-      areaAllowanceLabel: areaAllowance.percent ? areaAllowance.label : undefined,
+      areaAllowanceLabel: areaAllowance.label,
+      areaAllowance,
       location,
-      flags: Array.from(flags)
-    })
+      flags: areaAllowance.type ? [areaAllowance.type] : [],
+      taxSettings: initialMeta?.taxSettings ?? {
+        mode: 'automatic',
+        recipientType: 'CENTRAL_STATE_UT_LOCAL'
+      }
+    }
+    if (mode === 'edit') updateMeta(meta)
+    else createProject(meta)
+    onSaved?.()
   }
 
   return (
-    <div className="form-page">
-      <h1>New Project</h1>
-      <p className="form-lead">
-        Set up the project details. Required fields are marked
-        <span className="required-mark">*</span>.
-      </p>
-      {loadError && (
-        <div className="settings-note" style={{ borderColor: 'rgba(244,135,113,.4)' }}>
-          {loadError}
-        </div>
+    <div className={`form-page project-details-form ${mode === 'edit' ? 'is-editing' : ''}`}>
+      {mode === 'create' ? (
+        <>
+          <h1>New Project</h1>
+          <p className="form-lead">
+            Set up the project details. Area allowance is identified from the selected location.
+          </p>
+        </>
+      ) : (
+        <p className="form-lead project-edit-lead">
+          Edit the same project details used during creation. Changing the location or year refreshes
+          the area allowance automatically.
+        </p>
       )}
+
+      {loadError && <div className="settings-note project-form-warning">{loadError}</div>}
 
       <div className="form-section">
         <h2>Project</h2>
@@ -169,69 +220,58 @@ export default function NewProjectForm(): JSX.Element {
               className="text-input"
               placeholder="e.g. Repairs to Sluice at Kakarvani Tank"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
+              onChange={(event) => setName(event.target.value)}
+              autoFocus={mode === 'create'}
             />
           </div>
-          <div className="field" style={{ maxWidth: 220 }}>
+          <div className="field project-year-field">
             <label className="field-label">
               SOR / SSR Year<span className="required-mark">*</span>
             </label>
             <select
               className="select-input"
               value={sorYear}
-              onChange={(e) => setSorYear(e.target.value)}
+              onChange={(event) => setSorYear(event.target.value)}
             >
               <option value="" disabled>
                 Select year…
               </option>
-              {years.map((y) => (
-                <option key={y} value={y}>
-                  {y}
+              {years.map((year) => (
+                <option key={year} value={year}>
+                  {year}
                 </option>
               ))}
             </select>
           </div>
-          <div className="field" style={{ maxWidth: 180 }}>
-            <label className="field-label">Zone</label>
-            <select
-              className="select-input"
-              value={sorZone}
-              onChange={(e) => setSorZone(e.target.value as typeof sorZone)}
-            >
-              <option value="zone_1">Zone I</option>
-              <option value="zone_2">Zone II</option>
-              <option value="zone_3">Zone III</option>
-            </select>
-          </div>
-          <div className="field" style={{ minWidth: 280 }}>
-            <label className="field-label">Area allowance</label>
-            <select
-              className="select-input"
-              value={areaAllowanceIndex}
-              onChange={(e) => setAreaAllowanceIndex(Number(e.target.value))}
-            >
-              {AREA_ALLOWANCES.map((allowance, index) => (
-                <option key={allowance.label} value={index}>
-                  {allowance.label}
-                  {allowance.percent ? ` (${allowance.percent}%)` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+          {hasSorZones && (
+            <div className="field project-zone-field">
+              <label className="field-label">Zone</label>
+              <select
+                className="select-input"
+                value={sorZone}
+                onChange={(event) => setSorZone(event.target.value as typeof sorZone)}
+              >
+                <option value="zone_1">Zone I</option>
+                <option value="zone_2">Zone II</option>
+                <option value="zone_3">Zone III</option>
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="form-section">
-        <h2>Location<span className="required-mark">*</span></h2>
+        <h2>
+          Location<span className="required-mark">*</span>
+        </h2>
         <div className="map-tools">
           <input
             className="text-input"
             placeholder="Search a place (OpenStreetMap)…"
             value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void searchLocation()
+            onChange={(event) => setSearchText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') void searchLocation()
             }}
           />
           <button className="btn ghost" onClick={() => void searchLocation()} disabled={searching}>
@@ -243,13 +283,13 @@ export default function NewProjectForm(): JSX.Element {
             className="text-input"
             placeholder="Latitude"
             value={latInput}
-            onChange={(e) => setLatInput(e.target.value)}
+            onChange={(event) => setLatInput(event.target.value)}
           />
           <input
             className="text-input"
             placeholder="Longitude"
             value={lngInput}
-            onChange={(e) => setLngInput(e.target.value)}
+            onChange={(event) => setLngInput(event.target.value)}
           />
           <button className="btn ghost" onClick={applyLatLng}>
             <MapPin size={14} /> Go
@@ -259,41 +299,93 @@ export default function NewProjectForm(): JSX.Element {
         <div className="latlng-display">
           {location
             ? `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}${
-                location.label ? `  ·  ${location.label}` : ''
+                location.label ? ` · ${location.label}` : ''
               }`
             : 'Click the map, search, or enter coordinates to set the project location.'}
         </div>
       </div>
 
-      <div className="form-section">
-        <h2>Flags</h2>
-        <p className="form-lead" style={{ marginTop: -6 }}>
-          Master flags from Supabase. Location-based auto-selection arrives in a later part — set
-          them manually for now.
-        </p>
-        <div className="flags-grid">
-          {flagDefs.map((f) => {
-            const on = flags.has(f.type)
-            return (
-              <button
-                key={f.type}
-                className={`flag-chip ${on ? 'selected' : ''}`}
-                title={f.description ?? f.label}
-                onClick={() => toggleFlag(f.type)}
-              >
-                <span className="flag-check">{on && <Check size={11} />}</span>
-                {f.label}
-              </button>
-            )
-          })}
+      <div className="form-section area-allowance-section">
+        <h2>Area Allowance</h2>
+        <div className="allowance-mode-control" role="group" aria-label="Area allowance classification mode">
+          <button
+            type="button"
+            className={allowanceMode === 'automatic' ? 'active' : ''}
+            onClick={() => setAllowanceMode('automatic')}
+          >
+            Automatic from map
+          </button>
+          <button
+            type="button"
+            className={allowanceMode === 'manual' ? 'active' : ''}
+            onClick={() => setAllowanceMode('manual')}
+          >
+            Manual override
+          </button>
         </div>
+        {allowanceMode === 'manual' && (
+          <div className="allowance-flags" aria-label="Manual area classification">
+            {ALLOWANCE_TYPES.map((option) => (
+              <button
+                type="button"
+                key={option.value || 'none'}
+                className={manualAllowanceType === option.value ? 'selected' : ''}
+                onClick={() => setManualAllowanceType(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {resolvingAllowance ? (
+          <div className="allowance-status is-loading">
+            <LoaderCircle size={18} className="spin" /> Checking the selected location…
+          </div>
+        ) : allowanceError ? (
+          <div className="allowance-status is-error">{allowanceError}</div>
+        ) : areaAllowance ? (
+          <div className="allowance-result">
+            <div>
+              <span>Allowance</span>
+              <strong>{areaAllowance.label}</strong>
+            </div>
+            <div>
+              <span>Labour percentage</span>
+              <strong>{areaAllowance.percent.toFixed(2)}%</strong>
+            </div>
+            <div>
+              <span>Mapped location</span>
+              <strong>
+                {[areaAllowance.village, areaAllowance.mandal, areaAllowance.district]
+                  .filter(Boolean)
+                  .join(', ') || 'Outside a mapped allowance area'}
+              </strong>
+            </div>
+            <div>
+              <span>Rule source</span>
+              <strong>
+                {areaAllowance.ruleYear || sorYear}
+                {areaAllowance.goReference ? ` · ${areaAllowance.goReference}` : ''}
+              </strong>
+            </div>
+          </div>
+        ) : (
+          <div className="allowance-status">Select the project location to determine allowance.</div>
+        )}
+        {areaAllowance?.description && (
+          <p className="allowance-description">{areaAllowance.description}</p>
+        )}
       </div>
 
       <div className="form-create-bar">
         <button className="btn lg" disabled={!valid} onClick={submit}>
-          <Check size={16} /> Create Project
+          <Check size={16} /> {mode === 'edit' ? 'Save Project Changes' : 'Create Project'}
         </button>
       </div>
     </div>
   )
+}
+
+export default function NewProjectForm(): JSX.Element {
+  return <ProjectDetailsForm />
 }

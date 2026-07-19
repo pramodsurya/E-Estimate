@@ -11,7 +11,7 @@ interface RenderedPage {
   displayWidth: number
 }
 
-export default function PdfPageStack({ src }: { src: string }): JSX.Element {
+export default function PdfPageStack({ src, zoom = 100 }: { src: string; zoom?: number }): JSX.Element {
   const [pages, setPages] = useState<RenderedPage[]>([])
   const [error, setError] = useState<string | null>(null)
 
@@ -83,8 +83,7 @@ export default function PdfPageStack({ src }: { src: string }): JSX.Element {
           className="component-print-html-page"
           style={{
             aspectRatio: `${page.width} / ${page.height}`,
-            width: page.displayWidth,
-            maxWidth: '94%'
+            width: page.displayWidth * (zoom / 100)
           }}
         >
           <img src={page.url} alt={`Print page ${index + 1}`} />

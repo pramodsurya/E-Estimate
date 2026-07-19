@@ -101,8 +101,10 @@ export default function DataPanel(): JSX.Element | null {
                           key={branch.id}
                           branch={branch}
                           depth={0}
-                          selectedNodeId={selection?.recipeOnly ? selection.nodeId : null}
-                          onOpen={(nodeId) => openRateAnalysis(group.key, nodeId, true)}
+                          selectedScopeNodeId={selection?.scopeNodeId ?? null}
+                          onOpen={(nodeId, scopeNodeId) =>
+                            openRateAnalysis(group.key, nodeId, true, scopeNodeId)
+                          }
                         />
                       ))}
                     </div>
@@ -120,22 +122,22 @@ export default function DataPanel(): JSX.Element | null {
 function BranchRow({
   branch,
   depth,
-  selectedNodeId,
+  selectedScopeNodeId,
   onOpen
 }: {
   branch: ItemUsageBranch
   depth: number
-  selectedNodeId: string | null
-  onOpen: (nodeId: string) => void
+  selectedScopeNodeId: string | null
+  onOpen: (nodeId: string, scopeNodeId: string) => void
 }): JSX.Element {
   const nodeId = branch.itemNodeIds[0]
   return (
     <>
       <button
-        className={`data-branch-row ${selectedNodeId === nodeId ? 'selected' : ''}`}
+        className={`data-branch-row ${selectedScopeNodeId === branch.id ? 'selected' : ''}`}
         style={{ paddingLeft: 27 + depth * 14 }}
-        onClick={() => onOpen(nodeId)}
-        title={`Show the recipe used in ${branch.name}`}
+        onClick={() => onOpen(nodeId, branch.id)}
+        title={`Edit this DATA only inside ${branch.name}`}
       >
         <span className="data-branch-line">|-</span>
         <span>{branch.name}</span>
@@ -145,7 +147,7 @@ function BranchRow({
           key={child.id}
           branch={child}
           depth={depth + 1}
-          selectedNodeId={selectedNodeId}
+          selectedScopeNodeId={selectedScopeNodeId}
           onOpen={onOpen}
         />
       ))}

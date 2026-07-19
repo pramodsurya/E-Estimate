@@ -1,9 +1,23 @@
 // Convert a 2D block of cell values + a ChartDef into a Chart.js config.
 // Pure (no Chart.js import) so it can be unit-tested and reused for print.
 
-import type { ChartDef, ChartType } from '../types/project'
+import type { CellRange, ChartDef, ChartType } from '../types/project'
 
 export type CellValue = string | number | boolean | null | undefined
+
+type SnapshotCell = {
+  v?: unknown
+  p?: { body?: { dataStream?: unknown } } | null
+}
+
+type SnapshotSheet = {
+  cellData?: Record<number, Record<number, SnapshotCell>>
+}
+
+type WorkbookSnapshot = {
+  sheetOrder?: string[]
+  sheets?: Record<string, SnapshotSheet>
+}
 
 /** Minimal Chart.js config shape (avoids importing chart.js types here). */
 export interface ChartJsConfig {
@@ -35,6 +49,76 @@ const PALETTE = [
   '#9c755f',
   '#bab0ac'
 ]
+
+function validRange(range: CellRange | null | undefined): range is CellRange {
+  if (!range) return false
+  return (
+    Number.isInteger(range.startRow) &&
+    Number.isInteger(range.startColumn) &&
+    Number.isInteger(range.endRow) &&
+    Number.isInteger(range.endColumn) &&
+    range.startRow >= 0 &&
+    range.startColumn >= 0 &&
+    range.endRow >= range.startRow &&
+    range.endColumn >= range.startColumn &&
+    (range.endRow - range.startRow + 1) * (range.endColumn - range.startColumn + 1) <= 100_000
+  )
+}
+
+function firstSnapshotSheet(snapshot: WorkbookSnapshot): SnapshotSheet | null {
+  const firstId = snapshot.sheetOrder?.[0]
+  if (firstId && snapshot.sheets?.[firstId]) return snapshot.sheets[firstId]
+  const fallbackId = Object.keys(snapshot.sheets ?? {})[0]
+  return fallbackId ? snapshot.sheets?.[fallbackId] ?? null : null
+}
+
+function snapshotCellValue(cell: SnapshotCell | undefined): CellValue {
+  const value = cell?.v
+  if (
+    value === null ||
+    value === undefined ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    if (value !== null && value !== undefined) return value
+  }
+  const stream = cell?.p?.body?.dataStream
+  if (typeof stream === 'string') {
+    return stream.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, '').replace(/\n+$/g, '')
+  }
+  return null
+}
+
+/**
+ * Read a chart range directly from a saved Univer workbook snapshot. This is a
+ * restore-time fallback for the brief period before the live sheet facade is ready.
+ */
+export function readChartValuesFromSnapshot(
+  snapshot: unknown,
+  range: CellRange | null | undefined
+): CellValue[][] {
+  if (!snapshot || typeof snapshot !== 'object' || !validRange(range)) return []
+  const sheet = firstSnapshotSheet(snapshot as WorkbookSnapshot)
+  if (!sheet) return []
+
+  const values: CellValue[][] = []
+  for (let row = range.startRow; row <= range.endRow; row += 1) {
+    const current: CellValue[] = []
+    for (let column = range.startColumn; column <= range.endColumn; column += 1) {
+      current.push(snapshotCellValue(sheet.cellData?.[row]?.[column]))
+    }
+    values.push(current)
+  }
+  return values
+}
+
+/** True when at least one cell can contribute a label or numeric chart value. */
+export function chartValuesContainData(values: CellValue[][]): boolean {
+  return values.some((row) =>
+    row.some((value) => value !== null && value !== undefined && String(value).trim() !== '')
+  )
+}
 
 function toNumber(v: CellValue): number {
   if (typeof v === 'number') return v

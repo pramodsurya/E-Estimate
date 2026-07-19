@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { MapPinned, Plus, Printer, Settings, X } from 'lucide-react'
 import L from 'leaflet'
-import { MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, Marker, Polyline, Popup, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
+import MapLayers from '../map/MapLayers'
 import { conveyanceClassLabel, fetchLeadRates, type LeadRateRow } from '../../lib/lead'
 import { newId } from '../../lib/tree'
 import type {
@@ -52,6 +53,9 @@ interface RouteLine {
   color: string
   geometry?: [number, number][]
   variantId?: string
+  dashed?: boolean
+  suppressEndpoints?: boolean
+  suppressLabel?: boolean
 }
 
 interface Props {
@@ -1013,10 +1017,7 @@ function LeadPrintRouteMap({
           attributionControl={false}
         >
           {showBaseMap && (
-            <TileLayer
-              attribution="&copy; OpenStreetMap contributors"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+            <MapLayers printQuality />
           )}
           {editing && <EditableMapClick onPick={onMapClick} />}
           <FitBoundsOnce bounds={bounds} />
@@ -1030,14 +1031,14 @@ function LeadPrintRouteMap({
                 color={route.color}
                 weight={route.id === 'draft-direction' ? 5 : 4}
                 opacity={0.85}
-                dashArray={route.id === 'draft-direction' ? '6 7' : undefined}
+                dashArray={route.id === 'draft-direction' || route.dashed ? '6 7' : undefined}
               >
-                {showLabels && <Popup>{route.label}</Popup>}
+                {showLabels && !route.suppressLabel && <Popup>{route.label}</Popup>}
               </Polyline>
             )
           })}
           {showRouteArrows &&
-            visibleRoutes.map((route) => {
+            visibleRoutes.filter((route) => !route.suppressEndpoints).map((route) => {
               const end = osmRoutes[route.id]?.at(-1)
               if (!end) return null
               return (
@@ -1203,12 +1204,18 @@ function buildRouteLines(
   )
   const colors = ['#0e639c', '#4ec9b0', '#ce9178', '#c586c0', '#dcdcaa', '#569cd6']
   const appliedVariantIds = new Set(applied.map((row) => row.variant.id))
+  const routedVariantIds = new Set(
+    applied
+      .filter((row) => (row.variant.routeGeometry?.length ?? 0) >= 2)
+      .map((row) => row.variant.id)
+  )
   const routes: RouteLine[] = mapDirections
     .filter(
       (direction) =>
         direction.active !== false &&
         direction.points.length >= 2 &&
-        (!direction.variantId || appliedVariantIds.has(direction.variantId))
+        (!direction.variantId ||
+          (appliedVariantIds.has(direction.variantId) && !routedVariantIds.has(direction.variantId)))
     )
     .map((direction) => {
       const from = routePointFromCoordinate(
@@ -1249,8 +1256,57 @@ function buildRouteLines(
       to,
       label: `${row.variant.materialName} ${km.format(row.variant.leadKm)} km`,
       color: colors[index % colors.length],
+      geometry: row.variant.routeGeometry?.map(
+        (point) => [point.lat, point.lon] as [number, number]
+      ),
       variantId: row.variant.id
     })
+    if ((row.variant.firstMileGeometry?.length ?? 0) >= 2) {
+      const firstGeometry = row.variant.firstMileGeometry!
+      routes.push({
+        id: `${row.application.id}:${row.variant.id}:first-mile`,
+        from: routePointFromCoordinate(
+          `${row.variant.id}:first-mile:from`,
+          'First mile start',
+          firstGeometry[0]
+        ),
+        to: routePointFromCoordinate(
+          `${row.variant.id}:first-mile:to`,
+          'First routed road position',
+          firstGeometry.at(-1)!
+        ),
+        label: `First mile ${km.format(row.variant.firstMileKm ?? 0)} km`,
+        color: colors[index % colors.length],
+        geometry: firstGeometry.map((point) => [point.lat, point.lon] as [number, number]),
+        variantId: row.variant.id,
+        dashed: true,
+        suppressEndpoints: true,
+        suppressLabel: true
+      })
+    }
+    if ((row.variant.lastMileGeometry?.length ?? 0) >= 2) {
+      const lastGeometry = row.variant.lastMileGeometry!
+      routes.push({
+        id: `${row.application.id}:${row.variant.id}:last-mile`,
+        from: routePointFromCoordinate(
+          `${row.variant.id}:last-mile:from`,
+          'Last routed road position',
+          lastGeometry[0]
+        ),
+        to: routePointFromCoordinate(
+          `${row.variant.id}:last-mile:to`,
+          'Last mile end',
+          lastGeometry.at(-1)!
+        ),
+        label: `Last mile ${km.format(row.variant.lastMileKm ?? 0)} km`,
+        color: colors[index % colors.length],
+        geometry: lastGeometry.map((point) => [point.lat, point.lon] as [number, number]),
+        variantId: row.variant.id,
+        dashed: true,
+        suppressEndpoints: true,
+        suppressLabel: true
+      })
+    }
   }
   return routes
 }
@@ -1268,7 +1324,11 @@ function routeLabelForVariant(
     site
   )[0]
   if (!route) return variant.variantName || 'Manual lead without mapped route'
-  return `${route.from.code} -> ${route.to.code}`
+  const pointsById = new Map(points.map((point) => [point.id, point]))
+  const viaLabels = (variant.viaPointIds ?? []).map(
+    (pointId) => pointsById.get(pointId)?.code ?? 'Work Location'
+  )
+  return [route.from.code, ...viaLabels, route.to.code].join(' -> ')
 }
 
 function pointFromLeadPoint(point: LeadSelectablePoint | null | undefined): RoutePoint | null {
@@ -1296,6 +1356,7 @@ function pointRouteLine(point: LeadSelectablePoint): RouteLine {
 function uniqueRoutePoints(routes: RouteLine[]): RoutePoint[] {
   const map = new Map<string, RoutePoint>()
   for (const route of routes) {
+    if (route.suppressEndpoints) continue
     map.set(route.from.id, route.from)
     map.set(route.to.id, route.to)
   }

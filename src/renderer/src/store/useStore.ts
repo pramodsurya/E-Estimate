@@ -14,6 +14,7 @@ import type {
   LeadPrintSettings,
   LeadVariant,
   ProjectLocation,
+  ProjectMiscellaneousItem,
   NodeSettings,
   PrintConfig,
   ProjectMeta,
@@ -22,8 +23,16 @@ import type {
   SpreadsheetDocument
 } from '../types/project'
 import type { MasterItem } from '../lib/masterData'
-import { projectItemKey } from '../lib/projectItems'
+import {
+  collectProjectItemGroups,
+  projectItemKey,
+  rateAnalysisOverrideForNode
+} from '../lib/projectItems'
 import { canonicalLeadConveyanceClass } from '../lib/leadApplicability'
+import {
+  normalizeLeadApplications,
+  upsertUniqueLeadApplication
+} from '../lib/leadApplications'
 import type { RateAnalysisRecipe } from '../types/rateAnalysis'
 import type { RecentEntry } from '../../../preload/index.d'
 import {
@@ -58,7 +67,8 @@ function normalizeNode(node: ProjectNode): ProjectNode {
     name: isSplit ? node.name : itemCode || node.name,
     itemDescription: masterDescription,
     itemEditorType: node.itemEditorType ?? 'spreadsheet',
-    categoryKey: node.itemSource === 'SSR' ? SSR_ITEM_TABLE : node.categoryKey
+    categoryKey: node.itemSource === 'SSR' ? SSR_ITEM_TABLE : node.categoryKey,
+    createdDataId: isSplit ? node.createdDataId ?? node.id : node.createdDataId
   }
 }
 
@@ -68,11 +78,13 @@ function normalizeRateAnalysisOverrides(
   const normalized: Record<string, RateAnalysisRecipe> = {}
   for (const recipe of Object.values(overrides ?? {})) {
     const next =
-      recipe.itemSource === 'SSR'
+      recipe.itemSource === 'SSR' && !recipe.itemKey.startsWith('SPLIT:')
         ? {
             ...recipe,
             categoryKey: SSR_ITEM_TABLE,
-            itemKey: `SSR:${SSR_ITEM_TABLE}:${recipe.itemCode}`
+            itemKey: recipe.dataVariant
+              ? `SSR:${SSR_ITEM_TABLE}:${recipe.itemCode}:${recipe.dataVariant.kind}:${recipe.dataVariant.key}`
+              : `SSR:${SSR_ITEM_TABLE}:${recipe.itemCode}`
           }
         : recipe
     normalized[next.itemKey] = next
@@ -80,17 +92,59 @@ function normalizeRateAnalysisOverrides(
   return normalized
 }
 
+function normalizeScopedRateAnalysisOverrides(
+  overrides: Record<string, Record<string, RateAnalysisRecipe>> | undefined
+): Record<string, Record<string, RateAnalysisRecipe>> {
+  return Object.fromEntries(
+    Object.entries(overrides ?? {}).map(([scopeNodeId, recipes]) => [
+      scopeNodeId,
+      normalizeRateAnalysisOverrides(recipes)
+    ])
+  )
+}
+
+function createdDataName(source: ProjectNode, requestedName: string): string {
+  const name = requestedName.trim()
+  const code = source.itemCode?.trim() || source.name.trim()
+  const match = code.match(/^([^-]+-[^-]+)/)
+  const prefix = match?.[1] ?? code
+  if (name.toLocaleUpperCase().startsWith(`${prefix}_`.toLocaleUpperCase())) return name
+  return `${prefix}_${name}`
+}
+
+function collectSubtreeState(node: ProjectNode): { nodeIds: Set<string>; itemKeys: Set<string> } {
+  const nodeIds = new Set<string>()
+  const itemKeys = new Set<string>()
+  const visit = (current: ProjectNode): void => {
+    nodeIds.add(current.id)
+    if (current.kind === 'item') itemKeys.add(projectItemKey(current))
+    current.children.forEach(visit)
+  }
+  visit(node)
+  return { nodeIds, itemKeys }
+}
+
+function withoutKeys<T>(source: Record<string, T> | undefined, keys: Set<string>): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(source ?? {}).filter(([key]) => !keys.has(key))
+  )
+}
+
 function normalizeLeadChart(chart: LeadChart | undefined): LeadChart {
+  const variants = Array.isArray(chart?.variants)
+    ? chart.variants.map(normalizeLeadVariant)
+    : []
   return {
     points: Array.isArray(chart?.points) ? chart.points : [],
     assignments: Array.isArray(chart?.assignments)
       ? chart.assignments.map((assignment) => ({ ...assignment, active: assignment.active !== false }))
       : [],
     itemChoices: Array.isArray(chart?.itemChoices) ? chart.itemChoices : [],
-    variants: Array.isArray(chart?.variants)
-      ? chart.variants.map(normalizeLeadVariant)
-      : [],
-    applications: Array.isArray(chart?.applications) ? chart.applications : [],
+    variants,
+    applications: normalizeLeadApplications(
+      Array.isArray(chart?.applications) ? chart.applications : [],
+      variants
+    ),
     mapDirections: Array.isArray(chart?.mapDirections)
       ? chart.mapDirections.map(normalizeLeadMapDirection)
       : [],
@@ -129,8 +183,37 @@ function normalizeLeadPrintSettings(settings: LeadPrintSettings | undefined): Le
 }
 
 function normalizeLeadVariant(variant: LeadVariant): LeadVariant {
+  const materialName = /\b(?:mur+um|mor+um)\b/i.test(variant.materialName)
+    ? 'Earth'
+    : variant.materialName
   return {
     ...variant,
+    materialName,
+    viaPointIds: Array.isArray(variant.viaPointIds)
+      ? variant.viaPointIds.filter((pointId) => typeof pointId === 'string' && pointId.length > 0)
+      : [],
+    routeGeometry: Array.isArray(variant.routeGeometry)
+      ? variant.routeGeometry.filter(
+          (point) => Number.isFinite(point.lat) && Number.isFinite(point.lon)
+        )
+      : undefined,
+    firstMileGeometry: Array.isArray(variant.firstMileGeometry)
+      ? variant.firstMileGeometry.filter(
+          (point) => Number.isFinite(point.lat) && Number.isFinite(point.lon)
+        )
+      : undefined,
+    lastMileGeometry: Array.isArray(variant.lastMileGeometry)
+      ? variant.lastMileGeometry.filter(
+          (point) => Number.isFinite(point.lat) && Number.isFinite(point.lon)
+        )
+      : undefined,
+    firstMileMode: variant.firstMileMode === 'manual' ? 'manual' : 'auto',
+    firstMileKm: Number.isFinite(variant.firstMileKm) ? Math.max(variant.firstMileKm!, 0) : 0,
+    lastMileMode: variant.lastMileMode === 'manual' ? 'manual' : 'auto',
+    lastMileKm: Number.isFinite(variant.lastMileKm) ? Math.max(variant.lastMileKm!, 0) : 0,
+    roadRouteKm: Number.isFinite(variant.roadRouteKm)
+      ? Math.max(variant.roadRouteKm!, 0)
+      : undefined,
     conveyanceClass: canonicalLeadConveyanceClass(variant.materialName, variant.conveyanceClass),
     active: variant.active !== false
   }
@@ -138,10 +221,14 @@ function normalizeLeadVariant(variant: LeadVariant): LeadVariant {
 
 function normalizeLeadSelection(selection: LeadSelection): LeadSelection {
   if (!selection.conveyanceClass) return selection
+  const materialName = /\b(?:mur+um|mor+um)\b/i.test(selection.materialName)
+    ? 'Earth'
+    : selection.materialName
   return {
     ...selection,
+    materialName,
     conveyanceClass: canonicalLeadConveyanceClass(
-      selection.materialName,
+      materialName,
       selection.conveyanceClass as ConveyanceClass
     )
   }
@@ -154,12 +241,24 @@ function normalizeLoaded(data: EestimateProject): EestimateProject {
     meta: {
       ...data.meta,
       sorZone: data.meta.sorZone ?? 'zone_3',
-      areaAllowancePercent: data.meta.areaAllowancePercent ?? 0
+      areaAllowancePercent: data.meta.areaAllowancePercent ?? 0,
+      flags: data.meta.flags ?? [],
+      taxSettings: data.meta.taxSettings ?? {
+        mode: 'automatic',
+        recipientType: 'CENTRAL_STATE_UT_LOCAL'
+      }
     },
     id: data.id || newId(),
     root: normalizeNode(data.root),
     leadChart: normalizeLeadChart(data.leadChart),
-    rateAnalysisOverrides: normalizeRateAnalysisOverrides(data.rateAnalysisOverrides)
+    rateAnalysisOverrides: normalizeRateAnalysisOverrides(data.rateAnalysisOverrides),
+    rateAnalysisScopedOverrides: normalizeScopedRateAnalysisOverrides(
+      data.rateAnalysisScopedOverrides
+    ),
+    miscellaneousItems: (data.miscellaneousItems ?? []).filter(
+      (item) => item.name.trim() && Number.isFinite(item.cost) && item.cost >= 0
+    ),
+    earthworkOverrides: data.earthworkOverrides ?? {}
   }
 }
 
@@ -191,6 +290,8 @@ export interface AnalysisSelection {
   key: string
   nodeId: string
   recipeOnly: boolean
+  /** Structural branch selected from DATA. Missing means the shared DATA recipe. */
+  scopeNodeId?: string
 }
 
 export interface LeadSelection {
@@ -256,6 +357,7 @@ interface StoreState {
   createStructureNode: (name: string, location: ProjectLocation | null) => void
   addCustomItem: (parentId: string, name: string) => void
   addItemsFromMaster: (parentId: string, items: MasterItem[]) => void
+  addCreatedDataItems: (parentId: string, createdDataIds: string[]) => void
   splitDataItem: (sourceNodeId: string, name: string) => string | null
   deleteNode: (id: string) => void
   updateNodeSettings: (id: string, settings: NodeSettings) => void
@@ -269,6 +371,9 @@ interface StoreState {
   setNodeFinalCell: (id: string, cell: { row: number; column: number } | null) => void
   setNodeRate: (id: string, rate: number | null) => void
   updateMeta: (patch: Partial<ProjectMeta>) => void
+  addMiscellaneousItem: (item: Omit<ProjectMiscellaneousItem, 'id' | 'createdAt'>) => void
+  removeMiscellaneousItem: (id: string) => void
+  setEarthworkOverride: (itemKey: string, value: boolean | null) => void
   upsertLeadPoint: (point: LeadPoint) => void
   removeLeadPoint: (pointId: string) => void
   upsertLeadAssignment: (assignment: LeadAssignment) => void
@@ -287,10 +392,10 @@ interface StoreState {
   closeSeigniorage: () => void
   saveLeadDetailReconstruction: (detail: LeadDetailReconstruction) => void
   restoreLeadDetailReconstruction: (detailCode: string, year: string) => void
-  openRateAnalysis: (key: string, nodeId: string, recipeOnly?: boolean) => void
+  openRateAnalysis: (key: string, nodeId: string, recipeOnly?: boolean, scopeNodeId?: string) => void
   closeRateAnalysis: () => void
-  saveRateAnalysis: (recipe: RateAnalysisRecipe) => void
-  restoreRateAnalysisDefaults: (recipe: RateAnalysisRecipe) => void
+  saveRateAnalysis: (recipe: RateAnalysisRecipe, scopeNodeId?: string) => void
+  restoreRateAnalysisDefaults: (recipe: RateAnalysisRecipe, scopeNodeId?: string) => void
 
   // modals
   openAddItem: (parentId: string) => void
@@ -667,9 +772,52 @@ export const useStore = create<StoreState>((set, get) => {
           itemDescription: m.description,
           itemEditorType: 'spreadsheet',
           unit: m.unit,
-          categoryKey: m.category
+          categoryKey: m.category,
+          dataVariant: m.dataVariant
         })
       )
+      mutate((root) => addChildren(root, parent.id, nodes))
+      set((s) => ({ expanded: { ...s.expanded, [parent.id]: true } }))
+    },
+
+    addCreatedDataItems: (parentId, createdDataIds) => {
+      const p = get().project
+      if (!p) return
+      const parent = resolveItemParent(p.root, parentId)
+      const wanted = new Set(createdDataIds)
+      const exemplars = new Map<string, ProjectNode>()
+      const visit = (node: ProjectNode): void => {
+        if (
+          node.kind === 'item' &&
+          node.splitFromItemKey &&
+          node.createdDataId &&
+          wanted.has(node.createdDataId) &&
+          !exemplars.has(node.createdDataId)
+        ) {
+          exemplars.set(node.createdDataId, node)
+        }
+        node.children.forEach(visit)
+      }
+      visit(p.root)
+      const nodes = createdDataIds.flatMap((createdDataId) => {
+        const source = exemplars.get(createdDataId)
+        if (!source) return []
+        return [
+          createNode('item', source.name, {
+            itemSource: source.itemSource,
+            itemCode: source.itemCode,
+            itemDescription: source.itemDescription,
+            itemEditorType: source.itemEditorType ?? 'spreadsheet',
+            unit: source.unit,
+            categoryKey: source.categoryKey,
+            dataVariant: source.dataVariant,
+            splitFromNodeId: source.splitFromNodeId,
+            splitFromItemKey: source.splitFromItemKey,
+            createdDataId
+          })
+        ]
+      })
+      if (!nodes.length) return
       mutate((root) => addChildren(root, parent.id, nodes))
       set((s) => ({ expanded: { ...s.expanded, [parent.id]: true } }))
     },
@@ -682,17 +830,32 @@ export const useStore = create<StoreState>((set, get) => {
       if (!source || source.kind !== 'item') return null
       const parent = findParent(p.root, source.id)
       if (!parent) return null
-      const split = createNode('item', trimmed, {
+      const split = createNode('item', createdDataName(source, trimmed), {
         itemSource: source.itemSource,
         itemCode: source.itemCode,
         itemDescription: source.itemDescription,
         itemEditorType: source.itemEditorType ?? 'spreadsheet',
         unit: source.unit,
         categoryKey: source.categoryKey,
+        dataVariant: source.dataVariant,
         splitFromNodeId: source.id,
         splitFromItemKey: source.splitFromItemKey ?? projectItemKey(source)
       })
-      mutate((root) => addChild(root, parent.id, split))
+      split.createdDataId = split.id
+      const splitKey = projectItemKey(split)
+      const sourceRecipe = rateAnalysisOverrideForNode(p, source)
+      mutateProject((project) => ({
+        ...project,
+        root: addChild(project.root, parent.id, split),
+        rateAnalysisOverrides: sourceRecipe
+          ? {
+              ...(project.rateAnalysisOverrides ?? {}),
+              [splitKey]: JSON.parse(
+                JSON.stringify({ ...sourceRecipe, itemKey: splitKey })
+              ) as RateAnalysisRecipe
+            }
+          : project.rateAnalysisOverrides
+      }))
       set((s) => ({
         selectedId: split.id,
         expanded: { ...s.expanded, [parent.id]: true }
@@ -701,10 +864,73 @@ export const useStore = create<StoreState>((set, get) => {
     },
 
     deleteNode: (id) => {
-      const p = get().project
-      if (!p || p.root.id === id) return // never delete the Title root
-      mutate((root) => removeNode(root, id))
-      if (get().selectedId === id) set({ selectedId: p.root.id })
+      set((state) => {
+        const project = state.project
+        if (!project || project.root.id === id) return state
+        const target = findNode(project.root, id)
+        if (!target) return state
+        const removed = collectSubtreeState(target)
+        const root = removeNode(project.root, id)
+        const remainingKeys = new Set(collectProjectItemGroups(root).map((group) => group.key))
+        const orphanedKeys = new Set(
+          Array.from(removed.itemKeys).filter((key) => !remainingKeys.has(key))
+        )
+        const scopedOverrides = Object.fromEntries(
+          Object.entries(project.rateAnalysisScopedOverrides ?? {}).flatMap(
+            ([scopeNodeId, recipes]) => {
+              if (removed.nodeIds.has(scopeNodeId)) return []
+              const scopeNode = findNode(root, scopeNodeId)
+              if (!scopeNode) return []
+              const scopeItemKeys = collectSubtreeState(scopeNode).itemKeys
+              const remaining = Object.fromEntries(
+                Object.entries(recipes).filter(([itemKey]) => scopeItemKeys.has(itemKey))
+              )
+              return Object.keys(remaining).length ? [[scopeNodeId, remaining]] : []
+            }
+          )
+        )
+        const chart = normalizeLeadChart(project.leadChart)
+        const next: EestimateProject = {
+          ...project,
+          root,
+          rateAnalysisOverrides: withoutKeys(project.rateAnalysisOverrides, orphanedKeys),
+          rateAnalysisScopedOverrides: scopedOverrides,
+          seigniorageOverrides: withoutKeys(project.seigniorageOverrides, orphanedKeys),
+          earthworkOverrides: withoutKeys(project.earthworkOverrides, orphanedKeys),
+          leadChart: {
+            ...chart,
+            applications: (chart.applications ?? []).filter(
+              (application) =>
+                !orphanedKeys.has(application.itemKey) &&
+                !(application.itemNodeId && removed.nodeIds.has(application.itemNodeId))
+            )
+          },
+          updatedAt: new Date().toISOString()
+        }
+        const selectionRemoved = state.analysisSelection
+          ? orphanedKeys.has(state.analysisSelection.key) ||
+            removed.nodeIds.has(state.analysisSelection.nodeId) ||
+            Boolean(
+              state.analysisSelection.scopeNodeId &&
+                removed.nodeIds.has(state.analysisSelection.scopeNodeId)
+            )
+          : false
+        return {
+          project: next,
+          past: [...state.past, project].slice(-MAX_HISTORY),
+          future: [],
+          dirty: true,
+          selectedId:
+            state.selectedId && removed.nodeIds.has(state.selectedId)
+              ? project.root.id
+              : state.selectedId,
+          analysisSelection: selectionRemoved ? null : state.analysisSelection,
+          settings:
+            state.settings.nodeId && removed.nodeIds.has(state.settings.nodeId)
+              ? { open: false, nodeId: null }
+              : state.settings
+        }
+      })
     },
 
     updateNodeSettings: (id, settings) => {
@@ -825,6 +1051,35 @@ export const useStore = create<StoreState>((set, get) => {
       })
     },
 
+    addMiscellaneousItem: (item) => {
+      const name = item.name.trim()
+      const cost = Number(item.cost)
+      if (!name || !Number.isFinite(cost) || cost < 0) return
+      mutateProject((project) => ({
+        ...project,
+        miscellaneousItems: [
+          ...(project.miscellaneousItems ?? []),
+          { id: newId(), name, cost, createdAt: new Date().toISOString() }
+        ]
+      }))
+    },
+
+    removeMiscellaneousItem: (id) => {
+      mutateProject((project) => ({
+        ...project,
+        miscellaneousItems: (project.miscellaneousItems ?? []).filter((item) => item.id !== id)
+      }))
+    },
+
+    setEarthworkOverride: (itemKey, value) => {
+      mutateProject((project) => {
+        const overrides = { ...(project.earthworkOverrides ?? {}) }
+        if (value === null) delete overrides[itemKey]
+        else overrides[itemKey] = value
+        return { ...project, earthworkOverrides: overrides }
+      })
+    },
+
     upsertLeadPoint: (point) => {
       mutateProject((project) => {
         const chart = normalizeLeadChart(project.leadChart)
@@ -936,16 +1191,15 @@ export const useStore = create<StoreState>((set, get) => {
     upsertLeadApplication: (application) => {
       mutateProject((project) => {
         const chart = normalizeLeadChart(project.leadChart)
-        const exists = chart.applications?.some((candidate) => candidate.id === application.id)
         return {
           ...project,
           leadChart: {
             ...chart,
-            applications: exists
-              ? chart.applications?.map((candidate) =>
-                  candidate.id === application.id ? application : candidate
-                )
-              : [...(chart.applications ?? []), application]
+            applications: upsertUniqueLeadApplication(
+              chart.applications ?? [],
+              chart.variants ?? [],
+              application
+            )
           }
         }
       })
@@ -1061,9 +1315,9 @@ export const useStore = create<StoreState>((set, get) => {
       })
     },
 
-    openRateAnalysis: (key, nodeId, recipeOnly = false) =>
+    openRateAnalysis: (key, nodeId, recipeOnly = false, scopeNodeId) =>
       set({
-        analysisSelection: { key, nodeId, recipeOnly },
+        analysisSelection: { key, nodeId, recipeOnly, scopeNodeId },
         selectedId: nodeId,
         leadSelection: null,
         seigniorageSelection: null
@@ -1071,13 +1325,14 @@ export const useStore = create<StoreState>((set, get) => {
 
     closeRateAnalysis: () => set({ analysisSelection: null }),
 
-    saveRateAnalysis: (recipe) => {
+    saveRateAnalysis: (recipe, scopeNodeId) => {
       set((s) => {
         if (!s.project) return s
-        const syncNodes = (node: ProjectNode): ProjectNode => {
-          const children = node.children.map(syncNodes)
+        const syncNodes = (node: ProjectNode, parentInScope = !scopeNodeId): ProjectNode => {
+          const inScope = parentInScope || node.id === scopeNodeId
+          const children = node.children.map((child) => syncNodes(child, inScope))
           const childrenChanged = children.some((child, index) => child !== node.children[index])
-          if (node.kind !== 'item' || projectItemKey(node) !== recipe.itemKey) {
+          if (!inScope || node.kind !== 'item' || projectItemKey(node) !== recipe.itemKey) {
             return childrenChanged ? { ...node, children } : node
           }
           return {
@@ -1087,13 +1342,25 @@ export const useStore = create<StoreState>((set, get) => {
             unit: recipe.unit
           }
         }
+        const scopedOverrides = scopeNodeId
+          ? {
+              ...(s.project.rateAnalysisScopedOverrides ?? {}),
+              [scopeNodeId]: {
+                ...(s.project.rateAnalysisScopedOverrides?.[scopeNodeId] ?? {}),
+                [recipe.itemKey]: recipe
+              }
+            }
+          : s.project.rateAnalysisScopedOverrides
         const next: EestimateProject = {
           ...s.project,
           root: syncNodes(s.project.root),
-          rateAnalysisOverrides: {
-            ...(s.project.rateAnalysisOverrides ?? {}),
-            [recipe.itemKey]: recipe
-          },
+          rateAnalysisOverrides: scopeNodeId
+            ? s.project.rateAnalysisOverrides
+            : {
+                ...(s.project.rateAnalysisOverrides ?? {}),
+                [recipe.itemKey]: recipe
+              },
+          rateAnalysisScopedOverrides: scopedOverrides,
           updatedAt: new Date().toISOString()
         }
         return {
@@ -1105,15 +1372,24 @@ export const useStore = create<StoreState>((set, get) => {
       })
     },
 
-    restoreRateAnalysisDefaults: (recipe) => {
+    restoreRateAnalysisDefaults: (recipe, scopeNodeId) => {
       set((s) => {
         if (!s.project) return s
         const overrides = { ...(s.project.rateAnalysisOverrides ?? {}) }
-        delete overrides[recipe.itemKey]
-        const syncNodes = (node: ProjectNode): ProjectNode => {
-          const children = node.children.map(syncNodes)
+        const scopedOverrides = { ...(s.project.rateAnalysisScopedOverrides ?? {}) }
+        if (scopeNodeId) {
+          const scoped = { ...(scopedOverrides[scopeNodeId] ?? {}) }
+          delete scoped[recipe.itemKey]
+          if (Object.keys(scoped).length) scopedOverrides[scopeNodeId] = scoped
+          else delete scopedOverrides[scopeNodeId]
+        } else {
+          delete overrides[recipe.itemKey]
+        }
+        const syncNodes = (node: ProjectNode, parentInScope = !scopeNodeId): ProjectNode => {
+          const inScope = parentInScope || node.id === scopeNodeId
+          const children = node.children.map((child) => syncNodes(child, inScope))
           const childrenChanged = children.some((child, index) => child !== node.children[index])
-          if (node.kind !== 'item' || projectItemKey(node) !== recipe.itemKey) {
+          if (!inScope || node.kind !== 'item' || projectItemKey(node) !== recipe.itemKey) {
             return childrenChanged ? { ...node, children } : node
           }
           return {
@@ -1127,6 +1403,7 @@ export const useStore = create<StoreState>((set, get) => {
           ...s.project,
           root: syncNodes(s.project.root),
           rateAnalysisOverrides: overrides,
+          rateAnalysisScopedOverrides: scopedOverrides,
           updatedAt: new Date().toISOString()
         }
         return {

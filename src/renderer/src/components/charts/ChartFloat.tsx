@@ -36,13 +36,17 @@ export default function ChartFloat({ data }: { data?: { chartId?: string } }): J
     setStatus(chartId ? 'loading' : 'missing')
     if (!chartId) return undefined
 
-    let missingTimer: number | null = window.setTimeout(() => setStatus('missing'), 1500)
+    let receivedConfig = false
+    let missingTimer: number | null = null
+    const refreshTimers: number[] = []
 
     const render = (config: ChartJsConfig): void => {
+      receivedConfig = true
       if (missingTimer) {
         window.clearTimeout(missingTimer)
         missingTimer = null
       }
+      refreshTimers.forEach((timer) => window.clearTimeout(timer))
       setStatus('ready')
 
       const canvas = canvasRef.current
@@ -79,11 +83,26 @@ export default function ChartFloat({ data }: { data?: { chartId?: string } }): J
     }
 
     const unsub = subscribeConfig(chartId, render)
-    requestRefresh(chartId)
+    // A restored float can mount a few milliseconds before the spreadsheet has
+    // registered its refresh listener. Retry while the workbook finishes
+    // rendering instead of declaring the saved chart unlinked immediately.
+    for (const delay of [0, 120, 500, 1200]) {
+      refreshTimers.push(
+        window.setTimeout(() => {
+          if (!receivedConfig) requestRefresh(chartId)
+        }, delay)
+      )
+    }
+    if (!receivedConfig) {
+      missingTimer = window.setTimeout(() => {
+        if (!receivedConfig) setStatus('missing')
+      }, 2600)
+    }
 
     return () => {
       unsub()
       if (missingTimer) window.clearTimeout(missingTimer)
+      refreshTimers.forEach((timer) => window.clearTimeout(timer))
       if (pngTimer.current) window.clearTimeout(pngTimer.current)
       chartRef.current?.destroy()
       chartRef.current = null

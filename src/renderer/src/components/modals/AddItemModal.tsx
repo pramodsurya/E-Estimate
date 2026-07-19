@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowDownAZ, ArrowUpAZ, Check, ChevronDown, ChevronRight, Plus, X } from 'lucide-react'
+import {
+  ArrowDownAZ,
+  ArrowLeft,
+  ArrowUpAZ,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Gauge,
+  Plus,
+  Tags,
+  X
+} from 'lucide-react'
 import Modal from './Modal'
 import { useStore } from '../../store/useStore'
 import { findNode } from '../../lib/tree'
@@ -10,13 +21,19 @@ import {
   fetchSsrItems,
   type MasterItem
 } from '../../lib/masterData'
-import type { ProjectNode } from '../../types/project'
+import type { DataVariantSelection, ProjectNode } from '../../types/project'
+import {
+  fetchDataVariantSpecs,
+  type DataVariantOption,
+  type DataVariantSpec
+} from '../../lib/dataVariants'
 
 function itemKey(m: MasterItem): string {
   return `${m.side}:${m.category}:${m.code}`
 }
 
 interface CreatedDataItem {
+  /** Stable project-local DATA id shared by all Item usages. */
   id: string
   name: string
   originalCode: string
@@ -34,8 +51,14 @@ export default function AddItemModal(): JSX.Element {
   const project = useStore((s) => s.project)
   const close = useStore((s) => s.closeAddItem)
   const addItems = useStore((s) => s.addItemsFromMaster)
+  const addCreatedDataItems = useStore((s) => s.addCreatedDataItems)
 
   const [selected, setSelected] = useState<Map<string, MasterItem>>(new Map())
+  const [selectedCreated, setSelectedCreated] = useState<Set<string>>(new Set())
+  const [variantSpecs, setVariantSpecs] = useState<Record<string, DataVariantSpec> | null>(null)
+  const [variantSelections, setVariantSelections] = useState<Record<string, DataVariantSelection>>({})
+  const [preparingVariants, setPreparingVariants] = useState(false)
+  const [variantError, setVariantError] = useState<string | null>(null)
 
   const parentName = useMemo(() => {
     if (!project) return ''
@@ -56,11 +79,71 @@ export default function AddItemModal(): JSX.Element {
       return n
     })
 
-  const confirm = (): void => {
-    if (selected.size === 0 || !project) return
-    addItems(parentId ?? project.root.id, Array.from(selected.values()))
+  const addPreparedItems = (): void => {
+    if (selected.size + selectedCreated.size === 0 || !project) return
+    const targetId = parentId ?? project.root.id
+    if (selected.size) {
+      addItems(
+        targetId,
+        Array.from(selected.values()).map((item) => ({
+          ...item,
+          dataVariant: variantSelections[item.code],
+          unit: variantSelections[item.code]?.unit ?? item.unit
+        }))
+      )
+    }
+    if (selectedCreated.size) addCreatedDataItems(targetId, Array.from(selectedCreated))
     close()
   }
+
+  const confirm = async (): Promise<void> => {
+    if (selected.size + selectedCreated.size === 0 || !project) return
+    if (selected.size === 0) {
+      addPreparedItems()
+      return
+    }
+    const ssrCodes = Array.from(selected.values())
+      .filter((item) => item.side === 'SSR')
+      .map((item) => item.code)
+    if (!ssrCodes.length) {
+      addPreparedItems()
+      return
+    }
+    setPreparingVariants(true)
+    setVariantError(null)
+    try {
+      const specs = await fetchDataVariantSpecs(ssrCodes, project.meta.sorYear)
+      if (!Object.keys(specs).length) {
+        addPreparedItems()
+        return
+      }
+      setVariantSpecs(specs)
+      setVariantSelections(
+        Object.fromEntries(
+          Object.values(specs).flatMap((spec) => {
+            const option = spec.options.find((candidate) => candidate.key === spec.defaultOptionKey)
+            if (!option || spec.kind !== 'optional_addition') return []
+            return [[spec.code, {
+              kind: spec.kind,
+              key: option.key,
+              label: option.label,
+              sourceYear: spec.year,
+              unit: option.basisUnit,
+              addonId: option.addonId
+            } satisfies DataVariantSelection]]
+          })
+        )
+      )
+    } catch (error) {
+      setVariantError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setPreparingVariants(false)
+    }
+  }
+
+  const variantCodes = variantSpecs ? Object.keys(variantSpecs) : []
+  const allVariantsChosen = variantCodes.every((code) => Boolean(variantSelections[code]))
+  const selectedCount = selected.size + selectedCreated.size
 
   const footer = (
     <>
@@ -71,49 +154,195 @@ export default function AddItemModal(): JSX.Element {
         <button className="btn ghost" onClick={close}>
           Cancel
         </button>
-        <button className="btn" disabled={selected.size === 0} onClick={confirm}>
-          <Plus size={15} /> Add Item{selected.size === 1 ? '' : 's'}
-          {selected.size > 0 ? ` (${selected.size})` : ''}
-        </button>
+        {variantSpecs ? (
+          <>
+            <button
+              className="btn ghost"
+              onClick={() => {
+                setVariantSpecs(null)
+                setVariantSelections({})
+              }}
+            >
+              <ArrowLeft size={15} /> Back
+            </button>
+            <button className="btn" disabled={!allVariantsChosen} onClick={addPreparedItems}>
+              <Check size={15} /> Add Prepared DATA{selectedCount === 1 ? '' : 's'}
+            </button>
+          </>
+        ) : (
+          <button
+            className="btn"
+            disabled={selectedCount === 0 || preparingVariants}
+            onClick={() => void confirm()}
+          >
+            <Plus size={15} />
+            {preparingVariants
+              ? 'Checking variants…'
+              : `Add Item${selectedCount === 1 ? '' : 's'}${
+                  selectedCount > 0 ? ` (${selectedCount})` : ''
+                }`}
+          </button>
+        )}
       </div>
     </>
   )
 
   return (
     <Modal title="Add Item" size="lg" onClose={close} bodyFlush footer={footer}>
-      <div className="additem-cols">
-        <Column
-          side="SSR"
-          tag="Unified SSR / TAW DAW CAW GAW CCDW PMW"
-          categories={SSR_CATEGORIES}
-          fetcher={fetchSsrItems}
-          selected={selected}
-          onAdd={add}
-          onRemove={removeKey}
+      {variantSpecs ? (
+        <VariantReview
+          specs={variantSpecs}
+          selections={variantSelections}
+          onSelect={(code, spec, option) =>
+            setVariantSelections((current) => ({
+              ...current,
+              [code]: {
+                kind: spec.kind as DataVariantSelection['kind'],
+                key: option.key,
+                label: option.label,
+                sourceYear: spec.year,
+                unit: option.basisUnit,
+                addonId: option.addonId
+              }
+            }))
+          }
         />
-        <Column
-          side="SOR"
-          tag="Basic rates · Material Labour Machinery Plumbing Electrical Civil"
-          categories={SOR_CATEGORIES}
-          fetcher={fetchSorItems}
-          selected={selected}
-          onAdd={add}
-          onRemove={removeKey}
-        />
-        <CreatedDataColumn items={createdItems} />
-      </div>
-      <SelectedBar selected={selected} onRemove={removeKey} />
+      ) : (
+        <>
+          <div className="additem-cols">
+            <Column
+              side="SSR"
+              tag="Unified SSR / TAW DAW CAW GAW CCDW PMW"
+              categories={SSR_CATEGORIES}
+              fetcher={fetchSsrItems}
+              selected={selected}
+              onAdd={add}
+              onRemove={removeKey}
+            />
+            <Column
+              side="SOR"
+              tag="Basic rates · Material Labour Machinery Plumbing Electrical Civil"
+              categories={SOR_CATEGORIES}
+              fetcher={fetchSorItems}
+              selected={selected}
+              onAdd={add}
+              onRemove={removeKey}
+            />
+            <CreatedDataColumn
+              items={createdItems}
+              selected={selectedCreated}
+              onToggle={(createdDataId) =>
+                setSelectedCreated((current) => {
+                  const next = new Set(current)
+                  if (next.has(createdDataId)) next.delete(createdDataId)
+                  else next.add(createdDataId)
+                  return next
+                })
+              }
+            />
+          </div>
+          {variantError && (
+            <div className="data-variant-error">Could not read DATA variants: {variantError}</div>
+          )}
+          <SelectedBar selected={selected} onRemove={removeKey} />
+        </>
+      )}
     </Modal>
   )
 }
 
+function VariantReview({
+  specs,
+  selections,
+  onSelect
+}: {
+  specs: Record<string, DataVariantSpec>
+  selections: Record<string, DataVariantSelection>
+  onSelect: (code: string, spec: DataVariantSpec, option: DataVariantOption) => void
+}): JSX.Element {
+  const money = new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })
+  return (
+    <div className="data-variant-review">
+      <div className="data-variant-review-heading">
+        <span className="data-variant-heading-icon">
+          <Tags size={20} />
+        </span>
+        <div>
+          <h3>Prepare multi-rate DATA</h3>
+          <p>
+            Published rates are classified by purpose. Choose the applicable class, depth band,
+            or optional addition.
+          </p>
+        </div>
+      </div>
+      <div className="data-variant-cards">
+        {Object.values(specs).map((spec) => (
+          <section className="data-variant-card" key={spec.code}>
+            <div className="data-variant-card-title">
+              <span>
+                {spec.kind === 'quantity_band' || spec.kind === 'upto'
+                  ? <Gauge size={17} />
+                  : <Tags size={17} />}
+              </span>
+              <div>
+                <strong>{spec.code}</strong>
+                <small>
+                  {spec.kind === 'optional_addition'
+                    ? 'Optional addition · base DATA remains valid without it'
+                    : spec.kind === 'quantity_band' || spec.kind === 'upto'
+                      ? 'Quantity / depth band · split quantity by interval'
+                      : 'Published type choice · one applicable basis'}
+                </small>
+              </div>
+            </div>
+            {spec.description ? (
+              <p className="data-variant-description" title={spec.description}>
+                {spec.description}
+              </p>
+            ) : null}
+            <p>{spec.prompt}</p>
+            <div className="data-variant-options">
+              {spec.options.map((option) => {
+                const checked = selections[spec.code]?.key === option.key
+                return (
+                  <button
+                    type="button"
+                    key={option.key}
+                    className={checked ? 'selected' : ''}
+                    onClick={() => onSelect(spec.code, spec, option)}
+                  >
+                    <span className="data-variant-radio">{checked ? <Check size={13} /> : null}</span>
+                    <span>
+                      <strong>{option.label}</strong>
+                      {option.basisQuantity ? (
+                        <small>
+                          Basis: {option.basisQuantity} {option.basisUnit ?? ''}
+                        </small>
+                      ) : null}
+                    </span>
+                    <b>₹ {money.format(option.rate)}</b>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function collectCreatedDataItems(root: ProjectNode): CreatedDataItem[] {
-  const items: CreatedDataItem[] = []
+  const items = new Map<string, CreatedDataItem>()
 
   function visit(node: ProjectNode): void {
     if (node.kind === 'item' && node.splitFromItemKey) {
-      items.push({
-        id: node.id,
+      const id = node.createdDataId ?? node.id
+      if (!items.has(id)) items.set(id, {
+        id,
         name: node.name,
         originalCode: node.itemCode?.trim() || node.splitFromItemKey,
         description: node.itemDescription ?? node.name,
@@ -125,23 +354,42 @@ function collectCreatedDataItems(root: ProjectNode): CreatedDataItem[] {
   }
 
   visit(root)
-  return items.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+  return Array.from(items.values()).sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { numeric: true })
+  )
 }
 
-function CreatedDataColumn({ items }: { items: CreatedDataItem[] }): JSX.Element {
+function CreatedDataColumn({
+  items,
+  selected,
+  onToggle
+}: {
+  items: CreatedDataItem[]
+  selected: Set<string>
+  onToggle: (createdDataId: string) => void
+}): JSX.Element {
   return (
     <div className="additem-col created-data-col">
       <div className="col-header">
         <h3>Created DATAs</h3>
-        <span className="col-tag">Split DATA from Lead</span>
+        <span className="col-tag">Project-local reusable DATA</span>
       </div>
       <div className="created-data-list">
         {items.length === 0 ? (
-          <div className="created-data-empty">Split DATA will appear here.</div>
+          <div className="created-data-empty">Created DATA will appear here.</div>
         ) : (
           items.map((item) => (
-            <div className="created-data-row" key={item.id} title={item.description}>
+            <button
+              type="button"
+              className={`created-data-row ${selected.has(item.id) ? 'selected' : ''}`}
+              key={item.id}
+              title={item.description}
+              onClick={() => onToggle(item.id)}
+            >
               <div className="created-data-main">
+                <span className="created-data-check">
+                  {selected.has(item.id) ? <Check size={12} /> : null}
+                </span>
                 <span className="created-data-name">{item.name}</span>
                 <span className="created-data-origin">{item.originalCode}</span>
               </div>
@@ -150,7 +398,7 @@ function CreatedDataColumn({ items }: { items: CreatedDataItem[] }): JSX.Element
                 {item.source}
                 {item.unit ? ` | ${item.unit}` : ''}
               </span>
-            </div>
+            </button>
           ))
         )}
       </div>

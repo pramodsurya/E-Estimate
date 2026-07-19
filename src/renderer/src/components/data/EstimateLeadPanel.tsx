@@ -70,7 +70,10 @@ export default function EstimateLeadPanel(): JSX.Element {
     () => buildLeadAbstract(groups.map((group) => ({
       code: group.code,
       description: group.description,
-      metadata: metadata.get(group.code),
+      metadata: activateGroupAddons(
+        metadata.get(group.code),
+        group.usages.map((usage) => usage.node.dataVariant?.addonId)
+      ),
       source: group.source
     })), variants, applications),
     [groups, metadata, variants, applications]
@@ -113,7 +116,7 @@ export default function EstimateLeadPanel(): JSX.Element {
                   <small>{leadAbstractClassLabel(item.name, item.conveyanceClass)}</small>
                   <small>
                     {item.variantCount} variant{item.variantCount === 1 ? '' : 's'} |{' '}
-                    {item.linkedCount} linked DATA
+                    {item.linkedCount} linked component usage{item.linkedCount === 1 ? '' : 's'}
                   </small>
                 </span>
                 <b>Rs. {money.format(item.amount)}</b>
@@ -128,6 +131,14 @@ export default function EstimateLeadPanel(): JSX.Element {
       </div>
     </div>
   )
+}
+
+function activateGroupAddons(metadata: unknown, addonIds: Array<string | undefined>): unknown {
+  const selected = Array.from(new Set(addonIds.filter((id): id is string => Boolean(id))))
+  if (!selected.length || !metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return metadata
+  }
+  return { ...(metadata as Record<string, unknown>), selected_addon_ids: selected }
 }
 
 function leadAbstractClassLabel(name: string, conveyanceClass: ConveyanceClass): string {

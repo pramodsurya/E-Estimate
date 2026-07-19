@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import L from 'leaflet'
-import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
+import MapLayers from '../map/MapLayers'
 
 // Custom pin avoids the broken default-marker asset paths under bundlers.
 const pinIcon = L.divIcon({
@@ -45,10 +46,7 @@ export default function LocationMap({ value, onPick, recenterToken }: Props): JS
         zoom={value ? 12 : 7}
         scrollWheelZoom
       >
-        <TileLayer
-          attribution="&copy; OpenStreetMap contributors"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <MapLayers />
         <ClickPicker onPick={onPick} />
         {value && <Marker position={[value.lat, value.lng]} icon={pinIcon} />}
         {value && <Recenter lat={value.lat} lng={value.lng} token={recenterToken} />}

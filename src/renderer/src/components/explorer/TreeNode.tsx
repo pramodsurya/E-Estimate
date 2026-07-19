@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, Pencil, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { ProjectNode } from '../../types/project'
 import { isComponentLike } from '../../lib/tree'
@@ -92,6 +92,24 @@ const TreeNode = memo(function TreeNode({
             >
               <Pencil size={13} />
             </button>
+            {node.kind === 'item' && (
+              <button
+                className="node-iconbtn"
+                title="Delete this Item usage and remove its DATA when no usages remain"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  if (
+                    window.confirm(
+                      `Delete ${displayName}? The DATA count will decrease by one.`
+                    )
+                  ) {
+                    actions.deleteNode(node.id)
+                  }
+                }}
+              >
+                <Trash2 size={13} />
+              </button>
+            )}
           </span>
         )}
       </div>

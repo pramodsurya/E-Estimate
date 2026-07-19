@@ -8,6 +8,20 @@ export type NodeKind = 'title' | 'page' | 'component' | 'subcomponent' | 'item'
 export type ItemSource = 'SSR' | 'SOR' | 'OTHERS'
 export type ItemEditorType = 'spreadsheet' | 'document'
 
+export type DataVariantKind = 'upto' | 'type' | 'optional_addition' | 'quantity_band'
+
+export interface DataVariantSelection {
+  kind: DataVariantKind
+  /** Stable semantic key (limit/basis), resolved again against the active SOR year. */
+  key: string
+  label: string
+  sourceYear: string
+  /** Adopted display unit when a type variant changes the published rate basis. */
+  unit?: string
+  /** Exact ssr_item.addon_table id. The containing ProjectNode supplies the estimate-line scope. */
+  addonId?: string
+}
+
 export type PaperSize = 'A4' | 'A3' | 'A2' | 'Letter' | 'Legal'
 export type Orientation = 'portrait' | 'landscape'
 export interface Margins {
@@ -144,6 +158,8 @@ export interface ProjectNode {
   itemDescription?: string
   splitFromNodeId?: string
   splitFromItemKey?: string
+  /** Stable project-local DATA identity shared by every usage of a cloned DATA. */
+  createdDataId?: string
   /** Optional work point for a component/sub-component. Defaults to project location. */
   location?: ProjectLocation | null
   /** Items open as a spreadsheet by default, but can be changed from Settings. */
@@ -151,6 +167,8 @@ export interface ProjectNode {
   unit?: string | null
   /** Source table key, e.g. 'ssr_item' (SSR) or 'material' (SOR). */
   categoryKey?: string
+  /** SSR DATA choice made before insertion when its annual recipe has variants. */
+  dataVariant?: DataVariantSelection
 
   /** Per-node layout settings (inherited from parent when unset). */
   settings?: NodeSettings
@@ -180,6 +198,37 @@ export interface ProjectLocation {
   label?: string
 }
 
+export interface ProjectAreaAllowance {
+  /** Spatial classification returned by village_allowance. */
+  type: string | null
+  label: string
+  percent: number
+  tier?: string | null
+  description?: string | null
+  village?: string | null
+  mandal?: string | null
+  district?: string | null
+  ruleYear?: string | null
+  goReference?: string | null
+  /** Automatic coordinate match, or an explicit user classification override. */
+  source?: 'automatic' | 'manual'
+}
+
+export type GstRecipientType = 'CENTRAL_STATE_UT_LOCAL' | 'GOVT_ENTITY_OR_AUTHORITY'
+
+export interface ProjectTaxSettings {
+  mode: 'automatic' | 'manual'
+  recipientType: GstRecipientType
+  manualRate?: 12 | 18
+}
+
+export interface ProjectMiscellaneousItem {
+  id: string
+  name: string
+  cost: number
+  createdAt: string
+}
+
 export type ConveyanceClass =
   | 'EARTH'
   | 'STONE'
@@ -194,6 +243,7 @@ export type LeadHandlingMode = 'none' | 'manual_no_idle' | 'manual_with_idle' | 
 export type LeadIncludedBasis = 'none' | 'initial_50m' | 'initial_1km' | 'all_leads'
 export type LeadRateSource = 'chart' | 'dtl' | 'manual'
 export type LeadRoadCondition = 'normal' | 'certified_ghat' | 'ce_exceptional'
+export type LeadAccessDistanceMode = 'auto' | 'manual'
 export type LeadTransportPurpose =
   | 'EXCAVATED_DISPOSAL'
   | 'MATERIAL_SUPPLY'
@@ -201,7 +251,11 @@ export type LeadTransportPurpose =
   | 'REUSE_FROM_HEAP'
   | 'NO_EXTRA_LEAD'
   | 'REVIEW_REQUIRED'
-export type LeadQuantityBasis = 'PARENT_CUM' | 'DERIVED_LOOSE_CUM' | 'MANUAL_LOOSE_CUM'
+export type LeadQuantityBasis =
+  | 'PARENT_CUM'
+  | 'DERIVED_LOOSE_CUM'
+  | 'MANUAL_LOOSE_CUM'
+  | 'PUBLISHED_FABRICATED_WEIGHT_TONNE'
 export interface LeadPolicy {
   purpose: LeadTransportPurpose
   includedLeadM: number
@@ -212,6 +266,8 @@ export interface LeadPolicy {
   allowUnloading: boolean
   scrutinyRequired: boolean
   defaultConveyanceClass?: ConveyanceClass
+  /** Number of separately payable haul legs represented by one mapped route. */
+  haulLegs?: number
   note?: string
   policyVersion?: string
 }
@@ -294,7 +350,22 @@ export interface LeadVariant {
   conveyanceClass: ConveyanceClass
   assignmentId?: string
   startPointId?: string
+  /** Ordered intermediate stops used by the road-routing engine. */
+  viaPointIds?: string[]
   endPointId?: string
+  /** Persisted road-following route returned by the routing engine. */
+  routeGeometry?: LeadMapCoordinate[]
+  /** First access connector, drawn in the selected haul direction. */
+  firstMileGeometry?: LeadMapCoordinate[]
+  /** Last access connector, drawn in the selected haul direction. */
+  lastMileGeometry?: LeadMapCoordinate[]
+  routeSource?: 'osrm' | 'manual' | 'legacy'
+  routeCalculatedAt?: string
+  roadRouteKm?: number
+  firstMileMode?: LeadAccessDistanceMode
+  firstMileKm?: number
+  lastMileMode?: LeadAccessDistanceMode
+  lastMileKm?: number
   chargeCode?: LeadChargeCode
   mechanicalConveyanceReachesFinalPoint?: boolean
   includedInitialLiftM?: number | null
@@ -319,6 +390,8 @@ export interface LeadVariant {
 export interface LeadApplication {
   id: string
   variantId: string
+  /** Selected optional DATA add-on that owns this Lead application, when applicable. */
+  addonId?: string
   itemKey: string
   itemCode: string
   itemNodeId?: string
@@ -332,6 +405,10 @@ export interface LeadApplication {
   liftRate: number
   grossRate: number
   grossAmount: number
+  /** DATA output quantity used to convert this scoped Lead amount to an Item rate. */
+  outputQuantity?: number
+  /** Lead addition per DATA output unit, applied only to `itemNodeId`. */
+  rateAddition?: number
   netRate: number
   netAmount: number
   calculation?: LeadRateCalculationDetail
@@ -421,8 +498,13 @@ export interface ProjectMeta {
    */
   areaAllowancePercent?: number
   areaAllowanceLabel?: string
+  /** Full location-derived allowance audit trail. */
+  areaAllowance?: ProjectAreaAllowance
   location: ProjectLocation | null
+  /** @deprecated Retained only so older project files remain readable. */
   flags: string[]
+  /** GST selection. Automatic mode resolves the live Supabase slab. */
+  taxSettings?: ProjectTaxSettings
 }
 
 export interface EestimateProject {
@@ -435,12 +517,21 @@ export interface EestimateProject {
   leadChart?: LeadChart
   /** Project-local recipe edits, shared by every usage of the same item code. */
   rateAnalysisOverrides?: Record<string, RateAnalysisRecipe>
+  /**
+   * Component/sub-component recipe edits. The first key is the structural node id;
+   * the second is projectItemKey. These override the shared recipe only in that branch.
+   */
+  rateAnalysisScopedOverrides?: Record<string, Record<string, RateAnalysisRecipe>>
   /** Project-local DTL Lead reconstruction edits keyed by detailCode:year. */
   leadDetailOverrides?: Record<string, LeadDetailReconstruction>
   /** Per-item seigniorage charge overrides keyed by projectItemKey. */
   seigniorageOverrides?: Record<string, { seigCode: string | null; rate?: number | null }>
   /** Seigniorage print preview layout settings. */
   seignioragePrintSettings?: SeignioragePrintSettings
+  /** Project-level named charges entered by the estimator. */
+  miscellaneousItems?: ProjectMiscellaneousItem[]
+  /** Per-DATA earthwork review keyed by projectItemKey. Missing means automatic. */
+  earthworkOverrides?: Record<string, boolean>
   createdAt: string
   updatedAt: string
 }

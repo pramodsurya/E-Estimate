@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import type { DataVariantSelection, ProjectAreaAllowance, ProjectLocation } from '../types/project'
 
 // ---------------------------------------------------------------------------
 // Category definitions. SSR = the 6 "works" tables. SOR = the basic-rate tables.
@@ -45,10 +46,11 @@ export interface MasterItem {
   /** Display text (description for SSR, name for SOR). */
   description: string
   unit: string | null
+  /** Set by the add-DATA variant review step. */
+  dataVariant?: DataVariantSelection
 }
 
 const itemCache = new Map<string, Promise<MasterItem[]>>()
-const flagsCache = new Map<string, Promise<FlagDef[]>>()
 let sorYearsCache: Promise<string[]> | null = null
 const SSR_ITEM_TABLE = 'ssr_item'
 const SSR_YEAR_TABLE = 'ssr_year'
@@ -177,22 +179,15 @@ export async function fetchSorItems(categoryKey: string): Promise<MasterItem[]> 
 export async function fetchSorYears(): Promise<string[]> {
   if (!sorYearsCache) {
     sorYearsCache = (async () => {
-      const stored = readPersistent<string[]>('sor-years')
-      if (stored !== null) return stored
-      const [
-        { data: allowanceRows, error: allowanceError },
-        { data: ssrRows, error: ssrError }
-      ] = await Promise.all([
-        supabase.from('allowance_rule').select('sor_year'),
-        supabase.from(SSR_YEAR_TABLE).select('year')
+      const [allowanceRows, ssrRows] = await Promise.all([
+        fetchAllRows('allowance_rule', 'sor_year', 'sor_year'),
+        fetchAllRows(SSR_YEAR_TABLE, 'year', 'year')
       ])
-      if (allowanceError) throw allowanceError
-      if (ssrError) throw ssrError
       const years = Array.from(
         new Set(
           [
-            ...(allowanceRows ?? []).map((r) => (r as { sor_year: string }).sor_year),
-            ...(ssrRows ?? []).map((r) => (r as { year: string }).year)
+            ...allowanceRows.map((r) => String(r.sor_year ?? '')),
+            ...ssrRows.map((r) => String(r.year ?? ''))
           ].filter((year): year is string => Boolean(year))
         )
       )
@@ -204,13 +199,11 @@ export async function fetchSorYears(): Promise<string[]> {
       throw error
     })
   }
-  return sorYearsCache
-}
-
-export interface FlagDef {
-  type: string
-  label: string
-  description: string | null
+  const years = await sorYearsCache
+  // Years are a small changing list. Refresh it whenever the form is reopened so a
+  // newly uploaded SOR year is not hidden behind the long-lived master-data cache.
+  sorYearsCache = null
+  return years
 }
 
 function labelize(t: string): string {
@@ -221,21 +214,109 @@ function labelize(t: string): string {
     .join(' ')
 }
 
-export async function fetchFlags(sorYear?: string): Promise<FlagDef[]> {
-  return cachedPersistent(flagsCache, `flags:${sorYear ?? '*'}`, async () => {
-    let q = supabase.from('allowance_rule').select('allowance_type, description, sor_year')
-    if (sorYear) q = q.eq('sor_year', sorYear)
-    const { data, error } = await q
-    if (error) throw error
-    const map = new Map<string, FlagDef>()
-    for (const r of (data ?? []) as { allowance_type: string; description: string | null }[]) {
-      if (!r.allowance_type || map.has(r.allowance_type)) continue
-      map.set(r.allowance_type, {
-        type: r.allowance_type,
-        label: labelize(r.allowance_type),
-        description: r.description ?? null
-      })
-    }
-    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label))
+interface AllowanceAtRow {
+  allowance_type: string | null
+  name: string | null
+  mandal: string | null
+  district: string | null
+  go_reference: string | null
+}
+
+interface AllowanceRuleRow {
+  allowance_type: string
+  value: number | string
+  value_type: string
+  description: string | null
+  tier: string | null
+  sor_year: string
+  go_reference: string | null
+  applies_to: string[] | null
+}
+
+function allowanceTypeLabel(type: string): string {
+  if (type === 'GHMC') return 'Greater Hyderabad (GHMC) area allowance'
+  if (type === 'CORPORATION') return 'Municipal Corporation area allowance'
+  if (type === 'MUNICIPALITY') return 'Municipality / District HQ area allowance'
+  if (type === 'INDUSTRIAL') return 'Notified Industrial Area allowance'
+  if (type === 'AGENCY_TRIBAL') return 'Agency / Tribal area allowance'
+  return labelize(type)
+}
+
+/** Resolve the labour area allowance from the project coordinate and annual rule table. */
+export async function resolveAreaAllowance(
+  location: ProjectLocation,
+  sorYear: string,
+  /** Undefined keeps spatial auto-detection; null explicitly selects no allowance. */
+  manualType?: string | null
+): Promise<ProjectAreaAllowance> {
+  const { data: places, error: placeError } = await supabase.rpc('fn_allowance_at', {
+    p_lng: location.lng,
+    p_lat: location.lat
   })
+  if (placeError) throw placeError
+
+  const place = ((places ?? []) as AllowanceAtRow[])[0]
+  const allowanceType = manualType === undefined ? place?.allowance_type ?? null : manualType
+  const source = manualType === undefined ? 'automatic' : 'manual'
+  if (!allowanceType) {
+    return {
+      type: null,
+      label: source === 'manual' ? 'No area allowance (manual)' : 'No location-based area allowance',
+      percent: 0,
+      village: place?.name ?? null,
+      mandal: place?.mandal ?? null,
+      district: place?.district ?? null,
+      goReference: place?.go_reference ?? null,
+      ruleYear: sorYear || null,
+      source
+    }
+  }
+
+  const select =
+    'allowance_type,value,value_type,description,tier,sor_year,go_reference,applies_to'
+  const exact = await supabase
+    .from('allowance_rule')
+    .select(select)
+    .eq('allowance_type', allowanceType)
+    .eq('sor_year', sorYear)
+    .eq('value_type', 'PERCENTAGE')
+
+  if (exact.error) throw exact.error
+  let rules = (exact.data ?? []) as unknown as AllowanceRuleRow[]
+
+  // A newly selected SOR year may precede its allowance upload. Keep the location
+  // classification and use the latest published labour rule instead of silently
+  // dropping the allowance.
+  if (!rules.length) {
+    const latest = await supabase
+      .from('allowance_rule')
+      .select(select)
+      .eq('allowance_type', allowanceType)
+      .eq('value_type', 'PERCENTAGE')
+      .order('sor_year', { ascending: false })
+    if (latest.error) throw latest.error
+    const all = (latest.data ?? []) as unknown as AllowanceRuleRow[]
+    const latestYear = all[0]?.sor_year
+    rules = latestYear ? all.filter((rule) => rule.sor_year === latestYear) : []
+  }
+
+  const labourRules = rules.filter(
+    (rule) => !rule.applies_to?.length || rule.applies_to.includes('LABOUR_COMPONENT')
+  )
+  const rule = [...labourRules].sort((a, b) => Number(b.value) - Number(a.value))[0]
+  const percent = rule ? Number(rule.value) : 0
+
+  return {
+    type: allowanceType,
+    label: allowanceTypeLabel(allowanceType),
+    percent: Number.isFinite(percent) ? percent : 0,
+    tier: rule?.tier ?? null,
+    description: rule?.description ?? null,
+    village: place.name,
+    mandal: place.mandal,
+    district: place.district,
+    ruleYear: rule?.sor_year ?? sorYear ?? null,
+    goReference: rule?.go_reference ?? place?.go_reference ?? null,
+    source
+  }
 }

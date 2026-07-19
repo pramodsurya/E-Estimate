@@ -53,6 +53,8 @@ export interface LeadChargeInput {
 export interface LeadVariantChargeInput extends LeadChargeInput {
   includedBasis?: LeadIncludedBasis
   customGrossRate?: number | null
+  /** Repeated haul legs represented by the same mapped route (for example fabricated parts). */
+  leadMultiplier?: number
 }
 
 export interface LeadChargeBreakdown {
@@ -322,6 +324,15 @@ export function calculateLeadVariantChargeFromRows(
       ...total.notes,
       'Using project-local DTL/manual gross rate for this Lead material.'
     ], manualLeadCalculation(normalizedInput.customGrossRate, total.unit))
+  }
+
+  const leadMultiplier = Math.max(1, Math.floor(numberValue(normalizedInput.leadMultiplier, 1)))
+  if (leadMultiplier > 1) {
+    leadRate = roundMoney(leadRate * leadMultiplier)
+    calculation = withLeadMultiplier(calculation, leadMultiplier)
+    total.notes.push(
+      `${leadMultiplier} separately payable haul legs use the same mapped route and lead deduction.`
+    )
   }
 
   return rebuildBreakdown(
@@ -718,6 +729,29 @@ function withLeadDeduction(
     ],
     fullLeadRate: roundedFull,
     deductedLeadRate: roundedDeduction,
+    netLeadRate
+  }
+}
+
+function withLeadMultiplier(
+  calculation: LeadRateCalculationDetail,
+  multiplier: number
+): LeadRateCalculationDetail {
+  const fullLeadRate = roundMoney(calculation.fullLeadRate * multiplier)
+  const deductedLeadRate = roundMoney(calculation.deductedLeadRate * multiplier)
+  const netLeadRate = roundMoney(calculation.netLeadRate * multiplier)
+  return {
+    ...calculation,
+    rows: [
+      ...calculation.rows,
+      {
+        label: `${multiplier} haul legs`,
+        expression: `${multiplier} x ${formatMoney(calculation.netLeadRate)}`,
+        amount: netLeadRate
+      }
+    ],
+    fullLeadRate,
+    deductedLeadRate,
     netLeadRate
   }
 }

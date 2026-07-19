@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Calculator, Pencil, RotateCcw, Save, Wrench } from 'lucide-react'
 import { collectProjectItemGroups } from '../../lib/projectItems'
-import { fetchRateAnalysis, recalculateRateAnalysis } from '../../lib/rateAnalysis'
+import {
+  auditPublishedRateAnalysis,
+  fetchRateAnalysis,
+  recalculateRateAnalysis
+} from '../../lib/rateAnalysis'
 import { calculateLeadVariantCharge, loadingUnloadingCautionForBreakdown } from '../../lib/lead'
 import {
+  addonLeadRuleForVariant,
   basisForData,
+  handlingModeForData,
   liftInfoForData,
   parseLeadInfo,
   quantityForVariant
@@ -16,8 +22,44 @@ import type { LeadApplication, LeadVariant } from '../../types/project'
 import type { RateAnalysisRecipe } from '../../types/rateAnalysis'
 import RateAnalysisTable from './RateAnalysisTable'
 
+const auditMoney = new Intl.NumberFormat('en-IN', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
+})
+
 function cloneRecipe(recipe: RateAnalysisRecipe): RateAnalysisRecipe {
   return JSON.parse(JSON.stringify(recipe)) as RateAnalysisRecipe
+}
+
+function adoptSavedRecipe(
+  loaded: RateAnalysisRecipe,
+  saved: RateAnalysisRecipe
+): RateAnalysisRecipe {
+  const merged = {
+    ...loaded,
+    ...saved,
+    year: loaded.year,
+    zone: loaded.zone,
+    areaAllowancePercent: loaded.areaAllowancePercent,
+    areaAllowanceLabel: loaded.areaAllowanceLabel,
+    layout: loaded.layout,
+    sourceFigures: loaded.sourceFigures,
+    publishedRateBlocks: loaded.publishedRateBlocks,
+    multiRateClassification: loaded.multiRateClassification,
+    dataVariant: loaded.dataVariant
+  }
+  return cloneRecipe(
+    merged.itemSource === 'SOR'
+      ? {
+          ...merged,
+          areaAllowancePercent: undefined,
+          areaAllowanceLabel: undefined,
+          overheadPercent: 0,
+          recalculation: undefined,
+          calculationStale: false
+        }
+      : recalculateRateAnalysis({ ...merged, recalculation: undefined })
+  )
 }
 
 function moneyChanged(left: number, right: number): boolean {
@@ -42,6 +84,9 @@ function leadApplicationChanged(left: LeadApplication, right: LeadApplication): 
   return (
     left.itemCode !== right.itemCode ||
     left.itemNodeId !== right.itemNodeId ||
+    left.addonId !== right.addonId ||
+    moneyChanged(left.outputQuantity ?? 0, right.outputQuantity ?? 0) ||
+    moneyChanged(left.rateAddition ?? 0, right.rateAddition ?? 0) ||
     left.quantityManuallyEdited !== right.quantityManuallyEdited ||
     left.quantitySource !== right.quantitySource ||
     left.unit !== right.unit ||
@@ -100,15 +145,26 @@ export default function RateAnalysisDashboard(): JSX.Element {
   )
   const group = groups.find((candidate) => candidate.key === selection?.key)
   const selectedNode = project && selection ? findNode(project.root, selection.nodeId) : null
+  const scopeNode =
+    project && selection?.scopeNodeId ? findNode(project.root, selection.scopeNodeId) : null
   const itemNode =
     selectedNode?.kind === 'item' ? selectedNode : group?.usages[0]?.node ?? null
-  const override =
+  const globalOverride =
     project && selection ? project.rateAnalysisOverrides?.[selection.key] ?? null : null
+  const scopedOverride =
+    project && selection?.scopeNodeId
+      ? project.rateAnalysisScopedOverrides?.[selection.scopeNodeId]?.[selection.key] ?? null
+      : null
+  const override = scopedOverride ?? globalOverride
   const leadVariants = project?.leadChart?.variants ?? []
   const leadApplications =
-    project && selection
+    project && selection && itemNode
       ? (project.leadChart?.applications ?? []).filter(
-          (application) => application.itemKey === selection.key
+          (application) =>
+            application.itemKey === selection.key &&
+            (application.itemNodeId
+              ? application.itemNodeId === itemNode.id
+              : group?.usages[0]?.node.id === itemNode.id)
         )
       : []
   const leadApplicationSignature = leadApplications
@@ -123,12 +179,16 @@ export default function RateAnalysisDashboard(): JSX.Element {
     const application = leadApplications.find((candidate) => candidate.id === applicationId)
     if (!application) return
     const quantity = Math.max(0, Number.isFinite(quantityValue) ? quantityValue : 0)
+    const grossAmount = roundMoney(application.grossRate * quantity)
+    const outputQuantity = application.outputQuantity ?? current?.outputQuantity ?? 1
     upsertLeadApplication({
       ...application,
       quantity,
       quantityManuallyEdited: true,
       quantitySource: `Edited disposal quantity: ${formatQuantity(quantity)} ${application.unit}`,
-      grossAmount: roundMoney(application.grossRate * quantity),
+      grossAmount,
+      outputQuantity,
+      rateAddition: grossAmount / outputQuantity,
       netAmount: roundMoney(application.netRate * quantity),
       appliedAt: new Date().toISOString()
     })
@@ -149,9 +209,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
     })
       .then((loaded) => {
         if (cancelled) return
-        const active = override
-          ? cloneRecipe({ ...loaded, ...override, layout: loaded.layout })
-          : cloneRecipe(loaded)
+        const active = override ? adoptSavedRecipe(loaded, override) : cloneRecipe(loaded)
         setDefaultRecipe(loaded)
         setCurrent(active)
         setDraft(cloneRecipe(active))
@@ -182,18 +240,26 @@ export default function RateAnalysisDashboard(): JSX.Element {
     project?.meta.areaAllowancePercent,
     project?.meta.areaAllowanceLabel,
     selection?.key,
-    selection?.nodeId
+    selection?.nodeId,
+    selection?.scopeNodeId
   ])
 
   useEffect(() => {
     if (!project || !selection || !current || !group || leadApplications.length === 0) return
     let cancelled = false
+    const activeItemNodeId = itemNode?.id
+    if (!activeItemNodeId) return
 
     const refreshLeadApplications = async (): Promise<void> => {
       const info = parseLeadInfo(current.leadApplicability)
       const liftInfo = liftInfoForData(info, `${group.description} ${current.description}`, group.code)
       const basis = (variant: LeadVariant) =>
-        basisForData(info, variant.includedBasis, `${group.description} ${current.description}`)
+        basisForData(
+          info,
+          variant.includedBasis,
+          `${group.description} ${current.description}`,
+          variant
+        )
 
       for (const application of leadApplications) {
         if (cancelled) return
@@ -217,16 +283,23 @@ export default function RateAnalysisDashboard(): JSX.Element {
           includesAllLifts: liftInfo.includesAllLifts,
           mechanicalConveyanceReachesFinalPoint:
             variant.mechanicalConveyanceReachesFinalPoint ?? variant.leadKm > 0.15,
-          handlingMode: variant.handlingMode,
+          handlingMode: handlingModeForData(info, variant, variant.handlingMode),
           materialName: variant.materialName,
           includedBasis: basis(variant),
           customGrossRate: variant.rateSource === 'chart' ? null : variant.customGrossRate ?? null,
-          chargeCode: variant.chargeCode
+          chargeCode: variant.chargeCode,
+          leadMultiplier: info.policy?.haulLegs ?? 1
         })
         const next: LeadApplication = {
           ...application,
-          itemCode: group.displayName,
-          itemNodeId: group.usages[0]?.node.id,
+          addonId: addonLeadRuleForVariant(info, variant)?.addonId ?? application.addonId,
+          itemCode: `${group.displayName} · ${
+            group.usages
+              .find((usage) => usage.node.id === activeItemNodeId)
+              ?.path.map((node) => node.name)
+              .join(' > ') || 'Project'
+          }`,
+          itemNodeId: application.itemNodeId ?? activeItemNodeId,
           quantity: breakdown.quantity,
           quantityManuallyEdited: application.quantityManuallyEdited,
           quantitySource: effectiveQuantitySource,
@@ -237,6 +310,8 @@ export default function RateAnalysisDashboard(): JSX.Element {
           liftRate: breakdown.liftRate,
           grossRate: breakdown.grossRate,
           grossAmount: breakdown.grossAmount,
+          outputQuantity: current.outputQuantity || 1,
+          rateAddition: breakdown.grossAmount / (current.outputQuantity || 1),
           netRate: breakdown.netRate,
           netAmount: breakdown.netAmount,
           calculation: breakdown.calculation,
@@ -262,6 +337,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
     project?.id,
     project?.meta.sorYear,
     selection?.key,
+    itemNode?.id,
     current,
     group?.key,
     leadApplicationSignature,
@@ -276,7 +352,11 @@ export default function RateAnalysisDashboard(): JSX.Element {
     if (!current) return
     setDraft(cloneRecipe(current))
     setEditing(true)
-    setNotice('Published Supabase values stay unchanged. Edits are recalculated automatically.')
+    setNotice(
+      current.itemSource === 'SOR'
+        ? 'Edit the SOR description or adopted rate. SSR calculations are not applied to this sheet.'
+        : 'Published Supabase values stay unchanged. Edits are recalculated automatically.'
+    )
   }
 
   const recalculate = (): void => {
@@ -291,31 +371,47 @@ export default function RateAnalysisDashboard(): JSX.Element {
   }
 
   const updateDraft = (next: RateAnalysisRecipe): void => {
-    const updated = next.calculationStale ? recalculateRateAnalysis(next) : next
+    const updated =
+      next.itemSource === 'SSR' && next.calculationStale
+        ? recalculateRateAnalysis(next)
+        : next
     setDraft(updated)
-    if (next.calculationStale) {
+    if (next.itemSource === 'SSR' && next.calculationStale) {
       setNotice('Inputs changed. Recalculation updated automatically.')
+    } else if (next.itemSource === 'SOR') {
+      setNotice('SOR description/rate updated. Save to adopt it in this project.')
     }
   }
 
   const applyFixed = (): void => {
     if (!draft) return
     const saved = cloneRecipe(draft)
-    saveRateAnalysis(saved)
+    saveRateAnalysis(saved, selection.scopeNodeId)
     setCurrent(saved)
     setDraft(cloneRecipe(saved))
     setEditing(false)
-    setNotice('Changes saved. All other Supabase values were left unchanged.')
+    setNotice(
+      selection.scopeNodeId
+        ? `Changes saved only for ${scopeNode?.name ?? 'the selected component'}.`
+        : 'Shared DATA changes saved for every component usage. All Supabase values were left unchanged.'
+    )
   }
 
   const applyDefaults = (): void => {
     if (!defaultRecipe) return
-    const restored = cloneRecipe(defaultRecipe)
-    restoreDefaults(restored)
+    const restored =
+      selection.scopeNodeId && globalOverride
+        ? adoptSavedRecipe(defaultRecipe, globalOverride)
+        : cloneRecipe(defaultRecipe)
+    restoreDefaults(restored, selection.scopeNodeId)
     setCurrent(restored)
     setDraft(cloneRecipe(restored))
     setEditing(false)
-    setNotice('Supabase defaults restored for every usage of this item.')
+    setNotice(
+      selection.scopeNodeId
+        ? `${scopeNode?.name ?? 'This component'} now uses the shared DATA again.`
+        : 'Supabase defaults restored for every usage of this item.'
+    )
   }
 
   return (
@@ -325,11 +421,16 @@ export default function RateAnalysisDashboard(): JSX.Element {
           <ArrowLeft size={15} /> Back
         </button>
         <div className="rate-toolbar-title">
-          <strong>{group.code}</strong>
+          <strong>{group.displayName}</strong>
           <span>
-            {project.meta.sorYear} | {zoneLabel(project.meta.sorZone ?? 'zone_3')} |{' '}
+            {group.displayName !== group.code ? `Source ${group.code} | ` : ''}
+            {project.meta.sorYear}
+            {project.meta.sorYear === '2026-27'
+              ? ` | ${zoneLabel(project.meta.sorZone ?? 'zone_3')}`
+              : ''}{' | '}
             {group.usages.length} project usage
             {group.usages.length === 1 ? '' : 's'}
+            {scopeNode ? ` | Component scope: ${scopeNode.name}` : ' | Shared DATA'}
           </span>
         </div>
         <div className="rate-toolbar-actions">
@@ -349,21 +450,29 @@ export default function RateAnalysisDashboard(): JSX.Element {
               >
                 Cancel
               </button>
-              <button className="btn ghost" onClick={recalculate} disabled={!draft}>
-                <Calculator size={14} /> Recalculate
-              </button>
+              {draft?.itemSource !== 'SOR' && (
+                <button className="btn ghost" onClick={recalculate} disabled={!draft}>
+                  <Calculator size={14} /> Recalculate
+                </button>
+              )}
               <button className="btn" onClick={applyFixed}>
                 <Save size={14} /> Save
               </button>
             </>
           )}
           <button className="btn ghost" onClick={applyDefaults} disabled={!defaultRecipe}>
-            <RotateCcw size={14} /> Defaults
+            <RotateCcw size={14} /> {selection.scopeNodeId ? 'Use Shared DATA' : 'Defaults'}
           </button>
         </div>
       </div>
 
       {notice && <div className="rate-notice">{notice}</div>}
+      {scopeNode && !notice && (
+        <div className="rate-notice">
+          Component-specific mode: saving affects only <strong>{scopeNode.name}</strong>. Open the
+          main DATA row to edit every component.
+        </div>
+      )}
       {loading && (
         <div className="rate-state">
           Loading the {project.meta.sorYear} recipe from Supabase...
@@ -392,7 +501,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
             leadVariants={leadVariants}
             onLeadApplicationQuantityChange={updateLeadApplicationQuantity}
           />
-          {draft.recalculation && <RecalculationAudit recipe={draft} />}
+          {draft.itemSource === 'SSR' && <RecalculationAudit recipe={draft} />}
           {!selection.recipeOnly && (
             <section className="rate-usages">
               <div className="rate-usages-heading">
@@ -410,7 +519,14 @@ export default function RateAnalysisDashboard(): JSX.Element {
                   <button
                     key={usage.node.id}
                     className="rate-usage"
-                    onClick={() => openRateAnalysis(group.key, usage.node.id, true)}
+                    onClick={() =>
+                      openRateAnalysis(
+                        group.key,
+                        usage.node.id,
+                        true,
+                        usage.path[usage.path.length - 1]?.id
+                      )
+                    }
                   >
                     <span>
                       {usage.path.map((part) => part.name).join(' / ') || project.root.name}
@@ -429,47 +545,106 @@ export default function RateAnalysisDashboard(): JSX.Element {
 
 function RecalculationAudit({ recipe }: { recipe: RateAnalysisRecipe }): JSX.Element {
   const result = recipe.recalculation
-  if (!result) return <></>
-  const contributions = result.trace.filter((entry) => entry.contributes)
-  const excluded = result.trace.filter((entry) => !entry.contributes)
+  const audit = auditPublishedRateAnalysis(recipe)
+  const hasUserEdits = recipe.sections.some((section) =>
+    section.lines.some((line) => line.userAdded || (line.editedFields?.length ?? 0) > 0)
+  )
+  const issues = audit.rows.filter(
+    (row) => row.status === 'mismatch' || row.status === 'rounding'
+  )
+  const sectionLabels = {
+    materials: 'Materials',
+    machinery: 'Machinery',
+    labour: 'Labour'
+  }
+
+  const value = (amount: number | null): string =>
+    amount === null ? 'Not independently verifiable' : `Rs. ${auditMoney.format(amount)}`
 
   return (
     <section className="rate-calculation-audit">
       <div className="rate-calculation-heading">
         <div>
-          <span>Derived Result</span>
+          <span>Independent background check</span>
           <strong>Recalculation audit</strong>
         </div>
         <p>
-          Final cost {result.finalCost || 'unavailable'} | Calculated rate{' '}
-          {result.calculatedRate || 'unavailable'} | Published rate{' '}
-          {result.publishedBaseRate || 'unavailable'}
+          Published values remain adopted unless a user explicitly edits or adds a row.
         </p>
       </div>
-      {result.warnings.length > 0 && (
+      <div className={`rate-audit-adoption ${hasUserEdits ? 'has-edits' : ''}`}>
+        {hasUserEdits
+          ? 'Project edits detected — only marked rows and their dependent totals are recalculated.'
+          : 'No user edits — published values adopted.'}
+      </div>
+      <div className="rate-audit-sections">
+        {audit.sections.map((section) => (
+          <div className="rate-audit-section" key={section.section}>
+            <strong>{sectionLabels[section.section]}</strong>
+            <span>Published/printed <b>{value(section.publishedTotal)}</b></span>
+            <span>Independent row sum <b>{value(section.recalculatedTotal)}</b></span>
+            <span>
+              Difference <b>{value(section.difference)}</b>
+            </span>
+            <small>
+              {section.verifiable
+                ? `${section.mismatchedRows} published row mismatch${section.mismatchedRows === 1 ? '' : 'es'}`
+                : 'Detailed published rows are unavailable for verification'}
+            </small>
+          </div>
+        ))}
+      </div>
+      {issues.length > 0 ? (
+        <div className="rate-audit-issues">
+          <div className="rate-audit-issue-head">
+            <span>Section / published row</span>
+            <span>Published</span>
+            <span>Recalculated</span>
+            <span>Difference</span>
+            <span>Finding</span>
+          </div>
+          {issues.map((row) => (
+            <div className={`rate-audit-issue ${row.status}`} key={`${row.section}-${row.lineId}`}>
+              <span>
+                <b>{sectionLabels[row.section]}</b>
+                <small>{row.description || row.lineId}</small>
+              </span>
+              <span>{value(row.publishedAmount)}</span>
+              <span>{value(row.recalculatedAmount)}</span>
+              <span>{value(row.difference)}</span>
+              <strong>{row.status === 'rounding' ? 'Rounding difference' : 'Published mismatch'}</strong>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rate-audit-clean">
+          No independently verifiable published row mismatch was found.
+        </div>
+      )}
+      {result && result.warnings.length > 0 && (
         <div className="rate-calculation-warnings">
           {result.warnings.map((warning) => (
             <p key={warning}>{warning}</p>
           ))}
         </div>
       )}
-      <details className="rate-calculation-trace">
-        <summary>
-          {contributions.length} contributing entries; {excluded.length} display-only entries
-        </summary>
-        <div>
-          {result.trace.map((entry, index) => (
-            <p
-              className={entry.contributes ? 'contributes' : 'display-only'}
-              key={`${entry.kind}-${entry.section ?? entry.label ?? index}-${index}`}
-            >
-              <span>{entry.section ?? entry.label ?? entry.description}</span>
-              <small>{entry.contributes ? entry.formula ?? entry.status : `not added: ${entry.formula ?? entry.status}`}</small>
-              <strong>{entry.amount}</strong>
-            </p>
-          ))}
-        </div>
-      </details>
+      {result && (
+        <details className="rate-calculation-trace">
+          <summary>Adopted estimate calculation trace</summary>
+          <div>
+            {result.trace.map((entry, index) => (
+              <p
+                className={entry.contributes ? 'contributes' : 'display-only'}
+                key={`${entry.kind}-${entry.section ?? entry.label ?? index}-${index}`}
+              >
+                <span>{entry.section ?? entry.label ?? entry.description}</span>
+                <small>{entry.formula ?? entry.status}</small>
+                <strong>{entry.amount}</strong>
+              </p>
+            ))}
+          </div>
+        </details>
+      )}
     </section>
   )
 }

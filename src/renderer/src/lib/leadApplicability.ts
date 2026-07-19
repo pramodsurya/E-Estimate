@@ -2,6 +2,7 @@ import type { ProjectItemGroup } from './projectItems'
 import { CONVEYANCE_CLASSES } from './lead'
 import type {
   ConveyanceClass,
+  LeadHandlingMode,
   LeadIncludedBasis,
   LeadPolicy,
   LeadQuantityBasis,
@@ -20,6 +21,20 @@ export interface LeadInfo {
   allLeads: boolean
   includesAllLifts: boolean
   policy: LeadPolicy | null
+  /** Exact selected add-on Lead rules; never folded into base classes/materials. */
+  addonRules: AddonLeadRule[]
+}
+
+export interface AddonLeadRule {
+  addonId: string
+  materialName: string
+  conveyanceClass: ConveyanceClass
+  quantityRatio: number
+  materialUnit: string
+  includedLeadM: number
+  distanceRule: 'CHARGE_BEYOND_INCLUDED' | 'FULL_SOURCE_TO_SITE'
+  allowLoading: boolean
+  allowUnloading: boolean
 }
 
 export interface DataLiftInfo {
@@ -59,6 +74,42 @@ export function parseLeadInfo(value: unknown): LeadInfo {
         ...materialClasses
       ])
     : rawClasses
+  const selectedAddonIds = new Set(
+    Array.isArray(source.selected_addon_ids)
+      ? source.selected_addon_ids.map((value) => String(value).trim()).filter(Boolean)
+      : []
+  )
+  const addonRules = Array.isArray(source.addons)
+    ? source.addons.flatMap((raw): AddonLeadRule[] => {
+        const rule = record(raw)
+        const addonId = String(rule.addon_id ?? '').trim()
+        const conveyanceClass = rule.conveyance_class
+        const quantityRatio = numericOrNull(rule.quantity_ratio)
+        if (
+          !addonId ||
+          !selectedAddonIds.has(addonId) ||
+          rule.applicable !== true ||
+          !isConveyanceClass(conveyanceClass) ||
+          quantityRatio === null ||
+          quantityRatio <= 0
+        ) return []
+        const loading = record(rule.loading)
+        const unloading = record(rule.unloading)
+        return [{
+          addonId,
+          materialName: String(rule.material_desc ?? '').trim() || materialNameFor('', conveyanceClass),
+          conveyanceClass: canonicalLeadConveyanceClass(String(rule.material_desc ?? ''), conveyanceClass),
+          quantityRatio,
+          materialUnit: String(rule.material_unit ?? 'CUM'),
+          includedLeadM: numericOrNull(rule.included_lead_m) ?? 0,
+          distanceRule: rule.distance_rule === 'CHARGE_BEYOND_INCLUDED'
+            ? 'CHARGE_BEYOND_INCLUDED'
+            : 'FULL_SOURCE_TO_SITE',
+          allowLoading: loading.add_charge === true,
+          allowUnloading: unloading.add_charge_by_default === true
+        }]
+      })
+    : []
   return {
     classes,
     materials,
@@ -68,7 +119,8 @@ export function parseLeadInfo(value: unknown): LeadInfo {
     includedInitialLiftM: numericOrNull(builtin.initial_lift_m),
     allLeads: Boolean(builtin.all_leads),
     includesAllLifts: Boolean(builtin.all_lifts),
-    policy: parseLeadPolicy(source.lead_policy ?? source.leadPolicy)
+    policy: parseLeadPolicy(source.lead_policy ?? source.leadPolicy),
+    addonRules
   }
 }
 
@@ -151,11 +203,45 @@ export function materialRefsForLeadInfo(info: LeadInfo, _description = ''): Lead
       })
     }
   }
+  for (const rule of info.addonRules) {
+    refs.push({
+      name: materialNameFor(rule.materialName, rule.conveyanceClass),
+      conveyanceClass: rule.conveyanceClass,
+      source: `Selected add-on ${rule.addonId}`
+    })
+  }
   return uniqueRefs(refs)
+}
+
+export function addonLeadRuleForVariant(
+  info: LeadInfo,
+  variant: Pick<LeadVariant, 'materialName' | 'conveyanceClass'>
+): AddonLeadRule | null {
+  const variantClass = canonicalLeadConveyanceClass(variant.materialName, variant.conveyanceClass)
+  const variantName = materialNameFor(variant.materialName, variantClass).toLowerCase()
+  return info.addonRules.find((rule) =>
+    rule.conveyanceClass === variantClass &&
+    materialNameFor(rule.materialName, rule.conveyanceClass).toLowerCase() === variantName
+  ) ?? null
+}
+
+export function handlingModeForData(
+  info: LeadInfo,
+  variant: Pick<LeadVariant, 'materialName' | 'conveyanceClass'>,
+  fallback: LeadHandlingMode
+): LeadHandlingMode {
+  const addonRule = addonLeadRuleForVariant(info, variant)
+  if (addonRule && !addonRule.allowLoading && !addonRule.allowUnloading) return 'none'
+  if (info.policy && !info.policy.allowLoading && !info.policy.allowUnloading) return 'none'
+  return fallback
 }
 
 export function materialNameFor(description: string, conveyanceClass: ConveyanceClass): string {
   const text = normalizeDescription(description)
+  if (/\bfabricated\s+parts?\b/.test(text)) return 'Fabricated Parts'
+  // Murum remains a distinct recipe/pricing material, but Lead transport uses
+  // the one common EARTH schedule and must not create a separate Lead material.
+  if (/\b(?:mur+um|mor+um)\b/.test(text)) return 'Earth'
   if (/\bcement\b/.test(text)) return 'Cement'
   if (/\bsteel\b|reinforcement|tmt|hysd|structural steel|wire fabric|g\.?i\.? sheet/.test(text)) {
     return 'Steel'
@@ -193,13 +279,24 @@ export function isEligibleForLead(group: ProjectItemGroup, variant: LeadVariant,
 export function basisForData(
   info: LeadInfo,
   fallback: LeadIncludedBasis,
-  description = ''
+  description = '',
+  variant?: Pick<LeadVariant, 'materialName' | 'conveyanceClass'>
 ): LeadIncludedBasis {
+  const addonRule = variant ? addonLeadRuleForVariant(info, variant) : null
+  if (addonRule) {
+    if (addonRule.distanceRule === 'FULL_SOURCE_TO_SITE' || addonRule.includedLeadM <= 0) return 'none'
+    if (addonRule.includedLeadM >= 1000) return 'initial_1km'
+    return 'initial_50m'
+  }
   if (info.policy?.purpose === 'NO_EXTRA_LEAD') return 'all_leads'
   if (info.policy?.purpose === 'EXCAVATED_DISPOSAL') {
     if (info.policy.includedLeadM >= 1000) return 'initial_1km'
     if (info.policy.includedLeadM === 50) return 'initial_50m'
     return fallback
+  }
+  if (info.policy && info.policy.includedLeadM >= 1000) return 'initial_1km'
+  if (info.policy && info.policy.includedLeadM > 0 && info.policy.includedLeadM <= 50) {
+    return 'initial_50m'
   }
   const descriptionBasis = leadBasisFromDescription(description)
   if (info.allLeads) return 'all_leads'
@@ -229,9 +326,77 @@ export function quantityForVariant(
     }
   }
 
+  if (info.policy?.quantityBasis === 'PUBLISHED_FABRICATED_WEIGHT_TONNE') {
+    const sourceQuantity = recipe.multiRateClassification?.sourceQuantity
+    const sourceUnit = recipe.multiRateClassification?.sourceUnit ?? 'tonne wt'
+    if (sourceQuantity !== undefined && Number.isFinite(sourceQuantity) && sourceQuantity > 0) {
+      return {
+        quantity: sourceQuantity,
+        unit: 'tonne',
+        source: `Published fabricated weight: ${formatQuantity(sourceQuantity)} ${sourceUnit}`
+      }
+    }
+    const weightBlock = recipe.publishedRateBlocks?.find((block) =>
+      /\b(?:wt|weight)\b/i.test(`${block.label} ${block.unit}`)
+    )
+    if (weightBlock) {
+      return {
+        quantity: weightBlock.outputQuantity,
+        unit: 'tonne',
+        source: `Published fabricated weight: ${formatQuantity(weightBlock.outputQuantity)} ${weightBlock.unit}`
+      }
+    }
+    return {
+      quantity: recipe.outputQuantity || 1,
+      unit: 'tonne',
+      source: `Published fabricated weight fallback: ${formatQuantity(recipe.outputQuantity || 1)} tonne`
+    }
+  }
+
   const materials = recipe.sections.find((section) => section.key === 'materials')?.lines ?? []
   const variantClass = canonicalLeadConveyanceClass(variant.materialName, variant.conveyanceClass)
   const targetUnit = leadQuantityUnitForClass(variantClass)
+  const addonRule = addonLeadRuleForVariant(info, variant)
+  if (addonRule) {
+    const sourceQuantity = (recipe.outputQuantity || 1) * addonRule.quantityRatio
+    const converted = convertQuantityToLeadUnit(sourceQuantity, addonRule.materialUnit, targetUnit)
+    if (converted !== null) {
+      return {
+        quantity: converted,
+        unit: targetUnit,
+        source: `Selected add-on ${addonRule.addonId}: ${formatQuantity(recipe.outputQuantity || 1)} ${recipe.unit} × ${formatQuantity(addonRule.quantityRatio)} ${addonRule.materialUnit}/${recipe.unit}`
+      }
+    }
+  }
+  const selectedVariantMaterials = recipe.dataVariant?.leadMaterials?.filter(
+    (material) =>
+      material.conveyanceClass === variantClass &&
+      materialNameFor(material.name, material.conveyanceClass).toLowerCase() ===
+        variant.materialName.toLowerCase()
+  ) ?? []
+  if (selectedVariantMaterials.length) {
+    let quantity = 0
+    const sources: string[] = []
+    for (const material of selectedVariantMaterials) {
+      const scale = material.basisQuantity > 0
+        ? (recipe.outputQuantity || material.basisQuantity) / material.basisQuantity
+        : 1
+      const sourceQuantity = material.quantity * scale
+      const converted = convertQuantityToLeadUnit(sourceQuantity, material.unit, targetUnit)
+      if (converted === null) continue
+      quantity += converted
+      sources.push(
+        `${formatQuantity(sourceQuantity)} ${material.unit} per ${formatQuantity(recipe.outputQuantity || material.basisQuantity)} ${recipe.unit || material.basisUnit}`
+      )
+    }
+    if (quantity > 0) {
+      return {
+        quantity,
+        unit: targetUnit,
+        source: `Selected optional DATA material quantity: ${sources.join(', ')}`
+      }
+    }
+  }
   const mappedNames = Object.entries(info.materials)
     .filter(
       ([name, classKey]) =>
@@ -326,7 +491,12 @@ function parseLeadPolicy(value: unknown): LeadPolicy | null {
 
   const quantityBasis = enumValue<LeadQuantityBasis>(
     source.quantityBasis ?? source.quantity_basis,
-    ['PARENT_CUM', 'DERIVED_LOOSE_CUM', 'MANUAL_LOOSE_CUM']
+    [
+      'PARENT_CUM',
+      'DERIVED_LOOSE_CUM',
+      'MANUAL_LOOSE_CUM',
+      'PUBLISHED_FABRICATED_WEIGHT_TONNE'
+    ]
   ) ?? 'PARENT_CUM'
   const defaultClass = source.defaultConveyanceClass ?? source.default_conveyance_class
 
@@ -340,6 +510,7 @@ function parseLeadPolicy(value: unknown): LeadPolicy | null {
     allowUnloading: Boolean(source.allowUnloading ?? source.allow_unloading),
     scrutinyRequired: Boolean(source.scrutinyRequired ?? source.scrutiny_required),
     defaultConveyanceClass: isConveyanceClass(defaultClass) ? defaultClass : undefined,
+    haulLegs: Math.max(1, Math.floor(numericOrNull(source.haulLegs ?? source.haul_legs) ?? 1)),
     note: typeof source.note === 'string' ? source.note : undefined,
     policyVersion:
       typeof (source.policyVersion ?? source.policy_version) === 'string'

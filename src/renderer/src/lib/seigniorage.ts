@@ -5,7 +5,7 @@ import type {
   SeigniorageApplicabilityPolicy,
   SeigniorageMaterialPolicy
 } from '../types/rateAnalysis'
-import { projectItemKey } from './projectItems'
+import { projectItemKey, rateAnalysisOverrideForNode } from './projectItems'
 import { readFinalValueFromSnapshot } from './finalNumber'
 
 export interface SeigniorageCharge {
@@ -162,6 +162,10 @@ export function parseSeignioragePolicy(raw: unknown): SeigniorageApplicabilityPo
         if (!Number.isFinite(recipeMaterialQty)) return null
         return buildPolicyRow(row, mode, quantityRatio, recipeMaterialQty)
       }
+      if (mode === 'ADDON_MATERIAL_RATIO') {
+        if (!Number.isFinite(quantityRatio)) return null
+        return buildPolicyRow(row, mode, quantityRatio, recipeMaterialQty)
+      }
       // RECIPE_MATERIAL_RATIO: needs both
       if (!Number.isFinite(quantityRatio) || !Number.isFinite(recipeMaterialQty)) {
         return null
@@ -169,12 +173,25 @@ export function parseSeignioragePolicy(raw: unknown): SeigniorageApplicabilityPo
       return buildPolicyRow(row, mode, quantityRatio, recipeMaterialQty)
     })
     .filter((row): row is NonNullable<typeof row> => row !== null)
+  const addons = jsonRows(obj.addons).flatMap((group) => {
+    const addonId = textValue(group.addon_id).trim()
+    if (!addonId) return []
+    const addonRows = jsonRows(group.rows)
+      .map((row) => {
+        const ratio = numberValue(row.quantity_ratio, Number.NaN)
+        if (!Number.isFinite(ratio)) return null
+        return buildPolicyRow(row, textValue(row.mode, 'ADDON_MATERIAL_RATIO'), ratio, Number.NaN)
+      })
+      .filter((row): row is SeigniorageMaterialPolicy => row !== null)
+    return [{ addon_id: addonId, applicable: group.applicable === true, rows: addonRows }]
+  })
   return {
     schema_version: numberValue(obj.schema_version, Number.NaN) || undefined,
     source: typeof obj.source === 'string' ? obj.source : null,
     applicable: obj.applicable === true || obj.applicable === false ? Boolean(obj.applicable) : undefined,
     rows: materials,
     materials,
+    addons,
     seig_code: typeof obj.seig_code === 'string' ? obj.seig_code : null,
     rate_override:
       typeof obj.rate_override === 'number' && Number.isFinite(obj.rate_override)
@@ -212,7 +229,8 @@ function buildPolicyRow(
     seig_code: typeof row.seig_code === 'string' ? row.seig_code : null,
     charge_unit: qtyUnit || null,
     quantity_unit: qtyUnit || undefined,
-    conversion_factor: numberOrNull(row.conversion_factor) ?? 1,
+    conversion_factor: numberOrNull(row.conversion_factor),
+    conversion_required: row.conversion_required === true,
     quantity_basis: quantityBasis,
     mode: mode as SeigniorageMaterialPolicy['mode'],
     item_unit: typeof row.item_unit === 'string' ? row.item_unit : null,
@@ -256,6 +274,7 @@ export interface SeigniorageItemRow {
   recipeMaterialUnit?: string | null
   quantityRatio?: number | null
   conversionFactor?: number | null
+  conversionRequired?: boolean
   status?: string | null
   policyNotes?: string | null
   charge: SeigniorageCharge | null
@@ -392,6 +411,7 @@ function computeApplicableQty(
   if (mode === 'DIRECT_RECIPE_QTY') return policy.recipe_material_qty ?? null
   // RECIPE_MATERIAL_RATIO (default)
   if (enteredQty == null || policy.quantity_ratio == null) return null
+  if (policy.conversion_required && policy.conversion_factor == null) return null
   const cf = policy.conversion_factor ?? 1
   return roundQuantity(enteredQty * policy.quantity_ratio * cf)
 }
@@ -412,14 +432,25 @@ export function computeSeigniorageTable(
 
   for (const item of items) {
     const itemKey = projectItemKey(item)
-    const recipe = project.rateAnalysisOverrides?.[itemKey]
+    const recipe = rateAnalysisOverrideForNode(project, item)
     const qty = readFinalValueFromSnapshot(item)
     const itemCode = resolveSsrItemCode(item)
     const dbSeig = recipe?.seigniorageApplicability ?? policyByCode[itemCode]
 
-    if (dbSeig?.applicable === false) continue
+    const selectedAddonId = recipe?.dataVariant?.addonId ?? item.dataVariant?.addonId
+    const addonPolicies = selectedAddonId
+      ? dbSeig?.addons
+          ?.filter((group) => group.applicable && group.addon_id === selectedAddonId)
+          .flatMap((group) => group.rows) ?? []
+      : []
+    if (dbSeig?.applicable === false && addonPolicies.length === 0) continue
 
-    const policies = dbSeig?.rows?.length ? dbSeig.rows : dbSeig?.materials
+    const basePolicies = dbSeig?.applicable === false
+      ? []
+      : dbSeig?.rows?.length
+        ? dbSeig.rows
+        : dbSeig?.materials ?? []
+    const policies = [...basePolicies, ...addonPolicies]
     if (policies?.length) {
       for (const policy of policies) {
         const charge = policy.seig_code
@@ -453,6 +484,9 @@ export function computeSeigniorageTable(
           recipeMaterialUnit: policy.recipe_material_unit,
           quantityRatio: policy.quantity_ratio,
           conversionFactor: policy.conversion_factor,
+          conversionRequired: Boolean(
+            policy.conversion_required && policy.conversion_factor == null
+          ),
           status: policy.status,
           policyNotes: policy.notes,
           charge,

@@ -40,7 +40,9 @@ const {
 const {
   basisForData,
   canonicalLeadConveyanceClass,
+  handlingModeForData,
   liftInfoForData,
+  materialNameFor,
   materialRefsForLeadInfo,
   parseLeadInfo,
   quantityForVariant
@@ -48,6 +50,113 @@ const {
   path.join(root, 'src/renderer/src/lib/leadApplicability.ts'),
   { './lead': leadExports }
 )
+
+{
+  const info = parseLeadInfo({
+    classes: ['STONE', 'EARTH'],
+    materials: {
+      'Uncoursed rubble stones at quarry': 'STONE',
+      Murum: 'EARTH'
+    },
+    builtin: { initial_lead_m: 50 }
+  })
+  assert.equal(materialNameFor('Murum', 'EARTH'), 'Earth')
+  assert.ok(
+    materialRefsForLeadInfo(info).some(
+      (ref) => ref.name === 'Earth' && ref.conveyanceClass === 'EARTH'
+    )
+  )
+  const quantity = quantityForVariant(
+    {
+      outputQuantity: 100,
+      unit: 'SQM',
+      sections: [],
+      dataVariant: {
+        leadMaterials: [{
+          name: 'Murum',
+          conveyanceClass: 'EARTH',
+          quantity: 18,
+          unit: 'cum',
+          basisQuantity: 100,
+          basisUnit: 'sqm'
+        }]
+      }
+    },
+    { materialName: 'Earth', conveyanceClass: 'EARTH' },
+    info
+  )
+  assert.equal(quantity.quantity, 18)
+  assert.equal(quantity.unit, 'cum')
+  assert.match(quantity.source, /Selected optional DATA material quantity/)
+}
+
+{
+  const variant = { materialName: 'Earth', conveyanceClass: 'EARTH', handlingMode: 'mechanical' }
+  const selected = parseLeadInfo({
+    classes: ['STONE'],
+    materials: { Rubble: 'STONE' },
+    selected_addon_ids: ['murum_bed_15cm'],
+    addons: [{
+      addon_id: 'murum_bed_15cm', applicable: true, material_desc: 'Murum',
+      material_unit: 'CUM', quantity_ratio: 0.18, conveyance_class: 'EARTH',
+      included_lead_m: 50, distance_rule: 'CHARGE_BEYOND_INCLUDED',
+      loading: { add_charge: false }, unloading: { add_charge_by_default: false }
+    }]
+  })
+  assert.deepEqual(selected.classes, ['STONE'], 'add-on EARTH must not enter base classes')
+  assert.ok(materialRefsForLeadInfo(selected).some((ref) => ref.name === 'Earth'))
+  assert.equal(basisForData(selected, 'none', '', variant), 'initial_50m')
+  assert.equal(handlingModeForData(selected, variant, 'mechanical'), 'none')
+  const quantity = quantityForVariant(
+    { outputQuantity: 500, unit: 'SQM', sections: [] },
+    variant,
+    selected
+  )
+  assert.equal(quantity.quantity, 90)
+
+  const unselected = parseLeadInfo({
+    classes: ['STONE'], materials: { Rubble: 'STONE' },
+    addons: [{
+      addon_id: 'murum_bed_15cm', applicable: true, material_desc: 'Murum',
+      material_unit: 'CUM', quantity_ratio: 0.18, conveyance_class: 'EARTH'
+    }]
+  })
+  assert.equal(materialRefsForLeadInfo(unselected).some((ref) => ref.name === 'Earth'), false)
+
+  const fullDistance = parseLeadInfo({
+    selected_addon_ids: ['murum_bed_15cm'],
+    addons: [{
+      addon_id: 'murum_bed_15cm', applicable: true, material_desc: 'Murum',
+      material_unit: 'CUM', quantity_ratio: 0.18, conveyance_class: 'EARTH',
+      included_lead_m: 0, distance_rule: 'FULL_SOURCE_TO_SITE'
+    }]
+  })
+  assert.equal(basisForData(fullDistance, 'initial_50m', '', variant), 'none')
+}
+const {
+  normalizeLeadApplications,
+  scopedLeadRateAddition,
+  upsertUniqueLeadApplication
+} = loadTsModule(path.join(root, 'src/renderer/src/lib/leadApplications.ts'))
+
+{
+  const applications = [
+    {
+      id: 'base-earth', variantId: 'earth', itemKey: 'item', itemNodeId: 'node',
+      quantity: 1, unit: 'cum', grossAmount: 10, outputQuantity: 1
+    },
+    {
+      id: 'murum-addon-earth', variantId: 'earth', addonId: 'murum_bed_15cm',
+      itemKey: 'item', itemNodeId: 'node', quantity: 1, unit: 'cum',
+      grossAmount: 20, outputQuantity: 1
+    }
+  ]
+  assert.equal(scopedLeadRateAddition(applications, 'item', 'node', false, 1), 10)
+  assert.equal(
+    scopedLeadRateAddition(applications, 'item', 'node', false, 1, 'murum_bed_15cm'),
+    30
+  )
+}
 
 function rate(chargeCode, slabKey, rateValue, conveyanceClass = 'EARTH') {
   return {
@@ -414,6 +523,125 @@ function calculate(input) {
   const stone = quantityForVariant(recipe, { materialName: 'Stone', conveyanceClass: 'STONE' }, info)
   assert.equal(stone.quantity, 24.3)
   assert.equal(stone.unit, 'cum')
+}
+
+{
+  const variants = [
+    { id: 'cement-near', materialName: 'Cement' },
+    { id: 'cement-far', materialName: '  CEMENT  ' },
+    { id: 'sand-near', materialName: 'Sand' }
+  ]
+  const application = (id, variantId, itemKey, itemNodeId) => ({
+    id,
+    variantId,
+    itemKey,
+    ...(itemNodeId ? { itemNodeId } : {})
+  })
+  const legacy = [
+    application('old-cement', 'cement-near', 'data-1'),
+    application('sand', 'sand-near', 'data-1'),
+    application('new-cement', 'cement-far', 'data-1')
+  ]
+
+  assert.deepEqual(
+    normalizeLeadApplications(legacy, variants).map((candidate) => candidate.id),
+    ['sand', 'new-cement']
+  )
+
+  assert.deepEqual(
+    upsertUniqueLeadApplication(
+      [
+        application('old-cement', 'cement-near', 'data-1'),
+        application('sand', 'sand-near', 'data-1')
+      ],
+      variants,
+      application('new-cement', 'cement-far', 'data-1')
+    ).map((candidate) => candidate.id),
+    ['sand', 'new-cement']
+  )
+
+  assert.deepEqual(
+    upsertUniqueLeadApplication(
+      [
+        application('bridge-near', 'cement-near', 'data-1', 'item-bridge'),
+        application('spillway-near', 'cement-near', 'data-1', 'item-spillway')
+      ],
+      variants,
+      application('bridge-far', 'cement-far', 'data-1', 'item-bridge')
+    ).map((candidate) => candidate.id),
+    ['spillway-near', 'bridge-far'],
+    'the same shared DATA may keep different Lead variants in different Item/component usages'
+  )
+
+  const scopedApplications = [
+    { ...application('bridge-lead', 'cement-far', 'data-1', 'item-bridge'), grossAmount: 900, outputQuantity: 90 },
+    { ...application('spillway-lead', 'cement-near', 'data-1', 'item-spillway'), grossAmount: 450, outputQuantity: 90 }
+  ]
+  assert.equal(scopedLeadRateAddition(scopedApplications, 'data-1', 'item-bridge', false), 10)
+  assert.equal(scopedLeadRateAddition(scopedApplications, 'data-1', 'item-spillway', false), 5)
+}
+
+{
+  const info = parseLeadInfo({
+    classes: ['STEEL'],
+    materials: { 'Fabricated parts': 'STEEL' },
+    builtin: { all_leads: false, builtin_lead_km: 1 },
+    lead_policy: {
+      purpose: 'MATERIAL_SUPPLY',
+      included_lead_m: 1000,
+      included_lift_m: 0,
+      includes_all_lifts: true,
+      quantity_basis: 'PUBLISHED_FABRICATED_WEIGHT_TONNE',
+      allow_loading: false,
+      allow_unloading: false,
+      scrutiny_required: false,
+      default_conveyance_class: 'STEEL',
+      haul_legs: 2
+    }
+  })
+  assert.equal(info.policy.haulLegs, 2)
+  assert.equal(basisForData(info, 'none', ''), 'initial_1km')
+  assert.deepEqual(materialRefsForLeadInfo(info), [
+    { name: 'Fabricated Parts', conveyanceClass: 'STEEL', source: 'Fabricated parts' }
+  ])
+  const quantity = quantityForVariant(
+    {
+      outputQuantity: 90,
+      unit: 't capacity',
+      sections: [],
+      multiRateClassification: {
+        kind: 'dual_measurement_basis',
+        sourceQuantity: 15.44,
+        sourceUnit: 'tonne wt'
+      }
+    },
+    { materialName: 'Fabricated Parts', conveyanceClass: 'STEEL' },
+    info
+  )
+  assert.equal(quantity.quantity, 15.44)
+  assert.equal(quantity.unit, 'tonne')
+}
+
+{
+  const steelRows = [
+    rate('COM-LDLFT-2', 'upto_1km', 29, 'STEEL'),
+    rate('COM-LDLFT-2', 'upto_2km', 40.7, 'STEEL')
+  ]
+  const result = calculateLeadVariantChargeFromRows(steelRows, {
+    year: '2026-27',
+    conveyanceClass: 'STEEL',
+    materialName: 'Fabricated Parts',
+    distanceKm: 2,
+    quantity: 15.44,
+    handlingMode: 'none',
+    includedBasis: 'initial_1km',
+    leadMultiplier: 2
+  })
+  assert.equal(result.leadRate, 23.4)
+  assert.equal(result.calculation.fullLeadRate, 81.4)
+  assert.equal(result.calculation.deductedLeadRate, 58)
+  assert.equal(result.calculation.netLeadRate, 23.4)
+  assert.equal(result.grossAmount, 361.3)
 }
 
 console.log('lead rule tests passed')

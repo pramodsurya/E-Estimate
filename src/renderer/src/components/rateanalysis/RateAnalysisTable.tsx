@@ -1,14 +1,20 @@
+import { useEffect, useState } from 'react'
 import {
+  calculateBaseRateAnalysis,
+  calculateOptionalAddition,
   calculateRateAnalysis,
+  type CalculatedOptionalAddition,
   invalidateRateAnalysisCalculation,
   labourRowsForDisplay,
   updateRateAnalysisLine
 } from '../../lib/rateAnalysis'
+import { addonLeadRuleForVariant, parseLeadInfo } from '../../lib/leadApplicability'
 import {
   defaultRateAnalysisLayout,
   descriptionRunsForDisplay,
   plainTextRun
 } from '../../lib/rateAnalysisVisibility'
+import { supabase } from '../../lib/supabase'
 import type {
   LeadApplication,
   LeadRateCalculationDetail,
@@ -16,7 +22,13 @@ import type {
 } from '../../types/project'
 import type {
   RateAnalysisColumnLayout,
+  RateAnalysisAddonLeadSummary,
+  RateAnalysisAddonSeigniorageSummary,
+  RateAnalysisFigure,
   RateAnalysisLine,
+  RateAnalysisMultiRateClassification,
+  RateAnalysisOptionalAdditionAnalysis,
+  RateAnalysisPublishedBlock,
   RateAnalysisRecipe,
   RateAnalysisSectionKey,
   RateAnalysisStoredRow,
@@ -45,12 +57,45 @@ export default function RateAnalysisTable({
   leadVariants?: LeadVariant[]
   onLeadApplicationQuantityChange?: (applicationId: string, quantity: number) => void
 }): JSX.Element {
-  const summary = calculateRateAnalysis(recipe)
+  if (recipe.itemSource === 'SOR') {
+    return <SorDataSheet recipe={recipe} editing={editing} onChange={onChange} />
+  }
+
+  const summary = calculateBaseRateAnalysis(recipe)
+  const adoptedSummary = calculateRateAnalysis(recipe)
+  const calculatedAddon = calculateOptionalAddition(recipe)
+  const selectedAddonId = recipe.dataVariant?.addonId
+  const parsedLeadInfo = parseLeadInfo(recipe.leadApplicability)
+  const addonLeadApplications = selectedAddonId
+    ? leadApplications.filter((application) => {
+        if (application.addonId) return application.addonId === selectedAddonId
+        const variant = leadVariants.find((candidate) => candidate.id === application.variantId)
+        return variant
+          ? addonLeadRuleForVariant(parsedLeadInfo, variant)?.addonId === selectedAddonId
+          : false
+      })
+    : []
+  const addonLeadIds = new Set(addonLeadApplications.map((application) => application.id))
+  const regularLeadApplications = leadApplications.filter(
+    (application) => !application.addonId && !addonLeadIds.has(application.id)
+  )
+  const addonLeadTotal = addonLeadApplications.reduce(
+    (total, application) => total + application.grossAmount,
+    0
+  )
   const layout = recipe.layout ?? defaultRateAnalysisLayout(recipe.description)
   const recalculated = Boolean(recipe.recalculation)
   const labourRows = labourRowsForDisplay(recipe)
   const abstractRows = recipe.recalculation?.abstract ?? recipe.storedValues?.abstract ?? []
+  const publishedAbstractRows = recipe.storedValues?.abstract ?? []
+  const affectedAbstractSections = new Set(recipe.recalculation?.affectedSections ?? [])
   const formulaRefs = buildFormulaRefs(recipe)
+  const hasUserLineChanges = recipe.sections.some((section) =>
+    section.lines.some((line) => line.userAdded || (line.editedFields?.length ?? 0) > 0)
+  )
+  const dualMeasurement =
+    recipe.multiRateClassification?.kind === 'dual_measurement_basis' &&
+    (recipe.publishedRateBlocks?.length ?? 0) > 1
 
   const updateHeader = (
     field: 'description' | 'unit' | 'outputQuantity' | 'overheadPercent',
@@ -139,7 +184,13 @@ export default function RateAnalysisTable({
         {layout.codeVisible && <strong className="rate-sheet-code">{recipe.itemCode}</strong>}
         <div className="rate-document-meta">
           {recipe.documentTitle && <span>{recipe.documentTitle}</span>}
-          <small>{recalculated ? 'Derived recalculation' : 'Published Supabase reconstruction'}</small>
+          <small>
+            {hasUserLineChanges
+              ? 'Published SSR with marked project edits'
+              : recipe.areaAllowancePercent
+                ? 'Published SSR with project area allowance'
+                : 'Published Supabase reconstruction'}
+          </small>
         </div>
       </div>
       {layout.descriptionVisible &&
@@ -157,13 +208,26 @@ export default function RateAnalysisTable({
           </div>
         ))}
 
+      {recipe.sourceFigures && recipe.sourceFigures.length > 0 && (
+        <SsrSourceFigures figures={recipe.sourceFigures} itemCode={recipe.itemCode} />
+      )}
+
       <div className="rate-sheet-heading">
         <span>DATA:</span>
         <strong>RATE ANALYSIS</strong>
         {layout.unitQuantityVisible ? (
-          <span className="rate-basis">
+          <span className={`rate-basis ${dualMeasurement ? 'rate-basis-dual' : ''}`}>
             {layout.unitLabel}:
-            {editing && !recipe.storedValues ? (
+            {dualMeasurement ? (
+              <span className="rate-basis-values">
+                {recipe.publishedRateBlocks!.map((block) => (
+                  <span key={block.key}>
+                    <b>{formatQuantity(block.outputQuantity)}</b>
+                    <span>{block.unit}</span>
+                  </span>
+                ))}
+              </span>
+            ) : editing && !recipe.storedValues ? (
               <>
                 <input
                   type="number"
@@ -186,6 +250,22 @@ export default function RateAnalysisTable({
           <span />
         )}
       </div>
+
+      {!dualMeasurement && recipe.publishedRateBlocks && recipe.publishedRateBlocks.length > 1 && (
+        <PublishedRateBlocks
+          blocks={recipe.publishedRateBlocks}
+          adoptedRate={recipe.dataVariant?.rate}
+          includedRates={recipe.dataVariant?.componentRates}
+          classification={recipe.multiRateClassification}
+        />
+      )}
+      {recipe.multiRateClassification && (!recipe.publishedRateBlocks || recipe.publishedRateBlocks.length < 2) && (
+        <div className="rate-notice">
+          <strong>{recipe.multiRateClassification.label}:</strong>{' '}
+          {recipe.multiRateClassification.note} Adopted rate Rs.{' '}
+          {formatMoney(recipe.multiRateClassification.adoptedRate)}.
+        </div>
+      )}
 
       {recipe.sections.map((section) => {
         const sectionLayout = layout.sections[section.key]
@@ -228,17 +308,20 @@ export default function RateAnalysisTable({
                 </tr>
               </thead>
               <tbody>
-                {section.lines.length === 0 ? (
-                  <tr className="rate-empty-row">
-                    <td colSpan={columns.length + (editing ? 1 : 0)}>
-                      No {section.key} in this recipe.
-                    </td>
-                  </tr>
-                ) : (
+                {section.lines.length > 0 ? (
                   section.lines.map((line, lineIndex) => (
-                    <tr key={line.id}>
+                    <tr
+                      className={isUserChangedLine(line) ? 'rate-user-edited-row' : undefined}
+                      key={line.id}
+                    >
                       {columns.map((column) => (
-                        <td key={column.key} className={columnClass(column.key)}>
+                        <td
+                          key={column.key}
+                          className={[
+                            columnClass(column.key),
+                            isDirectlyEditedField(line, column.key) ? 'rate-direct-edit' : ''
+                          ].filter(Boolean).join(' ')}
+                        >
                           <LineValue
                             column={column}
                             line={line}
@@ -259,15 +342,18 @@ export default function RateAnalysisTable({
                       ) : null}
                     </tr>
                   ))
-                )}
+                ) : null}
                 <TotalRow
                   columns={columns}
                   extraCell={editing}
                   label={sectionLayout.totalLabel}
+                  emphasized={section.lines.some(isFinanciallyChangedLine)}
                   value={
-                    recipe.recalculation?.sectionTotals[section.key] ??
-                    recipe.storedValues?.sectionTotals[section.key] ??
-                    summary.sectionTotals[section.key]
+                    section.key === 'labour'
+                      ? summary.labourBaseCost
+                      : recipe.recalculation?.sectionTotals[section.key] ??
+                        recipe.storedValues?.sectionTotals[section.key] ??
+                        summary.sectionTotals[section.key]
                   }
                 />
               </tbody>
@@ -282,6 +368,34 @@ export default function RateAnalysisTable({
                 </button>
               </div>
             ) : null}
+
+            {section.key === 'labour' && (
+              <div className="area-allowance-analysis">
+                <div className="area-allowance-analysis-title">Area Allowance</div>
+                <div className="area-allowance-analysis-row">
+                  <span>Allowance taken</span>
+                  <strong>{recipe.areaAllowanceLabel ?? 'No location-based area allowance'}</strong>
+                </div>
+                <div className="area-allowance-analysis-row">
+                  <span>Total Cost of Labour</span>
+                  <span />
+                  <span>Rs:</span>
+                  <strong>{formatMoney(summary.labourBaseCost)}</strong>
+                </div>
+                <div className="area-allowance-analysis-row is-allowance">
+                  <span>Area Allowance on Labour</span>
+                  <span>{formatPercent(summary.areaAllowancePercent)}%</span>
+                  <span>Rs:</span>
+                  <strong>{formatMoney(summary.areaAllowanceAmount)}</strong>
+                </div>
+                <div className="area-allowance-analysis-row is-total">
+                  <span>Total Labour Cost including Area Allowance</span>
+                  <span />
+                  <span>Rs:</span>
+                  <strong>{formatMoney(summary.labourCostWithAreaAllowance)}</strong>
+                </div>
+              </div>
+            )}
 
             {section.key === 'labour' && layout.labourSummary.visible && (
               <div className="labour-component">
@@ -343,8 +457,21 @@ export default function RateAnalysisTable({
               formulaRefs={formulaRefs}
               onRowsChange={(rows) => setStoredRows('abstract', rows)}
             />
+          ) : dualMeasurement ? (
+            <DualMeasurementAbstractRows
+              rows={abstractRows}
+              blocks={recipe.publishedRateBlocks!}
+              recalculated={recalculated}
+              finalCost={summary.totalCost}
+              publishedRows={publishedAbstractRows}
+              affectedSections={affectedAbstractSections}
+            />
           ) : recipe.recalculation ? (
-            <StoredAbstractRows rows={recipe.recalculation.abstract} />
+            <StoredAbstractRows
+              rows={recipe.recalculation.abstract}
+              publishedRows={publishedAbstractRows}
+              affectedSections={affectedAbstractSections}
+            />
           ) : recipe.storedValues ? (
             <StoredAbstractRows rows={recipe.storedValues.abstract} />
           ) : (
@@ -393,18 +520,535 @@ export default function RateAnalysisTable({
           )}
         </div>
       )}
-      {leadApplications.length > 0 && (
+      {recipe.dataVariant?.kind === 'optional_addition' && recipe.dataVariant.addOnRate !== undefined && (
+        <OptionalAdditionData
+          label={recipe.dataVariant.label}
+          baseRate={summary.ratePerUnit}
+          addOnRate={calculatedAddon?.ratePerUnit ?? recipe.dataVariant.addOnRate}
+          adoptedRate={adoptedSummary.ratePerUnit}
+          unit={recipe.unit}
+          analysis={recipe.dataVariant.additionAnalysis}
+          calculatedAnalysis={calculatedAddon}
+          addonLead={recipe.dataVariant.addonLead}
+          addonSeigniorage={recipe.dataVariant.addonSeigniorage}
+          leadApplications={addonLeadApplications}
+          leadVariants={leadVariants}
+          outputQuantity={recipe.outputQuantity}
+        />
+      )}
+      {recipe.dataVariant?.postRate &&
+        recipe.dataVariant.postRateSteps === undefined &&
+        recipe.dataVariant.addPercent !== undefined && (
+          <PercentVariantAdjustment
+            selectedLabel={recipe.dataVariant.label}
+            baseLabel={recipe.dataVariant.baseVariantLabel ?? 'Base class'}
+            baseRate={summary.ratePerUnit}
+            addPercent={recipe.dataVariant.addPercent}
+            addOnRate={adoptedSummary.ratePerUnit - summary.ratePerUnit}
+            adoptedRate={adoptedSummary.ratePerUnit}
+            unit={recipe.unit}
+          />
+      )}
+      {regularLeadApplications.length > 0 && (
           <LeadAdditions
-            applications={leadApplications}
+            applications={regularLeadApplications}
             variants={leadVariants}
             outputQuantity={recipe.outputQuantity}
-            baseFinalAmount={summary.totalCost}
-            baseRate={summary.ratePerUnit}
+            baseFinalAmount={adoptedSummary.totalCost + addonLeadTotal}
+            baseRate={(adoptedSummary.totalCost + addonLeadTotal) / (recipe.outputQuantity || 1)}
             editing={editing}
             onQuantityChange={onLeadApplicationQuantityChange}
           />
       )}
     </article>
+  )
+}
+
+function PercentVariantAdjustment({
+  selectedLabel,
+  baseLabel,
+  baseRate,
+  addPercent,
+  addOnRate,
+  adoptedRate,
+  unit
+}: {
+  selectedLabel: string
+  baseLabel: string
+  baseRate: number
+  addPercent: number
+  addOnRate: number
+  adoptedRate: number
+  unit: string
+}): JSX.Element {
+  return (
+    <section className="percent-variant-data" aria-label="Selected post-rate adjustment">
+      <div className="percent-variant-head">
+        <span>SELECTED RATE VARIANT</span>
+        <strong>{selectedLabel}</strong>
+        <small>Percentage adjustment over the calculated {baseLabel} DATA</small>
+      </div>
+      <div className="optional-addition-rate-summary">
+        <div>
+          <span>Calculated {baseLabel} base rate</span>
+          <strong>Rs. {formatMoney(baseRate)}</strong>
+        </div>
+        <div className="is-addition">
+          <span>Add {formatPercent(addPercent)}% for {selectedLabel}</span>
+          <strong>+ Rs. {formatMoney(addOnRate)}</strong>
+        </div>
+        <div className="is-adopted">
+          <span>Adopted {selectedLabel} rate</span>
+          <strong>Rs. {formatMoney(adoptedRate)} / {unit || 'unit'}</strong>
+        </div>
+      </div>
+      <p>
+        Materials, machinery and labour above form the {baseLabel} analysis. The percentage is
+        applied to its calculated final rate after DATA recalculation and area allowance.
+      </p>
+    </section>
+  )
+}
+
+function OptionalAdditionData({
+  label,
+  baseRate,
+  addOnRate,
+  adoptedRate,
+  unit,
+  analysis,
+  calculatedAnalysis,
+  addonLead,
+  addonSeigniorage,
+  leadApplications,
+  leadVariants,
+  outputQuantity
+}: {
+  label: string
+  baseRate: number
+  addOnRate: number
+  adoptedRate: number
+  unit: string
+  analysis?: RateAnalysisOptionalAdditionAnalysis
+  calculatedAnalysis?: CalculatedOptionalAddition | null
+  addonLead?: RateAnalysisAddonLeadSummary
+  addonSeigniorage?: RateAnalysisAddonSeigniorageSummary
+  leadApplications: LeadApplication[]
+  leadVariants: LeadVariant[]
+  outputQuantity: number
+}): JSX.Element {
+  const leadRate = leadApplications.reduce((total, application) => {
+    const divisor = application.outputQuantity || outputQuantity || 1
+    const rate = application.rateAddition ?? application.grossAmount / divisor
+    return total + (Number.isFinite(rate) ? rate : 0)
+  }, 0)
+  const addonBasisQuantity = analysis?.outputQuantity || outputQuantity || 1
+  const leadCostForAddonBasis = leadRate * addonBasisQuantity
+  const addonCostBeforeLead = calculatedAnalysis?.totalCost ?? analysis?.totalCost ?? 0
+  const addonCostWithLead = addonCostBeforeLead + leadCostForAddonBasis
+  const addOnRateWithLead = addOnRate + leadRate
+  const adoptedRateWithLead = adoptedRate + leadRate
+  return (
+    <section className="optional-addition-data" aria-label="Selected optional addition">
+      <div className="optional-addition-head">
+        <span>SELECTED OPTIONAL ADDITION</span>
+        <strong>{label}</strong>
+        {analysis && (
+          <small>
+            Calculated from {formatQuantity(analysis.outputQuantity)} {analysis.unit || unit} add-on DATA
+          </small>
+        )}
+      </div>
+
+      {analysis?.sections.map((section) => (
+        <div className={`optional-addition-section is-${section.key}`} key={section.key}>
+          <h4>{section.label}</h4>
+          <table className="optional-addition-table">
+            <thead>
+              <tr>
+                <th>Particulars</th>
+                <th>Unit</th>
+                <th>Quantity</th>
+                <th>Rate (Rs.)</th>
+                <th>Amount (Rs.)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {section.lines.map((line) => (
+                <tr key={line.id}>
+                  <td>{line.description}</td>
+                  <td>{line.unit}</td>
+                  <td>{formatQuantity(line.quantity)}</td>
+                  <td>{formatMoney(line.rate)}</td>
+                  <td>{formatMoney(line.quantity * line.rate)}</td>
+                </tr>
+              ))}
+              <tr className="optional-addition-total">
+                <td colSpan={4}>Total {section.label}</td>
+                <td>{formatMoney(calculatedAnalysis?.sectionTotals[section.key] ?? analysis.sectionTotals[section.key] ?? 0)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ))}
+
+      {analysis && (
+        <div className="optional-addition-costs">
+          {(calculatedAnalysis?.labourAllowanceAmount ?? 0) > 0 && (
+            <div>
+              <span>Area allowance on add-on labour ({formatPercent(calculatedAnalysis!.labourAllowancePercent)}%)</span>
+              <strong>Rs. {formatMoney(calculatedAnalysis!.labourAllowanceAmount)}</strong>
+            </div>
+          )}
+          {(calculatedAnalysis || analysis.overheadAmount !== undefined) && (
+            <div>
+              <span>Contractor's profit and overheads ({formatPercent(calculatedAnalysis?.overheadPercent ?? analysis.overheadPercent ?? 0)}%)</span>
+              <strong>Rs. {formatMoney(calculatedAnalysis?.overheadAmount ?? analysis.overheadAmount ?? 0)}</strong>
+            </div>
+          )}
+        </div>
+      )}
+
+      {leadApplications.length > 0 && analysis && (
+        <AddonLeadCosts
+          applications={leadApplications}
+          variants={leadVariants}
+          parentOutputQuantity={outputQuantity}
+          addonOutputQuantity={analysis.outputQuantity}
+          addonUnit={analysis.unit || unit}
+        />
+      )}
+
+      {analysis && (
+        <div className="optional-addition-costs optional-addition-grand-total">
+          {(calculatedAnalysis || analysis.totalCost !== undefined) && (
+            <div>
+              <span>
+                Total add-on cost{leadApplications.length ? ' including Lead' : ''} for{' '}
+                {formatQuantity(analysis.outputQuantity)} {analysis.unit || unit}
+              </span>
+              <strong>Rs. {formatMoney(addonCostWithLead)}</strong>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="optional-addition-rate-summary">
+        <div>
+          <span>Calculated base DATA rate</span>
+          <strong>Rs. {formatMoney(baseRate)}</strong>
+        </div>
+        <div className="is-addition">
+          <span>
+            {leadApplications.length ? 'Selected add-on rate including Lead' : 'Calculated add-on DATA rate'}: {label}
+          </span>
+          <strong>+ Rs. {formatMoney(addOnRateWithLead)}</strong>
+        </div>
+        <div className="is-adopted">
+          <span>Adopted rate</span>
+          <strong>Rs. {formatMoney(adoptedRateWithLead)} / {unit || 'unit'}</strong>
+        </div>
+      </div>
+
+      {addonLead?.applicable && (
+        <p className="optional-addition-lead-note">
+          Lead: {addonLead.materialName || 'add-on material'} uses the common{' '}
+          <strong>{addonLead.conveyanceClass ?? 'applicable'} Lead schedule</strong>. Quantity is{' '}
+          {addonLead.quantityRatio !== null
+            ? `${formatQuantity(addonLead.quantityRatio)} ${addonLead.materialUnit} per ${unit || 'item unit'}`
+            : 'quantity-based'}.
+          {' '}{addonLead.distanceRule === 'CHARGE_BEYOND_INCLUDED'
+            ? `Charge only beyond the included first ${formatQuantity(addonLead.includedLeadM)} m.`
+            : 'Charge the full source-to-site distance.'}
+          {addonLead.loadingIncluded ? ' Loading is already included; do not add it again.' : ''}
+          {!addonLead.unloadingAddedByDefault ? ' Unloading is zero unless separately admitted.' : ''}
+        </p>
+      )}
+      {addonLead && !addonLead.applicable && (
+        <p className="optional-addition-lead-note">
+          No separate Lead applies to this add-on{addonLead.note ? `: ${addonLead.note}` : '.'}
+        </p>
+      )}
+      {addonSeigniorage?.applicable && (
+        <p className="optional-addition-lead-note">
+          Seigniorage policy activates automatically when this add-on is selected
+          {addonSeigniorage.codes.length
+            ? ` (${addonSeigniorage.codes.join(', ')})`
+            : ''}.
+          {addonSeigniorage.conversionRequired && !addonSeigniorage.conversionConfigured
+            ? ' The amount is blocked until an approved CUM-to-MT conversion factor is configured.'
+            : ' The applicable quantity and charge are calculated in Project Seigniorage.'}
+        </p>
+      )}
+    </section>
+  )
+}
+
+function AddonLeadCosts({
+  applications,
+  variants,
+  parentOutputQuantity,
+  addonOutputQuantity,
+  addonUnit
+}: {
+  applications: LeadApplication[]
+  variants: LeadVariant[]
+  parentOutputQuantity: number
+  addonOutputQuantity: number
+  addonUnit: string
+}): JSX.Element {
+  const variantById = new Map(variants.map((variant) => [variant.id, variant]))
+  const rows = applications.map((application) => {
+    const divisor = application.outputQuantity || parentOutputQuantity || 1
+    const scale = addonOutputQuantity / divisor
+    return {
+      application,
+      variant: variantById.get(application.variantId),
+      quantity: application.quantity * scale,
+      amount: application.grossAmount * scale
+    }
+  })
+  const total = rows.reduce((sum, row) => sum + row.amount, 0)
+  return (
+    <div className="optional-addition-lead-costs">
+      <div className="optional-addition-lead-title">
+        <strong>E. Add-on Lead after contractor's profit</strong>
+        <span>For {formatQuantity(addonOutputQuantity)} {addonUnit}</span>
+      </div>
+      {rows.map(({ application, variant, quantity, amount }) => (
+        <div className="optional-addition-lead-row" key={application.id}>
+          <span>
+            <strong>{variant?.materialName ?? 'Lead'}</strong>
+            <small>{application.quantitySource}</small>
+          </span>
+          <span>{formatQuantity(quantity)} {application.unit}</span>
+          <span>Rs. {formatMoney(application.grossRate)}</span>
+          <strong>Rs. {formatMoney(amount)}</strong>
+        </div>
+      ))}
+      <div className="optional-addition-lead-total">
+        <span>Add-on Lead total</span>
+        <strong>Rs. {formatMoney(total)}</strong>
+      </div>
+    </div>
+  )
+}
+
+function SsrSourceFigures({
+  figures,
+  itemCode
+}: {
+  figures: RateAnalysisFigure[]
+  itemCode: string
+}): JSX.Element {
+  const [loaded, setLoaded] = useState<Array<{
+    figure: RateAnalysisFigure
+    url?: string
+    error?: string
+  }>>(() => figures.map((figure) => ({ figure })))
+
+  useEffect(() => {
+    let cancelled = false
+    const objectUrls: string[] = []
+    setLoaded(figures.map((figure) => ({ figure })))
+
+    void Promise.all(
+      figures.map(async (figure) => {
+        const { data, error } = await supabase.storage
+          .from('ssr-figures')
+          .download(figure.objectPath)
+        if (error || !data) {
+          return { figure, error: error?.message ?? 'Image download failed.' }
+        }
+        if (cancelled) return { figure }
+        const url = URL.createObjectURL(data)
+        objectUrls.push(url)
+        return { figure, url }
+      })
+    ).then((results) => {
+      if (!cancelled) setLoaded(results)
+    })
+
+    return () => {
+      cancelled = true
+      objectUrls.forEach((url) => URL.revokeObjectURL(url))
+    }
+  }, [figures])
+
+  return (
+    <section className="ssr-source-figures" aria-label="Published SSR figures">
+      {loaded.map(({ figure, url, error }) => (
+        <figure key={figure.key}>
+          <div className="ssr-source-figure-frame">
+            {url ? (
+              <img
+                src={url}
+                alt={`${itemCode} published SSR illustration`}
+                loading="eager"
+                decoding="async"
+              />
+            ) : error ? (
+              <div className="ssr-source-figure-state error" title={error}>
+                Published SSR figure could not be loaded.
+              </div>
+            ) : (
+              <div className="ssr-source-figure-state">Loading published SSR figure...</div>
+            )}
+          </div>
+        </figure>
+      ))}
+    </section>
+  )
+}
+
+function SorDataSheet({
+  recipe,
+  editing,
+  onChange
+}: {
+  recipe: RateAnalysisRecipe
+  editing: boolean
+  onChange: (recipe: RateAnalysisRecipe) => void
+}): JSX.Element {
+  const sourceSection = recipe.sections.find((section) => section.lines.length > 0)
+  const sourceLine = sourceSection?.lines[0]
+  const rate = recipe.publishedRate ?? sourceLine?.rate ?? 0
+
+  const updateDescription = (description: string): void => {
+    onChange({
+      ...recipe,
+      description,
+      layout: recipe.layout
+        ? { ...recipe.layout, descriptionRuns: [plainTextRun(description)] }
+        : recipe.layout,
+      sections: recipe.sections.map((section) => ({
+        ...section,
+        lines: section.lines.map((line, index) =>
+          section.key === sourceSection?.key && index === 0
+            ? { ...line, description }
+            : line
+        )
+      })),
+      recalculation: undefined,
+      calculationStale: false
+    })
+  }
+
+  const updateRate = (nextRate: number): void => {
+    onChange({
+      ...recipe,
+      publishedRate: nextRate,
+      sections: recipe.sections.map((section) => ({
+        ...section,
+        lines: section.lines.map((line, index) =>
+          section.key === sourceSection?.key && index === 0
+            ? { ...line, rate: nextRate, amount: nextRate }
+            : line
+        )
+      })),
+      recalculation: undefined,
+      calculationStale: false
+    })
+  }
+
+  return (
+    <article className="rate-sheet sor-data-sheet">
+      <div className="rate-document-header">
+        <strong className="rate-sheet-code">{recipe.itemCode}</strong>
+        <div className="rate-document-meta">
+          <span>SOR {recipe.year}</span>
+          <small>Published schedule rate</small>
+        </div>
+      </div>
+      <div className="sor-data-title">
+        <span>DATA</span>
+        <strong>Schedule of Rates</strong>
+      </div>
+      <table className="sor-data-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              {editing ? (
+                <textarea
+                  value={recipe.description}
+                  onChange={(event) => updateDescription(event.target.value)}
+                />
+              ) : (
+                recipe.description
+              )}
+            </td>
+            <td>
+              {editing ? (
+                <div className="sor-rate-editor">
+                  <span>Rs.</span>
+                  <NumberInput value={rate} onChange={updateRate} />
+                  <span>/ {recipe.unit || 'unit'}</span>
+                </div>
+              ) : (
+                <strong>Rs. {formatMoney(rate)} / {recipe.unit || 'unit'}</strong>
+              )}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </article>
+  )
+}
+
+function PublishedRateBlocks({
+  blocks,
+  adoptedRate,
+  includedRates,
+  classification
+}: {
+  blocks: RateAnalysisPublishedBlock[]
+  adoptedRate?: number
+  includedRates?: number[]
+  classification?: RateAnalysisMultiRateClassification
+}): JSX.Element {
+  return (
+    <section className="published-rate-blocks">
+      <div className="published-rate-blocks-head">
+        <strong>Published quantity / rate bases</strong>
+        <span>
+          {classification ? `${classification.label}. ${classification.note}` : 'Complete SSR analysis blocks are kept separate.'}
+        </span>
+      </div>
+      <div className="published-rate-block-grid">
+        {blocks.map((block) => {
+          const included = includedRates?.some((rate) => Math.abs(block.rate - rate) < 0.011) ?? false
+          const adopted = included || (adoptedRate === undefined
+            ? block.primary
+            : Math.abs(block.rate - adoptedRate) < 0.011)
+          return (
+            <div className={`published-rate-block ${adopted ? 'is-adopted' : ''}`} key={block.key}>
+              <span>
+                {block.label}
+                {adopted && (
+                  <small>
+                    {included ? 'Included in adopted DATA' : adoptedRate === undefined ? 'Primary DATA' : 'Adopted DATA'}
+                  </small>
+                )}
+              </span>
+              <strong>{formatQuantity(block.outputQuantity)} {block.unit}</strong>
+              {block.totalCost !== undefined && <span>Cost Rs. {formatMoney(block.totalCost)}</span>}
+              <b>Rate Rs. {formatMoney(block.rate)} / {block.unit || 'unit'}</b>
+            </div>
+          )
+        })}
+      </div>
+      <p>
+        {classification?.kind === 'optional_addition'
+          ? 'The optional block is added to the base only when selected; it never replaces the base rate.'
+          : 'Recalculation uses the adopted rule only, so a later embedded quantity cannot replace the primary DATA rate.'}
+      </p>
+    </section>
   )
 }
 
@@ -563,6 +1207,7 @@ function deliveryAtSiteLeadWarning(
   if (application.deliveryAtSiteWarning) return application.deliveryAtSiteWarning
   if (
     variant &&
+    !/^fabricated\s+parts?$/i.test(variant.materialName.trim()) &&
     (variant.conveyanceClass === 'CEMENT' || variant.conveyanceClass === 'STEEL') &&
     variant.leadKm > 0.15
   ) {
@@ -635,6 +1280,26 @@ function RichText({ runs }: { runs: RateAnalysisTextRun[] }): JSX.Element {
   )
 }
 
+function isUserChangedLine(line: RateAnalysisLine): boolean {
+  return Boolean(line.userAdded || (line.editedFields?.length ?? 0) > 0)
+}
+
+function isFinanciallyChangedLine(line: RateAnalysisLine): boolean {
+  return Boolean(
+    line.userAdded ||
+      line.editedFields?.some(
+        (field) => field === 'quantity' || field === 'rate' || field === 'amount'
+      )
+  )
+}
+
+function isDirectlyEditedField(
+  line: RateAnalysisLine,
+  column: RateAnalysisColumnLayout['key']
+): boolean {
+  return Boolean(line.editedFields?.includes(column))
+}
+
 function LineValue({
   column,
   line,
@@ -674,6 +1339,8 @@ function LineValue({
   }
 
   const value = line[column.key]
+  const directlyEdited = isDirectlyEditedField(line, column.key)
+  const financiallyChanged = isFinanciallyChangedLine(line)
   const storedValue =
     column.key === 'quantity'
       ? line.sourceValues?.quantity
@@ -682,15 +1349,22 @@ function LineValue({
         : line.sourceValues?.amount
 
   if (editing && column.key === 'amount') {
-    return <>{showCalculatedAmount ? formatMoney(value) : storedValue !== undefined ? storedValue : formatMoney(value)}</>
+    return <>{showCalculatedAmount && financiallyChanged ? formatMoney(value) : storedValue !== undefined ? storedValue : formatMoney(value)}</>
   }
 
   if (!editing && line.linkedRate && (column.key === 'rate' || column.key === 'amount')) {
+    const displayValue =
+      directlyEdited || (column.key === 'amount' && financiallyChanged)
+        ? formatMoney(value)
+        : storedValue !== undefined
+          ? storedValue
+          : formatMoney(value)
     return (
       <span className="linked-rate-cell">
-        <span>{column.key === 'rate' ? formatMoney(line.linkedRate.rate) : formatMoney(line.amount)}</span>
+        <span>{displayValue}</span>
         <small>
-          Linked SOR {line.linkedRate.year}, {zoneLabel(line.linkedRate.zone)}
+          SOR reference {line.linkedRate.year}
+          {line.linkedRate.year === '2026-27' ? `, ${zoneLabel(line.linkedRate.zone)}` : ''}
         </small>
       </span>
     )
@@ -700,9 +1374,9 @@ function LineValue({
     <NumberInput value={value} onChange={(next) => onChange({ [column.key]: next })} />
   ) : (
     <>
-      {showCalculatedAmount && column.key === 'amount'
+      {showCalculatedAmount && column.key === 'amount' && financiallyChanged
         ? formatMoney(value)
-        : storedValue !== undefined
+        : !directlyEdited && storedValue !== undefined
         ? storedValue
         : column.key === 'quantity'
           ? formatQuantity(value)
@@ -721,19 +1395,21 @@ function TotalRow({
   columns,
   extraCell = false,
   label,
-  value
+  value,
+  emphasized = false
 }: {
   columns: RateAnalysisColumnLayout[]
   extraCell?: boolean
   label: string
   value: number | string
+  emphasized?: boolean
 }): JSX.Element {
   const displayValue = typeof value === 'string' ? value : formatMoney(value)
   const amountIndex = columns.findIndex((column) => column.key === 'amount')
   const rateIndex = columns.findIndex((column) => column.key === 'rate')
   if (amountIndex < 0 || rateIndex < 0) {
     return (
-      <tr className="rate-total-row">
+      <tr className={`rate-total-row ${emphasized ? 'rate-derived-total' : ''}`}>
         <td colSpan={Math.max(columns.length - 1, 1)}>{label}</td>
         <td className="rate-number">{displayValue}</td>
         {extraCell ? <td className="rate-row-tools" /> : null}
@@ -746,7 +1422,7 @@ function TotalRow({
   const labelSpan = Math.max(leading.length - (hasSerial ? 1 : 0), 1)
 
   return (
-    <tr className="rate-total-row">
+    <tr className={`rate-total-row ${emphasized ? 'rate-derived-total' : ''}`}>
       {hasSerial && <td />}
       <td colSpan={labelSpan}>{label}</td>
       <td>Rs:</td>
@@ -787,8 +1463,17 @@ function StoredLabourRows({ rows }: { rows: RateAnalysisStoredRow[] }): JSX.Elem
   )
 }
 
-function StoredAbstractRows({ rows }: { rows: RateAnalysisStoredRow[] }): JSX.Element {
+function StoredAbstractRows({
+  rows,
+  publishedRows = [],
+  affectedSections = new Set<RateAnalysisSectionKey>()
+}: {
+  rows: RateAnalysisStoredRow[]
+  publishedRows?: RateAnalysisStoredRow[]
+  affectedSections?: Set<RateAnalysisSectionKey>
+}): JSX.Element {
   const normalizedRows = normalizeStoredRows(rows)
+  const normalizedPublishedRows = normalizeStoredRows(publishedRows)
   return (
     <div className="stored-abstract">
       {normalizedRows.map((normalized, index) => {
@@ -797,6 +1482,16 @@ function StoredAbstractRows({ rows }: { rows: RateAnalysisStoredRow[] }): JSX.El
         const isTotalCost = /^total cost for/i.test(label)
         const isTotal = normalized.qualifier.toLowerCase() === 'total'
         const isCaption = /^vertical lift gates/i.test(label)
+        const sectionKey = abstractSectionKey(label)
+        const published = normalizedPublishedRows[index]
+        const derivedChanged = sectionKey
+          ? affectedSections.has(sectionKey)
+          : Boolean(
+              published &&
+                numericText(normalized.amount) !== null &&
+                numericText(published.amount) !== null &&
+                Math.abs(numericText(normalized.amount)! - numericText(published.amount)!) > 0.005
+            )
         const amountClass =
           isRate || isTotalCost || isTotal ? 'stored-amount ruled' : 'stored-amount'
         return (
@@ -806,7 +1501,8 @@ function StoredAbstractRows({ rows }: { rows: RateAnalysisStoredRow[] }): JSX.El
               isTotal ? 'total-row' : '',
               isTotalCost ? 'total-cost-row' : '',
               isRate ? 'rate-row' : '',
-              isCaption ? 'caption-row' : ''
+              isCaption ? 'caption-row' : '',
+              derivedChanged ? 'rate-derived-result' : ''
             ]
               .filter(Boolean)
               .join(' ')}
@@ -821,6 +1517,76 @@ function StoredAbstractRows({ rows }: { rows: RateAnalysisStoredRow[] }): JSX.El
         )
       })}
     </div>
+  )
+}
+
+function DualMeasurementAbstractRows({
+  rows,
+  blocks,
+  recalculated,
+  finalCost,
+  publishedRows,
+  affectedSections
+}: {
+  rows: RateAnalysisStoredRow[]
+  blocks: RateAnalysisPublishedBlock[]
+  recalculated: boolean
+  finalCost: number
+  publishedRows: RateAnalysisStoredRow[]
+  affectedSections: Set<RateAnalysisSectionKey>
+}): JSX.Element {
+  const resultStart = rows.findIndex((row) =>
+    /total cost for/i.test(`${row.label} ${row.basis} ${row.unit}`)
+  )
+  const calculationRows = resultStart >= 0 ? rows.slice(0, resultStart) : rows
+  const recalculatedRates = rows
+    .filter((row) => /rate\s+per/i.test(`${row.label} ${row.basis} ${row.unit}`))
+    .map((row) => Number(String(row.amount || row.value).replaceAll(',', '')))
+    .filter(Number.isFinite)
+
+  return (
+    <>
+      <StoredAbstractRows
+        rows={calculationRows}
+        publishedRows={publishedRows.slice(0, calculationRows.length)}
+        affectedSections={affectedSections}
+      />
+      <div className="dual-measurement-result" aria-label="Dual measurement result">
+        <div className="dual-measurement-result-title">
+          One total cost, expressed on both published measurement bases
+        </div>
+        {blocks.map((block) => {
+          const cost = recalculated ? finalCost : block.totalCost ?? finalCost
+          return (
+            <div className="dual-measurement-row is-cost" key={`cost-${block.key}`}>
+              <span>Total cost for</span>
+              <strong>{formatQuantity(block.outputQuantity)}</strong>
+              <span>{block.unit}</span>
+              <span>Rs:</span>
+              <strong>{formatMoney(cost)}</strong>
+            </div>
+          )
+        })}
+        {blocks.map((block, index) => {
+          const cost = recalculated ? finalCost : block.totalCost ?? finalCost
+          const rate = recalculated
+            ? recalculatedRates[index] ?? cost / (block.outputQuantity || 1)
+            : block.rate
+          return (
+            <div
+              className={`dual-measurement-row is-rate ${block.primary ? 'is-adopted' : ''}`}
+              key={`rate-${block.key}`}
+            >
+              <strong>{block.label}</strong>
+              <span />
+              <span />
+              <span>Rs:</span>
+              <strong>{formatMoney(rate)}</strong>
+            </div>
+          )
+        })}
+      </div>
+    </>
   )
 }
 
@@ -1017,7 +1783,7 @@ function normalizeLabourRows(
       continue
     }
 
-    if (/^Total Cost of Labour$/i.test(label)) {
+    if (/^Total (?:Cost of Labour|Labour Cost including Area Allowance)$/i.test(label)) {
       result.push({
         label,
         percent,
@@ -1046,13 +1812,32 @@ function normalizeStoredRows(rows: RateAnalysisStoredRow[]): NormalizedStoredRow
 
   for (const row of rows) {
     const current = normalizeStoredRow(row)
+    if (current.basis === current.qualifier) current.basis = ''
+    if (!current.label && /^rate per\b/i.test(current.basis)) {
+      current.label = uniqueText(current.basis, current.qualifier)
+      current.basis = ''
+      current.qualifier = ''
+    }
+    const previous = normalized.at(-1)
+    if (
+      previous &&
+      /^F\.\s|contractor.*(?:profit|overhead)/i.test(previous.label) &&
+      /^\([A-F](?:\+[A-F])+\)$/i.test(current.label)
+    ) {
+      previous.label = uniqueText(previous.label, current.label)
+      previous.basis = uniqueText(previous.basis, current.basis)
+      previous.qualifier = uniqueText(previous.qualifier, current.qualifier)
+      if (previous.basis === previous.qualifier) previous.basis = ''
+      if (!previous.amount) previous.amount = current.amount
+      continue
+    }
     if (!current.label && normalized.length) {
-      const previous = normalized[normalized.length - 1]
-      if (/^F\.\s|^Total cost for/i.test(previous.label)) {
-        previous.basis = uniqueText(previous.basis, current.basis)
-        previous.qualifier = uniqueText(previous.qualifier, current.qualifier)
-        if (previous.basis === previous.qualifier) previous.qualifier = ''
-        if (!previous.amount) previous.amount = current.amount
+      const preceding = normalized[normalized.length - 1]
+      if (/^F\.\s|^Total cost for/i.test(preceding.label)) {
+        preceding.basis = uniqueText(preceding.basis, current.basis)
+        preceding.qualifier = uniqueText(preceding.qualifier, current.qualifier)
+        if (preceding.basis === preceding.qualifier) preceding.qualifier = ''
+        if (!preceding.amount) preceding.amount = current.amount
         continue
       }
     }
@@ -1094,6 +1879,23 @@ function numberText(value: string): boolean {
   return /^-?\d+(?:\.\d+)?$/.test(value.trim())
 }
 
+function numericText(value: string): number | null {
+  const normalized = value.replaceAll(',', '').trim()
+  if (!normalized) return null
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function abstractSectionKey(label: string): RateAnalysisSectionKey | null {
+  const text = label.trim().toLowerCase()
+  if (/^a\s*[.)]?\s*(cost of )?materials?\b/.test(text)) return 'materials'
+  if (/^b\s*[.)]?\s*(hire charges? of |cost of )?(machinery|plant)\b/.test(text)) {
+    return 'machinery'
+  }
+  if (/^c\s*[.)]?\s*(cost of )?labou?r\b/.test(text)) return 'labour'
+  return null
+}
+
 function uniqueText(...values: string[]): string {
   const out: string[] = []
   for (const raw of values) {
@@ -1112,7 +1914,9 @@ function newRateLine(sectionKey: RateAnalysisSectionKey, index: number): RateAna
     quantity: 0,
     rate: 0,
     amount: 0,
-    sourceValues: {}
+    sourceValues: {},
+    userAdded: true,
+    editedFields: []
   }
 }
 

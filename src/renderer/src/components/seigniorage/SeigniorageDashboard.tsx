@@ -234,7 +234,8 @@ export default function SeigniorageDashboard(): JSX.Element {
 
 function SeigniorageTableRow({ row, slNo }: { row: SeigniorageItemRow; slNo: number }): JSX.Element {
   const needsRate = row.charge === null || row.seigRate === null
-  const needsReview = row.status === 'REVIEW_REQUIRED'
+  const needsConversion = row.conversionRequired === true
+  const needsReview = row.status === 'REVIEW_REQUIRED' || needsConversion
   const materialLine = [row.materialLabel, row.recipeMaterialDesc].filter(Boolean).join(' - ')
   return (
     <div className={`seig-calc-tbody-row ${needsRate || needsReview ? 'needs-rate' : ''}`}>
@@ -247,7 +248,9 @@ function SeigniorageTableRow({ row, slNo }: { row: SeigniorageItemRow; slNo: num
           <small className="seig-mode-tag">{modeLabel(row.mode)}</small>
         )}
         {needsReview && (
-          <small className="seig-review-badge"><AlertTriangle size={10} /> Review Required</small>
+          <small className="seig-review-badge">
+            <AlertTriangle size={10} /> {needsConversion ? 'Conversion Required' : 'Review Required'}
+          </small>
         )}
       </span>
       <span className="scol-total-qty">
@@ -258,7 +261,11 @@ function SeigniorageTableRow({ row, slNo }: { row: SeigniorageItemRow; slNo: num
         {row.seigRate != null ? `Rs. ${rateFmt.format(row.seigRate)}` : '-'}
       </span>
       <span className="scol-seig">
-        {row.seigniorage != null ? `Rs. ${money.format(row.seigniorage)}` : 'Set rate'}
+        {row.seigniorage != null
+          ? `Rs. ${money.format(row.seigniorage)}`
+          : needsConversion
+            ? 'Conversion required'
+            : 'Set rate'}
       </span>
       <span className="scol-dmft">
         {row.dmft != null ? `Rs. ${money.format(row.dmft)}` : '-'}
@@ -273,6 +280,7 @@ function SeigniorageTableRow({ row, slNo }: { row: SeigniorageItemRow; slNo: num
 function modeLabel(mode: string): string {
   if (mode === 'FULL_ITEM_QUANTITY') return 'Full Qty'
   if (mode === 'DIRECT_RECIPE_QTY') return 'Recipe Qty'
+  if (mode === 'ADDON_MATERIAL_RATIO') return 'Selected Add-on'
   return ''
 }
 
@@ -318,6 +326,7 @@ function RoundingRow({ calc }: { calc: SeigniorageCalculation }): JSX.Element | 
 }
 
 function seigniorageQtyText(row: SeigniorageItemRow): string {
+  if (row.conversionRequired) return 'Conversion required'
   const mode = row.mode
   if (mode === 'FULL_ITEM_QUANTITY') {
     return row.itemQuantity != null ? `${qtyFmt.format(row.itemQuantity)} ${row.itemUnit || row.unit}` : '-'

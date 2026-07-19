@@ -45,6 +45,7 @@ function pageCSS(s: Required<SeignioragePrintSettings>, pageNum: number, total: 
 }
 
 function seigQtyCalc(row: SeigniorageItemRow): string {
+  if (row.conversionRequired) return 'Conversion required'
   const mode = row.mode
   if (mode === 'FULL_ITEM_QUANTITY') {
     return row.itemQuantity != null ? `${qtyFmt.format(row.itemQuantity)} ${row.itemUnit || row.unit}` : '-'

@@ -1,4 +1,5 @@
-import type { ProjectNode } from '../types/project'
+import type { EestimateProject, ProjectNode } from '../types/project'
+import type { RateAnalysisRecipe } from '../types/rateAnalysis'
 
 export interface ItemUsage {
   node: ProjectNode
@@ -25,11 +26,48 @@ export interface ProjectItemGroup {
 }
 
 export function projectItemKey(node: ProjectNode): string {
-  if (node.splitFromItemKey) return `SPLIT:${node.id}`
+  if (node.splitFromItemKey) return `SPLIT:${node.createdDataId ?? node.id}`
   const source = node.itemSource ?? 'OTHERS'
   const category = node.categoryKey ?? 'custom'
   const code = node.itemCode?.trim() || node.id
-  return `${source}:${category}:${code}`
+  const variant = node.dataVariant
+    ? `:${node.dataVariant.kind}:${node.dataVariant.key}`
+    : ''
+  return `${source}:${category}:${code}${variant}`
+}
+
+/** Find the structural ancestors of an item, from Title down to its direct parent. */
+export function projectNodePath(root: ProjectNode, nodeId: string): ProjectNode[] {
+  const path: ProjectNode[] = []
+  const visit = (node: ProjectNode): boolean => {
+    if (node.id === nodeId) return true
+    for (const child of node.children) {
+      path.push(node)
+      if (visit(child)) return true
+      path.pop()
+    }
+    return false
+  }
+  return visit(root) ? path : []
+}
+
+/**
+ * Resolve the recipe used by one Item usage. The nearest component/sub-component
+ * override wins; otherwise every usage shares the project-wide DATA override.
+ */
+export function rateAnalysisOverrideForNode(
+  project: EestimateProject,
+  node: ProjectNode
+): RateAnalysisRecipe | null {
+  const itemKey = projectItemKey(node)
+  const path = projectNodePath(project.root, node.id)
+  for (let index = path.length - 1; index >= 0; index -= 1) {
+    const ancestor = path[index]
+    if (ancestor.kind !== 'component' && ancestor.kind !== 'subcomponent') continue
+    const scoped = project.rateAnalysisScopedOverrides?.[ancestor.id]?.[itemKey]
+    if (scoped) return scoped
+  }
+  return project.rateAnalysisOverrides?.[itemKey] ?? null
 }
 
 function addBranch(
@@ -64,10 +102,12 @@ export function collectProjectItemGroups(root: ProjectNode): ProjectItemGroup[] 
       const key = projectItemKey(node)
       let group = groups.get(key)
       if (!group) {
+        const code = node.itemCode?.trim() || node.name
+        const displayName = node.dataVariant ? `${code} - ${node.dataVariant.label}` : code
         group = {
           key,
-          code: node.itemCode?.trim() || node.name,
-          displayName: node.splitFromItemKey ? node.name : node.itemCode?.trim() || node.name,
+          code,
+          displayName: node.splitFromItemKey ? node.name : displayName,
           description: node.itemDescription ?? node.name,
           source: node.itemSource ?? 'OTHERS',
           categoryKey: node.categoryKey ?? 'custom',
