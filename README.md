@@ -1,53 +1,57 @@
 # E-Estimate
 
-E-Estimate is a desktop app for construction cost estimation (Telangana SOR/SSR).
+E-Estimate is a Windows desktop application for construction cost estimation, built around Telangana SOR/SSR workflows. It helps you manage estimate data, prepare project documents, and generate print-ready output from a single Electron app.
 
-Quick start
+## What it does
+
+- Organizes estimate-related project data in one desktop workspace.
+- Supports lead, rate analysis, seigniorage, bund, and document/print workflows.
+- Ships as a packaged Windows installer with auto-update support through GitHub Releases.
+
+## Get started
 
 ```bash
 npm install
 npm run dev
 ```
 
-Build and package (Windows x64)
+## Build for Windows
 
 ```powershell
 npm run build
 npm run dist:win
 ```
 
-Download
+## Download the latest release
 
-The latest Windows installer is available from the project's GitHub Releases. Current packaged
-version: v0.1.4
+Current version: v0.1.7
 
 - Releases page: https://github.com/pramodsurya/E-Estimate/releases
-- Direct download: https://github.com/pramodsurya/E-Estimate/releases/download/v0.1.4/E-Estimate-0.1.4-windows-x64.exe
+- Windows installer: https://github.com/pramodsurya/E-Estimate/releases/download/v0.1.7/E-Estimate-0.1.7-windows-x64.exe
 
-Configuration
+## Release notes
 
-- Use environment variables for runtime secrets and service endpoints. Do not commit secret keys.
+The app uses GitHub Releases for distribution and update delivery. When a new version is published, users can download the Windows installer from the release page above and the app can check for updates on launch.
+
+## Configuration
+
+- Use environment variables for runtime secrets and service endpoints.
 - Common variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_KEY`, `VITE_OSRM_URL`.
+- Do not commit secrets, private tokens, or production credentials.
 
-Project layout (high level)
+## Project layout
 
-```
+```text
 src/
   main/       Electron main process and project I/O
   preload/    contextBridge API
   renderer/   React UI and frontend source
 ```
 
-Security and release notes
+## Contributing
 
-- Do NOT store API keys, private tokens, or production credentials in the repository.
-- Ensure Row Level Security is enabled for any Supabase public schema used in production.
-- Add appropriate Content-Security-Policy and secure response headers before shipping releases.
+Issues and pull requests: https://github.com/pramodsurya/E-Estimate
 
-Where to contribute
-
-- Issues and pull requests: https://github.com/pramodsurya/E-Estimate
-
-License
+## License
 
 See `package.json` for license and author information.
