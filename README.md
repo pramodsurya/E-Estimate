@@ -24,10 +24,10 @@ npm run dist:win
 
 ## Download the latest release
 
-Current version: v0.1.7
+Current version: v0.1.8
 
 - Releases page: https://github.com/pramodsurya/E-Estimate/releases
-- Windows installer: https://github.com/pramodsurya/E-Estimate/releases/download/v0.1.7/E-Estimate-0.1.7-windows-x64.exe
+- Windows installer: https://github.com/pramodsurya/E-Estimate/releases/download/v0.1.8/E-Estimate-0.1.8-windows-x64.exe
 
 ## Release notes
 
