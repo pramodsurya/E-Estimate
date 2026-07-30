@@ -1,0 +1,74 @@
+- generic [ref=f1e3]:
+  - generic [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - generic [ref=f1e6]: E-Estimate
+      - button "File" [ref=f1e9] [cursor=pointer]
+      - button "Component" [ref=f1e11] [cursor=pointer]
+      - button "Undo" [ref=f1e12] [cursor=pointer]
+      - button "Redo" [disabled] [ref=f1e16]
+    - textbox "Search project, pages, items…" [ref=f1e57]
+    - generic [ref=f1e26]:
+      - generic [ref=f1e58]: Berm UI test •
+      - generic [ref=f1e27]:
+        - button "Minimize" [ref=f1e28] [cursor=pointer]
+        - button "Maximize" [ref=f1e30] [cursor=pointer]
+        - button "Close" [ref=f1e33] [cursor=pointer]
+  - generic [ref=f1e37]:
+    - generic [ref=f1e59]:
+      - button "Explorer" [ref=f1e60] [cursor=pointer]
+      - button "Search" [ref=f1e65] [cursor=pointer]
+      - button "DTL Lead" [ref=f1e69] [cursor=pointer]
+      - button "Source Control" [ref=f1e74] [cursor=pointer]
+    - generic [ref=f1e79]:
+      - generic [ref=f1e80]:
+        - generic [ref=f1e81]:
+          - generic [ref=f1e82]: Explorer
+          - generic [ref=f1e83]:
+            - button "Add Page" [ref=f1e84] [cursor=pointer]
+            - button "Add Component" [ref=f1e88] [cursor=pointer]
+        - generic [ref=f1e91]:
+          - generic "Berm UI test" [ref=f1e191] [cursor=pointer]
+          - generic "Front Page" [ref=f1e196] [cursor=pointer]
+          - generic "Introduction" [ref=f1e202] [cursor=pointer]
+          - generic [ref=f1e569] [cursor=pointer]:
+            - generic "Drag to reorder" [ref=f1e570]
+            - generic "Small Earthen Bund" [ref=f1e587]
+          - generic [ref=f1e588] [cursor=pointer]: Detailed
+      - generic [ref=f1e98]:
+        - tablist "Project data" [ref=f1e99]:
+          - button "Seigniorage" [ref=f1e100] [cursor=pointer]
+          - button "Lead" [ref=f1e106] [cursor=pointer]
+          - button "Data" [ref=f1e110] [cursor=pointer]
+        - generic [ref=f1e115]: Items added in Explorer will appear here.
+    - generic [ref=f1e693]:
+      - generic [ref=f1e695]:
+        - generic [ref=f1e696]: Small earthen bund setup — Small Earthen Bund
+        - heading "Step 2 of 2 · Length and sections" [level=2] [ref=f1e733]
+      - generic [ref=f1e735]:
+        - generic [ref=f1e736]:
+          - generic [ref=f1e737]: Length source
+          - generic [ref=f1e738] [cursor=pointer]:
+            - radio "Draw the bund alignment on the map" [ref=f1e739]
+            - text: Draw the bund alignment on the map
+          - generic [ref=f1e740] [cursor=pointer]:
+            - radio "Enter the length manually (no map)" [checked] [ref=f1e741]
+            - text: Enter the length manually (no map)
+        - generic [ref=f1e783]:
+          - generic [ref=f1e784]: Total length (m)
+          - spinbutton [active] [ref=f1e785]
+        - generic [ref=f1e769]: A cross-section is measured at every chainage below. Quantities between two chainages use the mean of their two areas — so more sections means a closer measurement.
+        - generic [ref=f1e770]:
+          - generic [ref=f1e771]: Section spacing
+          - generic [ref=f1e772] [cursor=pointer]:
+            - radio "Continuous — a section every fixed interval" [checked] [ref=f1e773]
+            - text: Continuous — a section every fixed interval
+          - generic [ref=f1e774] [cursor=pointer]:
+            - radio "Discontinuous — sections only where you have survey levels" [ref=f1e775]
+            - text: Discontinuous — sections only where you have survey levels
+        - generic [ref=f1e776]:
+          - generic [ref=f1e777]: Interval (m)
+          - spinbutton [ref=f1e778]: "30"
+          - generic [ref=f1e779]: Chainage runs 0 to the total length; a cross-section is placed at each interval.
+      - generic [ref=f1e726]:
+        - button "Back" [ref=f1e727] [cursor=pointer]
+        - button "Finish setup" [disabled] [ref=f1e780]

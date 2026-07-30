@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import type { EestimateProject, ProjectNode } from '../types/project'
 import type {
+  RateAnalysisRecipe,
   RateAnalysisSectionKey,
   SeigniorageApplicabilityPolicy,
   SeigniorageMaterialPolicy
@@ -249,7 +250,43 @@ const DMFT_PERCENT = 30
 /** SMFT = Some other levy (2% of seigniorage). */
 const SMFT_PERCENT = 2
 
-/** One row in the seigniorage calculation table — one per project item. */
+/**
+ * Permit fee on seigniorage, per the G.O. of 31.03.2022 (w.e.f. 01.04.2022):
+ * 0.8 times the seigniorage fee for all minor minerals, and 0.4 times for
+ * Colour Granite and Black Granite. The GO excludes Ordinary Sand.
+ *
+ * The rule is fixed by the GO, so it is applied automatically with no
+ * project-level configuration.
+ */
+export const DEFAULT_PERMIT_MULTIPLIER = 0.8
+
+export const GO_PERMIT_MULTIPLIERS: Record<string, number> = {
+  SEIG_BLACK_GRANITE_BELOW: 0.4,
+  SEIG_BLACK_GRANITE_GANGSAW: 0.4,
+  SEIG_COLOUR_GRANITE_BELOW: 0.4,
+  SEIG_COLOUR_GRANITE_GANGSAW: 0.4,
+  SEIG_ORDINARY_SAND: 0
+}
+
+export const PERMIT_GO_REFERENCE = 'G.O. dt. 31.03.2022, w.e.f. 01.04.2022'
+
+/** Permit multiplier for a mineral, straight from the GO. */
+export function permitMultiplierFor(seigCode: string | null): number {
+  const fromGo = seigCode ? GO_PERMIT_MULTIPLIERS[seigCode] : undefined
+  return fromGo ?? DEFAULT_PERMIT_MULTIPLIER
+}
+
+/** The GO multiplier expressed as the percentage shown in tables and prints. */
+export function permitPercentFor(seigCode: string | null): number {
+  return permitMultiplierFor(seigCode) * 100
+}
+
+function permitForRow(seigCode: string | null, seigniorage: number | null): number | null {
+  if (seigniorage == null) return null
+  return seigniorage * permitMultiplierFor(seigCode)
+}
+
+/** One row in the seigniorage table per item code and effective mineral rate. */
 export interface SeigniorageItemRow {
   id: string
   slNo: number
@@ -283,6 +320,10 @@ export interface SeigniorageItemRow {
   seigniorage: number | null
   dmft: number | null
   smft: number | null
+  /** Mineral transit permit fee for this row. */
+  permit: number | null
+  /** GO permit rate applied to this row, as a percentage of seigniorage. */
+  permitPercent: number
   isManual: boolean
 }
 
@@ -291,11 +332,13 @@ export interface SeigniorageCalculation {
   totalSeigniorage: number
   totalDmft: number
   totalSmft: number
+  totalPermit: number
   grandTotal: number
   /** Rounded versions. */
   roundedSeigniorage: number
   roundedDmft: number
   roundedSmft: number
+  roundedPermit: number
   roundedGrandTotal: number
 }
 
@@ -377,6 +420,10 @@ function roundQuantity(n: number): number {
   return Math.round((n + Number.EPSILON) * 1000) / 1000
 }
 
+function roundRatio(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100000000) / 100000000
+}
+
 function rateForMaterialPolicy(
   policy: SeigniorageMaterialPolicy,
   charge: SeigniorageCharge | null
@@ -413,7 +460,206 @@ function computeApplicableQty(
   if (enteredQty == null || policy.quantity_ratio == null) return null
   if (policy.conversion_required && policy.conversion_factor == null) return null
   const cf = policy.conversion_factor ?? 1
-  return roundQuantity(enteredQty * policy.quantity_ratio * cf)
+  // Ratio quantities are rounded only after every occurrence of the item code
+  // and every material carrying the same charge have been combined.
+  return enteredQty * policy.quantity_ratio * cf
+}
+
+function normalizedMaterialText(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ')
+}
+
+/**
+ * A selected optional addition carries its own complete DATA analysis. Use the
+ * material quantity and output basis published in that DATA block directly:
+ *
+ *   project item quantity × (add-on material quantity / add-on output quantity)
+ *
+ * This is already the billable material quantity. It must not be blocked by a
+ * second conversion flag inherited from a mineral-rate unit.
+ */
+function addonPolicyFromData(
+  recipe: RateAnalysisRecipe | null | undefined,
+  policy: SeigniorageMaterialPolicy
+): SeigniorageMaterialPolicy {
+  if (policy.mode !== 'ADDON_MATERIAL_RATIO') return policy
+  const analysis = recipe?.dataVariant?.additionAnalysis
+  if (!analysis || !Number.isFinite(analysis.outputQuantity) || analysis.outputQuantity <= 0) {
+    return policy
+  }
+
+  const materialLines =
+    analysis.sections.find((section) => section.key === 'materials')?.lines.filter(
+      (line) => Number.isFinite(line.quantity) && line.quantity > 0
+    ) ?? []
+  if (!materialLines.length) return policy
+
+  const policyDescription = normalizedMaterialText(
+    policy.material_desc || policy.recipe_material_desc || policy.material_label
+  )
+  const policyCode = policy.material_code?.trim().toUpperCase()
+  const materialLine =
+    materialLines.find(
+      (line) => policyCode && line.resourceCode?.trim().toUpperCase() === policyCode
+    ) ??
+    materialLines.find((line) => {
+      const lineDescription = normalizedMaterialText(line.description)
+      return (
+        policyDescription &&
+        (lineDescription === policyDescription ||
+          lineDescription.includes(policyDescription) ||
+          policyDescription.includes(lineDescription))
+      )
+    }) ??
+    (materialLines.length === 1 ? materialLines[0] : undefined)
+  if (!materialLine) return policy
+
+  const materialUnit = materialLine.unit.trim() || policy.recipe_material_unit || ''
+  return {
+    ...policy,
+    material_desc: materialLine.description,
+    recipe_material_desc: materialLine.description,
+    recipe_material_qty: materialLine.quantity,
+    recipe_material_unit: materialUnit,
+    quantity_ratio: materialLine.quantity / analysis.outputQuantity,
+    charge_unit: materialUnit || policy.charge_unit,
+    quantity_unit: materialUnit || policy.quantity_unit,
+    conversion_factor: 1,
+    conversion_required: false,
+    quantity_basis: 'ITEM_QTY_X_RATIO',
+    notes: `Selected add-on DATA: ${materialLine.quantity} ${materialUnit || 'units'} per ${analysis.outputQuantity} ${analysis.unit}.`
+  }
+}
+
+function normalizedItemCode(code: string): string {
+  return code.trim().toUpperCase()
+}
+
+function ratioMode(mode: string | null | undefined): boolean {
+  return mode === 'RECIPE_MATERIAL_RATIO' || mode === 'ADDON_MATERIAL_RATIO'
+}
+
+function rowCombinationKey(row: SeigniorageItemRow): string {
+  const materialCharge =
+    row.charge?.seig_code || row.materialKey || row.materialLabel || 'UNASSIGNED'
+  const mode = ratioMode(row.mode) ? 'MATERIAL_RATIO' : row.mode || 'ITEM_QUANTITY'
+  const conversionFactor = ratioMode(row.mode) ? row.conversionFactor ?? 1 : null
+  return [
+    normalizedItemCode(row.itemCode),
+    materialCharge.trim().toUpperCase(),
+    row.seigRate == null ? 'NO_RATE' : String(row.seigRate),
+    row.unit.trim().toUpperCase(),
+    (row.itemUnit || '').trim().toUpperCase(),
+    mode,
+    conversionFactor == null ? '' : String(conversionFactor),
+    row.conversionRequired ? 'CONVERSION_REQUIRED' : '',
+    row.status || '',
+    String(row.permitPercent)
+  ].join('|')
+}
+
+/**
+ * Produce one display/calculation row for one item code and one effective
+ * mineral rate. Project occurrences contribute to the code total once, while
+ * recipe materials carrying the same charge contribute their quantities and
+ * ratios to the same row.
+ */
+function combineProjectRows(
+  rows: SeigniorageItemRow[]
+): SeigniorageItemRow[] {
+  const groups = new Map<string, SeigniorageItemRow[]>()
+  for (const row of rows) {
+    const key = rowCombinationKey(row)
+    const group = groups.get(key) ?? []
+    group.push(row)
+    groups.set(key, group)
+  }
+
+  return Array.from(groups.entries()).map(([key, group]) => {
+    const first = group[0]
+    // Count each contributing project occurrence once. Base DATA rows normally
+    // include every occurrence of the code; selected add-on rows include only
+    // the occurrences on which that add-on is active.
+    const contributingItems = new Map<string, number>()
+    for (const row of group) {
+      if (row.itemQuantity != null && !contributingItems.has(row.itemNodeId)) {
+        contributingItems.set(row.itemNodeId, row.itemQuantity)
+      }
+    }
+    const totalItemQuantity = contributingItems.size
+      ? Array.from(contributingItems.values()).reduce((sum, quantity) => sum + quantity, 0)
+      : null
+    const rawApplicableQuantities = group
+      .map((row) => row.quantity)
+      .filter((quantity): quantity is number => quantity != null)
+    const rawApplicableQuantity = rawApplicableQuantities.length
+      ? rawApplicableQuantities.reduce((sum, quantity) => sum + quantity, 0)
+      : null
+    const combinedQuantity =
+      rawApplicableQuantity != null && ratioMode(first.mode)
+        ? roundQuantity(rawApplicableQuantity)
+        : rawApplicableQuantity
+    const conversionFactor = first.conversionFactor ?? 1
+    const combinedRatio =
+      ratioMode(first.mode) &&
+      rawApplicableQuantity != null &&
+      totalItemQuantity != null &&
+      totalItemQuantity !== 0 &&
+      conversionFactor !== 0
+        ? roundRatio(rawApplicableQuantity / totalItemQuantity / conversionFactor)
+        : first.quantityRatio
+
+    const materialDescriptions = Array.from(
+      new Set(group.map((row) => row.recipeMaterialDesc?.trim()).filter(Boolean))
+    )
+    const materialLabels = Array.from(
+      new Set(group.map((row) => row.materialLabel?.trim()).filter(Boolean))
+    )
+    const materialKeys = Array.from(
+      new Set(group.map((row) => row.materialKey?.trim()).filter(Boolean))
+    )
+    const directRecipeQuantities = group
+      .map((row) => row.recipeMaterialQty)
+      .filter((quantity): quantity is number => quantity != null)
+    const recipeMaterialQty =
+      first.mode === 'DIRECT_RECIPE_QTY' && directRecipeQuantities.length
+        ? directRecipeQuantities.reduce((sum, quantity) => sum + quantity, 0)
+        : group.length === 1
+          ? first.recipeMaterialQty
+          : null
+    const materialLabel =
+      materialLabels.length === 1
+        ? materialLabels[0]
+        : first.charge?.mineral_name || first.materialLabel
+    const materialKey =
+      materialKeys.length === 1
+        ? materialKeys[0]
+        : first.charge?.seig_code || first.materialKey
+    const recipeMaterialDesc =
+      materialDescriptions.length === 1 ? materialDescriptions[0] : undefined
+    const seigniorage =
+      combinedQuantity != null && first.seigRate != null
+        ? combinedQuantity * first.seigRate
+        : null
+    const dmft = seigniorage != null ? seigniorage * (DMFT_PERCENT / 100) : null
+    const smft = seigniorage != null ? seigniorage * (SMFT_PERCENT / 100) : null
+
+    return {
+      ...first,
+      id: `combined:${key}`,
+      itemQuantity: totalItemQuantity ?? first.itemQuantity,
+      quantity: combinedQuantity,
+      quantityRatio: combinedRatio,
+      materialLabel,
+      materialKey,
+      recipeMaterialDesc,
+      recipeMaterialQty,
+      seigniorage,
+      dmft,
+      smft,
+      permit: permitForRow(first.charge?.seig_code ?? null, seigniorage)
+    }
+  })
 }
 
 export function computeSeigniorageTable(
@@ -426,16 +672,25 @@ export function computeSeigniorageTable(
     return emptyCalc(manualRows)
   }
 
-  const items = collectAllItems(project.root)
+  const items = collectAllItems(project.root).map((item) => ({
+    item,
+    itemCode: resolveSsrItemCode(item),
+    quantity: readFinalValueFromSnapshot(item)
+  }))
   const storedOverrides = project.seigniorageOverrides ?? {}
   const rows: SeigniorageItemRow[] = []
 
-  for (const item of items) {
+  for (const itemContext of items) {
+    const { item, itemCode, quantity: qty } = itemContext
     const itemKey = projectItemKey(item)
-    const recipe = rateAnalysisOverrideForNode(project, item)
-    const qty = readFinalValueFromSnapshot(item)
-    const itemCode = resolveSsrItemCode(item)
-    const dbSeig = recipe?.seigniorageApplicability ?? policyByCode[itemCode]
+    const savedRecipe = rateAnalysisOverrideForNode(project, item)
+    const compiledRecipe = project.dashboardSnapshot?.recipes?.[item.id]
+    const recipe = savedRecipe ?? compiledRecipe
+    const addonDataRecipe = recipe?.dataVariant?.additionAnalysis ? recipe : compiledRecipe ?? recipe
+    // Supabase is the policy authority. Saved/compiled recipes may contain a
+    // snapshot from an older policy version, so use that only as an offline
+    // fallback when the live SSR policy is unavailable.
+    const dbSeig = policyByCode[itemCode] ?? recipe?.seigniorageApplicability
 
     const selectedAddonId = recipe?.dataVariant?.addonId ?? item.dataVariant?.addonId
     const addonPolicies = selectedAddonId
@@ -452,7 +707,8 @@ export function computeSeigniorageTable(
         : dbSeig?.materials ?? []
     const policies = [...basePolicies, ...addonPolicies]
     if (policies?.length) {
-      for (const policy of policies) {
+      for (const configuredPolicy of policies) {
+        const policy = addonPolicyFromData(addonDataRecipe, configuredPolicy)
         const charge = policy.seig_code
           ? charges.find((c) => c.seig_code === policy.seig_code) ?? null
           : null
@@ -495,6 +751,8 @@ export function computeSeigniorageTable(
           seigniorage,
           dmft,
           smft,
+          permit: permitForRow(policy.seig_code ?? null, seigniorage),
+          permitPercent: permitPercentFor(policy.seig_code ?? null),
           isManual: false
         })
       }
@@ -589,16 +847,21 @@ export function computeSeigniorageTable(
       seigniorage,
       dmft,
       smft,
+      permit: permitForRow(charge?.seig_code ?? null, seigniorage),
+      permitPercent: permitPercentFor(charge?.seig_code ?? null),
       isManual: false
     })
   }
 
-  // Append manual rows.
+  const combinedRows = combineProjectRows(rows)
+
+  // Append manual rows. They are user-authored entries, not project-code
+  // quantities, and therefore remain independent.
   for (const mr of manualRows) {
-    rows.push({ ...mr })
+    combinedRows.push({ ...mr })
   }
 
-  return finalizeCalc(rows)
+  return finalizeCalc(combinedRows)
 }
 
 function emptyCalc(manualRows: SeigniorageItemRow[]): SeigniorageCalculation {
@@ -613,17 +876,20 @@ function finalizeCalc(rows: SeigniorageItemRow[]): SeigniorageCalculation {
   const totalSeigniorage = rows.reduce((s, r) => s + (r.seigniorage ?? 0), 0)
   const totalDmft = rows.reduce((s, r) => s + (r.dmft ?? 0), 0)
   const totalSmft = rows.reduce((s, r) => s + (r.smft ?? 0), 0)
-  const grandTotal = totalSeigniorage + totalDmft + totalSmft
+  const totalPermit = rows.reduce((s, r) => s + (r.permit ?? 0), 0)
+  const grandTotal = totalSeigniorage + totalDmft + totalSmft + totalPermit
 
   return {
     rows,
     totalSeigniorage,
     totalDmft,
     totalSmft,
+    totalPermit,
     grandTotal,
     roundedSeigniorage: roundRupee(totalSeigniorage),
     roundedDmft: roundRupee(totalDmft),
     roundedSmft: roundRupee(totalSmft),
+    roundedPermit: roundRupee(totalPermit),
     roundedGrandTotal: roundRupee(grandTotal)
   }
 }

@@ -5,7 +5,8 @@ import type {
   LeadHandlingMode,
   LeadIncludedBasis,
   LeadRateCalculationDetail,
-  LeadRateCalculationLine
+  LeadRateCalculationLine,
+  SorZone
 } from '../types/project'
 export type { LeadHandlingMode } from '../types/project'
 
@@ -34,10 +35,12 @@ export interface LeadRateRow {
   range_to: number | null
   range_unit: string | null
   rate: number
+  selectedZone: SorZone
 }
 
 export interface LeadChargeInput {
   year: string
+  zone?: SorZone
   conveyanceClass: ConveyanceClass
   distanceKm: number
   quantity?: number
@@ -59,6 +62,7 @@ export interface LeadVariantChargeInput extends LeadChargeInput {
 
 export interface LeadChargeBreakdown {
   year: string
+  zone: SorZone
   conveyanceClass: ConveyanceClass
   unit: string
   quantity: number
@@ -118,14 +122,18 @@ export function effectiveAssignmentKm(assignment: {
   return numericOrNull(assignment.osmKm)
 }
 
-export async function fetchLeadRates(year: string): Promise<LeadRateRow[]> {
-  const cached = rateCache.get(year)
+export async function fetchLeadRates(
+  year: string,
+  zone: SorZone = 'zone_3'
+): Promise<LeadRateRow[]> {
+  const cacheKey = `${year}:${zone}`
+  const cached = rateCache.get(cacheKey)
   if (cached) return cached
 
   const { data, error } = await supabase
     .from('lead_rate')
     .select(
-      'charge_code,year,slab_key,column_key,applies_to,unit,basis,slab_label,range_from,range_to,range_unit,rate'
+      'charge_code,year,slab_key,column_key,applies_to,unit,basis,slab_label,range_from,range_to,range_unit,rate,zone_rates'
     )
     .eq('year', year)
     .order('charge_code')
@@ -134,20 +142,20 @@ export async function fetchLeadRates(year: string): Promise<LeadRateRow[]> {
     .order('column_key')
 
   if (error) throw new Error(`Unable to load lead rates: ${error.message}`)
-  const rows = (data ?? []).map(normalizeLeadRateRow)
-  rateCache.set(year, rows)
+  const rows = (data ?? []).map((row) => normalizeLeadRateRow(row, zone))
+  rateCache.set(cacheKey, rows)
   return rows
 }
 
 export async function calculateLeadCharge(input: LeadChargeInput): Promise<LeadChargeBreakdown> {
-  const rows = await fetchLeadRates(input.year)
+  const rows = await fetchLeadRates(input.year, input.zone)
   return calculateLeadChargeFromRows(rows, input)
 }
 
 export async function calculateLeadVariantCharge(
   input: LeadVariantChargeInput
 ): Promise<LeadChargeBreakdown> {
-  const rows = await fetchLeadRates(input.year)
+  const rows = await fetchLeadRates(input.year, input.zone)
   return calculateLeadVariantChargeFromRows(rows, input)
 }
 
@@ -244,6 +252,7 @@ export function calculateLeadChargeFromRows(
   }
   return {
     year: input.year,
+    zone: input.zone ?? 'zone_3',
     conveyanceClass: input.conveyanceClass,
     unit,
     quantity,
@@ -322,7 +331,7 @@ export function calculateLeadVariantChargeFromRows(
   if (normalizedInput.customGrossRate !== null && normalizedInput.customGrossRate !== undefined) {
     return rebuildBreakdown(total, normalizedInput.customGrossRate, 0, 0, 0, [
       ...total.notes,
-      'Using project-local DTL/manual gross rate for this Lead material.'
+      'Using a project-local manual gross rate for this Lead material.'
     ], manualLeadCalculation(normalizedInput.customGrossRate, total.unit))
   }
 
@@ -356,6 +365,7 @@ function zeroDisposalBreakdown(input: LeadVariantChargeInput): LeadChargeBreakdo
   const unit = defaultUnitForConveyanceClass(input.conveyanceClass)
   return {
     year: input.year,
+    zone: input.zone ?? 'zone_3',
     conveyanceClass: input.conveyanceClass,
     unit,
     quantity,
@@ -459,7 +469,12 @@ function withLeadPolicy(leadApplicability: unknown, leadPolicy: unknown): unknow
   return { ...base, lead_policy: leadPolicy }
 }
 
-function normalizeLeadRateRow(row: Record<string, unknown>): LeadRateRow {
+function normalizeLeadRateRow(row: Record<string, unknown>, zone: SorZone): LeadRateRow {
+  const zoneRates =
+    row.zone_rates && typeof row.zone_rates === 'object' && !Array.isArray(row.zone_rates)
+      ? (row.zone_rates as Record<string, unknown>)
+      : null
+  const selectedRate = numberValue(zoneRates?.[zone], Number.NaN)
   return {
     charge_code: String(row.charge_code ?? ''),
     year: String(row.year ?? ''),
@@ -472,7 +487,8 @@ function normalizeLeadRateRow(row: Record<string, unknown>): LeadRateRow {
     range_from: numericOrNull(row.range_from),
     range_to: numericOrNull(row.range_to),
     range_unit: row.range_unit == null ? null : String(row.range_unit),
-    rate: numberValue(row.rate)
+    rate: Number.isFinite(selectedRate) ? selectedRate : numberValue(row.rate),
+    selectedZone: zone
   }
 }
 
@@ -761,7 +777,7 @@ function manualLeadCalculation(rate: number, unit: string): LeadRateCalculationD
   return {
     rows: [
       {
-        label: 'Project-local DTL/manual lead rate',
+        label: 'Project-local manual lead rate',
         expression: formatMoney(roundedRate),
         amount: roundedRate
       }

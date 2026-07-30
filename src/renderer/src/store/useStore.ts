@@ -2,10 +2,17 @@ import { useMemo } from 'react'
 import { create } from 'zustand'
 import type {
   ChartDef,
+  ComponentTemplateId,
   ConveyanceClass,
+  DataVariantSelection,
+  DashboardDataSnapshot,
   EestimateProject,
+  BundData,
+  BundItemRole,
+  GuideWallData,
+  GuideWallMaterialRef,
+  TemplateMaterialRef,
   LeadApplication,
-  LeadDetailReconstruction,
   ItemEditorType,
   LeadAssignment,
   LeadChart,
@@ -20,6 +27,9 @@ import type {
   ProjectMeta,
   ProjectNode,
   SeignioragePrintSettings,
+  ProjectChargeSettings,
+  DocumentFinalNumber,
+  DocumentPrintArea,
   SpreadsheetDocument
 } from '../types/project'
 import type { MasterItem } from '../lib/masterData'
@@ -28,16 +38,22 @@ import {
   projectItemKey,
   rateAnalysisOverrideForNode
 } from '../lib/projectItems'
+import {
+  createdDataSourceFields,
+  repairCreatedDataCatalogueSelections
+} from '../lib/createdData'
 import { canonicalLeadConveyanceClass } from '../lib/leadApplicability'
 import {
   normalizeLeadApplications,
   upsertUniqueLeadApplication
 } from '../lib/leadApplications'
+import type { IDocumentData } from '@univerjs/core'
 import type { RateAnalysisRecipe } from '../types/rateAnalysis'
 import type { RecentEntry } from '../../../preload/index.d'
 import {
   addChild,
   addChildren,
+  canReorderBetween,
   createDraftProject,
   createNode,
   findNode,
@@ -45,10 +61,134 @@ import {
   newId,
   patchNode,
   removeNode,
-  resolveItemParent
+  reorderSibling,
+  resolveItemParent,
+  uniqueChildName,
+  type ReorderEdge
 } from '../lib/tree'
+import { defaultGuideWallData, syncGuideWallItems } from '../lib/guideWall'
+import {
+  applyBundMasterMetadata,
+  defaultBundData,
+  syncBundItems,
+  unresolvedBundMaterialCodes,
+  type BundMasterMetadata
+} from '../lib/bund'
 
 const SSR_ITEM_TABLE = 'ssr_item'
+
+function materialWithVariant<T extends TemplateMaterialRef | null | undefined>(
+  ref: T,
+  code: string,
+  selection: DataVariantSelection
+): T {
+  if (!ref || ref.code !== code) return ref
+  return {
+    ...ref,
+    unit: selection.unit ?? ref.unit,
+    dataVariant: selection
+  } as T
+}
+
+function guideWallWithVariant(
+  data: GuideWallData,
+  code: string,
+  selection: DataVariantSelection
+): GuideWallData {
+  return {
+    ...data,
+    wallMaterial: materialWithVariant(data.wallMaterial, code, selection),
+    baseMaterial: materialWithVariant(data.baseMaterial, code, selection),
+    excavationMaterial: materialWithVariant(data.excavationMaterial, code, selection),
+    sections: data.sections.map((section) => ({
+      ...section,
+      wallMaterial: materialWithVariant(section.wallMaterial, code, selection),
+      baseMaterial: materialWithVariant(section.baseMaterial, code, selection)
+    }))
+  }
+}
+
+function bundWithVariant(
+  data: BundData,
+  code: string,
+  selection: DataVariantSelection
+): BundData {
+  const pitchingUsesCode = data.pitchingMaterial?.code === code
+  return {
+    ...data,
+    clearanceMaterial: materialWithVariant(data.clearanceMaterial, code, selection),
+    strippingMaterial: materialWithVariant(data.strippingMaterial, code, selection),
+    formationMaterial: materialWithVariant(data.formationMaterial, code, selection),
+    rollingMaterial: materialWithVariant(data.rollingMaterial, code, selection),
+    heartingMaterial: materialWithVariant(data.heartingMaterial, code, selection),
+    heartingRollingMaterial: materialWithVariant(
+      data.heartingRollingMaterial,
+      code,
+      selection
+    ),
+    turfingMaterial: materialWithVariant(data.turfingMaterial, code, selection),
+    pitchingMaterial: materialWithVariant(data.pitchingMaterial, code, selection),
+    pitchingBeddingMaterial:
+      pitchingUsesCode && selection.addonId === 'murum_bed_15cm'
+        ? null
+        : materialWithVariant(data.pitchingBeddingMaterial, code, selection),
+    pitchingMetalMaterial: materialWithVariant(data.pitchingMetalMaterial, code, selection),
+    horizontalFilterMaterial: materialWithVariant(
+      data.horizontalFilterMaterial,
+      code,
+      selection
+    ),
+    verticalFilterMaterial: materialWithVariant(data.verticalFilterMaterial, code, selection),
+    rockToeMaterial: materialWithVariant(data.rockToeMaterial, code, selection),
+    rockToeFilterMaterial: materialWithVariant(data.rockToeFilterMaterial, code, selection),
+    rockToeExcavationMaterial: materialWithVariant(
+      data.rockToeExcavationMaterial,
+      code,
+      selection
+    ),
+    chuteDrainExcavationMaterial: materialWithVariant(
+      data.chuteDrainExcavationMaterial,
+      code,
+      selection
+    ),
+    chuteDrainLiningMaterial: materialWithVariant(
+      data.chuteDrainLiningMaterial,
+      code,
+      selection
+    ),
+    soilBands: data.soilBands.map((band) => ({
+      ...band,
+      material: materialWithVariant(band.material, code, selection)
+    })),
+    excavationBands: Object.fromEntries(
+      Object.entries(data.excavationBands).map(([role, bands]) => [
+        role,
+        bands.map((band) => ({
+          ...band,
+          material: materialWithVariant(band.material, code, selection)
+        }))
+      ])
+    ) as BundData['excavationBands'],
+    upstreamToe: {
+      ...data.upstreamToe,
+      excavationMaterial: materialWithVariant(
+        data.upstreamToe.excavationMaterial,
+        code,
+        selection
+      ),
+      buildMaterial: materialWithVariant(data.upstreamToe.buildMaterial, code, selection)
+    },
+    downstreamToe: {
+      ...data.downstreamToe,
+      excavationMaterial: materialWithVariant(
+        data.downstreamToe.excavationMaterial,
+        code,
+        selection
+      ),
+      buildMaterial: materialWithVariant(data.downstreamToe.buildMaterial, code, selection)
+    }
+  }
+}
 
 function normalizeNode(node: ProjectNode): ProjectNode {
   const children = node.children.map(normalizeNode)
@@ -235,7 +375,27 @@ function normalizeLeadSelection(selection: LeadSelection): LeadSelection {
 }
 
 /** Backfill fields that older `.eestimate` files may lack. */
+/**
+ * Every project carries a Front Page and an Introduction, in that order, as the
+ * first children of the Title. Applied on load as well as on creation, so
+ * projects made before these pages existed pick them up when next opened.
+ */
+function ensurePinnedPages(root: ProjectNode): ProjectNode {
+  const pinned: Array<{ template: 'front' | 'introduction'; name: string }> = [
+    { template: 'front', name: 'Front Page' },
+    { template: 'introduction', name: 'Introduction' }
+  ]
+  let children = root.children
+  // Inserted back to front so the declared order above is what ends up on top.
+  for (const { template, name } of [...pinned].reverse()) {
+    if (children.some((child) => child.pageTemplate === template)) continue
+    children = [createNode('page', name, { pageTemplate: template }), ...children]
+  }
+  return children === root.children ? root : { ...root, children }
+}
+
 function normalizeLoaded(data: EestimateProject): EestimateProject {
+  const normalizedRoot = repairCreatedDataCatalogueSelections(normalizeNode(data.root))
   return {
     ...data,
     meta: {
@@ -249,7 +409,7 @@ function normalizeLoaded(data: EestimateProject): EestimateProject {
       }
     },
     id: data.id || newId(),
-    root: normalizeNode(data.root),
+    root: ensurePinnedPages(normalizedRoot),
     leadChart: normalizeLeadChart(data.leadChart),
     rateAnalysisOverrides: normalizeRateAnalysisOverrides(data.rateAnalysisOverrides),
     rateAnalysisScopedOverrides: normalizeScopedRateAnalysisOverrides(
@@ -263,7 +423,12 @@ function normalizeLoaded(data: EestimateProject): EestimateProject {
 }
 
 export type AppView = 'home' | 'newproject' | 'project'
-export type ActivityView = 'explorer' | 'search' | 'lead' | 'sourcecontrol'
+export type ActivityView =
+  | 'explorer'
+  | 'search'
+  | 'lead'
+  | 'data'
+  | 'sourcecontrol'
 
 interface AddItemState {
   open: boolean
@@ -323,6 +488,7 @@ interface StoreState {
   addPage: AddPageState
   addStructure: AddStructureState
   settings: SettingsState
+  exportPdfOpen: boolean
   analysisSelection: AnalysisSelection | null
   leadSelection: LeadSelection | null
   seigniorageSelection: SeigniorageSelection | null
@@ -354,7 +520,36 @@ interface StoreState {
   createPage: (parentId: string, name: string) => void
   addComponent: (parentId?: string) => void
   addSubcomponent: (parentId: string) => void
-  createStructureNode: (name: string, location: ProjectLocation | null) => void
+  createStructureNode: (
+    name: string,
+    location: ProjectLocation | null,
+    templateId?: ComponentTemplateId
+  ) => void
+  setGuideWall: (nodeId: string, data: GuideWallData) => void
+  setGuideWallMaterial: (
+    nodeId: string,
+    role: 'wall' | 'base' | 'excavation',
+    item: MasterItem,
+    sectionId?: string
+  ) => void
+  resetGuideWallSectionMaterial: (
+    nodeId: string,
+    role: 'wall' | 'base',
+    sectionId: string
+  ) => void
+  setBund: (nodeId: string, data: BundData) => void
+  setBundMaterial: (nodeId: string, role: BundItemRole, item: MasterItem) => void
+  /**
+   * Fill in master metadata for every bund material still held as a bare code.
+   * Returns the codes that remain unresolved so the caller can retry rather
+   * than latching a one-shot guard on a lookup that may have failed.
+   */
+  resolveBundMaterials: (nodeId: string, masters: MasterItem[]) => string[]
+  setTemplateCodeVariant: (
+    nodeId: string,
+    code: string,
+    selection: DataVariantSelection
+  ) => void
   addCustomItem: (parentId: string, name: string) => void
   addItemsFromMaster: (parentId: string, items: MasterItem[]) => void
   addCreatedDataItems: (parentId: string, createdDataIds: string[]) => void
@@ -371,6 +566,7 @@ interface StoreState {
   setNodeFinalCell: (id: string, cell: { row: number; column: number } | null) => void
   setNodeRate: (id: string, rate: number | null) => void
   updateMeta: (patch: Partial<ProjectMeta>) => void
+  setDashboardSnapshot: (snapshot: DashboardDataSnapshot) => void
   addMiscellaneousItem: (item: Omit<ProjectMiscellaneousItem, 'id' | 'createdAt'>) => void
   removeMiscellaneousItem: (id: string) => void
   setEarthworkOverride: (itemKey: string, value: boolean | null) => void
@@ -386,12 +582,21 @@ interface StoreState {
   removeLeadMapDirection: (directionId: string) => void
   updateLeadPrintSettings: (settings: LeadPrintSettings) => void
   updateSeignioragePrintSettings: (settings: SeignioragePrintSettings) => void
+  updateChargeSettings: (settings: Partial<ProjectChargeSettings>) => void
+  updateProjectPrintSettings: (settings: EestimateProject['projectPrintSettings']) => void
+  updateSignatureFooter: (
+    scopeKey: string,
+    settings: EestimateProject['signatureFooter'] | null
+  ) => void
+  setNodeDocumentData: (id: string, documentData: IDocumentData, plainText: string) => void
+  setNodeDocumentFinal: (id: string, documentFinal: DocumentFinalNumber | null) => void
+  setNodeDocumentPrintArea: (id: string, documentPrintArea: DocumentPrintArea | null) => void
+  /** Drop `dragId` just above or below its sibling `targetId`. */
+  reorderNode: (dragId: string, targetId: string, edge: ReorderEdge) => void
   openLeadMaterial: (selection: LeadSelection) => void
   closeLeadMaterial: () => void
   openSeigniorage: (selection?: SeigniorageSelection) => void
   closeSeigniorage: () => void
-  saveLeadDetailReconstruction: (detail: LeadDetailReconstruction) => void
-  restoreLeadDetailReconstruction: (detailCode: string, year: string) => void
   openRateAnalysis: (key: string, nodeId: string, recipeOnly?: boolean, scopeNodeId?: string) => void
   closeRateAnalysis: () => void
   saveRateAnalysis: (recipe: RateAnalysisRecipe, scopeNodeId?: string) => void
@@ -405,6 +610,8 @@ interface StoreState {
   closeAddStructure: () => void
   openSettings: (nodeId: string) => void
   closeSettings: () => void
+  openExportPdf: () => void
+  closeExportPdf: () => void
 
   // undo / redo
   undo: () => void
@@ -520,6 +727,7 @@ export const useStore = create<StoreState>((set, get) => {
     addPage: { open: false, parentId: null },
     addStructure: { open: false, kind: 'component', parentId: null },
     settings: { open: false, nodeId: null },
+    exportPdfOpen: false,
     analysisSelection: null,
     leadSelection: null,
     seigniorageSelection: null,
@@ -539,7 +747,13 @@ export const useStore = create<StoreState>((set, get) => {
       await get().openRecent(path)
     },
 
-    setActivity: (a) => set({ activity: a }),
+    setActivity: (a) =>
+      set({
+        activity: a,
+        analysisSelection: null,
+        leadSelection: null,
+        seigniorageSelection: null
+      }),
     setGlobalSearch: (q) => set({ globalSearch: q }),
     setExplorerFilter: (q) => set({ explorerFilter: q }),
 
@@ -567,7 +781,8 @@ export const useStore = create<StoreState>((set, get) => {
     createProject: (meta) => {
       const p = get().project
       if (!p) return
-      const root: ProjectNode = { ...p.root, name: meta.name || 'Untitled Project' }
+      // Every project opens with a Front Page and an Introduction.
+      const root = ensurePinnedPages({ ...p.root, name: meta.name || 'Untitled Project' })
       const next: EestimateProject = {
         ...p,
         meta,
@@ -578,6 +793,7 @@ export const useStore = create<StoreState>((set, get) => {
         project: next,
         view: 'project',
         selectedId: root.id,
+        expanded: { [root.id]: true },
         dirty: true,
         analysisSelection: null,
         leadSelection: null,
@@ -736,20 +952,195 @@ export const useStore = create<StoreState>((set, get) => {
       set({ addStructure: { open: true, kind: 'subcomponent', parentId } })
     },
 
-    createStructureNode: (name, location) => {
+    createStructureNode: (name, location, templateId) => {
       const p = get().project
       if (!p) return
       const { kind, parentId } = get().addStructure
       const parent = parentId ?? p.root.id
       const trimmed = name.trim() || (kind === 'component' ? 'New Component' : 'New Sub-component')
+      const resolvedName = uniqueChildName(findNode(p.root, parent), trimmed)
       const fallbackLocation = location ?? p.meta.location ?? null
-      const node = createNode(kind, trimmed, { location: fallbackLocation })
+      const node = createNode(kind, resolvedName, {
+        location: fallbackLocation,
+        ...(templateId === 'guide-wall'
+          ? { templateId, guideWall: defaultGuideWallData() }
+          : templateId === 'bund'
+            ? { templateId, bund: defaultBundData() }
+            : {})
+      })
       mutate((root) => addChild(root, parent, node))
       set((s) => ({
         selectedId: node.id,
         expanded: { ...s.expanded, [parent]: true },
         addStructure: { open: false, kind: 'component', parentId: null }
       }))
+    },
+
+    setGuideWall: (nodeId, data) => {
+      mutate((root) => syncGuideWallItems(patchNode(root, nodeId, { guideWall: data }), nodeId))
+    },
+
+    setBund: (nodeId, data) => {
+      mutate((root) => syncBundItems(patchNode(root, nodeId, { bund: data }), nodeId))
+    },
+
+    setTemplateCodeVariant: (nodeId, code, selection) => {
+      const project = get().project
+      const component = project ? findNode(project.root, nodeId) : null
+      if (!component) return
+      if (component.guideWall) {
+        const guideWall = guideWallWithVariant(component.guideWall, code, selection)
+        mutate((root) =>
+          syncGuideWallItems(patchNode(root, nodeId, { guideWall }), nodeId)
+        )
+        return
+      }
+      if (component.bund) {
+        const bund = bundWithVariant(component.bund, code, selection)
+        mutate((root) => syncBundItems(patchNode(root, nodeId, { bund }), nodeId))
+      }
+    },
+
+    setBundMaterial: (nodeId, role, master) => {
+      const p = get().project
+      const component = p ? findNode(p.root, nodeId) : null
+      const data = component?.bund
+      if (!data) return
+      // Toe materials live nested in upstreamToe/downstreamToe and are set from
+      // the dashboard directly, so they are not in this top-level map.
+      const keyByRole: Partial<Record<BundItemRole, keyof BundData>> = {
+        clearance: 'clearanceMaterial',
+        stripping: 'strippingMaterial',
+        formation: 'formationMaterial',
+        rolling: 'rollingMaterial',
+        casing: 'formationMaterial',
+        'casing-rolling': 'rollingMaterial',
+        hearting: 'heartingMaterial',
+        'hearting-rolling': 'heartingRollingMaterial',
+        turfing: 'turfingMaterial',
+        pitching: 'pitchingMaterial',
+        'pitching-bedding': 'pitchingBeddingMaterial',
+        'pitching-metal': 'pitchingMetalMaterial',
+        rocktoe: 'rockToeMaterial',
+        'rocktoe-filter': 'rockToeFilterMaterial',
+        'rocktoe-exc': 'rockToeExcavationMaterial',
+        hfilter: 'horizontalFilterMaterial',
+        vfilter: 'verticalFilterMaterial',
+        'chute-exc': 'chuteDrainExcavationMaterial',
+        'chute-lining': 'chuteDrainLiningMaterial'
+      }
+      const key = keyByRole[role]
+      if (!key) return
+      const existing = data[key] as TemplateMaterialRef | null | undefined
+      const ref: TemplateMaterialRef = {
+        code: master.code,
+        description: master.description,
+        unit: master.dataVariant?.unit ?? master.unit,
+        categoryKey: master.category,
+        side: master.side,
+        dataVariant:
+          master.dataVariant ??
+          (existing?.code === master.code ? existing.dataVariant : undefined)
+      }
+      const selectedBund: BundData = { ...data, [key]: ref }
+      const bund =
+        ref.dataVariant
+          ? bundWithVariant(selectedBund, ref.code, ref.dataVariant)
+          : selectedBund
+      mutate((root) => syncBundItems(patchNode(root, nodeId, { bund }), nodeId))
+    },
+
+    resolveBundMaterials: (nodeId, masters) => {
+      const p = get().project
+      const component = p ? findNode(p.root, nodeId) : null
+      const data = component?.bund
+      if (!data) return []
+
+      const byCode = new Map<string, BundMasterMetadata>()
+      for (const m of masters) {
+        if (!byCode.has(m.code)) {
+          byCode.set(m.code, {
+            description: m.description,
+            unit: m.dataVariant?.unit ?? m.unit,
+            category: m.category,
+            side: m.side
+          })
+        }
+      }
+
+      const bund = applyBundMasterMetadata(data, byCode)
+      const remaining = unresolvedBundMaterialCodes(bund)
+      // Only touch the project when something actually improved.
+      if (remaining.length !== unresolvedBundMaterialCodes(data).length) {
+        mutate((root) => syncBundItems(patchNode(root, nodeId, { bund }), nodeId))
+      }
+      return remaining
+    },
+
+    setGuideWallMaterial: (nodeId, role, master, sectionId) => {
+      const p = get().project
+      const component = p ? findNode(p.root, nodeId) : null
+      const data = component?.guideWall
+      if (!data) return
+      const selectedSection = sectionId
+        ? data.sections.find((section) => section.id === sectionId)
+        : undefined
+      const existing =
+        role === 'wall'
+          ? selectedSection?.wallMaterial ?? data.wallMaterial
+          : role === 'base'
+            ? selectedSection?.baseMaterial ?? data.baseMaterial
+            : data.excavationMaterial
+      const ref: GuideWallMaterialRef = {
+        code: master.code,
+        description: master.description,
+        unit: master.dataVariant?.unit ?? master.unit,
+        categoryKey: master.category,
+        side: master.side,
+        dataVariant:
+          master.dataVariant ??
+          (existing?.code === master.code ? existing.dataVariant : undefined)
+      }
+      let guideWall: GuideWallData
+      if (sectionId) {
+        // Per-section override (wall/base only). Editing a section's code never
+        // touches the default; changing the default leaves overrides intact.
+        guideWall = {
+          ...data,
+          sections: data.sections.map((s) =>
+            s.id === sectionId
+              ? { ...s, ...(role === 'wall' ? { wallMaterial: ref } : { baseMaterial: ref }) }
+              : s
+          )
+        }
+      } else {
+        guideWall =
+          role === 'wall'
+            ? { ...data, wallMaterial: ref }
+            : role === 'base'
+              ? { ...data, baseMaterial: ref }
+              : { ...data, excavationMaterial: ref }
+      }
+      if (ref.dataVariant) {
+        guideWall = guideWallWithVariant(guideWall, ref.code, ref.dataVariant)
+      }
+      mutate((root) => syncGuideWallItems(patchNode(root, nodeId, { guideWall }), nodeId))
+    },
+
+    resetGuideWallSectionMaterial: (nodeId, role, sectionId) => {
+      const p = get().project
+      const component = p ? findNode(p.root, nodeId) : null
+      const data = component?.guideWall
+      if (!data) return
+      const guideWall: GuideWallData = {
+        ...data,
+        sections: data.sections.map((s) =>
+          s.id === sectionId
+            ? { ...s, ...(role === 'wall' ? { wallMaterial: undefined } : { baseMaterial: undefined }) }
+            : s
+        )
+      }
+      mutate((root) => syncGuideWallItems(patchNode(root, nodeId, { guideWall }), nodeId))
     },
 
     addCustomItem: (parentId, name) => {
@@ -773,7 +1164,8 @@ export const useStore = create<StoreState>((set, get) => {
           itemEditorType: 'spreadsheet',
           unit: m.unit,
           categoryKey: m.category,
-          dataVariant: m.dataVariant
+          dataVariant: m.dataVariant,
+          sorCatalogue: m.sorCatalogue
         })
       )
       mutate((root) => addChildren(root, parent.id, nodes))
@@ -804,13 +1196,7 @@ export const useStore = create<StoreState>((set, get) => {
         if (!source) return []
         return [
           createNode('item', source.name, {
-            itemSource: source.itemSource,
-            itemCode: source.itemCode,
-            itemDescription: source.itemDescription,
-            itemEditorType: source.itemEditorType ?? 'spreadsheet',
-            unit: source.unit,
-            categoryKey: source.categoryKey,
-            dataVariant: source.dataVariant,
+            ...createdDataSourceFields(source),
             splitFromNodeId: source.splitFromNodeId,
             splitFromItemKey: source.splitFromItemKey,
             createdDataId
@@ -831,13 +1217,7 @@ export const useStore = create<StoreState>((set, get) => {
       const parent = findParent(p.root, source.id)
       if (!parent) return null
       const split = createNode('item', createdDataName(source, trimmed), {
-        itemSource: source.itemSource,
-        itemCode: source.itemCode,
-        itemDescription: source.itemDescription,
-        itemEditorType: source.itemEditorType ?? 'spreadsheet',
-        unit: source.unit,
-        categoryKey: source.categoryKey,
-        dataVariant: source.dataVariant,
+        ...createdDataSourceFields(source),
         splitFromNodeId: source.id,
         splitFromItemKey: source.splitFromItemKey ?? projectItemKey(source)
       })
@@ -897,6 +1277,11 @@ export const useStore = create<StoreState>((set, get) => {
           rateAnalysisScopedOverrides: scopedOverrides,
           seigniorageOverrides: withoutKeys(project.seigniorageOverrides, orphanedKeys),
           earthworkOverrides: withoutKeys(project.earthworkOverrides, orphanedKeys),
+          signatureFooterOverrides: Object.fromEntries(
+            Object.entries(project.signatureFooterOverrides ?? {}).filter(
+              ([scopeKey]) => !removed.nodeIds.has(scopeKey)
+            )
+          ),
           leadChart: {
             ...chart,
             applications: (chart.applications ?? []).filter(
@@ -1048,6 +1433,20 @@ export const useStore = create<StoreState>((set, get) => {
       set({
         project: { ...p, meta, root, updatedAt: new Date().toISOString() },
         dirty: true
+      })
+    },
+
+    setDashboardSnapshot: (snapshot) => {
+      set((state) => {
+        if (!state.project) return state
+        return {
+          project: {
+            ...state.project,
+            dashboardSnapshot: snapshot,
+            updatedAt: new Date().toISOString()
+          },
+          dirty: true
+        }
       })
     },
 
@@ -1277,12 +1676,70 @@ export const useStore = create<StoreState>((set, get) => {
       }))
     },
 
+    reorderNode: (dragId, targetId, edge) => {
+      const p = get().project
+      if (!p) return
+      const dragged = findNode(p.root, dragId)
+      const target = findNode(p.root, targetId)
+      if (!dragged || !target || !canReorderBetween(dragged, target)) return
+      mutate((root) => reorderSibling(root, dragId, targetId, edge))
+    },
+
+    setNodeDocumentFinal: (id, documentFinal) => {
+      mutate((root) => patchNode(root, id, { documentFinal: documentFinal ?? undefined }))
+    },
+
+    setNodeDocumentPrintArea: (id, documentPrintArea) => {
+      mutate((root) => patchNode(root, id, { documentPrintArea: documentPrintArea ?? undefined }))
+    },
+
+    setNodeDocumentData: (id, documentData, plainText) => {
+      // `document` is kept in step so search and older builds still see the text.
+      const project = get().project
+      const current = project ? findNode(project.root, id) : null
+      mutate((root) =>
+        patchNode(root, id, {
+          documentData,
+          document: plainText,
+          ...(current?.pageTemplate === 'front' ? { frontCoverInitialized: true } : {})
+        })
+      )
+    },
+
+
+    updateProjectPrintSettings: (settings) => {
+      mutateProject((project) => ({ ...project, projectPrintSettings: settings }))
+    },
+
+    updateSignatureFooter: (scopeKey, settings) => {
+      mutateProject((project) => {
+        if (scopeKey === 'project') {
+          return { ...project, signatureFooter: settings ?? undefined }
+        }
+        const overrides = { ...(project.signatureFooterOverrides ?? {}) }
+        if (settings) overrides[scopeKey] = settings
+        else delete overrides[scopeKey]
+        return {
+          ...project,
+          signatureFooterOverrides: Object.keys(overrides).length ? overrides : undefined
+        }
+      })
+    },
+
+    updateChargeSettings: (settings) => {
+      mutateProject((project) => ({
+        ...project,
+        chargeSettings: { ...(project.chargeSettings ?? {}), ...settings }
+      }))
+    },
+
+
     openLeadMaterial: (selection) =>
       set({
         leadSelection: normalizeLeadSelection(selection),
         analysisSelection: null,
         seigniorageSelection: null,
-        activity: 'explorer'
+        activity: 'lead'
       }),
 
     closeLeadMaterial: () => set({ leadSelection: null }),
@@ -1296,24 +1753,6 @@ export const useStore = create<StoreState>((set, get) => {
       }),
 
     closeSeigniorage: () => set({ seigniorageSelection: null }),
-
-    saveLeadDetailReconstruction: (detail) => {
-      mutateProject((project) => ({
-        ...project,
-        leadDetailOverrides: {
-          ...(project.leadDetailOverrides ?? {}),
-          [`${detail.detailCode}:${detail.year}`]: detail
-        }
-      }))
-    },
-
-    restoreLeadDetailReconstruction: (detailCode, year) => {
-      mutateProject((project) => {
-        const overrides = { ...(project.leadDetailOverrides ?? {}) }
-        delete overrides[`${detailCode}:${year}`]
-        return { ...project, leadDetailOverrides: overrides }
-      })
-    },
 
     openRateAnalysis: (key, nodeId, recipeOnly = false, scopeNodeId) =>
       set({
@@ -1422,6 +1861,9 @@ export const useStore = create<StoreState>((set, get) => {
     closeAddStructure: () => set({ addStructure: { open: false, kind: 'component', parentId: null } }),
     openSettings: (nodeId) => set({ settings: { open: true, nodeId } }),
     closeSettings: () => set({ settings: { open: false, nodeId: null } }),
+
+    openExportPdf: () => set({ exportPdfOpen: true }),
+    closeExportPdf: () => set({ exportPdfOpen: false }),
 
     undo: () =>
       set((s) => {

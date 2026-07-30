@@ -1,20 +1,23 @@
 import type { ProjectNode } from '../../types/project'
-import { nodeDisplayName } from '../nodeVisual'
-import NativeDocumentEditor from './NativeDocumentEditor'
+import { NodeIcon, nodeDisplayName } from '../nodeVisual'
+import UniverDocument from './UniverDocument'
 import UniverSpreadsheet from './UniverSpreadsheet'
 
 export default function ItemSpreadsheet({ node }: { node: ProjectNode }): JSX.Element {
-  const isDocument = node.itemEditorType === 'document'
-  const color = node.itemSource === 'SOR' ? 'var(--item-sor)' : 'var(--item-ssr)'
-
-  if (isDocument) {
+  if (node.itemEditorType === 'document') {
     return (
-      <NativeDocumentEditor
-        node={node}
-        title={nodeDisplayName(node)}
-        subtitle={`${node.itemSource ?? ''}${node.unit ? ` - unit ${node.unit}` : ''}`}
-        color={color}
-      />
+      <div className="editor-page">
+        <div className="editor-toolbar">
+          <NodeIcon node={node} size={14} />
+          <span className="et-title">{nodeDisplayName(node)}</span>
+          <span style={{ color: 'var(--text-faint)' }}>
+            {node.itemSource ?? ''}
+            {node.unit ? ` - unit ${node.unit}` : ''}
+          </span>
+          <span className="editor-badge">Document</span>
+        </div>
+        <UniverDocument key={node.id} node={node} showItemTools />
+      </div>
     )
   }
 

@@ -1,0 +1,14 @@
+- main [ref=e3]:
+  - heading "Bund / Guide Wall code selection" [level=2] [ref=e4]
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - combobox [ref=e7]:
+        - option "TAW"
+        - option "DAW"
+        - option "CAW" [selected]
+        - option "GAW"
+        - option "CCDW"
+        - option "PMW"
+      - textbox "Search code or description…" [active] [ref=e8]: IRR-CAW-8-8
+      - button "Close" [ref=e9] [cursor=pointer]
+    - generic [ref=e13]: Loading items…

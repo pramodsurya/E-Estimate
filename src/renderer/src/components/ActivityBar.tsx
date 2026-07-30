@@ -1,10 +1,11 @@
-import { Files, GitBranch, Route, Search } from 'lucide-react'
+import { Database, Files, GitBranch, Route, Search } from 'lucide-react'
 import { useStore, type ActivityView } from '../store/useStore'
 
 const ITEMS: { key: ActivityView; Icon: typeof Files; title: string }[] = [
   { key: 'explorer', Icon: Files, title: 'Explorer' },
   { key: 'search', Icon: Search, title: 'Search' },
-  { key: 'lead', Icon: Route, title: 'DTL Lead' },
+  { key: 'lead', Icon: Route, title: 'Lead Dashboard' },
+  { key: 'data', Icon: Database, title: 'DATA Dashboard' },
   { key: 'sourcecontrol', Icon: GitBranch, title: 'Source Control' }
 ]
 

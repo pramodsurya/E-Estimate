@@ -1,0 +1,17 @@
+- main [ref=e3]:
+  - heading "Bund / Guide Wall code selection" [level=2] [ref=e4]
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - combobox [ref=e7]:
+        - option "TAW"
+        - option "DAW"
+        - option "CAW" [selected]
+        - option "GAW"
+        - option "CCDW"
+        - option "PMW"
+      - textbox "Search code or description…" [ref=e8]: IRR-CAW-8-8
+      - button "Close" [ref=e9] [cursor=pointer]
+    - button "IRR-CAW-8-8 Providing and Constructing 45 cm thick dry rubble stone pitching including cost of all materials, labour,hand" [disabled] [ref=e15] [cursor=pointer]:
+      - 'generic "IRR-CAW-8-8 Providing and Constructing 45 cm thick dry rubble stone pitching including cost of all materials, labour,hand packing,finishing etc.,complete ( rubble stones : 0.495 cum/sqm)" [ref=e16]': IRR-CAW-8-8
+      - generic [ref=e17]: Providing and Constructing 45 cm thick dry rubble stone pitching including cost of all materials, labour,hand
+    - generic [ref=e18]: Checking DATA variants…

@@ -13,6 +13,14 @@ export default function SideBar(): JSX.Element {
         {activity === 'explorer' && <ExplorerPanel />}
         {activity === 'search' && <SearchPanel />}
         {activity === 'lead' && <LeadSidebarPanel />}
+        {activity === 'data' && (
+          <div className="lead-sidebar-panel">
+            <div className="panel-title">DATA Dashboard</div>
+            <div className="list-empty">
+              Sync recompiles source rates, shared edits, component edits, and Lead additions.
+            </div>
+          </div>
+        )}
         {activity === 'sourcecontrol' && <SourceControlPanel />}
       </div>
       <div className="sidebar-bottom">

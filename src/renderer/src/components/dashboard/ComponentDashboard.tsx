@@ -9,6 +9,7 @@ import {
   Minus,
   Plus,
   Printer,
+  RefreshCw,
   Settings,
   Type,
   X
@@ -24,18 +25,31 @@ import type {
 } from '../../types/project'
 import { NodeIcon, nodeDisplayName } from '../nodeVisual'
 import { componentItemsTotal, getItemFinal } from '../../lib/finalNumber'
-import { fetchItemRate, fetchRateAnalysis } from '../../lib/rateAnalysis'
 import { descriptionRunsForDisplay, plainTextRun } from '../../lib/rateAnalysisVisibility'
 import { buildPrintHtml } from '../../lib/printRender'
 import { resolveNodeSettings } from '../../lib/nodeSettings'
 import { createUniverWorkbookData } from '../../lib/univerSpreadsheet'
-import { rateAnalysisOverrideForNode } from '../../lib/projectItems'
 import type { RateAnalysisRecipe, RateAnalysisTextRun } from '../../types/rateAnalysis'
-import { buildCombinedComponentPdf } from '../../lib/componentPrint'
+import {
+  buildCombinedComponentPdf,
+  enforceComponentMinimumFontSize
+} from '../../lib/componentPrint'
 import PdfPageStack from '../print/PdfPageStack'
+import {
+  compileComponentDashboardSnapshots,
+  dashboardComponentCompileSignature,
+  dashboardContextMatches,
+  dashboardItemIsSynced,
+  syncDataDashboardSnapshot
+} from '../../lib/dashboardSync'
+import { findNode } from '../../lib/tree'
+import { resolveTemplateDashboardMaterials } from '../../lib/templateDashboardSync'
+import SignatureFooterCard from '../signature/SignatureFooterCard'
 
 const money = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 })
 const qtyFmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 3 })
+const EMPTY_RATES: Record<string, number> = {}
+const EMPTY_RECIPES: Record<string, RateAnalysisRecipe> = {}
 const PREVIEW_MARGINS: Margins = { top: 20, right: 15, bottom: 20, left: 25 }
 const PAPER_MM: Record<PaperSize, { width: number; height: number }> = {
   A4: { width: 210, height: 297 },
@@ -52,13 +66,29 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
   const openSettings = useStore((s) => s.openSettings)
   const select = useStore((s) => s.select)
   const project = useStore((s) => s.project)
+  const setDashboardSnapshot = useStore((s) => s.setDashboardSnapshot)
+  const setGuideWallMaterial = useStore((s) => s.setGuideWallMaterial)
+  const resolveBundMaterials = useStore((s) => s.resolveBundMaterials)
+  const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false)
   const [printView, setPrintView] = useState(false)
   const [combinedPdfUrl, setCombinedPdfUrl] = useState<string | null>(null)
   const [combinedPrintStatus, setCombinedPrintStatus] = useState<'idle' | 'rendering' | 'error'>('idle')
   const [combinedPrintError, setCombinedPrintError] = useState<string | null>(null)
   const [previewZoom, setPreviewZoom] = useState(100)
-  const [masterFontPercent, setMasterFontPercent] = useState(100)
+  // The report font is a persisted per-component setting. The slider previews it
+  // live and saves on release, so it survives closing the preview/app.
+  const updateNodeSettings = useStore((s) => s.updateNodeSettings)
+  const settingFontPercent = project ? resolveNodeSettings(project.root, node.id).reportFontPercent : 100
+  const [masterFontPercent, setMasterFontPercent] = useState(settingFontPercent)
+  useEffect(() => {
+    setMasterFontPercent(settingFontPercent)
+  }, [settingFontPercent])
+  const saveMasterFont = (value: number): void => {
+    if (value === settingFontPercent) return
+    updateNodeSettings(node.id, { ...(node.settings ?? {}), reportFontPercent: value })
+  }
   const combinedFrameRef = useRef<HTMLIFrameElement>(null)
 
   const subcomponents = node.children.filter((c) => c.kind === 'subcomponent')
@@ -66,12 +96,7 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
   const pages = node.children.filter((c) => c.kind === 'page')
   const isSub = node.kind === 'subcomponent'
 
-  const sorYear = project?.meta.sorYear ?? ''
-  const sorZone = project?.meta.sorZone ?? 'zone_3'
-  const areaAllowancePercent = project?.meta.areaAllowancePercent ?? 0
-  const areaAllowanceLabel = project?.meta.areaAllowanceLabel
-
-  // All descendant item nodes (for rate loading + the component total).
+  // All descendant item nodes (for synchronization + the component total).
   const allItems = useMemo(() => {
     const out: ProjectNode[] = []
     const visit = (n: ProjectNode): void => {
@@ -82,93 +107,66 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
     return out
   }, [node])
 
-  // Rates come from the SSR/SOR data (Supabase), fetched per item.
-  const [rates, setRates] = useState<Record<string, number>>({})
-  const [recipes, setRecipes] = useState<Record<string, RateAnalysisRecipe>>({})
-  useEffect(() => {
-    let cancelled = false
-    const load = async (): Promise<void> => {
-      const entries = await Promise.all(
-        allItems.map(async (it) => [
-          it.id,
-          await fetchItemRate(it, sorYear, {
-            zone: sorZone,
-            areaAllowancePercent,
-            areaAllowanceLabel
-          })
-        ] as const)
-      )
-      if (cancelled) return
-      const map: Record<string, number> = {}
-      for (const [id, r] of entries) if (typeof r === 'number') map[id] = r
-      setRates(map)
-    }
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [allItems, sorYear, sorZone, areaAllowancePercent, areaAllowanceLabel])
+  const snapshotValid = project
+    ? dashboardContextMatches(project.dashboardSnapshot, project)
+    : false
+  const snapshot = snapshotValid ? project?.dashboardSnapshot : undefined
+  const rates = snapshot?.componentRates?.[node.id] ?? EMPTY_RATES
+  const recipes = snapshot?.componentRecipes?.[node.id] ?? EMPTY_RECIPES
+  const componentSynced =
+    Boolean(project) &&
+    snapshotValid &&
+    Boolean(snapshot?.componentSyncedAt?.[node.id]) &&
+    snapshot?.componentCompileSignatures?.[node.id] ===
+      dashboardComponentCompileSignature(project as EestimateProject, allItems) &&
+    allItems.every((item) => dashboardItemIsSynced(snapshot, item))
 
-  useEffect(() => {
-    let cancelled = false
-    const load = async (): Promise<void> => {
-      const entries = await Promise.all(
-        allItems.map(async (it) => {
-          try {
-            const recipe = await fetchRateAnalysis(it, sorYear, {
-              zone: sorZone,
-              areaAllowancePercent,
-              areaAllowanceLabel
-            })
-            const saved = project ? rateAnalysisOverrideForNode(project, it) : null
-            return [
-              it.id,
-              saved
-                ? {
-                    ...recipe,
-                    ...saved,
-                    year: recipe.year,
-                    zone: recipe.zone,
-                    layout: recipe.layout,
-                    sourceFigures: recipe.sourceFigures,
-                    publishedRateBlocks: recipe.publishedRateBlocks
-                  }
-                : recipe
-            ] as const
-          } catch {
-            return [it.id, null] as const
-          }
-        })
+  const syncDashboard = async (): Promise<void> => {
+    if (!project || syncing) return
+    setSyncing(true)
+    setSyncError(null)
+    try {
+      await resolveTemplateDashboardMaterials(node, {
+        setGuideWallMaterial,
+        resolveBundMaterials
+      })
+      const current = useStore.getState().project
+      if (!current || current.id !== project.id) return
+      const currentNode = findNode(current.root, node.id)
+      if (!currentNode) return
+      // Quantity-bearing template/items are already persisted locally. Reading
+      // the latest tree here is the quantity phase; DATA recompile follows it.
+      const next = await syncDataDashboardSnapshot(current)
+      if (useStore.getState().project?.id !== current.id) return
+      setDashboardSnapshot(
+        compileComponentDashboardSnapshots(current, next, [currentNode])
       )
-      if (cancelled) return
-      const map: Record<string, RateAnalysisRecipe> = {}
-      for (const [id, recipe] of entries) if (recipe) map[id] = recipe
-      setRecipes(map)
+    } catch (error: unknown) {
+      setSyncError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setSyncing(false)
     }
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [
-    allItems,
-    sorYear,
-    sorZone,
-    areaAllowancePercent,
-    areaAllowanceLabel,
-    project?.rateAnalysisOverrides,
-    project?.rateAnalysisScopedOverrides
-  ])
+  }
 
-  const rateOf = (n: ProjectNode): number | undefined => rates[n.id]
-  const componentTotal = componentItemsTotal(project, node, rateOf)
+  const rateOf = (n: ProjectNode): number | undefined => {
+    const rate = rates[n.id]
+    return dashboardItemIsSynced(snapshot, n) && typeof rate === 'number'
+      ? rate
+      : undefined
+  }
+  const calculatedComponentTotal = componentItemsTotal(project, node, rateOf, true)
+  const componentTotal =
+    componentSynced && typeof snapshot?.componentTotals?.[node.id] === 'number'
+      ? snapshot.componentTotals[node.id]
+      : calculatedComponentTotal
   const directComponentTotal = items.reduce(
-    (total, item) => total + (getItemFinal(project, item, rateOf(item)).amount ?? 0),
+    (total, item) => total + (getItemFinal(project, item, rateOf(item), true).amount ?? 0),
     0
   )
   const subcomponentSummaries = subcomponents.map((subcomponent) => ({
     node: subcomponent,
     itemCount: countDescendantItems(subcomponent),
-    total: componentItemsTotal(project, subcomponent, rateOf)
+    total: componentItemsTotal(project, subcomponent, rateOf, true)
   }))
   const subcomponentsTotal = subcomponentSummaries.reduce((total, summary) => total + summary.total, 0)
   const directItemCount = items.length
@@ -177,7 +175,7 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
     0
   )
   const costedDirectItemCount = items.filter(
-    (item) => getItemFinal(project, item, rateOf(item)).amount !== null
+    (item) => getItemFinal(project, item, rateOf(item), true).amount !== null
   ).length
   const directCostPercent = componentTotal > 0 ? (directComponentTotal / componentTotal) * 100 : 0
 
@@ -226,6 +224,18 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
           </h1>
         </div>
         <div className="dash-actions">
+          <button
+            className="btn ghost"
+            disabled={syncing}
+            title={
+              componentSynced && snapshot?.syncedAt
+                ? `Last synced ${new Date(snapshot.syncedAt).toLocaleString()}`
+                : 'Populate and store this dashboard'
+            }
+            onClick={() => void syncDashboard()}
+          >
+            <RefreshCw size={15} /> {syncing ? 'Syncing…' : 'Sync'}
+          </button>
           {!isSub && (
             <button className="btn ghost" onClick={() => addSubcomponent(node.id)}>
               <Layers size={15} /> Add Sub-component
@@ -261,8 +271,19 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
                 <b>{previewZoom}%</b>
               </label>
               <button className="btn-mini" onClick={() => setPreviewZoom((z) => Math.min(200, z + 10))}><Plus size={13} /></button>
-              <label><Type size={14} /> Master font
-                <input type="range" min="75" max="175" step="5" value={masterFontPercent} onChange={(e) => setMasterFontPercent(Number(e.target.value))} />
+              <label title="Saved to this component's settings when you release the slider">
+                <Type size={14} /> Master font
+                <input
+                  type="range"
+                  min="75"
+                  max="175"
+                  step="5"
+                  value={masterFontPercent}
+                  onChange={(e) => setMasterFontPercent(Number(e.target.value))}
+                  onPointerUp={(e) => saveMasterFont(Number((e.target as HTMLInputElement).value))}
+                  onKeyUp={(e) => saveMasterFont(Number((e.target as HTMLInputElement).value))}
+                  onBlur={(e) => saveMasterFont(Number(e.target.value))}
+                />
                 <b>{masterFontPercent}%</b>
               </label>
             </div>
@@ -297,6 +318,15 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
         </div>
       ) : (
       <div className="component-dashboard-body">
+        {syncError && (
+          <div className="project-load-warning">Dashboard sync failed: {syncError}</div>
+        )}
+        {!componentSynced && !syncError && (
+          <div className="project-load-warning">
+            This dashboard has not been synced for the current SOR settings. Click Sync to populate it.
+          </div>
+        )}
+        <SignatureFooterCard scopeKey={node.id} />
         <section className="component-cost-overview">
           <div className="component-cost-primary">
             <div className="component-section-label">
@@ -408,7 +438,7 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
                 <span>Item</span><span>Quantity</span><span>Rate</span><span>Amount</span><span />
               </div>
               {items.map((item) => {
-                const final = getItemFinal(project, item, rates[item.id])
+                const final = getItemFinal(project, item, rateOf(item), true)
                 return (
                   <button type="button" key={item.id} className="component-item-row" onClick={() => select(item.id)}>
                     <span className="component-item-name" title={item.itemDescription}>
@@ -503,7 +533,8 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
   )
 }
 
-function ComponentPrintPage({
+/** One component's printed section. Reused by the project-wide print view. */
+export function ComponentPrintPage({
   projectName,
   node,
   project,
@@ -590,7 +621,7 @@ function ComponentPrintSection({
   const children = node.children.filter(
     (child) => child.kind === 'component' || child.kind === 'subcomponent'
   )
-  const total = componentItemsTotal(project, node, rateOf)
+  const total = componentItemsTotal(project, node, rateOf, true)
 
   return (
     <section className="component-print-subsection">
@@ -654,7 +685,7 @@ function ComponentPrintItems({
         </thead>
         <tbody>
           {items.map((item, index) => {
-            const final = getItemFinal(project, item, rateOf(item))
+            const final = getItemFinal(project, item, rateOf(item), true)
             return (
               <tr key={item.id}>
                 <td className="cpt-sl">{index + 1}</td>
@@ -823,7 +854,7 @@ function SheetPrintFrame({
   scale: number
 }): JSX.Element {
   const [height, setHeight] = useState(220)
-  const srcDoc = noScrollPrintHtml(html, scale)
+  const srcDoc = noScrollPrintHtml(enforceComponentMinimumFontSize(html), scale)
   const paper = PAPER_MM[pageSize]
   const landscape = orientation === 'landscape'
   const pageWidth = landscape ? paper.height : paper.width

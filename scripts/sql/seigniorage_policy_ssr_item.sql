@@ -39,6 +39,7 @@ classified AS (
     lower(regexp_replace(sm.recipe_material_desc, '\s+', ' ', 'g')) AS material_desc_norm,
     CASE
       WHEN lower(sm.recipe_material_desc) ~ 'sand\s+bag' THEN NULL
+      WHEN lower(sm.recipe_material_desc) ~ '(sand[ -]*blast gun|gun nozzle)' THEN NULL
       WHEN lower(sm.recipe_material_desc) ~ '(fine aggregate|sand\s*\((un-)?screened|sand for filling|(^|[^a-z])sand($|[^a-z]))'
         THEN 'SAND_FINE_AGGREGATE'
       WHEN lower(sm.recipe_material_desc) ~ '(murrum|murum|moorum|morram|ordinary earth|borrow earth|(^|[^a-z])earth($|[^a-z])|(^|[^a-z])soil($|[^a-z]))'
@@ -78,7 +79,7 @@ policy_rows AS (
     c.item_output_qty,
     round(c.recipe_material_qty / NULLIF(c.item_output_qty, 0), 8) AS quantity_ratio,
     CASE c.material_key
-      WHEN 'SAND_FINE_AGGREGATE' THEN 'SEIG_SAND_OTHERS'
+      WHEN 'SAND_FINE_AGGREGATE' THEN 'SEIG_ORDINARY_SAND'
       WHEN 'SOIL_MORRAM_EARTH' THEN 'SEIG_MORRAM_GRAVEL_EARTH'
       WHEN 'STONE_AGGREGATE' THEN 'SEIG_BUILDING_STONE'
       WHEN 'LATERITE' THEN 'SEIG_LATERITE'
@@ -97,7 +98,7 @@ policy_rows AS (
     END::numeric AS conversion_factor,
     'AUTO_MAPPED' AS status,
     CASE c.material_key
-      WHEN 'SAND_FINE_AGGREGATE' THEN 'Fine aggregate / sand recipe material mapped to Sand (Others).'
+      WHEN 'SAND_FINE_AGGREGATE' THEN 'Fine aggregate / natural sand recipe material mapped to Ordinary Sand.'
       WHEN 'SOIL_MORRAM_EARTH' THEN 'Earth / soil / murrum recipe material mapped to Morram / Gravel & Ordinary Earth.'
       WHEN 'STONE_AGGREGATE' THEN 'Coarse aggregate / stone / rubble recipe material mapped to Building Stone.'
       WHEN 'LATERITE' THEN 'Laterite recipe material mapped to Laterite.'

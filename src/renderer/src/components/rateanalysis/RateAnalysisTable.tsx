@@ -48,7 +48,8 @@ export default function RateAnalysisTable({
   onChange,
   leadApplications = [],
   leadVariants = [],
-  onLeadApplicationQuantityChange
+  onLeadApplicationQuantityChange,
+  figureUrls
 }: {
   recipe: RateAnalysisRecipe
   editing: boolean
@@ -56,6 +57,12 @@ export default function RateAnalysisTable({
   leadApplications?: LeadApplication[]
   leadVariants?: LeadVariant[]
   onLeadApplicationQuantityChange?: (applicationId: string, quantity: number) => void
+  /**
+   * Already-downloaded figure images, keyed by figure key. Supplied by print
+   * builders that render this sheet outside the app window, where the storage
+   * download effect cannot run and blob URLs would not resolve.
+   */
+  figureUrls?: Record<string, string>
 }): JSX.Element {
   if (recipe.itemSource === 'SOR') {
     return <SorDataSheet recipe={recipe} editing={editing} onChange={onChange} />
@@ -209,7 +216,11 @@ export default function RateAnalysisTable({
         ))}
 
       {recipe.sourceFigures && recipe.sourceFigures.length > 0 && (
-        <SsrSourceFigures figures={recipe.sourceFigures} itemCode={recipe.itemCode} />
+        <SsrSourceFigures
+          figures={recipe.sourceFigures}
+          itemCode={recipe.itemCode}
+          resolvedUrls={figureUrls}
+        />
       )}
 
       <div className="rate-sheet-heading">
@@ -836,20 +847,26 @@ function AddonLeadCosts({
 
 function SsrSourceFigures({
   figures,
-  itemCode
+  itemCode,
+  resolvedUrls
 }: {
   figures: RateAnalysisFigure[]
   itemCode: string
+  resolvedUrls?: Record<string, string>
 }): JSX.Element {
   const [loaded, setLoaded] = useState<Array<{
     figure: RateAnalysisFigure
     url?: string
     error?: string
-  }>>(() => figures.map((figure) => ({ figure })))
+  }>>(() => figures.map((figure) => ({ figure, url: resolvedUrls?.[figure.key] })))
 
   useEffect(() => {
     let cancelled = false
     const objectUrls: string[] = []
+    if (resolvedUrls) {
+      setLoaded(figures.map((figure) => ({ figure, url: resolvedUrls[figure.key] })))
+      return () => undefined
+    }
     setLoaded(figures.map((figure) => ({ figure })))
 
     void Promise.all(
@@ -873,7 +890,7 @@ function SsrSourceFigures({
       cancelled = true
       objectUrls.forEach((url) => URL.revokeObjectURL(url))
     }
-  }, [figures])
+  }, [figures, resolvedUrls])
 
   return (
     <section className="ssr-source-figures" aria-label="Published SSR figures">
@@ -912,7 +929,11 @@ function SorDataSheet({
 }): JSX.Element {
   const sourceSection = recipe.sections.find((section) => section.lines.length > 0)
   const sourceLine = sourceSection?.lines[0]
-  const rate = recipe.publishedRate ?? sourceLine?.rate ?? 0
+  const numericRate = recipe.publishedRate ?? sourceLine?.rate
+  const hasNumericRate = typeof numericRate === 'number' && Number.isFinite(numericRate)
+  const rate = hasNumericRate ? numericRate : 0
+  const rateText = recipe.publishedRateText?.trim() ?? ''
+  const catalogueSource = recipe.sorCatalogueSource
 
   const updateDescription = (description: string): void => {
     onChange({
@@ -956,8 +977,18 @@ function SorDataSheet({
       <div className="rate-document-header">
         <strong className="rate-sheet-code">{recipe.itemCode}</strong>
         <div className="rate-document-meta">
-          <span>SOR {recipe.year}</span>
-          <small>Published schedule rate</small>
+          <span>
+            SOR {recipe.year} · {catalogueSource?.catalogueName ?? zoneLabel(recipe.zone ?? 'zone_3')}
+          </span>
+          <small>
+            {catalogueSource
+              ? `${catalogueSource.sourceTitle || catalogueSource.source || 'Published catalogue'}${
+                  catalogueSource.sourcePage ? ` · page ${catalogueSource.sourcePage}` : ''
+                }`
+              : `${zoneLabel(recipe.zone ?? 'zone_3')} schedule rate: Rs. ${formatMoney(rate)} / ${
+                  recipe.unit || 'unit'
+                }`}
+          </small>
         </div>
       </div>
       <div className="sor-data-title">
@@ -984,19 +1015,52 @@ function SorDataSheet({
               )}
             </td>
             <td>
-              {editing ? (
+              {!hasNumericRate && rateText ? (
+                <div className="sor-published-reference">
+                  <small>Printed reference</small>
+                  <strong>{rateText}</strong>
+                  <span>Not treated as Rs. 0.00</span>
+                </div>
+              ) : editing ? (
                 <div className="sor-rate-editor">
                   <span>Rs.</span>
                   <NumberInput value={rate} onChange={updateRate} />
                   <span>/ {recipe.unit || 'unit'}</span>
                 </div>
-              ) : (
+              ) : hasNumericRate ? (
                 <strong>Rs. {formatMoney(rate)} / {recipe.unit || 'unit'}</strong>
+              ) : (
+                <strong>Rate not published</strong>
               )}
             </td>
           </tr>
         </tbody>
       </table>
+      {catalogueSource ? (
+        <div className="sor-sheet-audit">
+          <div>
+            {Object.entries(catalogueSource.dimensions).map(([key, value]) => (
+              <span key={key}>
+                <small>{key.replace(/_/g, ' ')}</small>
+                <strong>{String(value)}</strong>
+              </span>
+            ))}
+          </div>
+          {catalogueSource.commercialTerms ? (
+            <p>
+              {catalogueSource.commercialTerms.basis
+                ? `Basis: ${catalogueSource.commercialTerms.basis.replace(/_/g, ' ')}. `
+                : ''}
+              {catalogueSource.commercialTerms.transportation
+                ? `Transportation: ${catalogueSource.commercialTerms.transportation}. `
+                : ''}
+              {catalogueSource.commercialTerms.taxes
+                ? `Taxes: ${catalogueSource.commercialTerms.taxes}.`
+                : ''}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </article>
   )
 }
@@ -1350,24 +1414,6 @@ function LineValue({
 
   if (editing && column.key === 'amount') {
     return <>{showCalculatedAmount && financiallyChanged ? formatMoney(value) : storedValue !== undefined ? storedValue : formatMoney(value)}</>
-  }
-
-  if (!editing && line.linkedRate && (column.key === 'rate' || column.key === 'amount')) {
-    const displayValue =
-      directlyEdited || (column.key === 'amount' && financiallyChanged)
-        ? formatMoney(value)
-        : storedValue !== undefined
-          ? storedValue
-          : formatMoney(value)
-    return (
-      <span className="linked-rate-cell">
-        <span>{displayValue}</span>
-        <small>
-          SOR reference {line.linkedRate.year}
-          {line.linkedRate.year === '2026-27' ? `, ${zoneLabel(line.linkedRate.zone)}` : ''}
-        </small>
-      </span>
-    )
   }
 
   return editing ? (

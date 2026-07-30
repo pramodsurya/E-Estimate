@@ -1,12 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Calculator, Pencil, RotateCcw, Save, Wrench } from 'lucide-react'
+import {
+  ArrowLeft,
+  Calculator,
+  Eye,
+  LayoutDashboard,
+  Pencil,
+  Printer,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  Wrench
+} from 'lucide-react'
 import { collectProjectItemGroups } from '../../lib/projectItems'
+import { adoptSavedRecipe, cloneRecipe } from '../../lib/dataSheets'
 import {
   auditPublishedRateAnalysis,
-  fetchRateAnalysis,
   recalculateRateAnalysis
 } from '../../lib/rateAnalysis'
-import { calculateLeadVariantCharge, loadingUnloadingCautionForBreakdown } from '../../lib/lead'
+import {
+  calculateLeadVariantChargeFromRows,
+  loadingUnloadingCautionForBreakdown
+} from '../../lib/lead'
 import {
   addonLeadRuleForVariant,
   basisForData,
@@ -16,51 +30,23 @@ import {
   quantityForVariant
 } from '../../lib/leadApplicability'
 import { findNode } from '../../lib/tree'
+import {
+  dashboardContextMatches,
+  dashboardItemIsSynced,
+  syncIndividualDataSnapshot
+} from '../../lib/dashboardSync'
 import { useStore } from '../../store/useStore'
 import { nodeDisplayName } from '../nodeVisual'
 import type { LeadApplication, LeadVariant } from '../../types/project'
 import type { RateAnalysisRecipe } from '../../types/rateAnalysis'
 import RateAnalysisTable from './RateAnalysisTable'
+import SignatureFooterPrint from '../signature/SignatureFooterPrint'
+import { resolveSignatureFooter } from '../../lib/signatureFooter'
 
 const auditMoney = new Intl.NumberFormat('en-IN', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2
 })
-
-function cloneRecipe(recipe: RateAnalysisRecipe): RateAnalysisRecipe {
-  return JSON.parse(JSON.stringify(recipe)) as RateAnalysisRecipe
-}
-
-function adoptSavedRecipe(
-  loaded: RateAnalysisRecipe,
-  saved: RateAnalysisRecipe
-): RateAnalysisRecipe {
-  const merged = {
-    ...loaded,
-    ...saved,
-    year: loaded.year,
-    zone: loaded.zone,
-    areaAllowancePercent: loaded.areaAllowancePercent,
-    areaAllowanceLabel: loaded.areaAllowanceLabel,
-    layout: loaded.layout,
-    sourceFigures: loaded.sourceFigures,
-    publishedRateBlocks: loaded.publishedRateBlocks,
-    multiRateClassification: loaded.multiRateClassification,
-    dataVariant: loaded.dataVariant
-  }
-  return cloneRecipe(
-    merged.itemSource === 'SOR'
-      ? {
-          ...merged,
-          areaAllowancePercent: undefined,
-          areaAllowanceLabel: undefined,
-          overheadPercent: 0,
-          recalculation: undefined,
-          calculationStale: false
-        }
-      : recalculateRateAnalysis({ ...merged, recalculation: undefined })
-  )
-}
 
 function moneyChanged(left: number, right: number): boolean {
   return Math.abs((left || 0) - (right || 0)) > 0.005
@@ -93,6 +79,7 @@ function leadApplicationChanged(left: LeadApplication, right: LeadApplication): 
     left.handlingWarning !== right.handlingWarning ||
     left.handlingOverrideReason !== right.handlingOverrideReason ||
     left.deliveryAtSiteWarning !== right.deliveryAtSiteWarning ||
+    left.rateZone !== right.rateZone ||
     moneyChanged(left.quantity, right.quantity) ||
     moneyChanged(left.leadRate, right.leadRate) ||
     moneyChanged(left.loadingRate, right.loadingRate) ||
@@ -131,13 +118,15 @@ export default function RateAnalysisDashboard(): JSX.Element {
   const saveRateAnalysis = useStore((state) => state.saveRateAnalysis)
   const restoreDefaults = useStore((state) => state.restoreRateAnalysisDefaults)
   const upsertLeadApplication = useStore((state) => state.upsertLeadApplication)
+  const setDashboardSnapshot = useStore((state) => state.setDashboardSnapshot)
   const [defaultRecipe, setDefaultRecipe] = useState<RateAnalysisRecipe | null>(null)
   const [current, setCurrent] = useState<RateAnalysisRecipe | null>(null)
   const [draft, setDraft] = useState<RateAnalysisRecipe | null>(null)
   const [editing, setEditing] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [printView, setPrintView] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   const groups = useMemo(
     () => (project ? collectProjectItemGroups(project.root) : []),
@@ -157,6 +146,10 @@ export default function RateAnalysisDashboard(): JSX.Element {
       : null
   const override = scopedOverride ?? globalOverride
   const leadVariants = project?.leadChart?.variants ?? []
+  const syncedLeadRates =
+    project && dashboardContextMatches(project.dashboardSnapshot, project)
+      ? project.dashboardSnapshot?.leadRates ?? []
+      : []
   const leadApplications =
     project && selection && itemNode
       ? (project.leadChart?.applications ?? []).filter(
@@ -196,42 +189,31 @@ export default function RateAnalysisDashboard(): JSX.Element {
 
   useEffect(() => {
     if (!project || !selection || !itemNode) return
-    let cancelled = false
-    setLoading(true)
+    const loaded =
+      dashboardContextMatches(project.dashboardSnapshot, project) &&
+      dashboardItemIsSynced(project.dashboardSnapshot, itemNode)
+      ? project.dashboardSnapshot?.recipes[itemNode.id] ?? null
+      : null
     setError('')
     setNotice('')
     setEditing(false)
 
-    void fetchRateAnalysis(itemNode, project.meta.sorYear, {
-      zone: project.meta.sorZone ?? 'zone_3',
-      areaAllowancePercent: project.meta.areaAllowancePercent,
-      areaAllowanceLabel: project.meta.areaAllowanceLabel
-    })
-      .then((loaded) => {
-        if (cancelled) return
-        const active = override ? adoptSavedRecipe(loaded, override) : cloneRecipe(loaded)
-        setDefaultRecipe(loaded)
-        setCurrent(active)
-        setDraft(cloneRecipe(active))
-      })
-      .catch((reason: unknown) => {
-        if (cancelled) return
-        if (override) {
-          const active = cloneRecipe(override)
-          setDefaultRecipe(null)
-          setCurrent(active)
-          setDraft(cloneRecipe(active))
-          setNotice('Showing the saved project recipe because Supabase could not be reached.')
-        } else {
-          setError(reason instanceof Error ? reason.message : 'Unable to load this recipe.')
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
+    if (loaded) {
+      const active = override ? adoptSavedRecipe(loaded, override) : cloneRecipe(loaded)
+      setDefaultRecipe(loaded)
+      setCurrent(active)
+      setDraft(cloneRecipe(active))
+    } else if (override) {
+      const active = cloneRecipe(override)
+      setDefaultRecipe(null)
+      setCurrent(active)
+      setDraft(cloneRecipe(active))
+      setNotice('Showing the saved project recipe. Click Sync this DATA to refresh its source data.')
+    } else {
+      setDefaultRecipe(null)
+      setCurrent(null)
+      setDraft(null)
+      setError('This DATA has not been synced yet.')
     }
   }, [
     project?.id,
@@ -241,11 +223,21 @@ export default function RateAnalysisDashboard(): JSX.Element {
     project?.meta.areaAllowanceLabel,
     selection?.key,
     selection?.nodeId,
-    selection?.scopeNodeId
+    selection?.scopeNodeId,
+    project?.dashboardSnapshot?.syncedAt
   ])
 
   useEffect(() => {
-    if (!project || !selection || !current || !group || leadApplications.length === 0) return
+    if (
+      !project ||
+      !selection ||
+      !current ||
+      !group ||
+      leadApplications.length === 0 ||
+      syncedLeadRates.length === 0
+    ) {
+      return
+    }
     let cancelled = false
     const activeItemNodeId = itemNode?.id
     if (!activeItemNodeId) return
@@ -273,8 +265,9 @@ export default function RateAnalysisDashboard(): JSX.Element {
         const effectiveQuantitySource = application.quantityManuallyEdited
           ? application.quantitySource || `Edited disposal quantity: ${formatQuantity(effectiveQuantity)} ${application.unit || quantity.unit}`
           : quantity.source
-        const breakdown = await calculateLeadVariantCharge({
+        const breakdown = calculateLeadVariantChargeFromRows(syncedLeadRates, {
           year: project.meta.sorYear,
+          zone: project.meta.sorZone ?? 'zone_3',
           conveyanceClass: variant.conveyanceClass,
           distanceKm: variant.leadKm,
           quantity: effectiveQuantity,
@@ -315,6 +308,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
           netRate: breakdown.netRate,
           netAmount: breakdown.netAmount,
           calculation: breakdown.calculation,
+          rateZone: project.meta.sorZone ?? 'zone_3',
           handlingWarning:
             loadingUnloadingCautionForBreakdown(breakdown, variant.handlingMode) || undefined
         }
@@ -336,16 +330,51 @@ export default function RateAnalysisDashboard(): JSX.Element {
   }, [
     project?.id,
     project?.meta.sorYear,
+    project?.meta.sorZone,
     selection?.key,
     itemNode?.id,
     current,
     group?.key,
+    syncedLeadRates,
     leadApplicationSignature,
     leadVariantUpdateSignature
   ])
 
   if (!project || !selection || !group || !itemNode) {
     return <div className="rate-state">The selected item is no longer in this project.</div>
+  }
+
+  const syncThisData = async (): Promise<void> => {
+    if (syncing || editing) return
+    const sourceProject = useStore.getState().project
+    if (!sourceProject || sourceProject.id !== project.id) return
+    const sourceItems = collectProjectItemGroups(sourceProject.root)
+      .find((candidate) => candidate.key === group.key)
+      ?.usages.map((usage) => usage.node) ?? []
+    if (!sourceItems.length) {
+      setError('This DATA is no longer present in the project.')
+      return
+    }
+    if (
+      sourceItems.some((node) => node.itemSource !== 'SSR' && node.itemSource !== 'SOR')
+    ) {
+      setError('This custom DATA does not have an SSR/SOR source to synchronize.')
+      return
+    }
+
+    setSyncing(true)
+    setError('')
+    setNotice('')
+    try {
+      const next = await syncIndividualDataSnapshot(sourceProject, sourceItems)
+      if (useStore.getState().project?.id === sourceProject.id) {
+        setDashboardSnapshot(next)
+      }
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+    } finally {
+      setSyncing(false)
+    }
   }
 
   const startEdit = (): void => {
@@ -415,7 +444,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
   }
 
   return (
-    <div className="rate-dashboard">
+    <div className={`rate-dashboard ${printView ? 'dashboard-print-view' : ''}`}>
       <div className="rate-toolbar">
         <button className="btn ghost" onClick={closeRateAnalysis}>
           <ArrowLeft size={15} /> Back
@@ -425,15 +454,37 @@ export default function RateAnalysisDashboard(): JSX.Element {
           <span>
             {group.displayName !== group.code ? `Source ${group.code} | ` : ''}
             {project.meta.sorYear}
-            {project.meta.sorYear === '2026-27'
-              ? ` | ${zoneLabel(project.meta.sorZone ?? 'zone_3')}`
-              : ''}{' | '}
+            {group.source === 'SOR'
+              ? ` | ${zoneLabel(project.meta.sorZone ?? 'zone_3')} SOR rate`
+              : ' | Published SSR values (not zoned)'}{' | '}
             {group.usages.length} project usage
             {group.usages.length === 1 ? '' : 's'}
             {scopeNode ? ` | Component scope: ${scopeNode.name}` : ' | Shared DATA'}
           </span>
         </div>
         <div className="rate-toolbar-actions">
+          <button
+            className="btn ghost"
+            disabled={syncing || editing}
+            onClick={() => void syncThisData()}
+            title="Refresh only this DATA from the active SOR/SSR year"
+          >
+            <RefreshCw className={syncing ? 'spin' : undefined} size={14} />
+            {syncing ? 'Syncing…' : 'Sync this DATA'}
+          </button>
+          <button
+            className="btn ghost"
+            onClick={() => {
+              setPrintView(true)
+              window.setTimeout(() => window.print(), 0)
+            }}
+          >
+            <Printer size={14} /> Print Preview
+          </button>
+          <button className="btn ghost" onClick={() => setPrintView((value) => !value)}>
+            {printView ? <LayoutDashboard size={14} /> : <Eye size={14} />}
+            {printView ? 'Dashboard View' : 'View Print View'}
+          </button>
           {!editing ? (
             <button className="btn" onClick={startEdit} disabled={!current}>
               <Pencil size={14} /> Edit
@@ -473,19 +524,29 @@ export default function RateAnalysisDashboard(): JSX.Element {
           main DATA row to edit every component.
         </div>
       )}
-      {loading && (
-        <div className="rate-state">
-          Loading the {project.meta.sorYear} recipe from Supabase...
-        </div>
-      )}
       {error && (
         <div className="rate-state error">
           <Wrench size={20} />
           <strong>Recipe unavailable</strong>
           <span>{error}</span>
+          <button
+            className="btn"
+            disabled={syncing}
+            onClick={() => void syncThisData()}
+          >
+            <RefreshCw className={syncing ? 'spin' : undefined} size={15} />
+            {syncing ? 'Syncing this DATA…' : 'Sync this DATA'}
+          </button>
         </div>
       )}
-      {!loading && !error && draft && (
+      {syncing && !draft && (
+        <div className="rate-state syncing">
+          <RefreshCw className="spin" size={20} />
+          <strong>Syncing this DATA</strong>
+          <span>Reading the active SOR/SSR year and preparing this recipe…</span>
+        </div>
+      )}
+      {!error && draft && (
         <>
           {draft.unresolvedLines ? (
             <div className="rate-warning">
@@ -536,6 +597,12 @@ export default function RateAnalysisDashboard(): JSX.Element {
                 ))}
               </div>
             </section>
+          )}
+          {printView && itemNode && (
+            <SignatureFooterPrint
+              settings={resolveSignatureFooter(project, itemNode.id)}
+              repeatEveryPage
+            />
           )}
         </>
       )}

@@ -2,8 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Printer, Save, X } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import { resolveNodeSettings } from '../../lib/nodeSettings'
-import { buildPrintHtml } from '../../lib/printRender'
-import { fetchRateAnalysis } from '../../lib/rateAnalysis'
+import { buildPrintHtml, type PdfOptions } from '../../lib/printRender'
+import { buildDocumentPrintHtml } from '../../lib/documentPrint'
+import {
+  applySignatureFooterToPdf,
+  resolveDocumentSignatureFooter
+} from '../../lib/signatureFooter'
+import { resolvePrintArea } from '../../lib/documentFinal'
+import DocumentPrintAreaModal from '../editors/DocumentPrintAreaModal'
+import { rateAnalysisOverrideForNode } from '../../lib/projectItems'
+import { dashboardContextMatches, dashboardItemIsSynced } from '../../lib/dashboardSync'
 import { descriptionRunsForDisplay, plainTextRun } from '../../lib/rateAnalysisVisibility'
 import type {
   CellRange,
@@ -19,8 +27,10 @@ import { nodeDisplayName } from '../nodeVisual'
 
 interface Props {
   node: ProjectNode
-  getSnapshot: () => unknown | null
-  readActiveRange: () => CellRange | null
+  /** Spreadsheet items only. */
+  getSnapshot?: () => unknown | null
+  /** Spreadsheet items only. */
+  readActiveRange?: () => CellRange | null
   onClose: () => void
 }
 
@@ -88,7 +98,11 @@ function withDescription(sheetHtml: string, itemDescriptionHtml: string): string
   const withCss = sheetHtml.includes('</style>')
     ? sheetHtml.replace('</style>', `${css}</style>`)
     : sheetHtml.replace('</head>', `<style>${css}</style></head>`)
-  return withCss.replace('<body>', `<body>${itemDescriptionHtml}`)
+  // Matched with a pattern rather than the literal '<body>': the document
+  // renderer emits attributes on the tag, and a literal match silently dropped
+  // the description. The replacer is a function so '$&' and friends inside a
+  // DATA description are inserted literally rather than treated as references.
+  return withCss.replace(/<body[^>]*>/i, (tag) => `${tag}${itemDescriptionHtml}`)
 }
 
 export default function PrintLayoutModal({
@@ -99,6 +113,7 @@ export default function PrintLayoutModal({
 }: Props): JSX.Element {
   const project = useStore((s) => s.project)
   const setNodePrint = useStore((s) => s.setNodePrint)
+  const setNodeDocumentPrintArea = useStore((state) => state.setNodeDocumentPrintArea)
   const saveProject = useStore((s) => s.saveProject)
 
   const settings = useMemo(
@@ -133,7 +148,18 @@ export default function PrintLayoutModal({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [status, setStatus] = useState<'idle' | 'rendering' | 'error' | 'empty'>('idle')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [recipe, setRecipe] = useState<RateAnalysisRecipe | null>(null)
+  const recipe = useMemo(
+    () =>
+      project
+        ? rateAnalysisOverrideForNode(project, node) ??
+          (dashboardContextMatches(project.dashboardSnapshot, project) &&
+          dashboardItemIsSynced(project.dashboardSnapshot, node)
+            ? project.dashboardSnapshot?.recipes[node.id]
+            : undefined) ??
+          null
+        : null,
+    [node, project]
+  )
   const genToken = useRef(0)
 
   const update = (patch: Partial<PrintConfig>): void => setCfg((c) => ({ ...c, ...patch }))
@@ -145,25 +171,8 @@ export default function PrintLayoutModal({
     setNodePrint(node.id, cfg)
   }, [cfg, node.id, setNodePrint])
 
-  // Debounced preview regeneration.
-  useEffect(() => {
-    let cancelled = false
-    if (!project?.meta.sorYear || !node.itemCode || !node.categoryKey || node.itemSource === 'OTHERS') {
-      setRecipe(null)
-      return
-    }
-    void fetchRateAnalysis(node, project.meta.sorYear, { zone: project.meta.sorZone ?? 'zone_3' })
-      .then((loaded) => {
-        if (!cancelled) setRecipe(loaded)
-      })
-      .catch(() => {
-        if (!cancelled) setRecipe(null)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [node, project?.meta.sorYear, project?.meta.sorZone])
-
+  // Debounced preview regeneration. The recipe comes only from the current
+  // project/dashboard snapshot; opening Print Preview never reads the backend.
   useEffect(() => {
     const handle = window.setTimeout(() => {
       void regenerate()
@@ -176,8 +185,13 @@ export default function PrintLayoutModal({
     const token = ++genToken.current
     setStatus('rendering')
     setErrorMsg(null)
-    const snapshot = getSnapshot()
-    if (!snapshot || !settings) {
+    if (!settings) {
+      setStatus('error')
+      setErrorMsg('Could not read the item settings.')
+      return
+    }
+    const snapshot = isDocument ? null : getSnapshot?.()
+    if (!isDocument && !snapshot) {
       setStatus('error')
       setErrorMsg('Could not read the spreadsheet.')
       return
@@ -191,9 +205,11 @@ export default function PrintLayoutModal({
       projectName: project?.meta.name || 'E-Estimate',
       title: nodeDisplayName(node)
     }
-    let built: ReturnType<typeof buildPrintHtml>
+    let built: { html: string; pdfOptions: PdfOptions; empty: boolean }
     try {
-      built = buildPrintHtml(snapshot as never, cfg, geom, ctx, node.charts ?? [])
+      built = isDocument
+        ? buildDocumentPrintHtml(node, cfg, geom, ctx)
+        : buildPrintHtml(snapshot as never, cfg, geom, ctx, node.charts ?? [])
     } catch (err) {
       if (token !== genToken.current) return
       setStatus('error')
@@ -208,7 +224,14 @@ export default function PrintLayoutModal({
     }
     try {
       const html = withDescription(built.html, descriptionHtml(node, recipe))
-      const res = await window.api.print.toPdf(html, built.pdfOptions)
+      const signed = project
+        ? applySignatureFooterToPdf(
+            html,
+            built.pdfOptions,
+            resolveDocumentSignatureFooter(project, node)
+          )
+        : { html, options: built.pdfOptions }
+      const res = await window.api.print.toPdf(signed.html, signed.options)
       if (token !== genToken.current) return
       if (res.ok && res.data) {
         setPdfUrl(`data:application/pdf;base64,${res.data}`)
@@ -225,9 +248,13 @@ export default function PrintLayoutModal({
   }
 
   const setAreaFromSelection = (): void => {
-    const r = readActiveRange()
+    const r = readActiveRange?.()
     if (r) update({ range: r })
   }
+
+  const isDocument = node.itemEditorType === 'document'
+  const [areaPickerOpen, setAreaPickerOpen] = useState(false)
+  const documentArea = resolvePrintArea(node.documentData, node.documentPrintArea)
 
   const activePreset =
     Object.keys(MARGIN_PRESETS).find(
@@ -264,13 +291,34 @@ export default function PrintLayoutModal({
               <h4>Print Area</h4>
               <div className="pl-area">
                 <span className="pl-area-val">
-                  {cfg.range ? rangeToA1(cfg.range) : 'Whole used range'}
+                  {isDocument
+                    ? documentArea
+                      ? `Lines ${documentArea.startParagraph + 1}-${documentArea.endParagraph + 1}`
+                      : 'Whole document'
+                    : cfg.range
+                      ? rangeToA1(cfg.range)
+                      : 'Whole used range'}
                 </span>
                 <div className="pl-area-btns">
-                  <button className="btn-mini" onClick={setAreaFromSelection}>
-                    Set from selection
-                  </button>
-                  {cfg.range ? (
+                  {isDocument ? (
+                    <button className="btn-mini" onClick={() => setAreaPickerOpen(true)}>
+                      Select lines...
+                    </button>
+                  ) : (
+                    <button className="btn-mini" onClick={setAreaFromSelection}>
+                      Set from selection
+                    </button>
+                  )}
+                  {isDocument ? (
+                    documentArea ? (
+                      <button
+                        className="btn-mini ghost"
+                        onClick={() => setNodeDocumentPrintArea(node.id, null)}
+                      >
+                        Clear
+                      </button>
+                    ) : null
+                  ) : cfg.range ? (
                     <button className="btn-mini ghost" onClick={() => update({ range: null })}>
                       Clear
                     </button>
@@ -346,10 +394,14 @@ export default function PrintLayoutModal({
                   onChange={(e) => update({ scaleMode: e.target.value as ScaleMode })}
                 >
                   <option value="percent">Adjust to %</option>
-                  <option value="fit-width">Fit all columns on one page</option>
-                  <option value="fit-height">Fit all rows on one page</option>
-                  <option value="fit-sheet">Fit sheet on one page</option>
-                  <option value="fit-page">Fit columns to N pages wide</option>
+                  {!isDocument && (
+                    <>
+                      <option value="fit-width">Fit all columns on one page</option>
+                      <option value="fit-height">Fit all rows on one page</option>
+                      <option value="fit-sheet">Fit sheet on one page</option>
+                      <option value="fit-page">Fit columns to N pages wide</option>
+                    </>
+                  )}
                 </select>
               </label>
               {cfg.scaleMode === 'percent' ? (
@@ -378,6 +430,7 @@ export default function PrintLayoutModal({
               ) : null}
             </section>
 
+            {!isDocument && (
             <section className="pl-sec">
               <h4>Sheet options</h4>
               <label className="pl-toggle">
@@ -407,6 +460,7 @@ export default function PrintLayoutModal({
                 />
               </label>
             </section>
+            )}
           </div>
 
           {/* ---------------- Preview ---------------- */}
@@ -422,7 +476,9 @@ export default function PrintLayoutModal({
               {status === 'error' ? (
                 <div className="pl-preview-msg error">{errorMsg}</div>
               ) : status === 'empty' ? (
-                <div className="pl-preview-msg">Nothing to print — the sheet is empty.</div>
+                <div className="pl-preview-msg">
+                  Nothing to print — {isDocument ? 'the selected lines are empty.' : 'the sheet is empty.'}
+                </div>
               ) : pdfUrl ? (
                 <iframe className="pl-frame" title="Print preview" src={pdfUrl} />
               ) : (
@@ -442,6 +498,14 @@ export default function PrintLayoutModal({
           </button>
         </div>
       </div>
+
+      {areaPickerOpen && (
+        <DocumentPrintAreaModal
+          node={node}
+          onApply={(area) => setNodeDocumentPrintArea(node.id, area)}
+          onClose={() => setAreaPickerOpen(false)}
+        />
+      )}
     </div>
   )
 }

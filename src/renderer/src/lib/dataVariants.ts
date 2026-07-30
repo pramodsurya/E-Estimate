@@ -919,12 +919,21 @@ function addonSeigniorageSummary(
   )
   if (!group) return undefined
   const policyRows = rows(group.rows)
+  // ADDON_MATERIAL_RATIO is already defined by the selected add-on DATA
+  // material quantity divided by that DATA's output quantity. The seigniorage
+  // calculation consumes that published ratio directly, so it does not need a
+  // second external conversion.
+  const conversionRows = policyRows.filter(
+    (row) =>
+      row.conversion_required === true &&
+      text(row.mode) !== 'ADDON_MATERIAL_RATIO'
+  )
   return {
     applicable: group.applicable === true,
     codes: policyRows.map((row) => text(row.seig_code)).filter(Boolean),
-    conversionRequired: policyRows.some((row) => row.conversion_required === true),
-    conversionConfigured: policyRows.every(
-      (row) => row.conversion_required !== true || number(row.conversion_factor) !== null
+    conversionRequired: conversionRows.length > 0,
+    conversionConfigured: conversionRows.every(
+      (row) => number(row.conversion_factor) !== null
     )
   }
 }

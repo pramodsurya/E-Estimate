@@ -1,0 +1,248 @@
+- generic [ref=f1e3]:
+  - generic [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - generic [ref=f1e6]: E-Estimate
+      - button "File" [ref=f1e9] [cursor=pointer]
+      - button "Component" [ref=f1e11] [cursor=pointer]
+      - button "Undo" [disabled] [ref=f1e12]
+      - button "Redo" [disabled] [ref=f1e16]
+    - textbox "Search project, pages, items…" [ref=f1e57]
+    - generic [ref=f1e26]:
+      - generic [ref=f1e58]: Berm UI test •
+      - generic [ref=f1e27]:
+        - button "Minimize" [ref=f1e28] [cursor=pointer]
+        - button "Maximize" [ref=f1e30] [cursor=pointer]
+        - button "Close" [ref=f1e33] [cursor=pointer]
+  - generic [ref=f1e37]:
+    - generic [ref=f1e59]:
+      - button "Explorer" [ref=f1e60] [cursor=pointer]
+      - button "Search" [ref=f1e65] [cursor=pointer]
+      - button "DTL Lead" [ref=f1e69] [cursor=pointer]
+      - button "Source Control" [ref=f1e74] [cursor=pointer]
+    - generic [ref=f1e79]:
+      - generic [ref=f1e80]:
+        - generic [ref=f1e81]:
+          - generic [ref=f1e82]: Explorer
+          - generic [ref=f1e83]:
+            - button "Add Page" [ref=f1e84] [cursor=pointer]
+            - button "Add Component" [ref=f1e88] [cursor=pointer]
+        - generic [ref=f1e91]:
+          - generic "Berm UI test" [ref=f1e191] [cursor=pointer]
+          - generic "Front Page" [ref=f1e196] [cursor=pointer]
+          - generic "Introduction" [ref=f1e202] [cursor=pointer]
+      - generic [ref=f1e98]:
+        - tablist "Project data" [ref=f1e99]:
+          - button "Seigniorage" [ref=f1e100] [cursor=pointer]
+          - button "Lead" [ref=f1e106] [cursor=pointer]
+          - button "Data" [ref=f1e110] [cursor=pointer]
+        - generic [ref=f1e115]: Items added in Explorer will appear here.
+    - generic [ref=f1e203]:
+      - generic [ref=f1e204]:
+        - generic [ref=f1e205]:
+          - generic [ref=f1e206]: Project dashboard
+          - heading "Berm UI test" [level=1] [ref=f1e207]
+          - generic [ref=f1e210]:
+            - generic [ref=f1e211]: 2026-27
+            - generic [ref=f1e212]: Zone III
+            - generic [ref=f1e213]: 40% area allowance
+            - generic [ref=f1e214]: 0 component(s)
+            - generic [ref=f1e215]: 0 DATA
+        - generic [ref=f1e216]:
+          - button "Edit Project" [ref=f1e217] [cursor=pointer]
+          - button "Add Page" [ref=f1e221] [cursor=pointer]
+          - button "View Print View" [ref=f1e225] [cursor=pointer]
+          - button "Add Component" [ref=f1e229] [cursor=pointer]
+          - button "Project settings" [ref=f1e231] [cursor=pointer]
+      - generic [ref=f1e235]:
+        - generic [ref=f1e236]:
+          - generic [ref=f1e237]: Estimated project cost including GST
+          - strong [ref=f1e238]: ₹ 0
+          - generic [ref=f1e239]: 0 of 0 DATA item(s) costed
+        - generic [ref=f1e240]:
+          - generic [ref=f1e241]:
+            - generic [ref=f1e242]: Components total
+            - strong [ref=f1e247]: ₹ 0.00
+          - generic [ref=f1e248]:
+            - generic [ref=f1e249]: Statutory charges
+            - strong [ref=f1e252]: ₹ 0.00
+          - generic [ref=f1e253]:
+            - generic [ref=f1e254]: Miscellaneous
+            - strong [ref=f1e256]: ₹ 0.00
+          - generic [ref=f1e257]:
+            - generic [ref=f1e258]: GST @ 18%
+            - strong [ref=f1e262]: ₹ 0.00
+      - generic [ref=f1e263]:
+        - generic [ref=f1e264]:
+          - generic [ref=f1e265]: Seigniorage
+          - strong [ref=f1e270]: ₹ 0.00
+          - button "From the Seigniorage dashboard" [ref=f1e271] [cursor=pointer]
+        - generic [ref=f1e274]:
+          - generic [ref=f1e275]: DMF 30%
+          - strong [ref=f1e280]: ₹ 0.00
+          - button "30% of seigniorage" [ref=f1e281] [cursor=pointer]
+        - generic [ref=f1e284]:
+          - generic [ref=f1e285]: SMET 2%
+          - strong [ref=f1e290]: ₹ 0.00
+          - button "2% of seigniorage" [ref=f1e291] [cursor=pointer]
+        - generic [ref=f1e294]:
+          - generic [ref=f1e295]: Permit fee
+          - strong [ref=f1e300]: ₹ 0.00
+          - button "Multiple of seigniorage (G.O.)" [ref=f1e301] [cursor=pointer]
+        - generic [ref=f1e304]:
+          - generic [ref=f1e305]:
+            - generic [ref=f1e306]: NAC
+            - generic [ref=f1e309]:
+              - spinbutton "%" [ref=f1e310]: "0.1"
+              - text: "%"
+          - strong [ref=f1e311]: ₹ 0.00
+          - generic [ref=f1e312]: of components total
+        - generic [ref=f1e313]:
+          - generic [ref=f1e314]:
+            - generic [ref=f1e315]: Labour Cess
+            - generic [ref=f1e318]:
+              - spinbutton "%" [ref=f1e319]: "1"
+              - text: "%"
+          - strong [ref=f1e320]: ₹ 0.00
+          - generic [ref=f1e321]: of components total
+        - generic [ref=f1e322]:
+          - generic [ref=f1e323]: Miscellaneous
+          - strong [ref=f1e326]: ₹ 0.00
+          - button "0 row(s) added" [ref=f1e327] [cursor=pointer]
+        - generic [ref=f1e330]:
+          - generic [ref=f1e331]: GST @ 18%
+          - strong [ref=f1e336]: ₹ 0.00
+          - generic [ref=f1e337]: General works
+      - generic [ref=f1e338]:
+        - generic [ref=f1e339]:
+          - generic [ref=f1e340]:
+            - generic [ref=f1e341]: Full project
+            - heading "General Abstract" [level=2] [ref=f1e342]
+          - button "Add Component" [ref=f1e346] [cursor=pointer]
+        - generic [ref=f1e348]:
+          - generic [ref=f1e349]:
+            - generic [ref=f1e350]: Sl. No.
+            - generic [ref=f1e351]: Item of Work
+            - generic [ref=f1e352]: Amount
+          - generic [ref=f1e353]: No components yet. Add a component to start the abstract.
+          - generic [ref=f1e354]:
+            - generic [ref=f1e355]: TOTAL
+            - generic [ref=f1e356]: ₹ 0.00
+          - generic [ref=f1e357]:
+            - generic [ref=f1e358]: "1"
+            - generic [ref=f1e359]: Add Seigniorage charges
+            - generic [ref=f1e360]: ₹ 0.00
+          - generic [ref=f1e361]:
+            - generic [ref=f1e362]: "2"
+            - generic [ref=f1e363]:
+              - text: DMF 30%
+              - generic [ref=f1e364]: 30% of seigniorage
+            - generic [ref=f1e365]: ₹ 0.00
+          - generic [ref=f1e366]:
+            - generic [ref=f1e367]: "3"
+            - generic [ref=f1e368]:
+              - text: SMET 2%
+              - generic [ref=f1e369]: 2% of seigniorage
+            - generic [ref=f1e370]: ₹ 0.00
+          - generic [ref=f1e371]:
+            - generic [ref=f1e372]: "4"
+            - generic [ref=f1e373]:
+              - text: NAC @ 0.1%
+              - generic [ref=f1e374]: 0.1% of Total
+            - generic [ref=f1e375]: ₹ 0.00
+          - generic [ref=f1e376]:
+            - generic [ref=f1e377]: "5"
+            - generic [ref=f1e378]:
+              - text: Labour Cess @ 1%
+              - generic [ref=f1e379]: 1% of Total
+            - generic [ref=f1e380]: ₹ 0.00
+          - generic [ref=f1e381]:
+            - generic [ref=f1e382]: "6"
+            - generic [ref=f1e383]: Permit fee
+            - generic [ref=f1e384]: ₹ 0.00
+          - generic [ref=f1e385]:
+            - generic [ref=f1e386]: "7"
+            - generic [ref=f1e387]:
+              - text: LS Add G.S.T @ 18%
+              - generic [ref=f1e388]: 18% of Total + charges
+            - generic [ref=f1e389]: ₹ 0.00
+          - generic [ref=f1e390]:
+            - generic [ref=f1e391]: GRAND TOTAL
+            - generic [ref=f1e392]: ₹ 0.00
+        - generic [ref=f1e393]: 2 project page(s) are also attached.
+      - generic [ref=f1e394]:
+        - generic [ref=f1e395]:
+          - generic [ref=f1e396]:
+            - generic [ref=f1e397]:
+              - generic [ref=f1e398]: GST decision
+              - heading "Tax slab" [level=2] [ref=f1e399]
+            - generic [ref=f1e403]: General works
+          - generic [ref=f1e404]:
+            - generic [ref=f1e405]:
+              - generic [ref=f1e406]: Earthwork DATA cost
+              - strong [ref=f1e407]: ₹ 0.00
+            - generic [ref=f1e408]:
+              - generic [ref=f1e409]: Share of DATA work cost
+              - strong [ref=f1e410]: 0.00%
+          - generic [ref=f1e413]:
+            - generic [ref=f1e414]: 0%
+            - generic [ref=f1e415]: More than 75% required
+            - generic [ref=f1e416]: 100%
+          - generic [ref=f1e417]:
+            - button "Automatic 18% from Supabase" [ref=f1e418] [cursor=pointer]:
+              - text: Automatic
+              - generic [ref=f1e419]: 18% from Supabase
+            - button "Manual 12%" [ref=f1e420] [cursor=pointer]
+            - button "Manual 18%" [ref=f1e421] [cursor=pointer]
+          - generic [ref=f1e422]:
+            - generic [ref=f1e423]: Service recipient classification
+            - combobox "Service recipient classification" [ref=f1e424]:
+              - option "Central / State / UT / Local Authority" [selected]
+              - option "Government Entity / Authority"
+          - generic [ref=f1e425]: Construction services to Central/State Govt/UT/Local Authority - general · Notif 03/2022 dt.13.07.2022
+          - button "Review earthwork DATA classification" [ref=f1e430] [cursor=pointer]
+        - generic [ref=f1e433]:
+          - generic [ref=f1e434]:
+            - generic [ref=f1e435]:
+              - generic [ref=f1e436]: Project additions
+              - heading "Miscellaneous" [level=2] [ref=f1e437]
+            - button "Add Item" [ref=f1e439] [cursor=pointer]
+          - generic [ref=f1e441]: Add named project costs that are not part of DATA.
+        - generic [ref=f1e442]:
+          - generic [ref=f1e443]:
+            - generic [ref=f1e444]:
+              - generic [ref=f1e445]: Statutory charges
+              - heading "Seigniorage" [level=2] [ref=f1e446]
+            - strong [ref=f1e449]: ₹ 0.00
+          - generic [ref=f1e450]:
+            - generic [ref=f1e451]: Seigniorage charge
+            - strong [ref=f1e452]: ₹ 0.00
+          - generic [ref=f1e453]:
+            - generic [ref=f1e454]: DMF (30%)
+            - strong [ref=f1e455]: ₹ 0.00
+          - generic [ref=f1e456]:
+            - generic [ref=f1e457]: SMET (2%)
+            - strong [ref=f1e458]: ₹ 0.00
+          - generic [ref=f1e459]:
+            - generic [ref=f1e460]: Permit fee
+            - strong [ref=f1e461]: ₹ 0.00
+          - generic [ref=f1e462]:
+            - generic [ref=f1e463]: Total statutory charge
+            - strong [ref=f1e464]: ₹ 0.00
+          - button "Open calculation details" [ref=f1e465] [cursor=pointer]
+        - generic [ref=f1e468]:
+          - generic [ref=f1e469]:
+            - generic [ref=f1e470]:
+              - generic [ref=f1e471]: Project basis
+              - heading "Location & allowance" [level=2] [ref=f1e472]
+            - strong [ref=f1e476]: 40%
+          - generic [ref=f1e477]: 17.385000, 78.486700
+          - generic [ref=f1e478]:
+            - generic [ref=f1e479]: Area classification
+            - strong [ref=f1e480]: Greater Hyderabad (GHMC) area allowance
+          - generic [ref=f1e481]:
+            - generic [ref=f1e482]: Mapped village
+            - strong [ref=f1e483]: GHMC
+          - generic [ref=f1e484]:
+            - generic [ref=f1e485]: Rule year
+            - strong [ref=f1e486]: 2025-26
+          - button "Edit project basis" [ref=f1e487] [cursor=pointer]

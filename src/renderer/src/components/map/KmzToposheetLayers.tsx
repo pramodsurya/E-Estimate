@@ -215,6 +215,24 @@ interface VisibleTile {
   bounds: L.LatLngBoundsExpression
 }
 
+/**
+ * `map.getBounds()` unprojects the container's pixel corners, which yields
+ * `(NaN, NaN)` — and throws "Invalid LatLng object" — while the map container
+ * still has zero size (common on first paint inside a print-preview page that
+ * hasn't been laid out yet). Return null in that case so callers skip tiles
+ * instead of crashing the whole view.
+ */
+function safeViewBounds(map: L.Map): L.LatLngBounds | null {
+  const size = map.getSize()
+  if (!size || size.x === 0 || size.y === 0) return null
+  try {
+    const bounds = map.getBounds().pad(0.05)
+    return bounds.isValid() ? bounds : null
+  } catch {
+    return null
+  }
+}
+
 function tileRange(
   view: L.LatLngBounds,
   west: number,
@@ -266,6 +284,26 @@ function useToposheetMapState(): { map: L.Map; revision: number; paneReady: bool
       map.attributionControl?.removeAttribution(TOPO_ATTRIBUTION)
     }
   }, [map])
+  // Leaflet caches the container size at init. Inside a print page (or any
+  // panel that sizes after mount) that first measurement can be 0/stale, so
+  // tiles paint misaligned. Recompute on mount and whenever the container
+  // actually resizes; invalidateSize() fires 'resize', which bumps `revision`
+  // and repaints the toposheet tiles for the corrected viewport.
+  useEffect(() => {
+    const container = map.getContainer()
+    let frame = 0
+    const refresh = (): void => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => map.invalidateSize())
+    }
+    refresh()
+    const observer = new ResizeObserver(refresh)
+    observer.observe(container)
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
+  }, [map])
   return { map, revision, paneReady }
 }
 
@@ -291,8 +329,9 @@ export function KmzOpaqueToposheetLayer({ qualityBias = 0 }: { qualityBias?: num
   const { map, revision, paneReady } = useToposheetMapState()
   const tiles = useMemo<VisibleTile[]>(() => {
     if (!paneReady) return []
+    const view = safeViewBounds(map)
+    if (!view) return []
     const level = Math.min(Math.max(Math.floor(map.getZoom()) - 8 + qualityBias, 0), 7)
-    const view = map.getBounds().pad(0.05)
     return tileRange(
       view,
       MOSAIC_BOUNDS.west,
@@ -313,8 +352,9 @@ export function KmzTransparentToposheetLayer({ qualityBias = 0 }: { qualityBias?
   const { map, revision, paneReady } = useToposheetMapState()
   const tiles = useMemo<VisibleTile[]>(() => {
     if (!paneReady || (qualityBias === 0 && map.getZoom() < 10)) return []
+    const view = safeViewBounds(map)
+    if (!view) return []
     const level = Math.min(Math.max(Math.floor(map.getZoom()) - 12 + qualityBias, 0), 3)
-    const view = map.getBounds().pad(0.05)
     const visible: VisibleTile[] = []
     for (const [sheetId, west, south] of TRANSPARENT_SHEETS) {
       const east = west + 0.25

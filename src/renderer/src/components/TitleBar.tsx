@@ -18,6 +18,7 @@ type MenuName = 'file' | 'component' | null
 export default function TitleBar(): JSX.Element {
   const [menu, setMenu] = useState<MenuName>(null)
   const [recentOpen, setRecentOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const [maximized, setMaximized] = useState(false)
 
   const view = useStore((s) => s.view)
@@ -40,6 +41,7 @@ export default function TitleBar(): JSX.Element {
   const close = (): void => {
     setMenu(null)
     setRecentOpen(false)
+    setExportOpen(false)
   }
 
   const fileItems = (): JSX.Element => (
@@ -71,7 +73,23 @@ export default function TitleBar(): JSX.Element {
       <div className="menu-sep" />
       <MenuItem label="Save" shortcut="Ctrl+S" disabled={!hasProject} onClick={() => act(() => void useStore.getState().saveProject())} />
       <MenuItem label="Save As…" disabled={!hasProject} onClick={() => act(() => void useStore.getState().saveProjectAs())} />
-      <MenuItem label="Export" disabled soon onClick={() => undefined} />
+      <div
+        className={`menu-dd-item ${hasProject ? '' : 'disabled'}`}
+        onMouseEnter={() => hasProject && setExportOpen(true)}
+        onMouseLeave={() => setExportOpen(false)}
+        style={{ position: 'relative' }}
+      >
+        <span>Export</span>
+        <ChevronRight size={14} />
+        {exportOpen && hasProject && (
+          <div className="menu-dropdown" style={{ top: -4, left: '100%' }}>
+            <MenuItem
+              label="PDF"
+              onClick={() => act(() => useStore.getState().openExportPdf())}
+            />
+          </div>
+        )}
+      </div>
       <div className="menu-sep" />
       <MenuItem label="Close Project" disabled={!hasProject} onClick={() => act(() => useStore.getState().closeProject())} />
     </div>

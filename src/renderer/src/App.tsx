@@ -5,11 +5,13 @@ import ActivityBar from './components/ActivityBar'
 import SideBar from './components/SideBar'
 import WorkArea from './components/WorkArea'
 import UpdateNotification from './components/UpdateNotification'
+import ErrorBoundary from './components/ErrorBoundary'
 
 const AddItemModal = lazy(() => import('./components/modals/AddItemModal'))
 const AddPageModal = lazy(() => import('./components/modals/AddPageModal'))
 const AddStructureModal = lazy(() => import('./components/modals/AddStructureModal'))
 const SettingsModal = lazy(() => import('./components/modals/SettingsModal'))
+const ExportPdfModal = lazy(() => import('./components/modals/ExportPdfModal'))
 
 export default function App(): JSX.Element {
   const view = useStore((s) => s.view)
@@ -29,6 +31,7 @@ export default function App(): JSX.Element {
   const addPageOpen = useStore((s) => s.addPage.open)
   const addStructureOpen = useStore((s) => s.addStructure.open)
   const settingsOpen = useStore((s) => s.settings.open)
+  const exportPdfOpen = useStore((s) => s.exportPdfOpen)
 
   useEffect(() => {
     if (restoreStarted.current) return
@@ -73,14 +76,25 @@ export default function App(): JSX.Element {
       <div className="app-body">
         {showShell && <ActivityBar />}
         {showShell && <SideBar />}
-        <WorkArea />
+        <ErrorBoundary
+          label="this view"
+          resetKeys={[view, activity, selectedId, analysisSelection, leadSelection, seigniorageSelection]}
+        >
+          <WorkArea />
+        </ErrorBoundary>
       </div>
-      <Suspense fallback={null}>
-        {addItemOpen && <AddItemModal />}
-        {addPageOpen && <AddPageModal />}
-        {addStructureOpen && <AddStructureModal />}
-        {settingsOpen && <SettingsModal />}
-      </Suspense>
+      <ErrorBoundary
+        label="this dialog"
+        resetKeys={[addItemOpen, addPageOpen, addStructureOpen, settingsOpen, exportPdfOpen]}
+      >
+        <Suspense fallback={null}>
+          {addItemOpen && <AddItemModal />}
+          {addPageOpen && <AddPageModal />}
+          {addStructureOpen && <AddStructureModal />}
+          {settingsOpen && <SettingsModal />}
+          {exportPdfOpen && <ExportPdfModal />}
+        </Suspense>
+      </ErrorBoundary>
 
       {/* Auto-update toast notification */}
       <UpdateNotification />

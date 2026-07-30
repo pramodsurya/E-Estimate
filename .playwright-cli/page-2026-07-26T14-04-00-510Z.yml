@@ -1,0 +1,514 @@
+- generic [ref=f1e3]:
+  - generic [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - generic [ref=f1e6]: E-Estimate
+      - button "File" [ref=f1e9] [cursor=pointer]
+      - button "Component" [ref=f1e11] [cursor=pointer]
+      - button "Undo" [ref=f1e12] [cursor=pointer]
+      - button "Redo" [disabled] [ref=f1e16]
+    - textbox "Search project, pages, items…" [ref=f1e57]
+    - generic [ref=f1e26]:
+      - generic [ref=f1e58]: Berm UI test •
+      - generic [ref=f1e27]:
+        - button "Minimize" [ref=f1e28] [cursor=pointer]
+        - button "Maximize" [ref=f1e30] [cursor=pointer]
+        - button "Close" [ref=f1e33] [cursor=pointer]
+  - generic [ref=f1e37]:
+    - generic [ref=f1e59]:
+      - button "Explorer" [ref=f1e60] [cursor=pointer]
+      - button "Search" [ref=f1e65] [cursor=pointer]
+      - button "DTL Lead" [ref=f1e69] [cursor=pointer]
+      - button "Source Control" [ref=f1e74] [cursor=pointer]
+    - generic [ref=f1e79]:
+      - generic [ref=f1e80]:
+        - generic [ref=f1e81]:
+          - generic [ref=f1e82]: Explorer
+          - generic [ref=f1e83]:
+            - button "Add Page" [ref=f1e84] [cursor=pointer]
+            - button "Add Component" [ref=f1e88] [cursor=pointer]
+        - generic [ref=f1e91]:
+          - generic "Berm UI test" [ref=f1e191] [cursor=pointer]
+          - generic "Front Page" [ref=f1e196] [cursor=pointer]
+          - generic "Introduction" [ref=f1e202] [cursor=pointer]
+          - generic [ref=f1e569] [cursor=pointer]:
+            - generic "Drag to reorder" [ref=f1e570]
+            - generic "Small Earthen Bund" [ref=f1e587]
+          - generic [ref=f1e588] [cursor=pointer]: Detailed
+      - generic [ref=f1e98]:
+        - tablist "Project data" [ref=f1e99]:
+          - button "Seigniorage" [ref=f1e100] [cursor=pointer]
+          - button "Lead" [ref=f1e106] [cursor=pointer]
+          - button "Data" [ref=f1e110] [cursor=pointer]
+        - generic [ref=f1e115]: Items added in Explorer will appear here.
+    - generic [ref=f1e786]:
+      - generic [ref=f1e787]:
+        - generic [ref=f1e788]: Small Earthen Bund
+        - generic [ref=f1e791]: Repair of existing bund
+        - generic [ref=f1e792]: 30 m long
+        - generic [ref=f1e793]: 2 cross-sections
+        - generic [ref=f1e794]: Manual length (no map)
+        - button "Edit setup" [ref=f1e795] [cursor=pointer]
+        - button "Edit sections" [ref=f1e799] [cursor=pointer]
+      - generic [ref=f1e803]:
+        - generic [ref=f1e804]: Proposed bund — design
+        - generic [ref=f1e805]:
+          - generic [ref=f1e806]: Repair levels
+          - generic [ref=f1e807]:
+            - generic [ref=f1e808]:
+              - generic [ref=f1e809]: Full tank level, FTL (RL)
+              - spinbutton "Full tank level, FTL (RL)" [ref=f1e810]
+            - generic [ref=f1e811]:
+              - generic [ref=f1e812]: Max water level, MWL (RL)
+              - spinbutton "Max water level, MWL (RL)" [ref=f1e813]
+            - generic [ref=f1e814]:
+              - generic [ref=f1e815]: Top bund level, TBL (RL)
+              - spinbutton "Top bund level, TBL (RL)" [ref=f1e816]: "100"
+          - generic [ref=f1e817]: FTL, MWL and TBL apply to every chainage. Crest width, side slopes and stripping depth are set once in the design row below.
+        - generic [ref=f1e818]:
+          - generic [ref=f1e819]:
+            - generic [ref=f1e820]: Crest width (m)
+            - spinbutton "Crest width (m)" [ref=f1e821]: "3"
+          - generic [ref=f1e822]:
+            - generic [ref=f1e823]: Upstream slope, left (1 in …)
+            - spinbutton "Upstream slope, left (1 in …)" [ref=f1e824]: "1.5"
+          - generic [ref=f1e825]:
+            - generic [ref=f1e826]: Downstream slope, right (1 in …)
+            - spinbutton "Downstream slope, right (1 in …)" [ref=f1e827]: "2"
+          - generic [ref=f1e828]:
+            - generic [ref=f1e829]: Depth of top soil stripped (m)
+            - spinbutton "Depth of top soil stripped (m)" [ref=f1e830]: "0.3"
+        - generic [ref=f1e831]: This draws the proposed bund (blue) at every chainage, so you only enter the existing ground. Upstream is the left face, downstream the right. MWL and FTL are drawn as reference lines.
+      - generic [ref=f1e832]:
+        - generic [ref=f1e833]:
+          - complementary [ref=f1e834]:
+            - generic [ref=f1e835]:
+              - generic [ref=f1e836]: Cross-sections
+              - generic [ref=f1e837] [cursor=pointer]:
+                - checkbox "Select all" [ref=f1e838]
+                - text: Select all
+            - generic [ref=f1e839]:
+              - generic [ref=f1e840]:
+                - checkbox "Tick to copy the current section's levels here" [ref=f1e841] [cursor=pointer]
+                - button "1 · Ch 0 m No levels yet" [ref=f1e842] [cursor=pointer]:
+                  - generic [ref=f1e843]: 1 · Ch 0 m
+                  - generic [ref=f1e844]: No levels yet
+              - generic [ref=f1e845]:
+                - checkbox "Tick to copy the current section's levels here" [ref=f1e846] [cursor=pointer]
+                - button "2 · Ch 30 m No levels yet" [ref=f1e847] [cursor=pointer]:
+                  - generic [ref=f1e848]: 2 · Ch 30 m
+                  - generic [ref=f1e849]: No levels yet
+            - generic [ref=f1e850]:
+              - button "Copy previous section" [disabled] [ref=f1e851]
+              - combobox [ref=f1e857]:
+                - option "Copy from a section…" [selected]
+                - option "2 · Ch 30 m"
+          - complementary [ref=f1e858]:
+            - generic [ref=f1e859]:
+              - generic [ref=f1e860]: Generate this chainage’s design points
+              - generic [ref=f1e861]:
+                - generic [ref=f1e862] [cursor=pointer]:
+                  - radio "Enter the upstream and downstream toe RLs" [checked] [ref=f1e863]
+                  - text: Enter the upstream and downstream toe RLs
+                - generic [ref=f1e864] [cursor=pointer]:
+                  - radio "Use one average RL for both toes" [ref=f1e865]
+                  - text: Use one average RL for both toes
+              - generic [ref=f1e866]:
+                - generic [ref=f1e867]:
+                  - generic [ref=f1e868]: Upstream toe ground level (RL)
+                  - spinbutton "Upstream toe ground level (RL)" [ref=f1e869]: "89"
+                - generic [ref=f1e870]:
+                  - generic [ref=f1e871]: Downstream toe ground level (RL)
+                  - spinbutton "Downstream toe ground level (RL)" [ref=f1e872]: "89"
+                - button "Populate design points" [active] [ref=f1e873] [cursor=pointer]
+        - generic [ref=f1e874]:
+          - generic [ref=f1e875]:
+            - button "1 Ch 0" [ref=f1e876] [cursor=pointer]:
+              - generic [ref=f1e877]: "1"
+              - generic [ref=f1e878]: Ch 0
+            - button "2 Ch 30" [ref=f1e879] [cursor=pointer]:
+              - generic [ref=f1e880]: "2"
+              - generic [ref=f1e881]: Ch 30
+          - generic [ref=f1e882]: Chainage 0 m
+          - img "Bund cross-section at chainage 0" [ref=f1e1190]:
+            - generic [ref=f1e1194]:
+              - generic [ref=f1e1195]: "3.00"
+              - generic [ref=f1e1196]: "8.00"
+              - generic [ref=f1e1197]: "13.00"
+              - generic [ref=f1e1198]: ℄
+              - generic [ref=f1e1199]: "23.00"
+              - generic [ref=f1e1200]: "28.00"
+              - generic [ref=f1e1201]: "33.00"
+              - generic [ref=f1e1202]: "38.00"
+              - generic [ref=f1e1203]: distance from u/s toe (m)
+              - generic [ref=f1e1204]: ← Upstream
+              - generic [ref=f1e1205]: Downstream →
+              - generic [ref=f1e1206]: "89.000"
+              - generic [ref=f1e1207]: "90.000"
+              - generic [ref=f1e1208]: "91.000"
+              - generic [ref=f1e1209]: "92.000"
+              - generic [ref=f1e1210]: "93.000"
+              - generic [ref=f1e1211]: "94.000"
+              - generic [ref=f1e1212]: "95.000"
+              - generic [ref=f1e1213]: "96.000"
+              - generic [ref=f1e1214]: "97.000"
+              - generic [ref=f1e1215]: "98.000"
+              - generic [ref=f1e1216]: "99.000"
+              - generic [ref=f1e1217]: "100.000"
+              - generic [ref=f1e1218]: vertical exaggeration ×1.7
+              - generic [ref=f1e1219]: cut / stripping 0.000 m² · formation 0.000 m²
+          - generic [ref=f1e885]:
+            - generic [ref=f1e886]: Cross-section levels at this chainage
+            - generic [ref=f1e887]: "One row per surveyed point across the full leveling width: from the outer edge of the U/S toe-wall platform, through the proposed bund, to the outer edge of the D/S toe-drain platform. Distance is measured from the generated U/S bund toe, so that toe is 0.000 m; upstream values are negative and downstream values are positive."
+            - button "Add a point" [ref=f1e888] [cursor=pointer]
+            - table [ref=f1e890]:
+              - rowgroup [ref=f1e891]:
+                - row [ref=f1e892]:
+                  - columnheader "Distance from u/s toe (m)" [ref=f1e893]
+                  - columnheader "Existing ground level" [ref=f1e894]
+                  - columnheader "Stripped / cut level" [ref=f1e895]
+                  - columnheader "Proposed bund level" [ref=f1e896]
+                  - columnheader [ref=f1e897]
+              - rowgroup [ref=f1e898]:
+                - row [ref=f1e1220]:
+                  - cell "0 U/S bund toe" [ref=f1e1221]:
+                    - generic [ref=f1e901]:
+                      - spinbutton [ref=f1e902]: "0"
+                      - generic [ref=f1e1222]: U/S bund toe
+                  - cell [ref=f1e1223]:
+                    - spinbutton [ref=f1e904]: "89"
+                  - cell [ref=f1e905]:
+                    - spinbutton "88.700" [ref=f1e1224]
+                  - cell [ref=f1e907]:
+                    - spinbutton "Overrides the design level at this offset" [ref=f1e1225]
+                  - cell [ref=f1e909]:
+                    - button "Remove this offset" [ref=f1e910] [cursor=pointer]
+                - row [ref=f1e1226]:
+                  - cell [ref=f1e1227]:
+                    - spinbutton [ref=f1e1229]: "8.25"
+                  - cell [ref=f1e1230]:
+                    - spinbutton "89.000" [ref=f1e1231]
+                  - cell [ref=f1e1232]:
+                    - spinbutton "88.700" [ref=f1e1233]
+                  - cell [ref=f1e1234]:
+                    - spinbutton "Overrides the design level at this offset" [ref=f1e1235]
+                  - cell [ref=f1e1236]:
+                    - button "Remove this offset" [ref=f1e1237] [cursor=pointer]
+                - row [ref=f1e1241]:
+                  - cell [ref=f1e1242]:
+                    - spinbutton [ref=f1e1244]: "16.5"
+                  - cell [ref=f1e1245]:
+                    - spinbutton "89.000" [ref=f1e1246]
+                  - cell [ref=f1e1247]:
+                    - spinbutton "88.700" [ref=f1e1248]
+                  - cell [ref=f1e1249]:
+                    - spinbutton "Overrides the design level at this offset" [ref=f1e1250]
+                  - cell [ref=f1e1251]:
+                    - button "Remove this offset" [ref=f1e1252] [cursor=pointer]
+                - row [ref=f1e1256]:
+                  - cell [ref=f1e1257]:
+                    - spinbutton [ref=f1e1259]: "18"
+                  - cell [ref=f1e1260]:
+                    - spinbutton "89.000" [ref=f1e1261]
+                  - cell [ref=f1e1262]:
+                    - spinbutton "88.700" [ref=f1e1263]
+                  - cell [ref=f1e1264]:
+                    - spinbutton "Overrides the design level at this offset" [ref=f1e1265]
+                  - cell [ref=f1e1266]:
+                    - button "Remove this offset" [ref=f1e1267] [cursor=pointer]
+                - row [ref=f1e1271]:
+                  - cell [ref=f1e1272]:
+                    - spinbutton [ref=f1e1274]: "19.5"
+                  - cell [ref=f1e1275]:
+                    - spinbutton "89.000" [ref=f1e1276]
+                  - cell [ref=f1e1277]:
+                    - spinbutton "88.700" [ref=f1e1278]
+                  - cell [ref=f1e1279]:
+                    - spinbutton "Overrides the design level at this offset" [ref=f1e1280]
+                  - cell [ref=f1e1281]:
+                    - button "Remove this offset" [ref=f1e1282] [cursor=pointer]
+                - row [ref=f1e1286]:
+                  - cell [ref=f1e1287]:
+                    - spinbutton [ref=f1e1289]: "30.5"
+                  - cell [ref=f1e1290]:
+                    - spinbutton "89.000" [ref=f1e1291]
+                  - cell [ref=f1e1292]:
+                    - spinbutton "88.700" [ref=f1e1293]
+                  - cell [ref=f1e1294]:
+                    - spinbutton "Overrides the design level at this offset" [ref=f1e1295]
+                  - cell [ref=f1e1296]:
+                    - button "Remove this offset" [ref=f1e1297] [cursor=pointer]
+                - row [ref=f1e1301]:
+                  - cell "41.5 D/S bund toe" [ref=f1e1302]:
+                    - generic [ref=f1e1303]:
+                      - spinbutton [ref=f1e1304]: "41.5"
+                      - generic [ref=f1e1305]: D/S bund toe
+                  - cell [ref=f1e1306]:
+                    - spinbutton [ref=f1e1307]: "89"
+                  - cell [ref=f1e1308]:
+                    - spinbutton "88.700" [ref=f1e1309]
+                  - cell [ref=f1e1310]:
+                    - spinbutton "Overrides the design level at this offset" [ref=f1e1311]
+                  - cell [ref=f1e1312]:
+                    - button "Remove this offset" [ref=f1e1313] [cursor=pointer]
+            - generic [ref=f1e914]: The toe ground RLs and global design dimensions generate the bund points. The U/S toe-wall and D/S toe-drain limits are then added automatically from their top widths. Enter every existing ground RL surveyed outside the toes; when an outside RL is blank, the nearest entered ground RL is carried level to that limit. Intermediate blanks follow the straight line through the entered RLs. The chart and quantities use that same line. The proposed line stays at the fixed design RL, with level platforms outside the two bund toes. The automatic stripped / cut level uses the normal strip depth where the bund is above ground. Where existing ground is higher than design, it stops at the design RL, so only the excess is removed and the bund is never raised or reshaped.
+      - generic [ref=f1e915]:
+        - generic [ref=f1e916]: Stripping and bund seating
+        - generic [ref=f1e917]:
+          - generic [ref=f1e918]:
+            - generic [ref=f1e919]:
+              - generic [ref=f1e920]: Excavation basis
+              - generic [ref=f1e921] [cursor=pointer]:
+                - radio "Stripping / seating CAW excavation codes" [checked] [ref=f1e922]
+                - generic [ref=f1e923]:
+                  - generic [ref=f1e924]: Stripping / seating
+                  - generic [ref=f1e925]: CAW excavation codes
+              - generic [ref=f1e926] [cursor=pointer]:
+                - radio "Foundation excavation DAW excavation codes" [ref=f1e927]
+                - generic [ref=f1e928]:
+                  - generic [ref=f1e929]: Foundation excavation
+                  - generic [ref=f1e930]: DAW excavation codes
+            - generic [ref=f1e931]:
+              - generic [ref=f1e932]:
+                - generic [ref=f1e933]:
+                  - strong [ref=f1e934]: Stripping / bund seating
+                  - generic [ref=f1e935]: Shallow removal and seating across the bund footprint. Keep rock classes at zero unless the measured cut actually enters rock.
+                - generic [ref=f1e936]:
+                  - generic [ref=f1e937]: 0 cu.m
+                  - generic [ref=f1e938]: 100% ✓
+              - generic [ref=f1e939]:
+                - generic [ref=f1e940]:
+                  - generic [ref=f1e941]: All Soils
+                  - generic [ref=f1e942]:
+                    - spinbutton "%" [ref=f1e943]: "100"
+                    - generic [ref=f1e944]: "%"
+                  - button "IRR-CAW-1-1" [ref=f1e945] [cursor=pointer]
+                  - generic [ref=f1e946]: 0 cu.m
+                - generic [ref=f1e947]:
+                  - generic [ref=f1e948]: HDR
+                  - generic [ref=f1e949]:
+                    - spinbutton "%" [ref=f1e950]: "0"
+                    - generic [ref=f1e951]: "%"
+                  - button "IRR-CAW-1-4" [ref=f1e952] [cursor=pointer]
+                  - generic [ref=f1e953]: 0 cu.m
+                - generic [ref=f1e954]:
+                  - generic [ref=f1e955]: F&F
+                  - generic [ref=f1e956]:
+                    - spinbutton "%" [ref=f1e957]: "0"
+                    - generic [ref=f1e958]: "%"
+                  - button "IRR-CAW-1-6" [ref=f1e959] [cursor=pointer]
+                  - generic [ref=f1e960]: 0 cu.m
+                - generic [ref=f1e961]:
+                  - generic [ref=f1e962]: HR
+                  - generic [ref=f1e963]:
+                    - spinbutton "%" [ref=f1e964]: "0"
+                    - generic [ref=f1e965]: "%"
+                  - button "IRR-CAW-1-7" [ref=f1e966] [cursor=pointer]
+                  - generic [ref=f1e967]: 0 cu.m
+              - button "Add code" [ref=f1e969] [cursor=pointer]
+            - generic [ref=f1e971]: The default is All Soils 100%. HDR, F&F and HR are used only when the measured cut actually enters those strata. Select foundation excavation only when the approved section treats the cut below the embankment as a foundation.
+          - generic [ref=f1e972]:
+            - generic [ref=f1e973]:
+              - generic [ref=f1e974]: Jungle clearance
+              - generic "IRR-PMW-1-2 Clearing thick jungle growth ( less than 50 percent open space ) including bushes upto 30 cm / parthenium and other weeds including burning or disposing off the same as directed etc., complete." [ref=f1e975]: IRR-PMW-1-2
+              - generic [ref=f1e976]: Plan area cleared along the bund.
+              - generic [ref=f1e977]:
+                - button "Change code" [ref=f1e978] [cursor=pointer]
+                - button "Remove" [ref=f1e982] [cursor=pointer]
+            - generic [ref=f1e983]:
+              - generic [ref=f1e984]: What this quantity measures
+              - generic [ref=f1e985]: "One continuous leveling footprint: U/S toe-wall outer limit → proposed bund → D/S toe-drain outer limit. Normal strip depth is removed where design is above ground; where existing ground rises above design, only the local excess down to the proposed RL is cut. No fill is added at those high points."
+              - generic [ref=f1e1317]: "Selected section: U/S toe-wall limit 0 m → U/S bund toe 0.000 m → D/S bund toe 41.5 m → D/S toe-drain limit 41.5 m."
+              - generic [ref=f1e986]: Stripping/seating uses CAW codes; embankment fill is measured from the existing ground levels up to the proposed bund.
+      - generic [ref=f1e987]:
+        - generic [ref=f1e988]: Homogeneous embankment
+        - generic [ref=f1e989]:
+          - generic [ref=f1e990]:
+            - generic [ref=f1e991]:
+              - generic [ref=f1e992]: Operations to be billed
+              - generic [ref=f1e993]: Both operations use the same computed embankment volume. The selected combination determines the SSR code.
+            - generic [ref=f1e994]:
+              - generic "IRR-DAW-5-6 Providing homogeneous embankment using soil from approved borrow area in layers of 25 to 30 cm before compaction including cost of all materials, machinery, labour, all operations such as excavation, sorting out, transportation, spreading soil in layer of specified thickness, breaking clods, sectioning, watering , compacting to density control of not less than 95 percent or as stipulated using Sheep foot roller / Vibratory roller/ 8 to 10 tonne power roller etc., complete with initial lead upto 1 km and all lifts." [ref=f1e995]: IRR-DAW-5-6
+              - generic [ref=f1e996]: 0 cu.m
+          - generic [ref=f1e997]:
+            - generic [ref=f1e998] [cursor=pointer]:
+              - 'checkbox "Formation Approved soil: excavation from the borrow area, transport, spreading and sectioning." [checked] [ref=f1e999]'
+              - generic [ref=f1e1000]:
+                - strong [ref=f1e1001]: Formation
+                - generic [ref=f1e1002]: "Approved soil: excavation from the borrow area, transport, spreading and sectioning."
+            - generic [ref=f1e1003] [cursor=pointer]:
+              - checkbox "Compaction Watering and rolling to the specified density." [checked] [ref=f1e1004]
+              - generic [ref=f1e1005]:
+                - strong [ref=f1e1006]: Compaction
+                - generic [ref=f1e1007]: Watering and rolling to the specified density.
+          - generic [ref=f1e1008]: Both selected → IRR-DAW-5-6, one combined item for formation and compaction.
+      - generic [ref=f1e1009]:
+        - generic [ref=f1e1010]: Optional items
+        - generic [ref=f1e1011]:
+          - generic [ref=f1e1014]:
+            - generic [ref=f1e1015] [cursor=pointer]:
+              - checkbox "Stone pitching — upstream slope" [ref=f1e1016]
+              - generic [ref=f1e1017]: Stone pitching — upstream slope
+            - generic [ref=f1e1018]: "450 mm dry-rubble pitching on the developed upstream slope. Fixed SSR item: IRR-CAW-8-8."
+          - generic [ref=f1e1021]:
+            - generic [ref=f1e1022] [cursor=pointer]:
+              - checkbox "U/S toe wall / anchorage" [ref=f1e1023]
+              - generic [ref=f1e1024]: U/S toe wall / anchorage
+            - generic [ref=f1e1025]: Cut-off trench at the upstream toe, with an optional PCC or masonry wall built into it. Anchors the slope pitching when pitching is used, but stands on its own otherwise.
+          - generic [ref=f1e1026]:
+            - generic [ref=f1e1027]:
+              - generic [ref=f1e1028]:
+                - generic [ref=f1e1029]: Downstream slope protection & toe drainage
+                - text: "Land-side protection collected in one place: the berms that break the face, turfing on what is left of it, a stability rock toe, and the seepage-collection toe drain."
+              - generic [ref=f1e1030]: DOWNSTREAM
+            - generic [ref=f1e1031]:
+              - generic [ref=f1e1032]:
+                - generic [ref=f1e1033]:
+                  - generic [ref=f1e1034]: Phreatic line — reference + actual
+                  - generic [ref=f1e1035]: Both derivations are overlaid at the same governing chainage. Reference = plain bund; actual = No option enabled.
+                - generic [ref=f1e1318]: Ch 0
+              - generic [ref=f1e1036]: Enter MWL to draw the phreatic line.
+            - generic [ref=f1e1037]:
+              - generic [ref=f1e1038]:
+                - generic [ref=f1e1039]: Berms (horizontal shelves)
+                - generic [ref=f1e1040]: A berm breaks a long sloping face with a level shelf. It reduces rainwater erosion and can provide an inspection path. Adding a berm changes the bund geometry immediately; surfacing and a catch-water drain are optional and are selected separately inside the berm row.
+              - generic "How berms work" [ref=f1e1041]:
+                - generic [ref=f1e1042]:
+                  - generic [ref=f1e1043]: 1. Add a shelf
+                  - generic [ref=f1e1044]: Use the recommendation or add one manually.
+                - generic [ref=f1e1045]:
+                  - generic [ref=f1e1046]: 2. Check its geometry
+                  - generic [ref=f1e1047]: Review face, RL, width, slope and cross-fall.
+                - generic [ref=f1e1048]:
+                  - generic [ref=f1e1049]: 3. Choose optional work
+                  - generic [ref=f1e1050]: Select shelf surfacing, a drain and their SSR codes.
+              - generic [ref=f1e1051]:
+                - generic [ref=f1e1052]:
+                  - generic [ref=f1e1053]: Recommendation for this bund
+                  - generic [ref=f1e1054]:
+                    - text: "Tallest section:"
+                    - generic [ref=f1e1055]: 11.3 m
+                    - text: above its stripped base. The tool recommends 1 downstream berm at RL 94, using a 6 m vertical interval from the crest. Clicking the recommendation adds only missing rows; it never removes your manual berms.
+                  - generic [ref=f1e1056]: This is a layout aid based on height, not a substitute for the approved design drawing.
+                - generic [ref=f1e1057]:
+                  - button "Add downstream berm" [ref=f1e1058] [cursor=pointer]
+                  - button "Add upstream berm" [ref=f1e1060] [cursor=pointer]
+                  - button "Add recommended downstream berm (RL 94)" [ref=f1e1319] [cursor=pointer]
+              - generic [ref=f1e1062]: No berms — both faces run unbroken from the crest to the toe.
+              - generic [ref=f1e1063]: How a berm is measured. The shelf widens the section, so its earth is already inside the formation (and rolling) quantity, and the wider seating is stripped with it — nothing here double-counts that. Pitching and turfing are slope work, so the horizontal shelf is deducted from the face lengths and paid through its own surfacing item instead. A berm exists only where the face still falls below its RL, so it tapers out on its own where the bund becomes shallow.
+            - generic [ref=f1e1064]:
+              - generic [ref=f1e1065] [cursor=pointer]:
+                - checkbox "Turfing on downstream face" [ref=f1e1066]
+                - generic [ref=f1e1067]: Turfing on downstream face
+              - generic [ref=f1e1068]: Grass sods over the exposed developed land-side slope. Any lower slope occupied by the enabled rock toe is deducted automatically.
+            - generic [ref=f1e1069]:
+              - generic [ref=f1e1070]:
+                - generic [ref=f1e1071] [cursor=pointer]:
+                  - checkbox "Rock toe" [ref=f1e1072]
+                  - generic [ref=f1e1073]: Rock toe
+                - generic [ref=f1e1074]: Rubble zone integrated into the lower downstream face for stability and free drainage. It always sits at the downstream toe — a berm moves that toe outward, and the rock toe follows it there.
+                - img "Rock toe aligned with downstream bund slope and CAW-5-11 filter layers" [ref=f1e1075]:
+                  - generic [ref=f1e1079]: crest 0 m
+                  - generic [ref=f1e1080]: H 1.5 m
+                  - generic [ref=f1e1081]: proposed D/S slope 1:2
+                  - generic [ref=f1e1082]: Base 4.5 m · inner 1:1 · outer = bund D/S slope
+              - generic [ref=f1e1083]:
+                - generic [ref=f1e1084] [cursor=pointer]:
+                  - checkbox "Toe drain" [ref=f1e1085]
+                  - generic [ref=f1e1086]: Toe drain
+                - generic [ref=f1e1087]: Seepage-collection trench at the d/s toe, with optional rubble revetment or CC lining.
+                - img "Toe trench 3.6 m top, 1 m bottom, 1.3 m deep" [ref=f1e1088]:
+                  - generic [ref=f1e1089]: ground
+                  - generic [ref=f1e1091]: 3.60 m
+                  - generic [ref=f1e1092]: 1.00 m
+                  - generic [ref=f1e1093]: 1.30 m
+                  - generic [ref=f1e1094]: area = 2.990 m²
+          - generic [ref=f1e1098]:
+            - generic [ref=f1e1099] [cursor=pointer]:
+              - checkbox "Chute drains" [ref=f1e1100]
+              - generic [ref=f1e1101]: Chute drains
+            - generic [ref=f1e1102]: Protected surface drains that carry crest or berm runoff down the downstream face to the toe/outfall. Choose concrete lining or mortar-set stone pitching. This is independent of embankment type.
+      - generic [ref=f1e1103]:
+        - generic [ref=f1e1104]: Jungle clearance — how it is measured
+        - generic [ref=f1e1105]:
+          - generic [ref=f1e1106] [cursor=pointer]:
+            - 'radio "Existing-ground perimeter (automatic) Developed existing-ground length at A and B: (P1 + P2) ÷ 2 × section length. Chainage 0 supplies the first width only and has no separate quantity." [checked] [ref=f1e1107]'
+            - generic [ref=f1e1108]:
+              - strong [ref=f1e1109]: Existing-ground perimeter (automatic)
+              - emphasis [ref=f1e1110]: "Developed existing-ground length at A and B: (P1 + P2) ÷ 2 × section length. Chainage 0 supplies the first width only and has no separate quantity."
+          - generic [ref=f1e1111] [cursor=pointer]:
+            - radio "Manual rows — Length × Breadth Enter each cleared patch separately and add as many rows as required." [ref=f1e1112]
+            - generic [ref=f1e1113]:
+              - strong [ref=f1e1114]: Manual rows — Length × Breadth
+              - emphasis [ref=f1e1115]: Enter each cleared patch separately and add as many rows as required.
+      - generic [ref=f1e1116]:
+        - generic [ref=f1e1117]: Computed — IRR-PMW-1-2 (jungle clearance)
+        - generic [ref=f1e1118]: Nothing measured yet — enter levels at two or more chainages.
+      - generic [ref=f1e1119]:
+        - generic [ref=f1e1120]: Computed — stripping / bund seating (pay quantity before soil classification)
+        - table [ref=f1e1121]:
+          - rowgroup [ref=f1e1122]:
+            - row [ref=f1e1123]:
+              - columnheader "From" [ref=f1e1124]
+              - columnheader "To" [ref=f1e1125]
+              - columnheader "Area at start" [ref=f1e1126]
+              - columnheader "Area at end" [ref=f1e1127]
+              - columnheader "Mean area (sq.m)" [ref=f1e1128]
+              - columnheader "Length (m)" [ref=f1e1129]
+              - columnheader "Volume (cu.m)" [ref=f1e1130]
+          - rowgroup [ref=f1e1131]:
+            - row [ref=f1e1132]:
+              - cell "0" [ref=f1e1133]
+              - cell "30" [ref=f1e1134]
+              - cell "0" [ref=f1e1135]
+              - cell "0" [ref=f1e1136]
+              - cell "0" [ref=f1e1137]
+              - cell "30" [ref=f1e1138]
+              - cell "0" [ref=f1e1139]
+          - rowgroup [ref=f1e1140]:
+            - row [ref=f1e1141]:
+              - cell "Total" [ref=f1e1142]
+              - cell "0" [ref=f1e1143]
+        - generic [ref=f1e1144]: Each cross-section is measured from the U/S toe-wall limit to the D/S toe-drain limit. If rock-toe excavation is enabled, its overlapping cut is removed here and billed once in the rock-toe union.
+      - generic [ref=f1e1145]:
+        - generic [ref=f1e1146]: Computed — Stripping / bund seating excavation classification
+        - table [ref=f1e1147]:
+          - rowgroup [ref=f1e1148]:
+            - row [ref=f1e1149]:
+              - columnheader "Class" [ref=f1e1150]
+              - columnheader "SSR code" [ref=f1e1151]
+              - columnheader "Share (%)" [ref=f1e1152]
+              - columnheader "Source excavation (cu.m)" [ref=f1e1153]
+              - columnheader "Pay quantity (cu.m)" [ref=f1e1154]
+          - rowgroup [ref=f1e1155]:
+            - row [ref=f1e1156]:
+              - cell "All Soils" [ref=f1e1157]
+              - cell "IRR-CAW-1-1" [ref=f1e1158]
+              - cell "100" [ref=f1e1159]
+              - cell "0" [ref=f1e1160]
+              - cell "0" [ref=f1e1161]
+      - generic [ref=f1e1162]:
+        - generic [ref=f1e1163]: "Computed — IRR-DAW-5-6 (homogeneous embankment: formation + compaction)"
+        - table [ref=f1e1164]:
+          - rowgroup [ref=f1e1165]:
+            - row [ref=f1e1166]:
+              - columnheader "From" [ref=f1e1167]
+              - columnheader "To" [ref=f1e1168]
+              - columnheader "Area at start" [ref=f1e1169]
+              - columnheader "Area at end" [ref=f1e1170]
+              - columnheader "Mean area (sq.m)" [ref=f1e1171]
+              - columnheader "Length (m)" [ref=f1e1172]
+              - columnheader "Volume (cu.m)" [ref=f1e1173]
+          - rowgroup [ref=f1e1174]:
+            - row [ref=f1e1175]:
+              - cell "0" [ref=f1e1176]
+              - cell "30" [ref=f1e1177]
+              - cell "0" [ref=f1e1178]
+              - cell "0" [ref=f1e1179]
+              - cell "0" [ref=f1e1180]
+              - cell "30" [ref=f1e1181]
+              - cell "0" [ref=f1e1182]
+          - rowgroup [ref=f1e1183]:
+            - row [ref=f1e1184]:
+              - cell "Total" [ref=f1e1185]
+              - cell "0" [ref=f1e1186]
+        - generic [ref=f1e1187]: The embankment volume includes the level U/S toe-wall and D/S toe-drain platforms. Their actual trenches are separate post-leveling excavations.

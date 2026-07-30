@@ -1,4 +1,4 @@
-import { Box, Component as ComponentIcon, FileText, Layers, Table2 } from 'lucide-react'
+import { BookOpen, Box, Component as ComponentIcon, FileText, Layers, ScrollText, Table2 } from 'lucide-react'
 import type { ProjectNode } from '../types/project'
 
 export function NodeIcon({ node, size = 15 }: { node: ProjectNode; size?: number }): JSX.Element {
@@ -10,6 +10,8 @@ export function NodeIcon({ node, size = 15 }: { node: ProjectNode; size?: number
     case 'subcomponent':
       return <Layers size={size} color="var(--subcomponent)" />
     case 'page':
+      if (node.pageTemplate === 'front') return <BookOpen size={size} color="var(--page)" />
+      if (node.pageTemplate === 'introduction') return <ScrollText size={size} color="var(--page)" />
       return <FileText size={size} color="var(--page)" />
     case 'item':
     default:
@@ -41,6 +43,8 @@ export function nodeDisplayName(node: ProjectNode): string {
 /** SOR/SSR item names are locked; only "Others" items and structural nodes can be renamed. */
 export function isRenamable(node: ProjectNode): boolean {
   if (node.kind === 'item') return node.itemSource === 'OTHERS'
+  // The pinned Front Page and Introduction are referenced by the print view.
+  if (node.pageTemplate) return false
   return true
 }
 
@@ -53,6 +57,8 @@ export function kindLabel(node: ProjectNode): string {
     case 'subcomponent':
       return 'Sub-component'
     case 'page':
+      if (node.pageTemplate === 'front') return 'Front Page'
+      if (node.pageTemplate === 'introduction') return 'Introduction'
       return 'Page'
     case 'item':
       return node.itemSource === 'OTHERS' ? 'Item (Others)' : `${node.itemSource ?? ''} Item`

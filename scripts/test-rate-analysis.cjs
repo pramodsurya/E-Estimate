@@ -5,6 +5,25 @@ const path = require('node:path')
 const ts = require('typescript')
 
 const root = path.resolve(__dirname, '..')
+const rateAnalysisSource = fs.readFileSync(
+  path.join(root, 'src/renderer/src/lib/rateAnalysis.ts'),
+  'utf8'
+)
+const storedSsrLinesSource = /function storedSsrLines\([\s\S]*?\n\}/.exec(rateAnalysisSource)?.[0] ?? ''
+assert.doesNotMatch(
+  storedSsrLinesSource,
+  /resolveSorInputRate|linkedRate:/,
+  'Published SSR rows must not be replaced by zoned SOR reference rates'
+)
+const rateTableSource = fs.readFileSync(
+  path.join(root, 'src/renderer/src/components/rateanalysis/RateAnalysisTable.tsx'),
+  'utf8'
+)
+assert.doesNotMatch(
+  rateTableSource,
+  /SOR reference \{line\.linkedRate\.year\}/,
+  'SSR tables must not print repeated SOR reference captions under values'
+)
 
 function loadTsModule(filePath, mocks = {}) {
   const source = fs.readFileSync(filePath, 'utf8')
@@ -38,7 +57,13 @@ const {
     './supabase': { supabase: {} },
     './dataVariants': { applyDataVariantToRecipe: (recipe) => recipe, buildDataVariantSpec: () => ({}) },
     './projectItems': { projectItemKey: () => 'test' },
-    './rateAnalysisVisibility': { parseRateAnalysisVisibility: () => ({}) }
+    './rateAnalysisVisibility': { parseRateAnalysisVisibility: () => ({}) },
+    './sorCatalogue': {
+      SOR_CATALOGUE_CATEGORY: 'sor_catalogue',
+      fetchSorCataloguePrice: async () => [],
+      sorCommercialTerms: () => undefined,
+      sourceContextTitle: () => null
+    }
   }
 )
 

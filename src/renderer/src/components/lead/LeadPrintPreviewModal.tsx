@@ -4,7 +4,7 @@ import L from 'leaflet'
 import { MapContainer, Marker, Polyline, Popup, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import MapLayers from '../map/MapLayers'
-import { conveyanceClassLabel, fetchLeadRates, type LeadRateRow } from '../../lib/lead'
+import { conveyanceClassLabel, type LeadRateRow } from '../../lib/lead'
 import { newId } from '../../lib/tree'
 import type {
   ConveyanceClass,
@@ -17,13 +17,16 @@ import type {
   LeadPrintPageKey,
   LeadPrintSettings,
   LeadVariant,
-  ProjectLocation
+  ProjectLocation,
+  SignatureFooterSettings,
+  SorZone
 } from '../../types/project'
 import LeadMapDirectionEditor, {
   blankLeadMapDirectionDraft,
   draftFromLeadMapDirection,
   type LeadMapDirectionDraft
 } from './LeadMapDirectionEditor'
+import SignatureFooterPrint from '../signature/SignatureFooterPrint'
 
 type AppliedChargeCode = Exclude<LeadChargeCode, 'AUTO'>
 
@@ -60,6 +63,7 @@ interface RouteLine {
 
 interface Props {
   year: string
+  zone: SorZone
   variants: LeadVariant[]
   applications: LeadApplication[]
   assignments: LeadAssignment[]
@@ -67,14 +71,25 @@ interface Props {
   site: ProjectLocation | null
   mapDirections: LeadMapDirection[]
   printSettings?: LeadPrintSettings
+  signatureFooter?: SignatureFooterSettings
   onUpdatePrintSettings: (settings: LeadPrintSettings) => void
   onUpsertPoint: (point: LeadPoint) => void
   onUpsertMapDirection: (direction: LeadMapDirection) => void
   onRemoveMapDirection: (directionId: string) => void
   onClose: () => void
+  /** Already-synced dashboard rows. Print Preview never fetches its own data. */
+  rates?: LeadRateRow[]
+  /** Omits dialog chrome so the same preview pages can be mounted in Project VPV. */
+  embedded?: boolean
 }
 
 const PROJECT_WORK_POINT_ID = '__project_work_location__'
+
+function zoneLabel(zone: SorZone): string {
+  if (zone === 'zone_1') return 'Zone I'
+  if (zone === 'zone_2') return 'Zone II'
+  return 'Zone III'
+}
 
 const CHARGE_CODE_ORDER: AppliedChargeCode[] = [
   'COM-LDLFT-1',
@@ -190,6 +205,7 @@ interface PrintPointDraft {
 
 export default function LeadPrintPreviewModal({
   year,
+  zone,
   variants,
   applications,
   assignments,
@@ -197,15 +213,15 @@ export default function LeadPrintPreviewModal({
   site,
   mapDirections,
   printSettings,
+  signatureFooter,
   onUpdatePrintSettings,
   onUpsertPoint,
   onUpsertMapDirection,
   onRemoveMapDirection,
-  onClose
+  onClose,
+  rates = [],
+  embedded = false
 }: Props): JSX.Element {
-  const [rates, setRates] = useState<LeadRateRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [mapSettingsOpen, setMapSettingsOpen] = useState(false)
   const [directionDraft, setDirectionDraft] = useState<LeadMapDirectionDraft>(() =>
@@ -249,27 +265,6 @@ export default function LeadPrintPreviewModal({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
-
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError('')
-    void fetchLeadRates(year)
-      .then((rows) => {
-        if (!cancelled) setRates(rows)
-      })
-      .catch((reason) => {
-        if (!cancelled) {
-          setError(reason instanceof Error ? reason.message : 'Unable to load Lead chart rates.')
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [year])
 
   const variantsById = useMemo(
     () => new Map(variants.map((variant) => [variant.id, variant])),
@@ -347,12 +342,12 @@ export default function LeadPrintPreviewModal({
   }
 
   return (
-    <div className="lead-print-overlay" role="dialog" aria-modal="true">
-      <div className="lead-print-shell">
-        <div className="lead-print-toolbar">
+    <div className={embedded ? 'lead-print-embedded' : 'lead-print-overlay'} role={embedded ? undefined : 'dialog'} aria-modal={embedded ? undefined : 'true'}>
+      <div className={embedded ? 'lead-print-embedded-shell' : 'lead-print-shell'}>
+        {!embedded && <div className="lead-print-toolbar">
           <div>
             <strong>Lead Chart Print Preview</strong>
-            <span>{year} | {applied.length} applied item(s)</span>
+            <span>{year} | {zoneLabel(zone)} SOR rates | {applied.length} applied item(s)</span>
           </div>
           <div>
             <button
@@ -376,8 +371,8 @@ export default function LeadPrintPreviewModal({
               <X size={14} /> Close
             </button>
           </div>
-        </div>
-        {settingsOpen && (
+        </div>}
+        {!embedded && settingsOpen && (
           <PrintSettingsPanel
             settings={layout}
             onUpdate={updateLayout}
@@ -385,7 +380,7 @@ export default function LeadPrintPreviewModal({
             onUpdatePageOrientation={updatePageOrientation}
           />
         )}
-        {mapSettingsOpen && (
+        {!embedded && mapSettingsOpen && (
           <MapPrintSettingsPanel
             pointDraft={pointDraft}
             onPointDraftChange={setPointDraft}
@@ -410,23 +405,23 @@ export default function LeadPrintPreviewModal({
         <div className="lead-print-scroll">
           <article
             className={`lead-print-page ${layout.pages.chart.orientation}`}
-            style={printPageStyle(layout, 'chart')}
+            style={printPageStyle(layout, 'chart', signatureFooter)}
           >
             <header className="lead-print-page-header">
               <div>
                 <h1>Lead/Lift/Loading & Unloading Charges {year}</h1>
-                <p>Source chart tables used by the applied Lead variants in this project.</p>
+                <p>{zoneLabel(zone)} SOR rates used by the applied Lead variants in this project.</p>
               </div>
               <strong>E-Estimate</strong>
             </header>
 
-            {loading ? (
-              <div className="lead-print-empty">Loading Supabase Lead chart tables...</div>
-            ) : error ? (
-              <div className="lead-print-empty">{error}</div>
-            ) : usedCodes.length === 0 ? (
+            {usedCodes.length === 0 ? (
               <div className="lead-print-empty">
                 No Lead/Lift variant has been applied to any item yet.
+              </div>
+            ) : rates.length === 0 ? (
+              <div className="lead-print-empty">
+                Lead chart rows are not in the dashboard snapshot. Close Print Preview and click Sync.
               </div>
             ) : (
               usedCodes.map((code) => (
@@ -437,15 +432,18 @@ export default function LeadPrintPreviewModal({
                 />
               ))
             )}
+            {signatureFooter?.enabled && signatureFooter.placement === 'every_page' && (
+              <SignatureFooterPrint settings={signatureFooter} />
+            )}
           </article>
 
           <article
             className={`lead-print-page ${layout.pages.calculation.orientation}`}
-            style={printPageStyle(layout, 'calculation')}
+            style={printPageStyle(layout, 'calculation', signatureFooter)}
           >
             <header className="lead-print-section-header">
               <h2>Applied Variant Rate Calculations</h2>
-              <p>Only Lead variants currently applied to items are included.</p>
+              <p>Only applied Lead variants are included. Rate basis: {zoneLabel(zone)} SOR.</p>
             </header>
             {applied.length === 0 ? (
               <div className="lead-print-empty">Apply a Lead variant to an item to show calculations.</div>
@@ -455,16 +453,20 @@ export default function LeadPrintPreviewModal({
                   <AppliedCalculationBlock
                     key={row.application.id}
                     row={row}
+                    zone={zone}
                     routeLabel={routeLabelForVariant(row.variant, assignments, points, site)}
                   />
                 ))}
               </div>
             )}
+            {signatureFooter?.enabled && signatureFooter.placement === 'every_page' && (
+              <SignatureFooterPrint settings={signatureFooter} />
+            )}
           </article>
 
           <article
             className={`lead-print-page ${layout.pages.map.orientation}`}
-            style={printPageStyle(layout, 'map')}
+            style={printPageStyle(layout, 'map', signatureFooter)}
           >
             <header className="lead-print-section-header">
               <h2>Lead Route Map</h2>
@@ -484,6 +486,9 @@ export default function LeadPrintPreviewModal({
               drawing={directionDrawing}
               onMapClick={handleMapClick}
             />
+            {signatureFooter?.enabled && (
+              <SignatureFooterPrint settings={signatureFooter} />
+            )}
           </article>
         </div>
       </div>
@@ -787,12 +792,17 @@ function RateChartSourceTable({
 
 function AppliedCalculationBlock({
   row,
+  zone,
   routeLabel
 }: {
   row: AppliedLead
+  zone: SorZone
   routeLabel: string
 }): JSX.Element {
   const { application, variant, codes } = row
+  // Applications saved before zoned Lead support used the generic database
+  // rate, which is the published Zone III value for the zoned 2026-27 chart.
+  const calculationZone = application.rateZone ?? 'zone_3'
   return (
     <section className="lead-print-calc-block">
       <div className="lead-print-calc-heading">
@@ -800,7 +810,7 @@ function AppliedCalculationBlock({
           <strong>{variant.materialName} - {variantDisplayName(variant)}</strong>
           <span>{routeLabel}</span>
         </div>
-        <b>{codes.join(' + ') || 'No charge'}</b>
+        <b>{codes.join(' + ') || 'No charge'} · {zoneLabel(calculationZone)}</b>
       </div>
       <table className="lead-print-calc-table">
         <tbody>
@@ -849,6 +859,12 @@ function AppliedCalculationBlock({
           </tr>
         </tbody>
       </table>
+      {calculationZone !== zone && (
+        <p className="lead-print-warning">
+          This saved calculation uses {zoneLabel(calculationZone)}. Open its Lead dashboard to
+          refresh it with the project&apos;s selected {zoneLabel(zone)} rates.
+        </p>
+      )}
       {(application.deliveryAtSiteWarning || application.handlingWarning) && (
         <p className="lead-print-warning">
           {application.deliveryAtSiteWarning || application.handlingWarning}
@@ -940,76 +956,83 @@ function LeadPrintRouteMap({
   )
 
   const [osmRoutes, setOsmRoutes] = useState<Record<string, [number, number][]>>({})
-  const [fetchError, setFetchError] = useState(false)
 
   useEffect(() => {
-    if (visibleRoutes.length === 0) return
-    const controller = new AbortController()
-    let cancelled = false
-
-    async function fetchAll(): Promise<void> {
-      const results: Record<string, [number, number][]> = {}
-      let anySuccess = false
-      await Promise.all(
-        visibleRoutes.map(async (route) => {
-          if (route.geometry) {
-            results[route.id] = route.geometry
-            anySuccess = true
-            return
-          }
-          try {
-            const url =
-              `https://router.project-osrm.org/route/v1/driving/` +
-              `${route.from.lon},${route.from.lat};${route.to.lon},${route.to.lat}` +
-              `?geometries=geojson&overview=full`
-            const resp = await fetch(url, { signal: controller.signal })
-            if (!resp.ok) throw new Error(`OSRM ${resp.status}`)
-            const data = (await resp.json()) as {
-              routes?: { geometry?: { coordinates?: [number, number][] } }[]
-            }
-            const coords = data.routes?.[0]?.geometry?.coordinates
-            if (coords && coords.length > 0) {
-              results[route.id] = coords.map(([lon, lat]) => [lat, lon])
-              anySuccess = true
-            } else {
-              throw new Error('No route geometry')
-            }
-          } catch {
-            // Fallback: straight line between points
-            results[route.id] = [
-              [route.from.lat, route.from.lon],
-              [route.to.lat, route.to.lon]
-            ]
-          }
-        })
+    setOsmRoutes(
+      Object.fromEntries(
+        visibleRoutes.map((route) => [
+          route.id,
+          route.geometry ?? [
+            [route.from.lat, route.from.lon],
+            [route.to.lat, route.to.lon]
+          ]
+        ])
       )
-      if (!cancelled) {
-        setOsmRoutes(results)
-        setFetchError(!anySuccess && visibleRoutes.length > 0)
-      }
-    }
-
-    void fetchAll()
-    return () => {
-      cancelled = true
-      controller.abort()
-    }
+    )
   }, [visibleRoutes])
 
   const bounds = useMemo(() => {
-    if (displayPoints.length === 0) return undefined
-    return L.latLngBounds(displayPoints.map((p) => [p.lat, p.lon]))
-  }, [displayPoints])
+    // Frame the markers AND every drawn route line, so a route whose two
+    // endpoint markers sit close together (e.g. disposal lead) still shows
+    // its full site-to-dump polyline.
+    const coords: [number, number][] = displayPoints
+      .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon))
+      .map((p) => [p.lat, p.lon])
+    for (const route of visibleRoutes) {
+      for (const [lat, lon] of route.geometry ?? []) {
+        if (Number.isFinite(lat) && Number.isFinite(lon)) coords.push([lat, lon])
+      }
+    }
+    if (coords.length === 0) return undefined
+    const box = L.latLngBounds(coords)
+    if (!box.isValid()) return undefined
+    // A single display point (e.g. a Disposal Lead whose route starts and ends
+    // at the same dump point) yields a zero-area box. Leaflet fits zero-area
+    // bounds at zoom Infinity (maxZoom is unset before layers mount), which
+    // turns the map center into (NaN, NaN) and crashes every overlay. Buffer
+    // tiny boxes into a real area (~1km) so the fit zoom stays finite.
+    const sw = box.getSouthWest()
+    const ne = box.getNorthEast()
+    if (Math.abs(ne.lat - sw.lat) < 0.0005 && Math.abs(ne.lng - sw.lng) < 0.0005) {
+      return L.latLngBounds([
+        [sw.lat - 0.005, sw.lng - 0.005],
+        [ne.lat + 0.005, ne.lng + 0.005]
+      ])
+    }
+    return box
+  }, [displayPoints, visibleRoutes])
 
-  if (displayPoints.length === 0) {
+  // Leaflet derives the initial center/zoom from `bounds` using the container's
+  // pixel size. If the MapContainer mounts while the print page is still laying
+  // out (container 0x0), that math yields a NaN center and the first overlay
+  // render throws "Invalid LatLng object: (NaN, NaN)". Gate mounting on the
+  // container having a real measured size.
+  const [mapHost, setMapHost] = useState<HTMLDivElement | null>(null)
+  const [mapSized, setMapSized] = useState(false)
+  useEffect(() => {
+    if (!mapHost) return
+    const check = (): void => {
+      const rect = mapHost.getBoundingClientRect()
+      if (rect.width > 1 && rect.height > 1) setMapSized(true)
+    }
+    check()
+    const observer = new ResizeObserver(check)
+    observer.observe(mapHost)
+    return () => observer.disconnect()
+  }, [mapHost])
+
+  if (displayPoints.length === 0 || !bounds) {
     return <div className="lead-print-empty">No mapped Lead variant routes are available.</div>
   }
 
   return (
-    <div className={`lead-print-map ${editing ? 'editing' : ''}`}>
-      {bounds && (
+    <div ref={setMapHost} className={`lead-print-map ${editing ? 'editing' : ''}`}>
+      {bounds && mapSized && (
         <MapContainer
           bounds={bounds}
+          // Explicit cap so a bounds-fit can never resolve to zoom Infinity
+          // (Leaflet's default maxZoom before any tile layer mounts).
+          maxZoom={18}
           style={{ height: '100%', width: '100%' }}
           zoomControl={false}
           scrollWheelZoom={editing}
@@ -1080,11 +1103,6 @@ function LeadPrintRouteMap({
             : 'Click the map to set a new point location.'}
         </p>
       )}
-      {fetchError && (
-        <p className="lead-print-warning">
-          Could not fetch road directions from OSRM — straight lines shown instead.
-        </p>
-      )}
     </div>
   )
 }
@@ -1092,7 +1110,12 @@ function LeadPrintRouteMap({
 function FitBoundsOnce({ bounds }: { bounds: L.LatLngBounds }): null {
   const map = useMap()
   useEffect(() => {
-    map.fitBounds(bounds, { padding: [30, 30] })
+    if (!bounds || !bounds.isValid()) return
+    try {
+      map.fitBounds(bounds, { padding: [30, 30] })
+    } catch {
+      // A transient map/layout state can reject fitBounds; ignore rather than crash.
+    }
   }, [bounds, map])
   return null
 }
@@ -1244,11 +1267,18 @@ function buildRouteLines(
     const assignmentPointId = row.variant.assignmentId
       ? assignmentsById.get(row.variant.assignmentId)?.pointId
       : undefined
-    const from =
+    let from =
       pointFromLeadPoint(pointsById.get(row.variant.startPointId || '')) ??
       pointFromLeadPoint(pointsById.get(assignmentPointId || '')) ??
       workPoint
     const to = pointFromLeadPoint(pointsById.get(row.variant.endPointId || '')) ?? workPoint
+    // Disposal-style variants can resolve both endpoints to the same point
+    // (the assignment and endPointId are the same dump point). The material
+    // actually moves work site -> dump, so show the work location as the
+    // source marker instead of collapsing to a single pin.
+    if (from && to && from.id === to.id && workPoint && workPoint.id !== to.id) {
+      from = workPoint
+    }
     if (!from || !to || (from.id === to.id && !row.variant.startPointId && !row.variant.endPointId)) continue
     routes.push({
       id: `${row.application.id}:${row.variant.id}`,
@@ -1428,13 +1458,20 @@ function normalizePrintSettings(settings?: LeadPrintSettings) {
 
 function printPageStyle(
   settings: ReturnType<typeof normalizePrintSettings>,
-  page: LeadPrintPageKey
+  page: LeadPrintPageKey,
+  signatureFooter?: SignatureFooterSettings
 ): CSSProperties {
   const size = paperSizeMm(settings.pageSize)
   const orientation = settings.pages[page].orientation
   const width = orientation === 'landscape' ? size.height : size.width
   const height = orientation === 'landscape' ? size.width : size.height
-  const margins = settings.margins
+  const margins = {
+    ...settings.margins,
+    bottom:
+      signatureFooter?.enabled && signatureFooter.placement === 'every_page'
+        ? Math.max(settings.margins.bottom, 28)
+        : settings.margins.bottom
+  }
   return {
     width: `${width}mm`,
     minHeight: `${height}mm`,

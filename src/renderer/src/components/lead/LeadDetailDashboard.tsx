@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import L from 'leaflet'
-import { ArrowDown, ArrowUp, Check, MapPin, Pencil, Plus, Printer, RefreshCcw, Route, Settings, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Eye, LayoutDashboard, MapPin, Pencil, Plus, Printer, RefreshCcw, Route, Settings, Trash2 } from 'lucide-react'
 import { CircleMarker, MapContainer, Marker, Polyline, Popup, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
-  calculateLeadVariantCharge,
+  calculateLeadVariantChargeFromRows,
   conveyanceClassLabel,
-  fetchSsrLeadApplicability,
   loadingUnloadingCautionForBreakdown,
   LOADING_UNLOADING_CAUTION,
   type LeadChargeBreakdown,
-  type LeadHandlingMode
+  type LeadHandlingMode,
+  type LeadRateRow
 } from '../../lib/lead'
 import {
   addonLeadRuleForVariant,
@@ -24,7 +24,7 @@ import {
   quantityForVariant,
   isDisposalLeadMaterial
 } from '../../lib/leadApplicability'
-import { calculateRateAnalysis, fetchRateAnalysis } from '../../lib/rateAnalysis'
+import { calculateRateAnalysis } from '../../lib/rateAnalysis'
 import { calculateRoadRoute } from '../../lib/roadRouting'
 import {
   collectProjectItemGroups,
@@ -33,8 +33,16 @@ import {
   type ProjectItemGroup
 } from '../../lib/projectItems'
 import { newId } from '../../lib/tree'
+import {
+  dashboardContextMatches,
+  dashboardItemIsSynced
+} from '../../lib/dashboardSync'
 import { useStore } from '../../store/useStore'
 import LeadPrintPreviewModal from './LeadPrintPreviewModal'
+import {
+  LEAD_SIGNATURE_SCOPE,
+  resolveSignatureFooter
+} from '../../lib/signatureFooter'
 import MapLayers from '../map/MapLayers'
 import LeadMapDirectionEditor, {
   blankLeadMapDirectionDraft,
@@ -54,12 +62,14 @@ import type {
   LeadRoadCondition,
   LeadVariant,
   ProjectNode,
-  ProjectLocation
+  ProjectLocation,
+  SorZone
 } from '../../types/project'
 
 const TELANGANA_CENTER: [number, number] = [17.9, 79.6]
 const ROAD_DIRECTION_CLICK_MAX_KM = 0.15
 const ROAD_JOIN_SNAP_MAX_KM = 0.5
+const EMPTY_LEAD_RATES: LeadRateRow[] = []
 
 function leadMapPinIcon(label: string, color: string, className = ''): L.DivIcon {
   return L.divIcon({
@@ -83,6 +93,12 @@ const km = new Intl.NumberFormat('en-IN', {
 const metre = new Intl.NumberFormat('en-IN', {
   maximumFractionDigits: 2
 })
+
+function zoneLabel(zone: SorZone): string {
+  if (zone === 'zone_1') return 'Zone I'
+  if (zone === 'zone_2') return 'Zone II'
+  return 'Zone III'
+}
 
 const POINT_KINDS: Array<{ value: LeadPointKind; label: string }> = [
   { value: 'quarry', label: 'Quarry' },
@@ -307,6 +323,7 @@ export default function LeadDetailDashboard(): JSX.Element {
   const mapDirections = chart.mapDirections ?? []
   const printSettings = chart.printSettings
   const site = project?.meta.location ?? null
+  const sorZone = project?.meta.sorZone ?? 'zone_3'
 
   const materialName = selection?.materialName ?? ''
   const conveyanceClass = (selection?.conveyanceClass as ConveyanceClass | undefined) ?? 'CEMENT'
@@ -360,6 +377,7 @@ export default function LeadDetailDashboard(): JSX.Element {
   const [variantBreakdowns, setVariantBreakdowns] = useState<Record<string, LeadChargeBreakdown>>({})
   const [overrideDraft, setOverrideDraft] = useState<LeadOverrideDraft | null>(null)
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false)
+  const [printView, setPrintView] = useState(false)
   const [mapEditingOpen, setMapEditingOpen] = useState(false)
   const [pointDialogOpen, setPointDialogOpen] = useState(false)
   const [pointPicking, setPointPicking] = useState(false)
@@ -382,6 +400,12 @@ export default function LeadDetailDashboard(): JSX.Element {
     () => (project ? collectProjectItemGroups(project.root) : []),
     [project]
   )
+  const snapshotValid = project
+    ? dashboardContextMatches(project.dashboardSnapshot, project)
+    : false
+  const syncedLeadRates = snapshotValid
+    ? project?.dashboardSnapshot?.leadRates ?? EMPTY_LEAD_RATES
+    : EMPTY_LEAD_RATES
   const workPoints = useMemo(
     () => (project ? collectWorkLocationPoints(project.root, project.meta.location) : []),
     [project?.root, project?.meta.location]
@@ -487,7 +511,8 @@ export default function LeadDetailDashboard(): JSX.Element {
       (application) =>
         !application.itemNodeId ||
         application.outputQuantity === undefined ||
-        application.rateAddition === undefined
+        application.rateAddition === undefined ||
+        application.rateZone !== sorZone
     )
     .map((application) => `${application.id}:${application.variantId}:${application.itemKey}`)
     .join('|')
@@ -570,25 +595,15 @@ export default function LeadDetailDashboard(): JSX.Element {
     const codes = groups
       .filter((group) => group.source === 'SSR')
       .map((group) => group.code)
-    if (!codes.length) {
-      setMetadata(new Map())
-      return
+    const stored = dashboardContextMatches(project.dashboardSnapshot, project)
+      ? project.dashboardSnapshot?.leadApplicability ?? {}
+      : {}
+    const next = new Map<string, unknown>()
+    for (const code of codes) {
+      if (Object.prototype.hasOwnProperty.call(stored, code)) next.set(code, stored[code])
     }
-    let cancelled = false
-    void fetchSsrLeadApplicability(codes)
-      .then((items) => {
-        if (cancelled) return
-        const next = new Map<string, unknown>()
-        for (const [code, item] of items) next.set(code, item.lead_applicability)
-        setMetadata(next)
-      })
-      .catch((reason) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : 'Lead metadata failed.')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [project?.id, groups])
+    setMetadata(next)
+  }, [project?.id, project?.dashboardSnapshot?.syncedAt, groups])
 
   useEffect(() => {
     if (variantDraft.distanceMode !== 'auto') {
@@ -715,43 +730,40 @@ export default function LeadDetailDashboard(): JSX.Element {
   ])
 
   useEffect(() => {
-    if (!project || materialVariants.length === 0) {
+    if (!project || materialVariants.length === 0 || syncedLeadRates.length === 0) {
       setVariantBreakdowns({})
       return
     }
-    let cancelled = false
-    void Promise.all(
-      materialVariants.map(async (variant) => {
-        const breakdown = await calculateLeadVariantCharge({
-          year: project.meta.sorYear,
-          conveyanceClass: variant.conveyanceClass,
-          distanceKm: variant.leadKm,
-          quantity: 1,
-          liftM: variant.liftM,
-          includedInitialLiftM: 3,
-          includesAllLifts: false,
-          mechanicalConveyanceReachesFinalPoint:
-            variant.mechanicalConveyanceReachesFinalPoint ?? variant.leadKm > 0.15,
-          handlingMode: variant.handlingMode,
-          materialName: variant.materialName,
-          includedBasis: 'none',
-          customGrossRate: variant.rateSource === 'chart' ? null : variant.customGrossRate ?? null,
-          chargeCode: variant.chargeCode
-        })
-        return [variant.id, breakdown] as const
-      })
-    )
-      .then((entries) => {
-        if (cancelled) return
-        setVariantBreakdowns(Object.fromEntries(entries))
-      })
-      .catch((reason) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : 'Unable to load variant calculation.')
-      })
-    return () => {
-      cancelled = true
+    try {
+      setVariantBreakdowns(
+        Object.fromEntries(
+          materialVariants.map((variant) => {
+            const breakdown = calculateLeadVariantChargeFromRows(syncedLeadRates, {
+              year: project.meta.sorYear,
+              zone: project.meta.sorZone ?? 'zone_3',
+              conveyanceClass: variant.conveyanceClass,
+              distanceKm: variant.leadKm,
+              quantity: 1,
+              liftM: variant.liftM,
+              includedInitialLiftM: 3,
+              includesAllLifts: false,
+              mechanicalConveyanceReachesFinalPoint:
+                variant.mechanicalConveyanceReachesFinalPoint ?? variant.leadKm > 0.15,
+              handlingMode: variant.handlingMode,
+              materialName: variant.materialName,
+              includedBasis: 'none',
+              customGrossRate:
+                variant.rateSource === 'chart' ? null : variant.customGrossRate ?? null,
+              chargeCode: variant.chargeCode
+            })
+            return [variant.id, breakdown] as const
+          })
+        )
+      )
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : 'Unable to calculate Lead variants.')
     }
-  }, [materialVariants, project?.meta.sorYear])
+  }, [materialVariants, project?.meta.sorYear, project?.meta.sorZone, syncedLeadRates])
 
   useEffect(() => {
     if (!project || !incompleteApplicationSignature) return
@@ -762,7 +774,8 @@ export default function LeadDetailDashboard(): JSX.Element {
         (application) =>
           !application.itemNodeId ||
           application.outputQuantity === undefined ||
-          application.rateAddition === undefined
+          application.rateAddition === undefined ||
+          application.rateZone !== sorZone
       )
       for (const application of incomplete) {
         if (cancelled) return
@@ -1246,8 +1259,18 @@ export default function LeadDetailDashboard(): JSX.Element {
     target: LeadTarget,
     variant: LeadVariant
   ): Promise<TargetPreview> => {
-    const fetchedRecipe = await fetchRateAnalysis(target.usage.node, project.meta.sorYear)
-    const recipe = rateAnalysisOverrideForNode(project, target.usage.node) ?? fetchedRecipe
+    const recipe =
+      rateAnalysisOverrideForNode(project, target.usage.node) ??
+      (dashboardContextMatches(project.dashboardSnapshot, project) &&
+      dashboardItemIsSynced(project.dashboardSnapshot, target.usage.node)
+        ? project.dashboardSnapshot?.recipes[target.usage.node.id]
+        : undefined)
+    const leadRates = dashboardContextMatches(project.dashboardSnapshot, project)
+      ? project.dashboardSnapshot?.leadRates ?? []
+      : []
+    if (!recipe || leadRates.length === 0) {
+      throw new Error('Lead data is not compiled. Open the total Lead Dashboard, click Sync, and try again.')
+    }
     const info = parseLeadInfo(
       leadMetadataForGroup(
         target.group,
@@ -1261,8 +1284,9 @@ export default function LeadDetailDashboard(): JSX.Element {
     )
     const quantity = quantityForVariant(recipe, variant, info)
     const addonId = addonLeadRuleForVariant(info, variant)?.addonId
-    const breakdown = await calculateLeadVariantCharge({
+    const breakdown = calculateLeadVariantChargeFromRows(leadRates, {
       year: project.meta.sorYear,
+      zone: project.meta.sorZone ?? 'zone_3',
       conveyanceClass: variant.conveyanceClass,
       distanceKm: variant.leadKm,
       quantity: quantity.quantity,
@@ -1336,6 +1360,7 @@ export default function LeadDetailDashboard(): JSX.Element {
       netRate: preview.breakdown.netRate,
       netAmount: preview.breakdown.netAmount,
       calculation: preview.breakdown.calculation,
+      rateZone: sorZone,
       handlingWarning: handlingWarning || undefined,
       handlingOverrideReason:
         overrideReasons.loadingUnloading ?? existing?.handlingOverrideReason,
@@ -1425,7 +1450,7 @@ export default function LeadDetailDashboard(): JSX.Element {
   }
 
   return (
-    <div className="dashboard lead-detail-dashboard">
+    <div className={`dashboard lead-detail-dashboard ${printView ? 'dashboard-print-view' : ''}`}>
       <div className="dash-header">
         <div>
           <div className="dash-eyebrow">Lead material detail</div>
@@ -1438,8 +1463,24 @@ export default function LeadDetailDashboard(): JSX.Element {
           <button className="btn ghost" onClick={closeLeadMaterial}>
             Back
           </button>
-          <button className="btn ghost" onClick={() => setPrintPreviewOpen(true)}>
+          <button
+            className="btn ghost"
+            onClick={() => {
+              setPrintView(false)
+              setPrintPreviewOpen(true)
+            }}
+          >
             <Printer size={15} /> Print Preview
+          </button>
+          <button
+            className="btn ghost"
+            onClick={() => {
+              setPrintPreviewOpen(false)
+              setPrintView((value) => !value)
+            }}
+          >
+            {printView ? <LayoutDashboard size={15} /> : <Eye size={15} />}
+            {printView ? 'Dashboard View' : 'View Print View'}
           </button>
           <button
             className="btn"
@@ -1457,7 +1498,30 @@ export default function LeadDetailDashboard(): JSX.Element {
         </div>
       </div>
 
+      {printView ? (
+        <LeadPrintPreviewModal
+          year={project.meta.sorYear}
+          zone={project.meta.sorZone ?? 'zone_3'}
+          variants={variants}
+          applications={applications}
+          assignments={assignments}
+          points={variantPointOptions}
+          site={site}
+          mapDirections={mapDirections}
+          printSettings={printSettings}
+          signatureFooter={resolveSignatureFooter(project, LEAD_SIGNATURE_SCOPE)}
+          onUpdatePrintSettings={updateLeadPrintSettings}
+          onUpsertPoint={upsertPoint}
+          onUpsertMapDirection={upsertMapDirection}
+          onRemoveMapDirection={removeMapDirection}
+          onClose={() => setPrintView(false)}
+          rates={syncedLeadRates}
+          embedded
+        />
+      ) : (
+      <>
       <div className="lead-status-row">
+        <span>SOR {project.meta.sorYear} · {zoneLabel(sorZone)} rates</span>
         <span>
           {disposalLead
             ? 'Disposal Lead - choose Earth/Rock per variant'
@@ -1471,6 +1535,7 @@ export default function LeadDetailDashboard(): JSX.Element {
       {printPreviewOpen && (
         <LeadPrintPreviewModal
           year={project.meta.sorYear}
+          zone={project.meta.sorZone ?? 'zone_3'}
           variants={variants}
           applications={applications}
           assignments={assignments}
@@ -1478,11 +1543,13 @@ export default function LeadDetailDashboard(): JSX.Element {
           site={site}
           mapDirections={mapDirections}
           printSettings={printSettings}
+          signatureFooter={resolveSignatureFooter(project, LEAD_SIGNATURE_SCOPE)}
           onUpdatePrintSettings={updateLeadPrintSettings}
           onUpsertPoint={upsertPoint}
           onUpsertMapDirection={upsertMapDirection}
           onRemoveMapDirection={removeMapDirection}
           onClose={() => setPrintPreviewOpen(false)}
+          rates={syncedLeadRates}
         />
       )}
       {pointDialogOpen && (
@@ -2863,6 +2930,8 @@ export default function LeadDetailDashboard(): JSX.Element {
         </section>
 
       </div>
+      </>
+      )}
     </div>
   )
 }

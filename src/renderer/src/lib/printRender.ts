@@ -95,7 +95,15 @@ export interface PrintRenderContext {
   title: string
 }
 
-export interface PrintRenderResult {
+/** What the Print Layout dialog needs, whether the body is a sheet or a document. */
+export interface PrintableRender {
+  html: string
+  pdfOptions: PdfOptions
+  /** True when there is nothing to render. */
+  empty: boolean
+}
+
+export interface PrintRenderResult extends PrintableRender {
   html: string
   pdfOptions: PdfOptions
   /** The range actually rendered (used range when config.range is empty). */

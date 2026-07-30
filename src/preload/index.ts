@@ -28,6 +28,11 @@ const api = {
     toPdf: (html: string, options: unknown) =>
       ipcRenderer.invoke('print:to-pdf', { html, options })
   },
+  export: {
+    pdf: (data: string, name: string, defaultPath?: string) =>
+      ipcRenderer.invoke('export:pdf', { data, name, defaultPath }),
+    reveal: (path: string) => ipcRenderer.invoke('export:reveal', path)
+  },
   // ── Auto-update ──
   update: {
     check: (): Promise<unknown> => ipcRenderer.invoke('update:check'),

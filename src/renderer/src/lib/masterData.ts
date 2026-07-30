@@ -1,5 +1,10 @@
 import { supabase } from './supabase'
-import type { DataVariantSelection, ProjectAreaAllowance, ProjectLocation } from '../types/project'
+import type {
+  DataVariantSelection,
+  ProjectAreaAllowance,
+  ProjectLocation,
+  SorCatalogueItemSelection
+} from '../types/project'
 
 // ---------------------------------------------------------------------------
 // Category definitions. SSR = the 6 "works" tables. SOR = the basic-rate tables.
@@ -48,6 +53,8 @@ export interface MasterItem {
   unit: string | null
   /** Set by the add-DATA variant review step. */
   dataVariant?: DataVariantSelection
+  /** Exact logical SOR catalogue cell chosen by the progressive catalogue picker. */
+  sorCatalogue?: SorCatalogueItemSelection
 }
 
 const itemCache = new Map<string, Promise<MasterItem[]>>()
@@ -222,6 +229,12 @@ interface AllowanceAtRow {
   go_reference: string | null
 }
 
+export interface VillageLocationDetails {
+  village: string | null
+  mandal: string | null
+  district: string | null
+}
+
 interface AllowanceRuleRow {
   allowance_type: string
   value: number | string
@@ -242,6 +255,27 @@ function allowanceTypeLabel(type: string): string {
   return labelize(type)
 }
 
+async function allowancePlaceAt(location: ProjectLocation): Promise<AllowanceAtRow | undefined> {
+  const { data, error } = await supabase.rpc('fn_allowance_at', {
+    p_lng: location.lng,
+    p_lat: location.lat
+  })
+  if (error) throw error
+  return ((data ?? []) as AllowanceAtRow[])[0]
+}
+
+/** Read the village, mandal and district exactly as stored in village_allowance. */
+export async function resolveVillageLocation(
+  location: ProjectLocation
+): Promise<VillageLocationDetails> {
+  const place = await allowancePlaceAt(location)
+  return {
+    village: place?.name ?? null,
+    mandal: place?.mandal ?? null,
+    district: place?.district ?? null
+  }
+}
+
 /** Resolve the labour area allowance from the project coordinate and annual rule table. */
 export async function resolveAreaAllowance(
   location: ProjectLocation,
@@ -249,13 +283,7 @@ export async function resolveAreaAllowance(
   /** Undefined keeps spatial auto-detection; null explicitly selects no allowance. */
   manualType?: string | null
 ): Promise<ProjectAreaAllowance> {
-  const { data: places, error: placeError } = await supabase.rpc('fn_allowance_at', {
-    p_lng: location.lng,
-    p_lat: location.lat
-  })
-  if (placeError) throw placeError
-
-  const place = ((places ?? []) as AllowanceAtRow[])[0]
+  const place = await allowancePlaceAt(location)
   const allowanceType = manualType === undefined ? place?.allowance_type ?? null : manualType
   const source = manualType === undefined ? 'automatic' : 'manual'
   if (!allowanceType) {
@@ -312,9 +340,9 @@ export async function resolveAreaAllowance(
     percent: Number.isFinite(percent) ? percent : 0,
     tier: rule?.tier ?? null,
     description: rule?.description ?? null,
-    village: place.name,
-    mandal: place.mandal,
-    district: place.district,
+    village: place?.name ?? null,
+    mandal: place?.mandal ?? null,
+    district: place?.district ?? null,
     ruleYear: rule?.sor_year ?? sorYear ?? null,
     goReference: rule?.go_reference ?? place?.go_reference ?? null,
     source

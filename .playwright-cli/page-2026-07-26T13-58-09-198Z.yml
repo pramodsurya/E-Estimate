@@ -1,0 +1,97 @@
+- generic [ref=f1e3]:
+  - generic [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - generic [ref=f1e6]: E-Estimate
+      - button "File" [ref=f1e9] [cursor=pointer]
+      - button "Component" [ref=f1e11] [cursor=pointer]
+      - button "Undo" [ref=f1e12] [cursor=pointer]
+      - button "Redo" [disabled] [ref=f1e16]
+    - textbox "Search project, pages, items…" [ref=f1e57]
+    - generic [ref=f1e26]:
+      - generic [ref=f1e58]: Berm UI test •
+      - generic [ref=f1e27]:
+        - button "Minimize" [ref=f1e28] [cursor=pointer]
+        - button "Maximize" [ref=f1e30] [cursor=pointer]
+        - button "Close" [ref=f1e33] [cursor=pointer]
+  - generic [ref=f1e37]:
+    - generic [ref=f1e59]:
+      - button "Explorer" [ref=f1e60] [cursor=pointer]
+      - button "Search" [ref=f1e65] [cursor=pointer]
+      - button "DTL Lead" [ref=f1e69] [cursor=pointer]
+      - button "Source Control" [ref=f1e74] [cursor=pointer]
+    - generic [ref=f1e79]:
+      - generic [ref=f1e80]:
+        - generic [ref=f1e81]:
+          - generic [ref=f1e82]: Explorer
+          - generic [ref=f1e83]:
+            - button "Add Page" [ref=f1e84] [cursor=pointer]
+            - button "Add Component" [ref=f1e88] [cursor=pointer]
+        - generic [ref=f1e91]:
+          - generic "Berm UI test" [ref=f1e191] [cursor=pointer]
+          - generic "Front Page" [ref=f1e196] [cursor=pointer]
+          - generic "Introduction" [ref=f1e202] [cursor=pointer]
+          - generic [ref=f1e569] [cursor=pointer]:
+            - generic "Drag to reorder" [ref=f1e570]
+            - generic "Small Earthen Bund" [ref=f1e587]
+          - generic [ref=f1e588] [cursor=pointer]: Detailed
+      - generic [ref=f1e98]:
+        - tablist "Project data" [ref=f1e99]:
+          - button "Seigniorage" [ref=f1e100] [cursor=pointer]
+          - button "Lead" [ref=f1e106] [cursor=pointer]
+          - button "Data" [ref=f1e110] [cursor=pointer]
+        - generic [ref=f1e115]: Items added in Explorer will appear here.
+    - generic [ref=f1e597]:
+      - generic [ref=f1e598]:
+        - generic [ref=f1e599]:
+          - generic [ref=f1e600]: Component
+          - heading "Small Earthen Bund" [level=1] [ref=f1e601]
+        - generic [ref=f1e607]:
+          - button "Add Sub-component" [ref=f1e608] [cursor=pointer]
+          - button "Add Page" [ref=f1e613] [cursor=pointer]
+          - button "Add Item" [ref=f1e617] [cursor=pointer]
+          - button "Settings" [ref=f1e619] [cursor=pointer]
+          - button "Print Preview" [ref=f1e623] [cursor=pointer]
+          - button "View Print View" [ref=f1e628] [cursor=pointer]
+      - generic [ref=f1e632]:
+        - generic [ref=f1e633]:
+          - generic [ref=f1e634]:
+            - generic [ref=f1e635]: Total estimated cost
+            - generic [ref=f1e639]: ₹ 0
+            - paragraph [ref=f1e640]: Fixed quantities × adopted rates across this component.
+          - generic [ref=f1e641]:
+            - generic [ref=f1e642]:
+              - generic [ref=f1e643]: Component items
+              - strong [ref=f1e644]: ₹ 0
+              - generic [ref=f1e645]: 0 direct items
+            - generic [ref=f1e646]:
+              - generic [ref=f1e647]: Sub-components
+              - strong [ref=f1e648]: ₹ 0
+              - generic [ref=f1e649]: 0 sub-components
+            - generic [ref=f1e650]:
+              - generic [ref=f1e651]: Ready for costing
+              - strong [ref=f1e652]: 0 / 0
+              - generic [ref=f1e653]: Direct items with quantity and rate
+            - generic [ref=f1e654]:
+              - generic [ref=f1e655]: Supporting pages
+              - strong [ref=f1e656]: "0"
+              - generic [ref=f1e657]: Attached to this section
+        - generic [ref=f1e658]:
+          - generic [ref=f1e659]:
+            - generic [ref=f1e660]:
+              - generic [ref=f1e661]: Sub-components
+              - heading "Cost by sub-component" [level=2] [ref=f1e666]
+              - paragraph [ref=f1e667]: 0 items grouped separately from this component’s own abstract.
+            - button "Add Sub-component" [ref=f1e668] [cursor=pointer]
+          - generic [ref=f1e675]:
+            - strong [ref=f1e676]: No sub-components
+            - generic [ref=f1e677]: Create one when a part of the work needs its own abstract and cost.
+        - generic [ref=f1e678]:
+          - generic [ref=f1e679]:
+            - generic [ref=f1e680]:
+              - generic [ref=f1e681]: Component items
+              - heading "Direct items" [level=2] [ref=f1e683]
+              - paragraph [ref=f1e684]: Only these items appear in the main Component Abstract.
+            - button "Add Item" [ref=f1e685] [cursor=pointer]
+          - generic [ref=f1e689]:
+            - strong [ref=f1e690]: No direct items
+            - generic [ref=f1e691]: Add an item to begin costing this section.

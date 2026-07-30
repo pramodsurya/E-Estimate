@@ -29,6 +29,13 @@ function loadTsModule(filePath, mocks = {}) {
 }
 
 const leadPath = path.join(root, 'src/renderer/src/lib/lead.ts')
+const leadSource = fs.readFileSync(leadPath, 'utf8')
+assert.match(leadSource, /rate,zone_rates/,
+  'Lead rates must fetch the zoned rate map from Supabase')
+assert.match(leadSource, /normalizeLeadRateRow\(row, zone\)/,
+  'Lead rows must be normalized for the selected project zone')
+assert.match(leadSource, /zoneRates\?\.\[zone\]/,
+  'Lead calculations must adopt the selected zone value')
 const leadExports = loadTsModule(leadPath, {
   './supabase': { supabase: {} }
 })

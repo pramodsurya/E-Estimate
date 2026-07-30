@@ -1,0 +1,27 @@
+- main [ref=f6e3]:
+  - heading "Bund / Guide Wall code selection" [level=2] [ref=f6e4]
+  - generic [ref=f6e5]: "[ { \"code\": \"IRR-CAW-8-8\", \"generated\": true } ]"
+  - dialog [ref=f6e7]:
+    - generic [ref=f6e8]:
+      - generic [ref=f6e9]: Choose DATA variant / add-on
+      - button "Close" [ref=f6e10] [cursor=pointer]
+    - generic [ref=f6e15]:
+      - generic [ref=f6e22]:
+        - heading "Bund · review template codes" [level=3] [ref=f6e23]
+        - paragraph [ref=f6e24]: Published rates are classified by purpose. Choose the applicable class, depth band, or optional addition.
+      - generic [ref=f6e26]:
+        - generic [ref=f6e33]:
+          - strong [ref=f6e34]: IRR-CAW-8-8
+          - generic [ref=f6e35]: Optional addition · base DATA remains valid without it
+        - paragraph [ref=f6e36]: "Providing and Constructing 45 cm thick dry rubble stone pitching including cost of all materials, labour,hand packing,finishing etc.,complete ( rubble stones : 0.495 cum/sqm)"
+        - paragraph [ref=f6e37]: Include the separately published optional addition?
+        - generic [ref=f6e38]:
+          - button "Base DATA only ₹ 684.20" [ref=f6e39] [cursor=pointer]:
+            - strong [ref=f6e44]: Base DATA only
+            - generic [ref=f6e45]: ₹ 684.20
+          - button "Add for 15 cm thick murum bed below pitching ₹ 777.10" [active] [ref=f6e46] [cursor=pointer]:
+            - strong [ref=f6e49]: Add for 15 cm thick murum bed below pitching
+            - generic [ref=f6e50]: ₹ 777.10
+    - generic [ref=f6e51]:
+      - generic [ref=f6e52]: Required before the template DATA is fully prepared.
+      - button "Apply selection" [ref=f6e53] [cursor=pointer]

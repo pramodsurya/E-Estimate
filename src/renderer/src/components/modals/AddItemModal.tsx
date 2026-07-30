@@ -22,11 +22,25 @@ import {
   type MasterItem
 } from '../../lib/masterData'
 import type { DataVariantSelection, ProjectNode } from '../../types/project'
+import SsrCode from '../templates/SsrCode'
+import SorCatalogueColumn from './SorCatalogueColumn'
 import {
   fetchDataVariantSpecs,
   type DataVariantOption,
   type DataVariantSpec
 } from '../../lib/dataVariants'
+import {
+  applySemanticScores,
+  parseMasterSearch,
+  rankMasterItems,
+  shouldUseSemanticSearch,
+  type MasterSearchMatch
+} from '../../lib/masterSearch'
+import {
+  rerankMasterSearch,
+  semanticCandidateMatches,
+  type SemanticSearchProgress
+} from '../../lib/semanticMasterSearch'
 
 function itemKey(m: MasterItem): string {
   return `${m.side}:${m.category}:${m.code}`
@@ -44,6 +58,10 @@ interface CreatedDataItem {
 
 type SortDir = 'asc' | 'desc'
 type CacheEntry = { status: 'loading' | 'loaded' | 'error'; items: MasterItem[]; error?: string }
+interface SemanticRankingState extends SemanticSearchProgress {
+  signature: string
+  scores: Record<string, number>
+}
 const MAX_RENDERED_ITEMS = 250
 
 export default function AddItemModal(): JSX.Element {
@@ -219,11 +237,8 @@ export default function AddItemModal(): JSX.Element {
               onAdd={add}
               onRemove={removeKey}
             />
-            <Column
-              side="SOR"
-              tag="Basic rates · Material Labour Machinery Plumbing Electrical Civil"
-              categories={SOR_CATEGORIES}
-              fetcher={fetchSorItems}
+            <SorSelectionColumn
+              sorYear={project?.meta.sorYear ?? ''}
               selected={selected}
               onAdd={add}
               onRemove={removeKey}
@@ -414,6 +429,58 @@ interface ColumnProps {
   selected: Map<string, MasterItem>
   onAdd: (m: MasterItem) => void
   onRemove: (key: string) => void
+  trailingCategory?: JSX.Element
+}
+
+function SorSelectionColumn({
+  sorYear,
+  selected,
+  onAdd,
+  onRemove
+}: {
+  sorYear: string
+  selected: Map<string, MasterItem>
+  onAdd: (item: MasterItem) => void
+  onRemove: (key: string) => void
+}): JSX.Element {
+  const [mode, setMode] = useState<'catalogue' | 'basic'>('basic')
+
+  if (mode === 'basic') {
+    return (
+      <Column
+        side="SOR"
+        tag="Basic item tables"
+        categories={SOR_CATEGORIES}
+        fetcher={fetchSorItems}
+        selected={selected}
+        onAdd={onAdd}
+        onRemove={onRemove}
+        trailingCategory={
+          <div className="cat-group sor-others-group">
+            <button
+              type="button"
+              className="cat-head sor-others-head"
+              onClick={() => setMode('catalogue')}
+            >
+              <ChevronRight size={14} />
+              Others
+              <span className="cat-count sor-others-count">Catalogue</span>
+            </button>
+          </div>
+        }
+      />
+    )
+  }
+
+  return (
+    <SorCatalogueColumn
+      sorYear={sorYear}
+      selected={selected}
+      onAdd={onAdd}
+      onRemove={onRemove}
+      onShowBasicRates={() => setMode('basic')}
+    />
+  )
 }
 
 function Column({
@@ -423,13 +490,15 @@ function Column({
   fetcher,
   selected,
   onAdd,
-  onRemove
+  onRemove,
+  trailingCategory
 }: ColumnProps): JSX.Element {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [cache, setCache] = useState<Record<string, CacheEntry>>({})
+  const [semanticRanking, setSemanticRanking] = useState<SemanticRankingState | null>(null)
 
   const cacheRef = useRef(cache)
   cacheRef.current = cache
@@ -473,7 +542,96 @@ function Column({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch])
 
-  const q = debouncedSearch.trim().toLowerCase()
+  const q = debouncedSearch.trim()
+  const parsedSearch = useMemo(() => parseMasterSearch(q), [q])
+  const loadedItems = useMemo(
+    () =>
+      categories.flatMap((category) => {
+        const entry = cache[category.key]
+        return entry?.status === 'loaded' ? entry.items : []
+      }),
+    [cache, categories]
+  )
+  const lexicalMatches = useMemo(
+    () => (q ? rankMasterItems(loadedItems, parsedSearch) : []),
+    [loadedItems, parsedSearch, q]
+  )
+  const searchSettled =
+    !q ||
+    categories.every((category) => {
+      const status = cache[category.key]?.status
+      return status === 'loaded' || status === 'error'
+    })
+  const semanticCandidates = useMemo(
+    () => semanticCandidateMatches(lexicalMatches),
+    [lexicalMatches]
+  )
+  const semanticSignature = useMemo(
+    () => `${parsedSearch.normalized}|${semanticCandidates.map((match) => match.key).join('|')}`,
+    [parsedSearch.normalized, semanticCandidates]
+  )
+
+  useEffect(() => {
+    if (
+      !q ||
+      !searchSettled ||
+      !shouldUseSemanticSearch(parsedSearch) ||
+      semanticCandidates.length < 2
+    ) {
+      setSemanticRanking(null)
+      return
+    }
+
+    let active = true
+    const updateProgress = (progress: SemanticSearchProgress): void => {
+      if (!active) return
+      setSemanticRanking({
+        ...progress,
+        signature: semanticSignature,
+        scores: {}
+      })
+    }
+    updateProgress({ status: 'loading', message: 'Preparing AI relevance ranking' })
+    void rerankMasterSearch(q, semanticCandidates, updateProgress)
+      .then((scores) => {
+        if (!active) return
+        setSemanticRanking({
+          status: 'ready',
+          message: 'AI-ranked from item descriptions',
+          signature: semanticSignature,
+          scores
+        })
+      })
+      .catch((error) => {
+        if (!active) return
+        setSemanticRanking({
+          status: 'fallback',
+          message: `Description ranking active · ${
+            error instanceof Error ? error.message : 'AI unavailable'
+          }`,
+          signature: semanticSignature,
+          scores: {}
+        })
+      })
+
+    return () => {
+      active = false
+    }
+  }, [parsedSearch, q, searchSettled, semanticCandidates, semanticSignature])
+
+  const rankedMatches = useMemo(() => {
+    if (
+      semanticRanking?.status !== 'ready' ||
+      semanticRanking.signature !== semanticSignature
+    ) {
+      return lexicalMatches
+    }
+    return applySemanticScores(lexicalMatches, semanticRanking.scores)
+  }, [lexicalMatches, semanticRanking, semanticSignature])
+  const searchMatches = useMemo(
+    () => new Map(rankedMatches.map((match) => [match.key, match])),
+    [rankedMatches]
+  )
 
   return (
     <div className="additem-col">
@@ -503,20 +661,50 @@ function Column({
           <ArrowUpAZ size={15} />
         </button>
       </div>
+      {q ? (
+        <div className={`master-search-summary ${semanticRanking?.status ?? 'lexical'}`}>
+          <span>
+            {parsedSearch.exactConstraints.length > 0
+              ? `Exact ${parsedSearch.exactConstraints
+                  .map((value) => value.toUpperCase())
+                  .join(', ')}`
+              : 'Description relevance'}
+            {' · '}
+            {rankedMatches.length} match{rankedMatches.length === 1 ? '' : 'es'}
+          </span>
+          <small>
+            {!searchSettled
+              ? 'Loading item descriptions…'
+              : semanticRanking?.message ?? 'Exact and description ranking'}
+          </small>
+        </div>
+      ) : null}
       <div className="col-list">
         {categories.map((cat) => {
           const entry = cache[cat.key]
           const isOpen = !!expanded[cat.key]
-          let items = entry?.items ?? []
+          let rows: Array<{ item: MasterItem; match?: MasterSearchMatch }> = (
+            entry?.items ?? []
+          ).map((item) => ({
+            item,
+            match: q ? searchMatches.get(itemKey(item)) : undefined
+          }))
           if (q) {
-            items = items.filter(
-              (it) =>
-                it.description.toLowerCase().includes(q) || it.code.toLowerCase().includes(q)
-            )
+            rows = rows
+              .filter(
+                (row): row is { item: MasterItem; match: MasterSearchMatch } =>
+                  row.match !== undefined
+              )
+              .sort(
+                (left, right) =>
+                  right.match.finalScore - left.match.finalScore ||
+                  left.item.description.localeCompare(right.item.description)
+              )
+          } else if (sortDir === 'desc') {
+            rows = [...rows].reverse()
           }
-          if (sortDir === 'desc') items = [...items].reverse()
-          const resultCount = items.length
-          const visibleItems = items.slice(0, MAX_RENDERED_ITEMS)
+          const resultCount = rows.length
+          const visibleRows = rows.slice(0, MAX_RENDERED_ITEMS)
           return (
             <div className="cat-group" key={cat.key}>
               <button className="cat-head" onClick={() => toggle(cat.key)}>
@@ -534,18 +722,28 @@ function Column({
                   {entry?.status === 'error' && (
                     <div className="cat-error">Failed to load — check the connection.</div>
                   )}
-                  {entry?.status === 'loaded' && items.length === 0 && (
+                  {entry?.status === 'loaded' && rows.length === 0 && (
                     <div className="cat-loading">No items{q ? ' match your search' : ''}.</div>
                   )}
                   {entry?.status === 'loaded' &&
-                    visibleItems.map((it) => {
+                    visibleRows.map(({ item: it, match }) => {
                       const key = itemKey(it)
                       const added = selected.has(key)
                       return (
                         <div key={key} className={`item-row ${added ? 'added' : ''}`}>
-                          <span className="item-code">{it.code}</span>
-                          <span className="item-desc" title={it.description}>
-                            {it.description}
+                          <SsrCode
+                            code={it.code}
+                            description={it.description}
+                            className="item-code"
+                            strong={false}
+                          />
+                          <span className="item-desc-stack" title={it.description}>
+                            <span className="item-desc">{it.description}</span>
+                            {q && match && match.reasons.length > 0 ? (
+                              <span className="item-search-reason">
+                                {match.reasons.join(' · ')}
+                              </span>
+                            ) : null}
                           </span>
                           {it.unit && <span className="item-unit">{it.unit}</span>}
                           <button
@@ -569,6 +767,7 @@ function Column({
             </div>
           )
         })}
+        {trailingCategory}
       </div>
     </div>
   )
@@ -592,7 +791,12 @@ function SelectedBar({
           {entries.map(([k, m]) => (
             <span className="selected-chip" key={k} title={m.description}>
               <span className="sc-side">{m.side}</span>
-              <span className="sc-label">{m.code}</span>
+              <SsrCode
+                code={m.code}
+                description={m.description}
+                className="sc-label"
+                strong={false}
+              />
               <button onClick={() => onRemove(k)} title="Remove">
                 <X size={12} />
               </button>

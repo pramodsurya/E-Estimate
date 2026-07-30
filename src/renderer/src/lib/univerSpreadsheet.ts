@@ -119,6 +119,34 @@ function blankUniverWorkbook(
   }
 }
 
+/**
+ * Build a complete workbook snapshot from literal rows (template-generated
+ * measurement sheets). Numbers become numeric cells so `finalCell` roll-up and
+ * printing read them like user-entered values.
+ */
+export function workbookFromRows(
+  node: ProjectNode,
+  rows: (string | number | null)[][]
+): IWorkbookData {
+  const cellData: IWorksheetData['cellData'] = {}
+  rows.forEach((row, r) => {
+    row.forEach((value, c) => {
+      if (value === null || value === '') return
+      cellData[r] = cellData[r] ?? {}
+      cellData[r][c] =
+        typeof value === 'number'
+          ? { v: value, t: CellValueType.NUMBER }
+          : { v: value, t: CellValueType.STRING }
+    })
+  })
+  return blankUniverWorkbook(
+    node,
+    Math.max(rows.length + 20, DEFAULT_ROWS),
+    DEFAULT_COLUMNS,
+    cellData
+  ) as IWorkbookData
+}
+
 function legacyToUniverWorkbook(node: ProjectNode): Partial<IWorkbookData> {
   const legacy = node.spreadsheet as LegacySpreadsheetDocument
   const cellData: IWorksheetData['cellData'] = {}

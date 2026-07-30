@@ -1,7 +1,7 @@
 // E-Estimate project model. Serialized as JSON into a `.eestimate` file.
 
-import type { RateAnalysisRecipe } from './rateAnalysis'
-import type { IWorkbookData } from '@univerjs/core'
+import type { RateAnalysisRecipe, SeigniorageApplicabilityPolicy } from './rateAnalysis'
+import type { IDocumentData, IWorkbookData } from '@univerjs/core'
 
 export type NodeKind = 'title' | 'page' | 'component' | 'subcomponent' | 'item'
 
@@ -22,6 +22,58 @@ export interface DataVariantSelection {
   addonId?: string
 }
 
+export type SorCatalogueDimensionValue = string | number | boolean | null
+
+export interface SorCatalogueCommercialTerms {
+  basis?: string
+  transportation?: string
+  taxes?: string
+}
+
+/**
+ * Exact logical SOR catalogue cell selected when an Item is attached.
+ *
+ * The annual price is retained as an audit snapshot, but dashboard Sync resolves
+ * the same logical dimensions again for the project's active SOR year.
+ */
+export interface SorCatalogueItemSelection {
+  catalogueCode: string
+  catalogueName: string
+  part: string
+  section: string
+  dimensions: Record<string, SorCatalogueDimensionValue>
+  selectedYear: string
+  publishedRate: number | null
+  rateText: string | null
+  effectiveFrom: string | null
+  source: string | null
+  sourcePage: number | null
+  sourceTitle?: string | null
+  commercialTerms?: SorCatalogueCommercialTerms
+}
+
+/**
+ * A document item's final quantity. `startIndex`/`endIndex` point into the
+ * document text stream and are re-read live, so editing the figure updates the
+ * estimate. The captured value and text are kept so drift can be detected when
+ * text above the range is edited and the offsets no longer hold a number.
+ */
+export interface DocumentFinalNumber {
+  startIndex: number
+  endIndex: number
+  capturedValue: number
+  capturedText: string
+}
+
+/**
+ * A document item's print area. Stored as a paragraph span rather than a pixel
+ * band so it survives the document reflowing. Only the Y axis is selectable.
+ */
+export interface DocumentPrintArea {
+  startParagraph: number
+  endParagraph: number
+}
+
 export type PaperSize = 'A4' | 'A3' | 'A2' | 'Letter' | 'Legal'
 export type Orientation = 'portrait' | 'landscape'
 export interface Margins {
@@ -31,6 +83,23 @@ export interface Margins {
   left: number
 }
 
+export type SignatureFooterPlacement = 'every_page' | 'subject_end'
+
+export interface SignatureFooterRow {
+  id: string
+  /** First editor column and the primary printed label. */
+  designation: string
+  /** Second editor column and the secondary printed label. */
+  office: string
+}
+
+export interface SignatureFooterSettings {
+  enabled: boolean
+  placement: SignatureFooterPlacement
+  /** Printed left-to-right in this saved order. */
+  rows: SignatureFooterRow[]
+}
+
 export interface NodeSettings {
   pageSize?: PaperSize
   orientation?: Orientation
@@ -38,6 +107,8 @@ export interface NodeSettings {
   borders?: boolean
   /** Default print-area constraint for spreadsheets (Part 1: stored only). */
   printArea?: 'constrain-columns' | 'free'
+  /** Report font scale (%) for this node's dashboard and printed pages. */
+  reportFontPercent?: number
 }
 
 /** A rectangular cell range (zero-based, inclusive). */
@@ -140,14 +211,626 @@ export interface LegacySpreadsheetDocument {
 
 export type SpreadsheetDocument = IWorkbookData | LegacySpreadsheetDocument
 
+// ---------------------------------------------------------------------------
+// Component templates. A template turns a component node into a purpose-built
+// dashboard (Guide Wall today; Box Culvert / Weir / Sluice later) whose
+// computed quantities are written into ordinary item children, so component
+// totals and the Lead / Seigniorage / Abstract prints keep working unchanged.
+// ---------------------------------------------------------------------------
+
+export type ComponentTemplateId = 'guide-wall' | 'bund'
+
+export interface GuideWallPoint {
+  lat: number
+  lng: number
+}
+
+/** One wall: vertical inner face, battered outer face (1 : faceSlope). */
+export interface GuideWallWallParams {
+  /** Wall top width (m). */
+  topWidth: number
+  /** Wall height above the base slab (m). */
+  height: number
+  /** Battered-face slope: horizontal metres per 1 m vertical (e.g. 0.3 for 1:0.3). */
+  faceSlope: number
+}
+
+/**
+ * Which walls exist in a section. `mirror` = both walls, identical (edited
+ * once, quantities ×2). `both` = both walls, dimensioned independently.
+ */
+export type GuideWallSideMode = 'left' | 'right' | 'mirror' | 'both'
+
+/** A material code and the metadata needed to build/print its item. */
+export interface TemplateMaterialRef {
+  code: string
+  description?: string
+  unit?: string | null
+  categoryKey?: string
+  side?: ItemSource
+  /** Published DATA variant/add-on selected when this SSR code was attached. */
+  dataVariant?: DataVariantSelection
+}
+
+export type GuideWallMaterialRef = TemplateMaterialRef
+
+/** One chainage section: its walls, wall spacing, and rectangular base slab. */
+export interface GuideWallSection {
+  id: string
+  fromCh: number
+  toCh: number
+  sideMode: GuideWallSideMode
+  left: GuideWallWallParams
+  right: GuideWallWallParams
+  /** Clear gap between the two inner wall faces (m); used when both walls exist. */
+  gap: number
+  /** Base slab is always one rectangle: width × thickness, per section. */
+  baseWidth: number
+  baseThickness: number
+  /** Per-section code overrides. Unset → the component default code is used. */
+  wallMaterial?: GuideWallMaterialRef
+  baseMaterial?: GuideWallMaterialRef
+}
+
+/** Hand-entered excavation measurement (never derived from the drawing). */
+export interface GuideWallExcavationRow {
+  id: string
+  fromCh: number | null
+  toCh: number | null
+  length: number | null
+  breadth: number | null
+  height: number | null
+}
+
+/** One generated item, keyed by the (role, code) it aggregates. */
+export interface GuideWallMaterialItem {
+  role: 'wall' | 'base' | 'excavation'
+  code: string
+  itemNodeId: string
+}
+
+export interface GuideWallData {
+  /** False until the setup wizard finishes; Edit setup reopens the wizard. */
+  configured: boolean
+  /** Manual mode has no alignment; the map panel is hidden. */
+  source: 'map' | 'manual'
+  alignment: GuideWallPoint[]
+  lengthM: number
+  sectionMode: 'continuous' | 'discontinuous'
+  intervalM: number
+  /** Interior section chainages for discontinuous mode (sorted, 0 < ch < lengthM). */
+  breaks: number[]
+  /** Materialized sections tiling 0..lengthM, each individually editable. */
+  sections: GuideWallSection[]
+  /** Default codes (the top cards); sections may override wall/base. */
+  wallMaterial: GuideWallMaterialRef
+  baseMaterial: GuideWallMaterialRef
+  excavationMaterial: GuideWallMaterialRef | null
+  excavationRows: GuideWallExcavationRow[]
+  /** Generated items, one per distinct (role, code) actually in use. */
+  materialItems: GuideWallMaterialItem[]
+}
+
+// ---------------------------------------------------------------------------
+// Bund (earthen tank bund). Quantities follow the Mean Sectional Area method
+// used throughout Indian irrigation practice: an area per chainage, averaged
+// with the previous chainage, times the length between them.
+// ---------------------------------------------------------------------------
+
+/**
+ * Which kind of job this is. It also picks how sections are dimensioned, so
+ * the user never chooses an input style separately:
+ *  - 'new'         → parametric: design section + ground level per chainage.
+ *  - 'restoration' → levels: surveyed cross-section levels per chainage.
+ */
+export type BundMode = 'new' | 'restoration'
+
+/**
+ * Embankment section type, asked alongside the mode in setup:
+ *  - 'homogeneous' → a single fill material across the whole section.
+ *  - 'zoned'       → outer casing plus an impervious hearting zone.
+ */
+export type BundEmbankmentType = 'homogeneous' | 'zoned'
+/** Zoned repair condition controls whether DAW construction or PMW breach items apply. */
+export type BundZonedRepairKind = 'breached' | 'raising'
+/** Source of soil for the dedicated breached/damaged PMW pair. */
+export type BundZonedSoilSource = 'borrow' | 'dump'
+
+/** Chainages are entered in metres, or in chains of `BUND_CHAIN_M` metres. */
+export type BundChainageUnit = 'm' | 'chains'
+
+/**
+ * Earthwork billing. The SSR only lets formation and rolling be priced apart
+ * in the IRR-PMW-3 (maintenance) chapter; every new-works embankment code
+ * bundles compaction into the formation item.
+ */
+export type BundBillingMode = 'combined' | 'split'
+
+/**
+ * Derived formation base:
+ *  - 'existing' → stripping/seating: projected bund minus existing ground.
+ *  - 'stripped' → foundation excavation: projected bund minus excavated surface.
+ */
+export type BundFillBasis = 'existing' | 'stripped'
+
+/** One surveyed level: horizontal offset from the centre-line, and its RL. */
+export interface BundPoint {
+  /** Metres from the centre-line; negative = u/s side, positive = d/s side. */
+  offset: number
+  /** Reduced level (m). */
+  rl: number
+}
+
+/**
+ * The proposed bund section. The crest and slopes generate the proposed profile
+ * at every chainage, so a restoration only needs the existing levels entered.
+ */
+export interface BundDesign {
+  /** Top bund level (TBL) — the finished crest RL. */
+  topLevel: number
+  /** Maximum water level (MWL) — drawn as a reference line. */
+  mwl: number | null
+  /** Full tank level (FTL / FRL) — drawn as a reference line. */
+  ftl: number | null
+  /** Deepest tank bed level (RL); used only to auto-size a new bund from FTL. */
+  deepBedLevel: number | null
+  /**
+   * Free board above MWL (m). A new bund is designed by free board rather than
+   * by a typed crest RL: `topLevel` is then MWL + this, and is not editable.
+   * Null on a repair, where TBL is entered directly.
+   */
+  freeBoard: number | null
+  /** Crest width (m). */
+  topWidth: number
+  /** Upstream face slope, horizontal metres per 1 m vertical (1.5 = 1:1.5). */
+  usSlope: number
+  /** Downstream face slope, horizontal metres per 1 m vertical. */
+  dsSlope: number
+  /** Depth of top soil removed before filling (m). */
+  stripDepth: number
+  /** Horizontal shelves that interrupt the faces; empty = plain faces. */
+  berms: BundBerm[]
+}
+
+/**
+ * Proposed impervious hearting geometry inside a zoned embankment.
+ *
+ * In repair mode the side lines stop automatically where they first meet the
+ * surveyed Existing RL. In new mode they continue to the formation base.
+ */
+export interface BundHeartingDesign {
+  /** Finished top RL of the hearting. */
+  topLevel: number
+  /** Width of the hearting at its finished top (m). */
+  topWidth: number
+  /** Upstream hearting batter, horizontal metres per 1 m vertical. */
+  usSlope: number
+  /** Downstream hearting batter, horizontal metres per 1 m vertical. */
+  dsSlope: number
+  /** Horizontal shift from the bund centre-line (m); 0 = centred. */
+  centerOffset: number
+}
+
+/**
+ * The cut-off trench carried under the impervious hearting of a new zoned bund.
+ *
+ * It is a trapezoidal key cut down from the prepared formation base into the
+ * tighter soil below, then backfilled with the same selected impervious soil as
+ * the zone above it, so seepage cannot pass beneath the core. It belongs to new
+ * work only: on a repair the bund already stands on its foundation and the
+ * trench cannot be dug without taking that bund down.
+ */
+export interface BundHeartingTrench {
+  /** Depth below the formation base (m). */
+  depth: number
+  /** Clear width at the trench bottom (m). */
+  bottomWidth: number
+  /** Upstream side batter, horizontal metres per 1 m vertical. */
+  usSlope: number
+  /** Downstream side batter, horizontal metres per 1 m vertical. */
+  dsSlope: number
+  /** Backfill code (impervious cut-off trench filling); null = trench is off. */
+  fillMaterial: TemplateMaterialRef | null
+  /** Trench excavation code; null while the trench is off. */
+  excavationMaterial: TemplateMaterialRef | null
+}
+
+/** Which face a berm interrupts. */
+export type BundBermSide = 'us' | 'ds'
+
+/**
+ * A berm: a horizontal shelf cut into one face of the bund. It flattens the
+ * effective slope, breaks the run of rainwater before it can scour the face,
+ * and gives an inspection path. The shelf is normally surfaced and drained by
+ * a longitudinal catch-water drain along its inner edge, which outfalls down
+ * the face through the chute drains.
+ *
+ * The shelf is modelled horizontal. `crossFall` is the specified fall towards
+ * that drain — at 1 in 30-plus it changes no measured quantity, so it is
+ * carried for the drawing and the specification note only.
+ *
+ * A berm exists at a chainage only while the face still falls below its RL, so
+ * a berm placed low down simply disappears where the bund becomes shallow.
+ */
+export interface BundBerm {
+  id: string
+  side: BundBermSide
+  /** RL of the shelf. */
+  level: number
+  /** Horizontal width of the shelf (m). */
+  width: number
+  /** Specified cross-fall towards the bund, 1 in N. 0 = flat. */
+  crossFall: number
+  /** Face slope below the shelf (horizontal per 1 m vertical); null = keep the face slope. */
+  slopeBelow: number | null
+  /** Shelf surfacing; null = an unsurfaced earth berm that bills nothing. */
+  surfaceMaterial: TemplateMaterialRef | null
+  /** Surfacing thickness (m); used when the chosen code is measured by volume. */
+  surfaceThickness: number
+  /** Longitudinal catch-water drain along the inner edge; null = no drain. */
+  drainLiningMaterial: TemplateMaterialRef | null
+  /** Excavation for that drain; generated only while the drain is on. */
+  drainExcavationMaterial: TemplateMaterialRef | null
+  /** Clear rectangular channel dimensions and lining thickness (m). */
+  drainWidth: number
+  drainDepth: number
+  drainLiningThickness: number
+}
+
+/** One chainage. Which fields matter depends on the component's mode. */
+export interface BundSection {
+  id: string
+  /** Position along the bund, always stored in metres. */
+  chainage: number
+  /** 'new' mode: existing ground level at the centre-line. */
+  groundLevel: number | null
+  /** 'restoration' mode: the surveyed existing profile, ordered by offset. */
+  pre: BundPoint[]
+  /**
+   * Null → ordinary strip depth where design is above ground; where ground is
+   * higher, only the excess down to the fixed proposed design is cut.
+   */
+  stripped: BundPoint[] | null
+  /** Null → derived from the fixed design parameters, independent of existing ground. */
+  projected: BundPoint[] | null
+  /** Sparse user overrides; every unlisted stripped point remains automatic. */
+  strippedOverrides?: BundPoint[]
+  /** Sparse user overrides; every unlisted proposed point remains automatic. */
+  projectedOverrides?: BundPoint[]
+  /** Ground RL used to locate the designed upstream toe for this chainage. */
+  upstreamGroundLevel?: number | null
+  /** Ground RL used to locate the designed downstream toe for this chainage. */
+  downstreamGroundLevel?: number | null
+  /** Offsets inserted by the seven-point design button; manual points are kept separately. */
+  designPointOffsets?: number[]
+}
+
+/** One generated item, keyed by the (role, code) it aggregates. */
+export interface BundMaterialItem {
+  role: BundItemRole
+  code: string
+  itemNodeId: string
+}
+
+export type BundItemRole =
+  | 'clearance'
+  | 'stripping'
+  | 'formation'
+  | 'rolling'
+  | 'casing'
+  | 'casing-rolling'
+  | 'hearting'
+  | 'hearting-rolling'
+  | 'hearting-trench'
+  | 'hearting-trench-exc'
+  | 'turfing'
+  | 'pitching'
+  | 'pitching-bedding'
+  | 'pitching-metal'
+  | 'rocktoe'
+  | 'rocktoe-filter'
+  | 'rocktoe-exc'
+  | 'hfilter'
+  | 'vfilter'
+  | 'ustoe-exc'
+  | 'ustoe-build'
+  | 'dstoe-exc'
+  | 'dstoe-build'
+  | 'chute-exc'
+  | 'chute-lining'
+  | 'berm-surface'
+  | 'berm-drain-exc'
+  | 'berm-drain-lining'
+
+/**
+ * A toe trench. The u/s trench anchors stone pitching and has a separately
+ * selected PCC, masonry, or approved rock-fill construction item; the d/s toe
+ * drain may have a separately measured revetment. Quantities follow the
+ * measurement basis of the selected construction.
+ */
+export interface BundToe {
+  /** Excavation code; null = this toe is off (nothing measured). */
+  excavationMaterial: TemplateMaterialRef | null
+  /** Trench trapezium: widths at top and bottom, and the depth (m). */
+  topWidth: number
+  bottomWidth: number
+  /**
+   * Legacy/fixed depth (m). Used by the U/S anchorage trench and retained as
+   * the fallback for older D/S toe-drain projects until invert RLs are entered.
+   */
+  depth: number
+  /** D/S toe-drain constant bottom/invert RL; null retains legacy geometry. */
+  invertLevel: number | null
+  /** D/S trapezoidal-drain side slopes expressed as horizontal to 1 vertical. */
+  leftSlope: number
+  rightSlope: number
+  /** @deprecated Older two-reference longitudinal-invert model. */
+  invertStartLevel: number | null
+  /** @deprecated Older two-reference longitudinal-invert model. */
+  invertEndLevel: number | null
+  /** U/S anchorage construction or D/S drain revetment; null = excavation only. */
+  buildMaterial: TemplateMaterialRef | null
+  /**
+   * Legacy built-element cross-section area, retained only so older saved
+   * projects continue to open. D/s toe-drain revetment is now derived from the
+   * trench bed and side dimensions.
+   */
+  buildArea: number
+  /**
+   * Concrete lining thickness (m), also retained for saved-project
+   * compatibility. SQM stone-revetment codes specify thickness in their rate.
+   */
+  liningThickness: number
+}
+
+/** One soil-hardness band the stripping/excavation volume is split into. */
+export interface BundSoilBand {
+  id: string
+  /** Short label, e.g. "All soils", "Ordinary rock", "Hard rock". */
+  label: string
+  /** Share of the total stripping volume (0–100). */
+  pct: number
+  material: TemplateMaterialRef
+}
+
+/** Bund excavation quantities that may each be split across soil/rock classes. */
+export type BundExcavationRole =
+  | 'stripping'
+  | 'ustoe-exc'
+  | 'dstoe-exc'
+  | 'rocktoe-exc'
+  | 'chute-exc'
+  | 'berm-drain-exc'
+  | 'hearting-trench-exc'
+
+/** Percentage/code rows for one independently measured excavation quantity. */
+export type BundExcavationBands = Record<BundExcavationRole, BundSoilBand[]>
+
+/** One manually measured jungle-clearance patch (area = length × breadth). */
+export interface BundClearanceManualRow {
+  id: string
+  length: number | null
+  breadth: number | null
+}
+
+export interface BundData {
+  /** False until the setup wizard finishes; Edit setup reopens the wizard. */
+  configured: boolean
+  mode: BundMode
+  /** Asked alongside mode in setup step 1; selects homogeneous or zoned quantities. */
+  embankmentType: BundEmbankmentType
+  /** Repair only: breached/damaged restoration or general raising/strengthening. */
+  zonedRepairKind: BundZonedRepairKind
+  /** Breached/damaged repair only: approved borrow area or approved dump area. */
+  zonedSoilSource: BundZonedSoilSource
+  /** Migration marker for dedicated hearting/casing combined SSR items. */
+  zonedSsrVersion?: 1
+  /** Manual mode has no alignment; the map panel is hidden. */
+  source: 'map' | 'manual'
+  alignment: GuideWallPoint[]
+  lengthM: number
+  chainageUnit: BundChainageUnit
+  /**
+   * Include the phreatic-line diagram in the printed component details. Off by
+   * default: it is a design check, not every estimate carries it.
+   */
+  includePhreaticInPrint: boolean
+  sectionMode: 'continuous' | 'discontinuous'
+  intervalM: number
+  /** Interior section chainages for discontinuous mode (sorted, 0 < ch < lengthM). */
+  breaks: number[]
+  /** Datum that surveyed levels are reduced to when computing areas. */
+  datum: number
+  design: BundDesign
+  /** Proposed impervious-zone geometry for a zoned new or repair section. */
+  heartingDesign: BundHeartingDesign
+  /** Cut-off trench under the hearting; new zoned bunds only. */
+  heartingTrench: BundHeartingTrench
+  /** Legacy storage used to migrate the former combined/split radio choice. */
+  billing: BundBillingMode
+  /** Bill approved-soil excavation, transport, spreading and sectioning. */
+  formationEnabled: boolean
+  /** Bill watering and density-controlled rolling/compaction. */
+  compactionEnabled: boolean
+  /** Migration marker for the two-operation earthwork selector. */
+  earthworkOperationVersion?: number
+  /** Derived from the selected stripping/foundation excavation basis. */
+  fillBasis: BundFillBasis
+  /** Jungle clearance is optional; null hides it and bills nothing. */
+  clearanceMaterial: TemplateMaterialRef | null
+  /**
+   * How the clearance area is measured:
+   *  - 'perimeter' → mean developed existing-ground length × section length
+   *  - 'manual'    → sum of repeatable Length × Breadth rows
+   */
+  clearanceMode: 'perimeter' | 'manual'
+  clearanceManualRows: BundClearanceManualRow[]
+  /** @deprecated Migrated into clearanceManualRows when an older project opens. */
+  clearanceLength?: number
+  /** @deprecated Migrated into clearanceManualRows when an older project opens. */
+  clearanceBreadth?: number
+  strippingMaterial: TemplateMaterialRef
+  formationMaterial: TemplateMaterialRef
+  /** PMW compaction code used when compaction is billed without formation. */
+  rollingMaterial: TemplateMaterialRef
+  /** Zoned hearting formation/combined-operation code. */
+  heartingMaterial: TemplateMaterialRef
+  /** Zoned hearting compaction code when compaction is billed alone. */
+  heartingRollingMaterial: TemplateMaterialRef
+  /** Optional turfing on the downstream slope (SQM); null = off. */
+  turfingMaterial: TemplateMaterialRef | null
+  /** Turfing layer thickness (m) — shown on the drawing; turfing bills by area. */
+  turfingThickness: number
+  /** Optional stone pitching on the upstream slope; null = off. */
+  pitchingMaterial: TemplateMaterialRef | null
+  /** Pitching layer thickness (m); drawn, and used when billing by volume. */
+  pitchingThickness: number
+  /**
+   * How pitching is billed:
+   *  - false → by slope area (SQM), thickness is in the code (default).
+   *  - true  → by volume (CUM) = slope area × thickness, like the Excel.
+   */
+  pitchingAsVolume: boolean
+  /** Optional design-specific clean-sand filter below u/s revetment. */
+  pitchingBeddingMaterial: TemplateMaterialRef | null
+  /** Design filter thickness (m); new projects start at 0.15 m. */
+  pitchingBeddingThickness: number
+  /** @deprecated Legacy project field; rock-toe filter now belongs downstream. */
+  pitchingMetalEnabled: boolean
+  /** @deprecated Legacy project field; no longer generates an upstream item. */
+  pitchingMetalMaterial: TemplateMaterialRef | null
+  /** @deprecated Legacy project field retained for saved-project compatibility. */
+  pitchingMetalThickness: number
+  /**
+   * Horizontal drainage filter (sand/gravel blanket) laid on the stripped base
+   * from the d/s toe running upstream. Its inner end is the focus the phreatic
+   * line is drawn to; null = off.
+   */
+  horizontalFilterMaterial: TemplateMaterialRef | null
+  /** How far the horizontal filter runs in from the d/s toe (m). */
+  horizontalFilterLength: number
+  /** Horizontal filter blanket thickness (m). */
+  horizontalFilterThickness: number
+  /**
+   * Vertical (chimney) filter standing on the horizontal blanket — an add-on:
+   * it needs the horizontal filter to carry its water out, so it is only
+   * generated while the horizontal filter is on. null = off.
+   */
+  verticalFilterMaterial: TemplateMaterialRef | null
+  /** Chimney width/thickness (m). */
+  verticalFilterWidth: number
+  /** Chimney height (m); 0 = auto, up to MWL above the stripped base. */
+  verticalFilterHeight: number
+  /** Optional rubble rock toe at the downstream toe (CUM); null = off. */
+  rockToeMaterial: TemplateMaterialRef | null
+  /** Graded sand/aggregate filter below and behind the downstream rock toe. */
+  rockToeFilterMaterial: TemplateMaterialRef | null
+  /** Rock-toe cross-section: crest width (breadth) and the two side slopes. */
+  rockToeTopWidth: number
+  rockToeInnerSlope: number
+  /** @deprecated The exposed face now automatically follows design.dsSlope. */
+  rockToeOuterSlope: number
+  /**
+   * @deprecated Height is always the entered one now. Retained so older saved
+   * projects still open; nothing reads it.
+   */
+  rockToeAutoHeight: boolean
+  /** Rock-toe height (m), capped by the crest or the lowest berm shelf above it. */
+  rockToeHeight: number
+  /** Foundation excavation depth below the toe (m); 0 = no excavation item. */
+  rockToeExcavationDepth: number
+  /** Code for the rock-toe foundation excavation; null → uses the stripping code. */
+  rockToeExcavationMaterial: TemplateMaterialRef | null
+  /** @deprecated Migrated into excavationBands.stripping when an older project opens. */
+  soilBands: BundSoilBand[]
+  /** Central soil/rock classification for every independently measured excavation. */
+  excavationBands: BundExcavationBands
+  /**
+   * How the cut below the bund footprint is billed: CAW embankment seating or
+   * DAW foundation excavation.
+   */
+  strippingExcavationFamily: 'seating' | 'foundation'
+  /** Migration marker for role-specific foundation vs channel excavation families. */
+  excavationClassificationVersion?: number
+  /** Stone-pitching toe trench on the upstream side. */
+  upstreamToe: BundToe
+  /** Downstream toe drain (trench + optional lining). */
+  downstreamToe: BundToe
+  /** Optional protected chute drains running down the downstream slope. */
+  chuteDrainLiningMaterial: TemplateMaterialRef | null
+  /** Surface protection system used in the chute channel. */
+  chuteDrainProtectionType: 'concrete' | 'stone'
+  /** Excavation for the chute channel; generated only while chute drains are on. */
+  chuteDrainExcavationMaterial: TemplateMaterialRef | null
+  /** True derives the count from spacing; false uses chuteDrainCount directly. */
+  chuteDrainUseSpacing: boolean
+  /** Centre-to-centre spacing along the bund alignment (m). */
+  chuteDrainSpacing: number
+  /** Manual number of drains when chuteDrainUseSpacing is false. */
+  chuteDrainCount: number
+  /** Clear rectangular channel dimensions and concrete lining thickness (m). */
+  chuteDrainWidth: number
+  chuteDrainDepth: number
+  chuteDrainLiningThickness: number
+  /** In the 7-point toe design, treat both toes as the same (level ground). */
+  sameToeLevels: boolean
+  /** Materialized sections along 0..lengthM, each individually editable. */
+  sections: BundSection[]
+  /** Generated items, one per distinct (role, code) actually in use. */
+  materialItems: BundMaterialItem[]
+}
+
+/**
+ * Pinned pages every project carries. 'front' is the cover canvas (rich text
+ * plus images); 'introduction' is a plain rich document.
+ */
+export type PageTemplateId = 'introduction' | 'front'
+
 export interface ProjectNode {
   id: string
   kind: NodeKind
   name: string
   children: ProjectNode[]
 
-  /** Page/document item nodes: free-form document content. */
+  /** Page templates: which purpose-built editor this page node uses. */
+  pageTemplate?: PageTemplateId
+  /** Set after the default Telangana front-cover template is seeded once. */
+  frontCoverInitialized?: boolean
+
+  /** Component templates: which purpose-built dashboard this node uses. */
+  templateId?: ComponentTemplateId
+  /** Guide Wall template state (templateId === 'guide-wall'). */
+  guideWall?: GuideWallData
+  /** Bund template state (templateId === 'bund'). */
+  bund?: BundData
+
+  /**
+   * Item nodes whose quantity is computed by a component template. Carries the
+   * final quantity directly (no spreadsheet), while the DATA/rate still resolves
+   * from itemCode — so totals, seigniorage, and prints work unchanged.
+   */
+  computedQuantity?: number
+  /** Marks an item generated and driven by a template dashboard. */
+  templateGenerated?: boolean
+  /** Component id that owns and edits this generated item. */
+  templateOwnerId?: string
+  /** Which template role produced this item. */
+  templateItemRole?: 'wall' | 'base' | 'excavation' | BundItemRole
+
+  /**
+   * Page/document item nodes: free-form document content.
+   * @deprecated Superseded by `documentData`; still read so older projects
+   * migrate, and still written so they remain readable by older builds.
+   */
   document?: string
+
+  /** Rich page content, edited with Univer Docs. */
+  documentData?: IDocumentData
+
+  /** Document items: the selection fixed as this item's final quantity. */
+  documentFinal?: DocumentFinalNumber
+  /** Document items: the paragraph span to print (Y range only). */
+  documentPrintArea?: DocumentPrintArea
 
   /** Spreadsheet item nodes: Univer workbook data stored in the project file. */
   spreadsheet?: SpreadsheetDocument
@@ -169,6 +852,8 @@ export interface ProjectNode {
   categoryKey?: string
   /** SSR DATA choice made before insertion when its annual recipe has variants. */
   dataVariant?: DataVariantSelection
+  /** Logical catalogue cell and source audit captured by the SOR catalogue picker. */
+  sorCatalogue?: SorCatalogueItemSelection
 
   /** Per-node layout settings (inherited from parent when unset). */
   settings?: NodeSettings
@@ -227,6 +912,20 @@ export interface ProjectMiscellaneousItem {
   name: string
   cost: number
   createdAt: string
+}
+
+/**
+ * How the mineral transit permit fee is derived. `go_multiplier` follows the
+ * G.O. of 31.03.2022 (w.e.f. 01.04.2022): permit fee is a multiple of the
+ * seigniorage fee — 0.8x for minor minerals, 0.4x for Colour/Black Granite.
+ * `manual` is a single lump sum for the whole project.
+ */
+/** Charges levied on the components total rather than on seigniorage. */
+export interface ProjectChargeSettings {
+  /** Nature and Conservation / NAC. Default 0.1%. */
+  nacPercent?: number
+  /** Building & Other Construction Workers labour cess. Default 1%. */
+  labourCessPercent?: number
 }
 
 export type ConveyanceClass =
@@ -324,6 +1023,8 @@ export interface SeignioragePrintSettings {
   pageSize?: PaperSize
   orientation?: Orientation
   margins?: Margins
+  /** Report font scale (%) for the seigniorage statement. */
+  fontPercent?: number
 }
 
 export interface LeadAssignment {
@@ -412,6 +1113,8 @@ export interface LeadApplication {
   netRate: number
   netAmount: number
   calculation?: LeadRateCalculationDetail
+  /** SOR zone used to calculate the persisted Lead rates. */
+  rateZone?: SorZone
   handlingWarning?: string
   handlingOverrideReason?: string
   deliveryAtSiteOverrideReason?: string
@@ -433,50 +1136,6 @@ export interface LeadRateCalculationDetail {
   unit: string
 }
 
-export interface LeadDetailLine {
-  sl_no: string
-  description: string
-  unit: string
-  quantity: number | null
-  rate: number | null
-  amount: number | null
-}
-
-export interface LeadDetailDerivation {
-  sequence?: number
-  category?: string
-  label?: string
-  unit?: string
-  unit_qty?: number | null
-  rows: LeadDetailLine[]
-  total?: number | null
-  overhead_pct?: number | null
-  overhead_amount?: number | null
-  gross_qty?: number | null
-  gross_unit?: string
-  gross_total?: number | null
-  rate_formula?: string
-  rate_unit?: string
-  rate?: number | null
-  summary_ref?: {
-    charge_code?: string
-    slab_key?: string
-    column_key?: string
-    summary_rate?: number
-    summary_unit?: string
-    matches_summary?: boolean
-  }
-}
-
-export interface LeadDetailReconstruction {
-  detailCode: string
-  chargeCode: string
-  title: string
-  year: string
-  titleLines: string[]
-  derivations: LeadDetailDerivation[]
-}
-
 export interface LeadChart {
   points: LeadPoint[]
   assignments: LeadAssignment[]
@@ -487,11 +1146,15 @@ export interface LeadChart {
   printSettings?: LeadPrintSettings
 }
 
+export type SorZone = 'zone_1' | 'zone_2' | 'zone_3'
+
 export interface ProjectMeta {
   name: string
   sorYear: string
+  /** Latest fully calculated Project Dashboard total, shown on the Front Cover. */
+  estimatedCost?: number
   /** Active annual-rate zone. Zone III is the display/calculation default. */
-  sorZone?: 'zone_1' | 'zone_2' | 'zone_3'
+  sorZone?: SorZone
   /**
    * Area allowance is separate from zone. It is applied, when used, to the
    * labour component only.
@@ -505,6 +1168,161 @@ export interface ProjectMeta {
   flags: string[]
   /** GST selection. Automatic mode resolves the live Supabase slab. */
   taxSettings?: ProjectTaxSettings
+}
+
+export type CompiledDataScope = 'shared' | 'shared_edit' | 'component_edit' | 'item_edit' | 'lead_edit'
+
+export interface CompiledDataUsage {
+  nodeId: string
+  /** Human-readable component/sub-component path where this DATA is applied. */
+  path: string
+}
+
+/**
+ * One effective DATA identity in the aggregate DATA Dashboard.
+ *
+ * Unedited usages of the same source DATA remain grouped. A component-scoped
+ * recipe edit, an Item rate edit, or a scoped Lead addition receives a separate
+ * compiled key so it can never silently replace the shared DATA row.
+ */
+export interface CompiledDataDashboardEntry {
+  key: string
+  baseKey: string
+  code: string
+  displayName: string
+  description: string
+  unit: string | null
+  source: ItemSource
+  categoryKey: string
+  scope: CompiledDataScope
+  scopeNodeId?: string
+  scopeName?: string
+  baseRate: number | null
+  leadRate: number
+  rate: number | null
+  usageCount: number
+  usages: CompiledDataUsage[]
+  /** An Item node that can open the corresponding individual DATA view. */
+  representativeNodeId: string
+  synced: boolean
+}
+
+export interface CompiledLeadApplication {
+  applicationId: string
+  itemKey: string
+  itemCode: string
+  itemNodeId?: string
+  appliedAt: string
+  appliedPath: string
+  unit: string
+  quantity: number
+  variantRate: number
+  variantAmount: number
+}
+
+export interface CompiledLeadDashboardEntry {
+  variantId: string
+  materialName: string
+  variantName: string
+  conveyanceClass: ConveyanceClass
+  active: boolean
+  leadKm: number
+  liftM: number
+  rateSource: LeadRateSource
+  /** Cost per Lead unit compiled from the synced Lead chart rows. */
+  variantRate: number | null
+  rateUnit: string
+  applications: CompiledLeadApplication[]
+}
+
+/**
+ * Backend-derived values used by dashboards and print views.
+ *
+ * This is deliberately stored in the project file. Opening a dashboard or a
+ * print preview must be an offline/read-only operation; only an explicit Sync
+ * action is allowed to replace these values from the backend.
+ */
+export interface DashboardDataSnapshot {
+  syncedAt: string
+  /** Last aggregate DATA recompile, including scoped edits and Lead additions. */
+  dataSyncedAt?: string
+  /** Project state signature represented by dataDashboardEntries. */
+  dataCompileSignature?: string
+  dataDashboardEntries?: CompiledDataDashboardEntry[]
+  /** Last aggregate Lead recompile. */
+  leadSyncedAt?: string
+  /** Project Lead state signature represented by leadDashboardEntries. */
+  leadCompileSignature?: string
+  leadDashboardEntries?: CompiledLeadDashboardEntry[]
+  /** Last component compile by component/sub-component node id. */
+  componentSyncedAt?: Record<string, string>
+  /** Effective final DATA rate frozen by each Component Dashboard Sync. */
+  componentRates?: Record<string, Record<string, number | null>>
+  componentRecipes?: Record<string, Record<string, RateAnalysisRecipe>>
+  /** Quantity × effective rate total frozen by each Component Dashboard Sync. */
+  componentTotals?: Record<string, number>
+  componentCompileSignatures?: Record<string, string>
+  /** Effective final DATA rates frozen by the last Project/Title Sync. */
+  projectRates?: Record<string, number | null>
+  projectRecipes?: Record<string, RateAnalysisRecipe>
+  /** Set only when the complete Title dashboard (rates, tax, charges, Lead) synced. */
+  projectSyncedAt?: string
+  /** Item identity/version set covered by the complete Title sync. */
+  projectItemsSignature?: string
+  context: {
+    sorYear: string
+    sorZone: SorZone
+    areaAllowancePercent: number
+    areaAllowanceLabel?: string
+  }
+  syncedItemIds: string[]
+  itemSignatures?: Record<string, string>
+  rates: Record<string, number>
+  recipes: Record<string, RateAnalysisRecipe>
+  gstRules: Array<{
+    recipientType: GstRecipientType
+    earthworkPredominant: boolean
+    ratePct: number
+    effectiveFrom: string
+    effectiveTo: string | null
+    notificationRef: string | null
+    description: string | null
+  }>
+  seigniorageCharges: Array<{
+    seig_code: string
+    mineral_name: string
+    rate_per_mt: number | null
+    rate_per_m3: number | null
+    schedule: string | null
+    go_reference: string | null
+    effective_from: string | null
+    confidence: string | null
+    notes: string | null
+  }>
+  /** Last total Seigniorage Dashboard Sync. */
+  seigniorageSyncedAt?: string
+  seignioragePolicies: Record<string, SeigniorageApplicabilityPolicy>
+  leadApplicability?: Record<string, unknown>
+  leadRates?: Array<{
+    charge_code: string
+    year: string
+    slab_key: string
+    column_key: string
+    applies_to: string[]
+    unit: string
+    basis:
+      | 'initial'
+      | 'cumulative_total'
+      | 'per_km_increment'
+      | 'per_m_increment'
+      | 'per_operation'
+    slab_label: string
+    range_from: number | null
+    range_to: number | null
+    range_unit: string | null
+    rate: number
+    selectedZone: SorZone
+  }>
 }
 
 export interface EestimateProject {
@@ -522,16 +1340,33 @@ export interface EestimateProject {
    * the second is projectItemKey. These override the shared recipe only in that branch.
    */
   rateAnalysisScopedOverrides?: Record<string, Record<string, RateAnalysisRecipe>>
-  /** Project-local DTL Lead reconstruction edits keyed by detailCode:year. */
-  leadDetailOverrides?: Record<string, LeadDetailReconstruction>
   /** Per-item seigniorage charge overrides keyed by projectItemKey. */
   seigniorageOverrides?: Record<string, { seigCode: string | null; rate?: number | null }>
   /** Seigniorage print preview layout settings. */
   seignioragePrintSettings?: SeignioragePrintSettings
+  /** NAC / labour cess percentages used by the General Abstract. */
+  chargeSettings?: ProjectChargeSettings
+  /**
+   * Project print preview layout. Typed loosely here so `lib/projectPrint` owns
+   * the section list without this module depending on it.
+   */
+  projectPrintSettings?: {
+    pageSize?: PaperSize
+    orientation?: Orientation
+    margins?: Margins
+    fontPercent?: number
+    sections?: Record<string, boolean>
+  }
+  /** Project-wide default inherited by every dashboard, DATA and Page. */
+  signatureFooter?: SignatureFooterSettings
+  /** Local dashboard/Page overrides keyed by node id or dashboard scope key. */
+  signatureFooterOverrides?: Record<string, SignatureFooterSettings>
   /** Project-level named charges entered by the estimator. */
   miscellaneousItems?: ProjectMiscellaneousItem[]
   /** Per-DATA earthwork review keyed by projectItemKey. Missing means automatic. */
   earthworkOverrides?: Record<string, boolean>
+  /** Last explicit dashboard synchronization; shared by dashboards and printing. */
+  dashboardSnapshot?: DashboardDataSnapshot
   createdAt: string
   updatedAt: string
 }

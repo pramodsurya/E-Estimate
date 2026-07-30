@@ -236,7 +236,19 @@ const dawAbstract = [
   }
   const spec = buildDataVariantSpec({
     code: 'IRR-CAW-8-1', year: '2026-27', baseRate: 330.1,
-    addonTable, addonRates, leadApplicability
+    addonTable, addonRates, leadApplicability,
+    seigniorageApplicability: {
+      addons: [{
+        addon_id: 'murum_bed_15cm',
+        applicable: true,
+        rows: [{
+          mode: 'ADDON_MATERIAL_RATIO',
+          seig_code: 'SEIG_MORRAM_GRAVEL_EARTH',
+          quantity_ratio: 0.18,
+          conversion_required: true
+        }]
+      }]
+    }
   })
   assert.deepEqual(spec.options.map((option) => option.key), ['addon:none', 'addon:murum_bed_15cm'])
   assert.equal(spec.options[1].addOnRate, 92.9)
@@ -244,6 +256,8 @@ const dawAbstract = [
   assert.equal(spec.options[1].additionAnalysis.sections[0].lines[0].description, 'Murum')
   assert.equal(spec.options[1].addonLead.materialName, 'Murum')
   assert.equal(spec.options[1].addonLead.conveyanceClass, 'EARTH')
+  assert.equal(spec.options[1].addonSeigniorage.conversionRequired, false)
+  assert.equal(spec.options[1].addonSeigniorage.conversionConfigured, true)
   const prepared = applyDataVariantToRecipe(
     recipe({ unit: 'SQM', outputQuantity: 100, leadApplicability }),
     spec,

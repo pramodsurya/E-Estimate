@@ -28,6 +28,9 @@ export default defineConfig({
     },
     plugins: [react()],
     build: {
+      // The Front Cover snapshot stores the Telangana emblem as a data URL so
+      // saved projects remain portable across app upgrades and build hashes.
+      assetsInlineLimit: 100_000,
       rollupOptions: {
         input: { index: resolve(__dirname, 'src/renderer/index.html') }
       }

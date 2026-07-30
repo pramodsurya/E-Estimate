@@ -47,6 +47,11 @@ export interface EestimateApi {
   print: {
     toPdf: (html: string, options: PdfOptions) => Promise<PrintPdfResult>
   }
+  export: {
+    /** Ask where to save, then write the base64 PDF there. */
+    pdf: (data: string, name: string, defaultPath?: string) => Promise<SaveResult>
+    reveal: (path: string) => Promise<void>
+  }
   update: {
     check: () => Promise<unknown>
     download: () => Promise<unknown>

@@ -6,6 +6,7 @@ import { findNode } from '../../lib/tree'
 import { SETTINGS_DEFAULTS as DEFAULTS } from '../../lib/nodeSettings'
 import { isRenamable, kindLabel } from '../nodeVisual'
 import type { ItemEditorType, NodeSettings } from '../../types/project'
+import { canCreateDataFromItem } from '../../lib/createdData'
 
 export default function SettingsModal(): JSX.Element {
   const nodeId = useStore((s) => s.settings.nodeId)
@@ -44,6 +45,7 @@ export default function SettingsModal(): JSX.Element {
   const renamable = isRenamable(node)
   const isItem = node.kind === 'item'
   const isTitle = node.kind === 'title'
+  const canCreateData = canCreateDataFromItem(node)
 
   const save = (): void => {
     if (creatingData) {
@@ -135,20 +137,21 @@ export default function SettingsModal(): JSX.Element {
               onChange={(event) => setEditorType(event.target.value as ItemEditorType)}
             >
               <option value="spreadsheet">Spreadsheet (Univer)</option>
-              <option value="document">Document (Native)</option>
+              <option value="document">Document (Univer)</option>
             </select>
           </div>
           <div className="settings-note">
             New items use Spreadsheet by default. Univer workbook content is stored in the project
             file.
           </div>
-          {node.itemSource === 'SSR' && (
+          {canCreateData && (
             <section className="settings-create-data">
               <div className="settings-create-data-heading">
                 <div>
                   <strong>Create New DATA</strong>
                   <span>
-                    Clone this SSR DATA for a similar Item in this component, then tweak it independently.
+                    Clone this {node.sorCatalogue ? 'SOR catalogue' : 'SSR'} DATA for a similar
+                    Item in this component, then tweak it independently.
                   </span>
                 </div>
                 <button
@@ -176,8 +179,8 @@ export default function SettingsModal(): JSX.Element {
                     }}
                   />
                   <small>
-                    It will be stored with this chapter prefix, for example IRR-GAW_Gate B, and
-                    will appear under Created DATAs in Add Item.
+                    Your name is added to the source identity and the independent copy will
+                    appear under Created DATAs in Add Item.
                   </small>
                   {createdDataError && <div className="settings-create-data-error">{createdDataError}</div>}
                 </div>
@@ -255,6 +258,25 @@ export default function SettingsModal(): JSX.Element {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div className="field">
+            <label className="field-label">Report font size ({cfg.reportFontPercent}%)</label>
+            <input
+              type="range"
+              min={70}
+              max={160}
+              step={5}
+              value={cfg.reportFontPercent}
+              onChange={(e) =>
+                setCfg((c) => ({ ...c, reportFontPercent: Number(e.target.value) }))
+              }
+              style={{ width: '100%' }}
+            />
+            <div className="settings-note">
+              Scales the dashboard tables and the printed report for this{' '}
+              {kindLabel(node).toLowerCase()}.
             </div>
           </div>
 

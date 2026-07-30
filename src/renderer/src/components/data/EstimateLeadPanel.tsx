@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { CircleDot, Route } from 'lucide-react'
 import {
   canonicalLeadMaterialRef,
@@ -7,7 +7,8 @@ import {
   parseLeadInfo,
   type LeadMaterialRef
 } from '../../lib/leadApplicability'
-import { fetchSsrLeadApplicability, conveyanceClassLabel } from '../../lib/lead'
+import { conveyanceClassLabel } from '../../lib/lead'
+import { dashboardContextMatches } from '../../lib/dashboardSync'
 import { collectProjectItemGroups } from '../../lib/projectItems'
 import { useStore } from '../../store/useStore'
 import type { ConveyanceClass, LeadApplication, LeadVariant } from '../../types/project'
@@ -31,8 +32,6 @@ export default function EstimateLeadPanel(): JSX.Element {
   const project = useStore((state) => state.project)
   const openLeadMaterial = useStore((state) => state.openLeadMaterial)
   const selection = useStore((state) => state.leadSelection)
-  const [metadata, setMetadata] = useState<Map<string, unknown>>(new Map())
-  const [error, setError] = useState('')
 
   const groups = useMemo(
     () => (project ? collectProjectItemGroups(project.root) : []),
@@ -40,31 +39,15 @@ export default function EstimateLeadPanel(): JSX.Element {
   )
   const variants = project?.leadChart?.variants ?? []
   const applications = project?.leadChart?.applications ?? []
-
-  useEffect(() => {
-    if (!project) return
-    const codes = groups
-      .filter((group) => group.source === 'SSR')
-      .map((group) => group.code)
-    if (!codes.length) {
-      setMetadata(new Map())
-      return
-    }
-    let cancelled = false
-    void fetchSsrLeadApplicability(codes)
-      .then((items) => {
-        if (cancelled) return
-        const next = new Map<string, unknown>()
-        for (const [code, item] of items) next.set(code, item.lead_applicability)
-        setMetadata(next)
-      })
-      .catch((reason) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : 'Lead metadata failed.')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [project?.id, groups])
+  const metadata = useMemo(
+    () =>
+      new Map<string, unknown>(
+        project && dashboardContextMatches(project.dashboardSnapshot, project)
+          ? Object.entries(project.dashboardSnapshot?.leadApplicability ?? {})
+          : []
+      ),
+    [project]
+  )
 
   const items = useMemo(
     () => buildLeadAbstract(groups.map((group) => ({
@@ -87,7 +70,6 @@ export default function EstimateLeadPanel(): JSX.Element {
         <strong>Materials</strong>
         <span>{items.length}</span>
       </div>
-      {error && <div className="lead-panel-error">{error}</div>}
       {items.length === 0 ? (
         <div className="lead-panel-empty">
           Add DATA items with lead-applicable materials to show Cement, Steel, Earth, and other Lead groups.

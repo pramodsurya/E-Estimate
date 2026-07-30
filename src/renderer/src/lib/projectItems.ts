@@ -25,6 +25,15 @@ export interface ProjectItemGroup {
   branches: ItemUsageBranch[]
 }
 
+export interface RateAnalysisOverrideResolution {
+  recipe: RateAnalysisRecipe | null
+  scope: 'shared' | 'component'
+  scopeNodeId?: string
+  scopeName?: string
+}
+
+const nodePathCache = new WeakMap<ProjectNode, Map<string, ProjectNode[]>>()
+
 export function projectItemKey(node: ProjectNode): string {
   if (node.splitFromItemKey) return `SPLIT:${node.createdDataId ?? node.id}`
   const source = node.itemSource ?? 'OTHERS'
@@ -38,17 +47,17 @@ export function projectItemKey(node: ProjectNode): string {
 
 /** Find the structural ancestors of an item, from Title down to its direct parent. */
 export function projectNodePath(root: ProjectNode, nodeId: string): ProjectNode[] {
-  const path: ProjectNode[] = []
-  const visit = (node: ProjectNode): boolean => {
-    if (node.id === nodeId) return true
-    for (const child of node.children) {
-      path.push(node)
-      if (visit(child)) return true
-      path.pop()
+  let paths = nodePathCache.get(root)
+  if (!paths) {
+    paths = new Map<string, ProjectNode[]>()
+    const index = (node: ProjectNode, path: ProjectNode[]): void => {
+      paths?.set(node.id, path)
+      node.children.forEach((child) => index(child, [...path, node]))
     }
-    return false
+    index(root, [])
+    nodePathCache.set(root, paths)
   }
-  return visit(root) ? path : []
+  return paths.get(nodeId) ?? []
 }
 
 /**
@@ -59,15 +68,33 @@ export function rateAnalysisOverrideForNode(
   project: EestimateProject,
   node: ProjectNode
 ): RateAnalysisRecipe | null {
+  return rateAnalysisOverrideResolution(project, node).recipe
+}
+
+/** Resolve both the effective recipe edit and the structural scope that owns it. */
+export function rateAnalysisOverrideResolution(
+  project: EestimateProject,
+  node: ProjectNode
+): RateAnalysisOverrideResolution {
   const itemKey = projectItemKey(node)
   const path = projectNodePath(project.root, node.id)
   for (let index = path.length - 1; index >= 0; index -= 1) {
     const ancestor = path[index]
     if (ancestor.kind !== 'component' && ancestor.kind !== 'subcomponent') continue
     const scoped = project.rateAnalysisScopedOverrides?.[ancestor.id]?.[itemKey]
-    if (scoped) return scoped
+    if (scoped) {
+      return {
+        recipe: scoped,
+        scope: 'component',
+        scopeNodeId: ancestor.id,
+        scopeName: ancestor.name
+      }
+    }
   }
-  return project.rateAnalysisOverrides?.[itemKey] ?? null
+  return {
+    recipe: project.rateAnalysisOverrides?.[itemKey] ?? null,
+    scope: 'shared'
+  }
 }
 
 function addBranch(

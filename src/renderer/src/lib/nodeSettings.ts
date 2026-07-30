@@ -8,7 +8,8 @@ export const SETTINGS_DEFAULTS: Required<NodeSettings> = {
   orientation: 'portrait',
   margins: { top: 20, right: 15, bottom: 20, left: 25 },
   borders: true,
-  printArea: 'constrain-columns'
+  printArea: 'constrain-columns',
+  reportFontPercent: 100
 }
 
 /** Build the path of nodes from the root down to (and including) the target. */
@@ -44,6 +45,9 @@ export function resolveNodeSettings(
     if (s.borders !== undefined) merged.borders = s.borders
     if (s.printArea) merged.printArea = s.printArea
     if (s.margins) merged.margins = { ...merged.margins, ...s.margins }
+    if (typeof s.reportFontPercent === 'number' && s.reportFontPercent > 0) {
+      merged.reportFontPercent = s.reportFontPercent
+    }
   }
   return merged
 }

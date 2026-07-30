@@ -18,7 +18,6 @@ export function createDraftProject(): EestimateProject {
     leadChart: { points: [], assignments: [], itemChoices: [], variants: [], applications: [] },
     rateAnalysisOverrides: {},
     rateAnalysisScopedOverrides: {},
-    leadDetailOverrides: {},
     miscellaneousItems: [],
     earthworkOverrides: {},
     createdAt: now,
@@ -84,6 +83,66 @@ export function addChildren(
     }
   }
   return root
+}
+
+/**
+ * Return a sibling-safe display name without changing the requested base name.
+ * Matching is case-insensitive because names that differ only by capitalization
+ * are still indistinguishable in the Explorer and printed section list.
+ */
+export function uniqueChildName(parent: ProjectNode | null, requestedName: string): string {
+  const base = requestedName.trim()
+  if (!parent || !base) return base
+
+  const used = new Set(parent.children.map((child) => child.name.trim().toLocaleLowerCase()))
+  if (!used.has(base.toLocaleLowerCase())) return base
+
+  let suffix = 2
+  while (used.has(`${base} (${suffix})`.toLocaleLowerCase())) suffix += 1
+  return `${base} (${suffix})`
+}
+
+export type ReorderEdge = 'above' | 'below'
+
+/**
+ * Move `childId` to just above or below its sibling `targetId`. Returns `root`
+ * unchanged when the two are not siblings.
+ */
+export function reorderSibling(
+  root: ProjectNode,
+  childId: string,
+  targetId: string,
+  edge: ReorderEdge = 'above'
+): ProjectNode {
+  if (childId === targetId) return root
+  const parent = findParent(root, childId)
+  if (!parent || findParent(root, targetId)?.id !== parent.id) return root
+
+  const from = parent.children.findIndex((child) => child.id === childId)
+  if (from < 0) return root
+
+  const children = parent.children.slice()
+  const [moved] = children.splice(from, 1)
+  // The target index is resolved after removal so it stays correct whether the
+  // node moved up or down the list.
+  const to = children.findIndex((child) => child.id === targetId)
+  if (to < 0) return root
+  children.splice(edge === 'above' ? to : to + 1, 0, moved)
+
+  if (children.every((child, index) => child === parent.children[index])) return root
+  return patchNode(root, parent.id, { children })
+}
+
+/**
+ * Any ordinary sibling may be placed before or after another sibling. This is
+ * what lets supporting pages sit between components, sub-components, and DATA
+ * items. The caller still verifies that both nodes share the same parent.
+ */
+export function canReorderBetween(a: ProjectNode, b: ProjectNode): boolean {
+  if (a.id === b.id) return false
+  if (a.pageTemplate || b.pageTemplate) return false
+  if (a.templateGenerated || b.templateGenerated) return false
+  return true
 }
 
 export function removeNode(root: ProjectNode, id: string): ProjectNode {

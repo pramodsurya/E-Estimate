@@ -1,9 +1,11 @@
-import { BrowserWindow, dialog, ipcMain } from 'electron'
+import { promises as fs } from 'fs'
+import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { readProject, writeProject } from './projectIo'
 import { addRecent, clearRecent, listRecent, removeRecent } from './recentStore'
 
 const FILE_FILTERS = [{ name: 'E-Estimate Project', extensions: ['eestimate'] }]
+const PDF_FILTERS = [{ name: 'PDF Document', extensions: ['pdf'] }]
 
 function sanitize(name: string): string {
   return name.replace(/[\\/:*?"<>|]+/g, '_').trim() || 'Project'
@@ -86,6 +88,27 @@ export function registerIpc(): void {
     }
   })
 
+  // --- Export ---
+  // The renderer assembles the PDF and passes it as base64; this only asks the
+  // user where to put it and writes the bytes.
+  ipcMain.handle('export:pdf', async (e, payload: ExportPdfPayload) => {
+    const { data, name, defaultPath } = payload
+    const w = BrowserWindow.fromWebContents(e.sender)!
+    const res = await dialog.showSaveDialog(w, {
+      title: 'Export PDF',
+      defaultPath: defaultPath || `${sanitize(name)}.pdf`,
+      filters: PDF_FILTERS
+    })
+    if (res.canceled || !res.filePath) return { canceled: true }
+    const target = res.filePath.toLowerCase().endsWith('.pdf') ? res.filePath : `${res.filePath}.pdf`
+    await fs.writeFile(target, Buffer.from(data, 'base64'))
+    return { canceled: false, path: target }
+  })
+
+  ipcMain.handle('export:reveal', (_e, path: string) => {
+    shell.showItemInFolder(path)
+  })
+
   // --- Recent projects ---
   ipcMain.handle('recent:list', () => listRecent())
   ipcMain.handle('recent:clear', () => {
@@ -138,4 +161,11 @@ interface SavePayload {
   data: unknown
   currentPath: string | null
   name: string
+}
+
+interface ExportPdfPayload {
+  /** base64-encoded PDF bytes. */
+  data: string
+  name: string
+  defaultPath?: string
 }

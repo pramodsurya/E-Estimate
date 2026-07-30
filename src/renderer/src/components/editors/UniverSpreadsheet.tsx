@@ -620,10 +620,21 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
       persist()
       ribbonDisposable?.dispose()
       componentDisposable?.dispose()
-      univer?.dispose()
+      const instance = univer
+      univer = null
       apiRef.current = null
       workbookRef.current = null
-      container.innerHTML = ''
+      // Univer renders through a nested React root. Let the outer React commit
+      // finish before that root is synchronously unmounted.
+      if (instance) {
+        window.setTimeout(() => {
+          try {
+            instance.dispose()
+          } catch (disposeError) {
+            console.error('[UniverSpreadsheet] failed to dispose', disposeError)
+          }
+        }, 0)
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hostReady, node.id, setNodeSpreadsheet])

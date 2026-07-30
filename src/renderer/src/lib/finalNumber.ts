@@ -4,6 +4,7 @@
 import type { IWorkbookData } from '@univerjs/core'
 import type { EestimateProject, ProjectNode } from '../types/project'
 import { isUniverWorkbookData } from './univerSpreadsheet'
+import { resolveDocumentFinal } from './documentFinal'
 import {
   collectProjectItemGroups,
   projectItemKey,
@@ -45,6 +46,13 @@ function toNumber(v: unknown): number | null {
 
 /** Read the live value at the item's fixed final cell from its saved snapshot. */
 export function readFinalValueFromSnapshot(node: ProjectNode): number | null {
+  // Template-computed items carry their quantity directly (no spreadsheet).
+  if (typeof node.computedQuantity === 'number' && Number.isFinite(node.computedQuantity)) {
+    return node.computedQuantity
+  }
+  // Document items fix a text selection instead of a cell.
+  if (node.itemEditorType === 'document') return resolveDocumentFinal(node).value
+
   const fc = node.finalCell
   if (!fc) return null
   const snap = node.spreadsheet
@@ -100,9 +108,20 @@ export interface ItemFinal {
 export function getItemFinal(
   project: EestimateProject | null,
   node: ProjectNode,
-  dataRate?: number | null
+  dataRate?: number | null,
+  useDataRateExactly = false
 ): ItemFinal {
   const qty = readFinalValueFromSnapshot(node)
+  if (useDataRateExactly) {
+    const rate =
+      typeof dataRate === 'number' && Number.isFinite(dataRate) ? dataRate : null
+    return {
+      qty,
+      rate,
+      amount: qty != null && rate != null ? qty * rate : null,
+      unit: node.unit ?? null
+    }
+  }
   // Priority: manual Item rate, then the applicable shared/component DATA
   // override, then the untouched Supabase rate.
   const manual =
@@ -118,12 +137,13 @@ export function getItemFinal(
 export function componentItemsTotal(
   project: EestimateProject | null,
   node: ProjectNode,
-  rateOf?: (n: ProjectNode) => number | null | undefined
+  rateOf?: (n: ProjectNode) => number | null | undefined,
+  useDataRateExactly = false
 ): number {
   let total = 0
   const visit = (n: ProjectNode): void => {
     if (n.kind === 'item') {
-      const amount = getItemFinal(project, n, rateOf?.(n)).amount
+      const amount = getItemFinal(project, n, rateOf?.(n), useDataRateExactly).amount
       if (amount != null) total += amount
       return
     }

@@ -43,6 +43,19 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
+  // The window has no menu bar, so the usual accelerator never reaches Chromium.
+  // Long print and export runs log their progress to the console, so keep a way
+  // to read it in a packaged build.
+  win.webContents.on('before-input-event', (_event, input) => {
+    const toggle =
+      input.key === 'F12' ||
+      (input.control && input.shift && input.key.toLowerCase() === 'i')
+    if (input.type === 'keyDown' && toggle) {
+      if (win.webContents.isDevToolsOpened()) win.webContents.closeDevTools()
+      else win.webContents.openDevTools({ mode: 'detach' })
+    }
+  })
+
   const devUrl = process.env['ELECTRON_RENDERER_URL']
   if (devUrl) {
     void win.loadURL(devUrl)

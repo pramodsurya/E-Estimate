@@ -326,6 +326,23 @@ export interface RateAnalysisRecipe {
   /** True after an input change invalidates the last derived result. */
   calculationStale?: boolean
   publishedRate?: number
+  /** Printed non-numeric instruction/reference; it must never be coerced to zero. */
+  publishedRateText?: string
+  /** Logical source metadata for a rate resolved through the SOR catalogue RPC. */
+  sorCatalogueSource?: {
+    catalogueCode: string
+    catalogueName: string
+    dimensions: Record<string, string | number | boolean | null>
+    effectiveFrom?: string | null
+    source?: string | null
+    sourcePage?: number | null
+    sourceTitle?: string | null
+    commercialTerms?: {
+      basis?: string
+      transportation?: string
+      taxes?: string
+    }
+  }
   publishedLabourComponent?: number
   leadApplicability?: unknown
   /** Seigniorage policy from ssr_item.seigniorage_applicability (JSONB). */

@@ -1,0 +1,78 @@
+- generic [ref=f1e3]:
+  - generic [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - generic [ref=f1e6]: E-Estimate
+      - button "File" [ref=f1e9] [cursor=pointer]
+      - button "Component" [ref=f1e11] [cursor=pointer]
+      - button "Undo" [disabled] [ref=f1e12]
+      - button "Redo" [disabled] [ref=f1e16]
+    - textbox "Search project, pages, items…" [ref=f1e57]
+    - generic [ref=f1e26]:
+      - generic [ref=f1e58]: Untitled (new)
+      - generic [ref=f1e27]:
+        - button "Minimize" [ref=f1e28] [cursor=pointer]
+        - button "Maximize" [ref=f1e30] [cursor=pointer]
+        - button "Close" [ref=f1e33] [cursor=pointer]
+  - generic [ref=f1e37]:
+    - generic [ref=f1e59]:
+      - button "Explorer" [ref=f1e60] [cursor=pointer]
+      - button "Search" [ref=f1e65] [cursor=pointer]
+      - button "DTL Lead" [ref=f1e69] [cursor=pointer]
+      - button "Source Control" [ref=f1e74] [cursor=pointer]
+    - generic [ref=f1e79]:
+      - generic [ref=f1e80]:
+        - generic [ref=f1e81]:
+          - generic [ref=f1e82]: Explorer
+          - generic [ref=f1e83]:
+            - button "Add Page" [ref=f1e84] [cursor=pointer]
+            - button "Add Component" [ref=f1e88] [cursor=pointer]
+        - generic "Title" [ref=f1e97] [cursor=pointer]
+      - generic [ref=f1e98]:
+        - tablist "Project data" [ref=f1e99]:
+          - button "Seigniorage" [ref=f1e100] [cursor=pointer]
+          - button "Lead" [ref=f1e106] [cursor=pointer]
+          - button "Data" [ref=f1e110] [cursor=pointer]
+        - generic [ref=f1e115]: Items added in Explorer will appear here.
+    - generic [ref=f1e117]:
+      - heading "New Project" [level=1] [ref=f1e118]
+      - paragraph [ref=f1e119]: Set up the project details. Area allowance is identified from the selected location.
+      - generic [ref=f1e120]:
+        - heading "Project" [level=2] [ref=f1e121]
+        - generic [ref=f1e122]:
+          - generic [ref=f1e123]:
+            - generic [ref=f1e124]: Name of Project*
+            - textbox "e.g. Repairs to Sluice at Kakarvani Tank" [active] [ref=f1e125]
+          - generic [ref=f1e126]:
+            - generic [ref=f1e127]: SOR / SSR Year*
+            - combobox [ref=f1e128]:
+              - option "Select year…" [disabled] [selected]
+      - generic [ref=f1e129]:
+        - heading "Location*" [level=2] [ref=f1e130]
+        - generic [ref=f1e131]:
+          - textbox "Search a place (OpenStreetMap)…" [ref=f1e132]
+          - button "Search" [ref=f1e133] [cursor=pointer]
+        - generic [ref=f1e137]:
+          - textbox "Latitude" [ref=f1e138]
+          - textbox "Longitude" [ref=f1e139]
+          - button "Go" [ref=f1e140] [cursor=pointer]
+        - generic [ref=f1e145]:
+          - generic:
+            - generic:
+              - img "Toposheet"
+          - generic:
+            - generic [ref=f1e146]:
+              - button "Zoom in" [ref=f1e147] [cursor=pointer]: +
+              - button "Zoom out" [ref=f1e148] [cursor=pointer]: −
+            - button "Layers" [ref=f1e150] [cursor=pointer]
+            - generic [ref=f1e151]:
+              - link "Leaflet" [ref=f1e152] [cursor=pointer]:
+                - /url: https://leafletjs.com
+              - text: "| Toposheet imagery: supplied KMZ"
+        - generic [ref=f1e157]: Click the map, search, or enter coordinates to set the project location.
+      - generic [ref=f1e158]:
+        - heading "Area Allowance" [level=2] [ref=f1e159]
+        - group "Area allowance classification mode" [ref=f1e160]:
+          - button "Automatic from map" [ref=f1e161] [cursor=pointer]
+          - button "Manual override" [ref=f1e162] [cursor=pointer]
+        - generic [ref=f1e163]: Select the project location to determine allowance.
+      - button "Create Project" [disabled] [ref=f1e165]

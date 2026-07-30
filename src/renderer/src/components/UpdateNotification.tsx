@@ -91,7 +91,7 @@ export default function UpdateNotification(): JSX.Element | null {
 
   // Don't show anything in idle / checking state (unless checking takes long)
   if (stage === 'idle' || stage === 'not-available') return null
-  if (dismissed && stage === 'available') return null
+  if (dismissed && (stage === 'available' || stage === 'error')) return null
 
   return (
     <div style={{
