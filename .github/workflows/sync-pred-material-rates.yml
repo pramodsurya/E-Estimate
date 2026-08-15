@@ -1,0 +1,61 @@
+name: Sync PRED material rates
+
+on:
+  schedule:
+    # Every Monday at 02:10 Asia/Kolkata (20:40 UTC on the preceding day).
+    # The script enforces the exact 14-day interval, including across months.
+    - cron: '40 20 * * 0'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Download and OCR only; do not update Supabase
+        required: false
+        type: boolean
+        default: false
+      limit:
+        description: Maximum circulars to process
+        required: false
+        type: string
+        default: '3'
+
+# Do not add pull_request or pull_request_target here. This workflow holds a
+# privileged database secret and must only run trusted repository code.
+permissions:
+  contents: read
+
+concurrency:
+  group: pred-material-rate-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      INPUT_DRY_RUN: ${{ inputs.dry_run || 'false' }}
+      INPUT_LIMIT: ${{ inputs.limit || '3' }}
+      IS_SCHEDULED: ${{ github.event_name == 'schedule' }}
+    steps:
+      - name: Check out trusted repository code
+        uses: actions/checkout@v4
+
+      - name: Install OCR tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng
+
+      - name: Verify parser behaviour
+        run: python3 -m unittest scripts/rate-sync/test_pred_material_rate_sync.py
+
+      - name: Discover, extract and upload rates
+        run: |
+          args=(--limit "$INPUT_LIMIT")
+          if [[ "$IS_SCHEDULED" == "true" ]]; then
+            args+=(--scheduled)
+          fi
+          if [[ "$INPUT_DRY_RUN" == "true" ]]; then
+            args+=(--dry-run)
+          fi
+          python3 scripts/rate-sync/pred_material_rate_sync.py "${args[@]}"
