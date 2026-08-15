@@ -260,6 +260,10 @@ async function main() {
         key: 'materials',
         label: 'A. Materials',
         lines: [
+          // Both rows carry the flag because that is what the app writes:
+          // CreateProjectDataModal marks every Materials row applicable, and the
+          // estimator unticks the ones that are not minerals. A fixture without
+          // it models a DATA the app cannot produce.
           {
             id: 'mat-1',
             slNo: '1',
@@ -268,6 +272,7 @@ async function main() {
             quantity: 2,
             rate: 100,
             amount: 200,
+            seigniorageApplicable: true,
             lead: {
               applicable: true,
               materialName: 'Sand',
@@ -282,7 +287,8 @@ async function main() {
             quantity: 1,
             rate: 0,
             rateFormula: '=MAT1_RATE * 10%',
-            amount: 0
+            amount: 0,
+            seigniorageApplicable: true
           }
         ]
       },
@@ -442,8 +448,11 @@ async function main() {
     ),
     'utf8'
   )
-  assert.match(rateDashboardSource, /syncIndividualDataSnapshot/)
-  assert.match(rateDashboardSource, /Sync this DATA/)
+  // The per-item "Sync this DATA" button was replaced by a project-wide "Sync
+  // All DATA". syncIndividualDataSnapshot still works - it is asserted directly
+  // above - but nothing in the UI reaches it any more.
+  assert.match(rateDashboardSource, /syncDataDashboardSnapshot/)
+  assert.match(rateDashboardSource, /Sync All DATA/)
 
   console.log('SOR catalogue DATA preparation tests passed')
 }

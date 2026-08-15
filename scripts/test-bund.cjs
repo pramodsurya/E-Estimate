@@ -1687,9 +1687,10 @@ const drainData = {
 // Horizontal filter: 6 × 0.6 = 3.6 m² section × 30 m = 108 cu.m.
 near(bund.rowsTotal(bund.horizontalFilterRows(drainData)), 3.6 * 30, 0.1, 'blanket volume')
 
-// Phreatic geometry (REPAIR model): the line is fixed by MWL + geometry + the
-// d/s toe — the focus always sits at the d/s toe, and drainage is checked for
-// whether it intercepts the line, never for moving it.
+// Phreatic geometry, by Casagrande's construction: the focus of the basic
+// parabola sits where the seepage line has to discharge. That is the d/s toe
+// only on an undrained section — a horizontal blanket brings it forward to the
+// blanket's inner end, and a rock toe to its inner base. Both cases below.
 const geo = bund.phreaticGeometry(drainData, drainData.sections[0])
 assert.ok(geo, 'phreatic line computes with MWL + levels')
 near(geo.waterDepth, 3.3, 1e-6, 'water depth = MWL − stripped base')
@@ -1697,7 +1698,21 @@ near(geo.waterDepth, 3.3, 1e-6, 'water depth = MWL − stripped base')
   const b = geo.focusX - geo.startX
   near(geo.s, Math.sqrt(b * b + geo.waterDepth ** 2) - b, 0.001, 'S = √(b²+H²) − b')
 }
-near(geo.focusX, geo.dsToeX, 1e-6, 'repair: focus is always the d/s toe')
+near(
+  geo.focusX,
+  geo.dsToeX - drainData.horizontalFilterLength,
+  1e-6,
+  'the blanket draws the focus forward to its inner end'
+)
+{
+  // Strip the drainage away and the focus falls back to the toe, which is what
+  // the old expectation described. It was being asserted on a drained section.
+  const undrained = bund.phreaticGeometry(
+    { ...drainData, horizontalFilterMaterial: null, rockToeMaterial: null },
+    drainData.sections[0]
+  )
+  near(undrained.focusX, undrained.dsToeX, 1e-6, 'undrained: the focus is the d/s toe')
+}
 assert.ok(!geo.cutsFace, 'the blanket at the toe catches the descending line')
 // With a rock toe also present it catches the line first; isolate the blanket.
 {
@@ -1711,15 +1726,37 @@ assert.ok(!geo.cutsFace, 'the blanket at the toe catches the descending line')
 const lastPt = geo.points[geo.points.length - 1]
 near(lastPt.rl - geo.baseRl, geo.s, 0.01, 'parabola passes the focus at y = S')
 
-// Changing the blanket length must NOT move the fixed line (repair).
+// A longer blanket reaches further under the fill, so the focus moves further
+// upstream, b shortens, and S = sqrt(b^2 + H^2) - b grows. The line following
+// the drainage is the whole point of designing the blanket, so this must move.
 const longer = bund.phreaticGeometry(
   { ...drainData, horizontalFilterLength: 12 },
   drainData.sections[0]
 )
-near(longer.s, geo.s, 1e-9, 'blanket length does not change the line (S unchanged)')
-near(longer.focusX, geo.focusX, 1e-9, 'focus stays at the d/s toe')
+// Not a full 6 m further: a blanket cannot be laid past the crest centreline,
+// so the focus stops there however long the blanket is asked to be.
+near(
+  longer.focusX,
+  drainData.design.topWidth / 2,
+  1e-6,
+  'the focus stops at the crest centreline, not wherever the blanket ends'
+)
+assert.ok(longer.s > geo.s, 'a longer blanket raises S, it does not leave the line untouched')
+{
+  const b = longer.focusX - longer.startX
+  near(
+    longer.s,
+    Math.sqrt(b * b + longer.waterDepth ** 2) - b,
+    0.001,
+    'the longer blanket obeys the same S = sqrt(b^2 + H^2) - b'
+  )
+}
+assert.ok(longer.focusX < geo.focusX, 'the longer blanket moved the focus upstream')
 
-// A rock toe intercepts only when it is tall enough to reach the line.
+// A rock toe takes the line into itself, because the focus sits at the toe's
+// inner base — that is what providing a drain means under this construction.
+// "Is the drainage needed" is answered by the undrained reference line below,
+// and the printed report shows the two side by side.
 const rockToeTall = bund.phreaticGeometry(
   {
     ...drainData,
@@ -1739,7 +1776,15 @@ const rockToeShort = bund.phreaticGeometry(
   },
   drainData.sections[0]
 )
-assert.ok(rockToeShort.cutsFace, 'a too-short rock toe lets the line pass over it')
+assert.equal(rockToeShort.interceptedBy, 'rocktoe', 'a short rock toe still takes the line in')
+assert.ok(!rockToeShort.cutsFace, 'so the line does not exit on the face')
+// The toe's size shows up in the line it produces, not in whether it catches
+// it: a taller toe reaches further under the fill and lifts S.
+assert.ok(rockToeTall.s > rockToeShort.s, 'a taller rock toe reaches further in, raising S')
+assert.ok(
+  rockToeTall.focusX < rockToeShort.focusX,
+  'and carries the focus further upstream'
+)
 
 // Undrained: the phreatic line reaches the d/s face (warning case).
 const undrained = bund.phreaticGeometry(
@@ -1852,9 +1897,13 @@ near(
   1e-9,
   'lowest stripped level uses the lowest surveyed point, not the centre'
 )
-// Water depth at the dangerous section measures from that lowest level.
+// Casagrande's datum is horizontal through the drainage outlet, so the head is
+// measured from the finished d/s design toe — not from the lowest stripped point
+// anywhere under the footprint, which would drop the whole curve merely because
+// a berm was widened. The critical section is still chosen by lowest ground.
 const lowGeo = bund.phreaticGeometry(twoLevels, twoLevels.sections[1])
-near(lowGeo.waterDepth, 98 - (93 - 0.3), 1e-6, 'depth = MWL − lowest stripped ground')
+const lowToe = bund.downstreamDesignToePointAt(twoLevels.sections[1], twoLevels)
+near(lowGeo.waterDepth, 98 - lowToe.rl, 1e-6, 'depth = MWL − the d/s design toe')
 
 // The geometry is the REAL profile: toes from the proposed section, and the
 // entry point interpolated where MWL crosses the actual u/s face.
@@ -2139,7 +2188,25 @@ near(
   const roles = items.map((item) => item.role)
   assert.ok(roles.includes('berm-surface'), 'berm surfacing generates an item')
   assert.ok(roles.includes('berm-drain-lining'), 'berm drain protection generates an item')
-  assert.ok(roles.includes('berm-drain-exc'), 'berm drain excavation generates an item')
+  // The drain cutting shares its SOR code with the general stripping, and one
+  // code is one line of the abstract, so requiredItems merges them and the role
+  // disappears while the quantity does not. Check the quantity reaches the
+  // estimate: bill it with the drain and without, and the gap is the drain.
+  near(
+    billedVolume(items) -
+      billedVolume(
+        bund.requiredItems({
+          ...surfacedData,
+          design: {
+            ...bermDesign,
+            berms: [{ ...surfaced, drainExcavationMaterial: null }]
+          }
+        })
+      ),
+    bund.rowsTotal(bund.bermDrainExcavationRows(surfacedData, surfaced)),
+    0.01,
+    'berm drain excavation reaches the estimate, inside the line that carries its code'
+  )
   assert.equal(
     bund.requiredItems(bermData).some((item) => item.role.startsWith('berm-')),
     false,
