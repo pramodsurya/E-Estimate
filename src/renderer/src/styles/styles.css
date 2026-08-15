@@ -16593,6 +16593,16 @@ textarea {
   font-size: 12px;
   line-height: 1.45;
 }
+.cs-show-all {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
 .cs-hand-typed {
   display: flex;
   flex-direction: column;

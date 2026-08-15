@@ -269,9 +269,39 @@ assert.ok(
 
 // --- Only the cement and steel this estimate uses is asked for ------------
 assert.ok(
-  /materialCodesInRecipe\(recipe, aliases\)/.test(panel) &&
-    /used\.size === 0 \|\| used\.has\(material\.materialCode\)/.test(panel),
+  /usedCodes\.has\(material\.materialCode\)/.test(panel) &&
+    /showAllMaterials \|\| usedCodes\.size === 0/.test(panel),
   'the cement/steel step must offer only what the DATA consumes'
+)
+// The compiled snapshot is absent until the dashboard is built, and a hand
+// edited DATA lives in the override maps. Reading only the snapshot left the
+// used set empty on a real estimate, which fell back to every published grade -
+// the whole list the estimator was asked to read through.
+assert.ok(
+  /project\.dashboardSnapshot\?\.projectRecipes/.test(panel) &&
+    /project\.rateAnalysisOverrides/.test(panel) &&
+    /project\.rateAnalysisScopedOverrides/.test(panel),
+  'the used set must be read from the snapshot and both override maps'
+)
+
+// --- Each column adopts its own circular ---------------------------------
+// One pricing date applied to both columns resolves to one circular, so cement
+// and steel came out identical whatever years were chosen. The choice is per
+// column, and it has to reach the statement: the shadow project prices from
+// materialRateOverrides alone, so a circular that is only displayed is not the
+// one billed.
+assert.ok(
+  /const \[circularFrom, setCircularFrom\]/.test(panel) &&
+    /circularOverrides = \(side: Side\)/.test(panel),
+  'each column must choose its own published circular'
+)
+assert.ok(
+  /const overrides: Record<string, MaterialRateOverride> = circularOverrides\(side\)/.test(panel),
+  'the adopted circular must reach the generated statement, not just the boxes'
+)
+assert.ok(
+  /overrides: circularOverrides\(side\),[\s\S]{0,320}?periods: \[\],/.test(panel),
+  'a column with no circular adopted must fall to its own year, not pick one up'
 )
 
 // --- A code alone does not tell a reader what moved ----------------------
@@ -348,17 +378,22 @@ assert.ok(
 console.log('comparative statement: typography, export and lead-scope guards passed')
 
 // --- An empty rate box must say what it will actually use ----------------
-// Not simply the year's published rate: a monthly G.O. circular effective at
-// the project's pricing date outranks it, and that date applies to both
-// columns — so cement can show no movement at all and look like a finding.
+// This is where the panel misled its reader. The box resolved a circular from
+// the project's single pricing date while the statement was priced without one,
+// so the figure shown was not the figure billed - and because that one date
+// served both columns, cement showed no movement whatever years were compared.
 assert.ok(
   /const fallbackRate = \(side: Side, materialCode: string\)/.test(panel) &&
     /placeholder=\{fallbackRate\(side, code\)\}/.test(panel),
   'each blank rate box must show the figure and source it will fall back to'
 )
 assert.ok(
-  /resolveMaterialRate\(materialCode, \{\s*overrides: \{\}/.test(panel),
-  'the fallback shown must be resolved the same way the pricing resolves it'
+  /resolveMaterialRate\(materialCode, \{\s*overrides: circularOverrides\(side\)/.test(panel),
+  'the fallback shown must be resolved from the same overrides that price the side'
+)
+assert.ok(
+  !/asOf: project\.meta\.materialRateAsOf/.test(panel),
+  "the project's own pricing date must not decide either column's circular"
 )
 assert.ok(
   /No published rate — this material will not be priced/.test(panel),

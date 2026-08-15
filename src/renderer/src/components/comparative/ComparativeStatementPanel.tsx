@@ -17,11 +17,14 @@ import { nodeDisplayName } from '../nodeVisual'
 import type { ComparativeRow } from '../../lib/comparativeRows'
 import { fetchSorYears } from '../../lib/masterData'
 import {
+  circularsFromPeriods,
   fetchMaterialAliases,
   fetchMaterialRatePeriods,
   fetchMonthlyMaterials,
   fetchYearlyMaterialRates,
+  formatCircularMonth,
   materialCodesInRecipe,
+  periodAt,
   resolveMaterialRate,
   type MaterialRatePeriod,
   type MonthlyMaterial
@@ -377,6 +380,23 @@ export default function ComparativeStatementPanel({
   const [includeLead, setIncludeLead] = useState(true)
   /** What each side will use where a box is left blank — see `fallbackRate`. */
   const [periods, setPeriods] = useState<MaterialRatePeriod[]>([])
+  /**
+   * Which G.O. circular each column adopts, by its effective-from date. Empty
+   * means the column uses the rate published for its own SOR year.
+   *
+   * This is a per-column choice rather than the project's own pricing date. One
+   * date applied to both columns resolves to one circular, so cement and steel
+   * came out identical on both sides whatever years were chosen, and the year
+   * selector looked broken. The comparison is between schedules, so each side
+   * has to be free to sit on its own.
+   */
+  const [circularFrom, setCircularFrom] = useState<Record<Side, string>>({
+    left: '',
+    right: ''
+  })
+  /** Cement and steel this estimate actually consumes — see the loader below. */
+  const [usedCodes, setUsedCodes] = useState<Set<string>>(new Set())
+  const [showAllMaterials, setShowAllMaterials] = useState(false)
   const [yearlyRates, setYearlyRates] = useState<Record<Side, Map<string, number>>>({
     left: new Map(),
     right: new Map()
@@ -454,17 +474,28 @@ export default function ComparativeStatementPanel({
         // Only the cement and steel this estimate actually consumes. Offering
         // every published grade asks the estimator to read nine boxes to find
         // the two their work uses.
+        //
+        // The compiled snapshot is not enough on its own: it is absent until the
+        // dashboard has been built, and a DATA the estimator edited by hand lives
+        // in the override maps. Reading all three is what makes the short list
+        // appear on a real estimate instead of falling back to every grade.
         const used = new Set<string>()
-        for (const recipe of Object.values(project.dashboardSnapshot?.projectRecipes ?? {})) {
+        const noteRecipe = (recipe: Parameters<typeof materialCodesInRecipe>[0]): void => {
           for (const code of materialCodesInRecipe(recipe, aliases)) used.add(code)
         }
+        for (const recipe of Object.values(project.dashboardSnapshot?.projectRecipes ?? {})) {
+          noteRecipe(recipe)
+        }
+        for (const recipe of Object.values(project.rateAnalysisOverrides ?? {})) {
+          noteRecipe(recipe)
+        }
+        for (const entries of Object.values(project.rateAnalysisScopedOverrides ?? {})) {
+          for (const recipe of Object.values(entries)) noteRecipe(recipe)
+        }
+        setUsedCodes(used)
         setMaterials(
-          loadedMaterials.filter(
-            (material) =>
-              COMPARED_MATERIAL_CATEGORIES.includes(material.category) &&
-              // Before a Sync there is nothing to filter against; showing them
-              // all beats hiding the one they need.
-              (used.size === 0 || used.has(material.materialCode))
+          loadedMaterials.filter((material) =>
+            COMPARED_MATERIAL_CATEGORIES.includes(material.category)
           )
         )
         // Default the past column to the year before the project's own.
@@ -479,7 +510,12 @@ export default function ComparativeStatementPanel({
     return () => {
       cancelled = true
     }
-  }, [project.meta.sorYear, project.dashboardSnapshot])
+  }, [
+    project.meta.sorYear,
+    project.dashboardSnapshot,
+    project.rateAnalysisOverrides,
+    project.rateAnalysisScopedOverrides
+  ])
 
   useEffect(() => {
     let cancelled = false
@@ -495,20 +531,58 @@ export default function ComparativeStatementPanel({
     }
   }, [leftYear, rightYear])
 
+  /** The circulars available to adopt, newest first. */
+  const circulars = useMemo(
+    () => circularsFromPeriods(periods).slice().sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom)),
+    [periods]
+  )
+
+  /**
+   * The circular a column has adopted, as real rate overrides.
+   *
+   * The statement is generated from a shadow project, and that project prices
+   * cement and steel from `materialRateOverrides` alone — a pricing date is only
+   * a cache key and never reaches the rate lookup. So a circular that is merely
+   * displayed would not be the one billed. Turning the choice into overrides is
+   * what makes the boxes and the finished statement agree.
+   */
+  const circularOverrides = (side: Side): Record<string, MaterialRateOverride> => {
+    const effectiveFrom = circularFrom[side]
+    if (!effectiveFrom) return {}
+    const circular = circulars.find((entry) => entry.effectiveFrom === effectiveFrom)
+    if (!circular) return {}
+    const label = circular.source || `Circular ${formatCircularMonth(effectiveFrom)}`
+    const overrides: Record<string, MaterialRateOverride> = {}
+    for (const material of materials) {
+      const period = periodAt(periods, material.materialCode, effectiveFrom)
+      if (!period || !Number.isFinite(period.rate)) continue
+      overrides[material.materialCode] = {
+        rate: period.rate,
+        source: 'MONTHLY_CIRCULAR',
+        label,
+        effectiveFrom: period.effectiveFrom,
+        setAt: new Date().toISOString()
+      }
+    }
+    return overrides
+  }
+
   /**
    * What this side will actually price the material at if the box is left blank.
    *
-   * Not simply the year's published rate: a monthly G.O. circular effective at
-   * the project's pricing date outranks it, and the project's date applies to
-   * both columns. Saying which one is in play — and at what figure — is the
-   * only way the estimator can tell whether cement is being compared at all.
+   * Either the circular this column adopted, or — the default — the rate
+   * published for this column's own SOR year. Saying which one is in play, and
+   * at what figure, is the only way the estimator can tell whether cement is
+   * being compared at all.
    */
   const fallbackRate = (side: Side, materialCode: string): string => {
     const resolved = resolveMaterialRate(materialCode, {
-      overrides: {},
-      periods,
+      overrides: circularOverrides(side),
+      // A column with no circular adopted must not quietly pick one up: with no
+      // periods to search, the year's published rate is what remains.
+      periods: [],
       yearlyRates: yearlyRates[side],
-      asOf: project.meta.materialRateAsOf ?? new Date().toISOString().slice(0, 10),
+      asOf: circularFrom[side] || new Date().toISOString().slice(0, 10),
       sorYear: side === 'left' ? leftYear : rightYear
     })
     if (resolved.rate === null) return 'No published rate — this material will not be priced'
@@ -536,7 +610,9 @@ export default function ComparativeStatementPanel({
   }, [handTyped, leftYear, rightYear])
 
   const sideFor = (side: Side, year: string): ComparativeSide => {
-    const overrides: Record<string, MaterialRateOverride> = {}
+    // The adopted circular first, then anything hand-typed on top of it: a box
+    // the estimator filled in is a judgement and outranks a published figure.
+    const overrides: Record<string, MaterialRateOverride> = circularOverrides(side)
     for (const [code, value] of Object.entries(rates[side])) {
       const rate = Number(value)
       if (!value.trim() || !Number.isFinite(rate)) continue
@@ -651,6 +727,25 @@ export default function ComparativeStatementPanel({
       setSaving(false)
     }
   }
+
+  /**
+   * The grades worth asking about: the ones this estimate consumes. If nothing
+   * could be identified there is nothing to narrow to, so the full list stands
+   * rather than an empty panel.
+   */
+  const visibleMaterials = useMemo(() => {
+    if (showAllMaterials || usedCodes.size === 0) return materials
+    return materials.filter((material) => usedCodes.has(material.materialCode))
+  }, [materials, showAllMaterials, usedCodes])
+  // Counted against the narrowed list, not the visible one, so ticking the box
+  // does not remove the box.
+  const hiddenMaterialCount = useMemo(
+    () =>
+      usedCodes.size === 0
+        ? 0
+        : materials.filter((material) => !usedCodes.has(material.materialCode)).length,
+    [materials, usedCodes]
+  )
 
   const materialInput = (side: Side, code: string): JSX.Element => (
     <input
@@ -943,21 +1038,45 @@ export default function ComparativeStatementPanel({
               </select>
             </label>
 
+            <label className="field">
+              <span className="field-label">Published circular</span>
+              <select
+                className="text-input"
+                value={circularFrom[side]}
+                onChange={(event) =>
+                  setCircularFrom((current) => ({ ...current, [side]: event.target.value }))
+                }
+              >
+                <option value="">
+                  Rate published for {side === 'left' ? leftYear || 'that year' : rightYear || 'that year'}
+                </option>
+                {circulars.map((circular) => (
+                  <option key={circular.effectiveFrom} value={circular.effectiveFrom}>
+                    {formatCircularMonth(circular.effectiveFrom)} ·{' '}
+                    {circular.materialCodes.length} materials
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <div className="cs-materials">
               <span className="field-label">Cement / Steel rates</span>
               <p className="cs-hint">
-                Leave a box empty and this column prices the material itself, in this order: a
-                monthly G.O. circular effective at the project&apos;s pricing date, otherwise the
-                rate published for {side === 'left' ? leftYear || 'that year' : rightYear || 'that year'}.
-                Each box shows which it will be.
+                Leave a box empty and this column prices the material at{' '}
+                {circularFrom[side]
+                  ? `the ${formatCircularMonth(circularFrom[side])} circular.`
+                  : `the rate published for ${
+                      side === 'left' ? leftYear || 'that year' : rightYear || 'that year'
+                    }.`}{' '}
+                Each box shows the figure it will use.
               </p>
-              {materials.length === 0 && (
+              {visibleMaterials.length === 0 && (
                 <p className="cs-hint">
                   No cement or steel is used by this estimate&apos;s DATA. Both columns will use
                   each year&apos;s own published rates.
                 </p>
               )}
-              {materials.map((material) => (
+              {visibleMaterials.map((material) => (
                 <label className="field" key={material.materialCode}>
                   <span className="field-label">
                     {material.name} <small>({material.unit})</small>
@@ -965,6 +1084,16 @@ export default function ComparativeStatementPanel({
                   {materialInput(side, material.materialCode)}
                 </label>
               ))}
+              {hiddenMaterialCount > 0 && (
+                <label className="cs-show-all">
+                  <input
+                    type="checkbox"
+                    checked={showAllMaterials}
+                    onChange={(event) => setShowAllMaterials(event.target.checked)}
+                  />
+                  Show every published grade ({hiddenMaterialCount} more)
+                </label>
+              )}
             </div>
           </section>
         ))}
