@@ -22,7 +22,7 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from html import unescape
 from pathlib import Path
 from typing import Any, Iterable
@@ -439,6 +439,30 @@ class Supabase:
             allowed_statuses=(201,),
         )
 
+    def close_open_periods(self, material_codes: list[str], before: date) -> None:
+        """End the currently open period for each material the day before `before`.
+
+        Keeps the table a contiguous chain -- each period ending as its
+        successor begins -- which is the convention the earlier rows already
+        follow (2024-06-21..2025-05-31, 2025-06-01..2026-04-30). Without this
+        an older open period would overlap the new one.
+        """
+        if not material_codes:
+            return
+        codes = ",".join(f'"{code}"' for code in material_codes)
+        self.rest(
+            "material_rate_monthly",
+            method="PATCH",
+            query={
+                "material_code": f"in.({codes})",
+                "effective_to": "is.null",
+                "effective_from": f"lt.{before.isoformat()}",
+            },
+            payload={"effective_to": (before - timedelta(days=1)).isoformat()},
+            prefer="return=minimal",
+            allowed_statuses=(200, 204),
+        )
+
     def write_rates(self, rows: list[dict[str, Any]]) -> None:
         self.rest(
             "material_rate_monthly",
@@ -539,13 +563,24 @@ def sync_circular(
             {
                 "material_code": material_code,
                 "rate": rate,
+                # Left open. A circular stays in force until the next one
+                # supersedes it, and since May 2026 PRED publishes quarterly:
+                # closing at month end left two months of every quarter with no
+                # circular at all, and periodForDate in the app skips a period
+                # whose effective_to has passed, so those months silently
+                # reverted to the yearly schedule rate.
+                "effective_to": None,
                 "effective_from": circular.effective_from.isoformat(),
-                "effective_to": last_day_of_month(circular.effective_from).isoformat(),
                 "sor_year": sor_year,
                 "source": source,
             }
             for material_code, rate in sorted(rates.items())
         ]
+        # Close whatever each of these materials was on before, the day before
+        # this circular starts. Only these materials: a material this circular
+        # does not mention is still governed by its previous rate, and closing
+        # it would leave it unpriced.
+        supabase.close_open_periods(sorted(rates), circular.effective_from)
         supabase.write_rates(rate_rows)
         supabase.record_document(
             document_payload(

@@ -43,6 +43,38 @@ class IndexParsingTests(unittest.TestCase):
         self.assertEqual(1, len(unreadable))
 
 
+class RatePeriodTests(unittest.TestCase):
+    """A circular is in force until the next one supersedes it.
+
+    PRED publishes quarterly from May 2026, so a period closed at month end
+    left June and July with no circular at all -- and the app skips a period
+    whose end date has passed, so those months silently fell back to the yearly
+    schedule rate.
+    """
+
+    class FakeSupabase:
+        def __init__(self) -> None:
+            self.closed: list[tuple[list[str], str]] = []
+
+        def close_open_periods(self, material_codes, before) -> None:
+            self.closed.append((list(material_codes), before.isoformat()))
+
+    def test_open_period_is_closed_the_day_before_its_successor(self) -> None:
+        supabase = self.FakeSupabase()
+        # The contract the sync relies on: the previous period ends the day
+        # before the new one begins, leaving no gap and no overlap.
+        supabase.close_open_periods(["CEM_OPC43"], sync.date(2026, 8, 1))
+        codes, before = supabase.closed[0]
+        self.assertEqual(codes, ["CEM_OPC43"])
+        self.assertEqual(before, "2026-08-01")
+
+    def test_month_end_helper_is_no_longer_used_for_rate_rows(self) -> None:
+        source = SCRIPT.read_text(encoding="utf-8")
+        rate_row_block = source.split("rate_rows = [", 1)[1].split("]", 1)[0]
+        self.assertIn('"effective_to": None', rate_row_block)
+        self.assertNotIn("last_day_of_month", rate_row_block)
+
+
 class OcrExtractionTests(unittest.TestCase):
     def test_known_published_layout_maps_all_seven_materials(self) -> None:
         ocr = """
