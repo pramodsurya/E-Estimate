@@ -1,0 +1,92 @@
+# Build the Windows installer and publish it as a GitHub Release.
+#
+# Every release here is delivered to users by electron-updater, so this is not
+# an internal artefact — it ships. Two consequences shape the workflow:
+#
+#   - it waits for CI, and will not build from a commit that failed;
+#   - it does not fire on every push. A release is asked for, by tagging or by
+#     running it by hand, so that "I committed a fix" and "everyone gets it"
+#     stay separate decisions.
+#
+# To ship:  git tag v0.1.9 && git push origin v0.1.9
+# Or run this workflow with a bump of patch/minor/major and it will tag for you.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump when releasing from master'
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+permissions:
+  contents: write
+
+concurrency:
+  # Two releases racing would fight over the tag and the release assets.
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  release:
+    needs: check
+    # electron-builder cannot cross-build an NSIS installer; this must be Windows.
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The version bump is committed back, so the checkout needs a token
+          # that can push and the full history to push onto.
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Dispatched from master: bump, commit and tag here. Triggered by a tag:
+      # the version in package.json is already the one being released.
+      - name: Bump version and tag
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          npm version ${{ github.event.inputs.bump }} -m 'chore: release v%s'
+          git push --follow-tags origin HEAD:master
+
+      - name: Build and publish the installer
+        env:
+          # electron-builder creates the release and uploads the installer, its
+          # blockmap and latest.yml — which is what electron-updater reads.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run publish:win
+
+      - name: Confirm the update manifest was published
+        shell: bash
+        run: |
+          # Without latest.yml no installed copy will ever see the update, and
+          # the release would look fine while reaching nobody.
+          test -f release/latest.yml || { echo 'latest.yml was not produced'; exit 1; }
+          cat release/latest.yml
