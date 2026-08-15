@@ -862,6 +862,14 @@ assert.equal(
   1,
   'the 1.00 m below-filter occupies the excavation instead of adding below a separate 0.20 m cut'
 )
+// The 0.50 m filter behind the inner face projects upstream of the rubble base,
+// so the cut is that much wider than the base. Over the extra strip the general
+// stripping is *transferred* into this code rather than added to it:
+// bundNetStrippingBands removes the same span from the stripping item, so total
+// earthwork is unchanged and only which code pays for it moves.
+const behindHorizontal =
+  bund.BUND_ROCKTOE_FILTER_BEHIND_M / Math.hypot(1, extrasData.rockToeInnerSlope)
+const behindStripping = behindHorizontal * extrasData.design.stripDepth
 near(
   bund.rowsTotal(
     bund.rockToeExcavationRows({
@@ -869,9 +877,9 @@ near(
       rockToeExcavationDepth: 0.2
     })
   ),
-  autoToeBaseWidth * 1 * 30,
+  (autoToeBaseWidth * 1 + behindStripping) * 30,
   0.1,
-  'filter excavation equals base width × the code-defined 1.00 m depth'
+  'filter excavation is base width × the 1.00 m depth, plus the stripping over the strip behind it'
 )
 assert.ok(
   bund.requiredItems(rockToeWithFilter).some((item) => item.role === 'rocktoe-filter'),
