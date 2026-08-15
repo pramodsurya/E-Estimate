@@ -76,17 +76,51 @@ jobs:
           npm version ${{ github.event.inputs.bump }} -m 'chore: release v%s'
           git push --follow-tags origin HEAD:master
 
+      # electron-builder uploads the installer, its blockmap and latest.yml in
+      # parallel, and each uploader creates the release if it cannot find one.
+      # Both look before either has created it, so they both create: as drafts
+      # that yields two releases sharing a tag, and once one is tagged the other
+      # gets "422 already_exists" and the build dies before latest.yml is
+      # uploaded. That is how v0.1.10 published a blockmap and nothing else, and
+      # became the "latest" release every installed copy asks for.
+      #
+      # Creating it here first means the publisher only ever finds one.
+      - name: Create the release before publishing into it
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if gh release view "$version" >/dev/null 2>&1; then
+            echo "$version already exists, publishing into it"
+          else
+            gh release create "$version" --title "${version#v}" --generate-notes
+          fi
+
       - name: Build and publish the installer
         env:
-          # electron-builder creates the release and uploads the installer, its
-          # blockmap and latest.yml — which is what electron-updater reads.
+          # Uploads the installer, its blockmap and latest.yml — which is what
+          # electron-updater reads — into the release created above.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run publish:win
 
       - name: Confirm the update manifest was published
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Without latest.yml no installed copy will ever see the update, and
           # the release would look fine while reaching nobody.
           test -f release/latest.yml || { echo 'latest.yml was not produced'; exit 1; }
           cat release/latest.yml
+
+          # Built is not published. Check the assets actually landed on the
+          # release, and that exactly one release carries this tag - a second one
+          # can win "latest" and answer every updater with no installer at all.
+          version="v$(node -p "require('./package.json').version")"
+          assets=$(gh release view "$version" --json assets --jq '.assets[].name')
+          echo "$assets"
+          echo "$assets" | grep -q '^latest\.yml$' || { echo 'latest.yml never reached the release'; exit 1; }
+          echo "$assets" | grep -q '\.exe$' || { echo 'the installer never reached the release'; exit 1; }
+          count=$(gh api "repos/${GITHUB_REPOSITORY}/releases" --jq "[.[]|select(.tag_name==\"$version\")]|length")
+          test "$count" = "1" || { echo "expected one release for $version, found $count"; exit 1; }
