@@ -13,6 +13,18 @@ const titleDashboard = read('src/renderer/src/components/dashboard/TitleDashboar
 const ipc = read('src/main/ipc.ts')
 const previewPrint = read('src/renderer/src/lib/previewPrint.ts')
 const componentPrint = read('src/renderer/src/lib/componentPrint.ts')
+const closingBlock = read('src/renderer/src/lib/closingBlock.ts')
+
+// SOR display names are their published descriptions. The Component Abstract and
+// item print header must not print that same description again as a second detail row.
+assert.ok(
+  /function itemHeadingRepeatsDescription\(/.test(componentPrint) &&
+    /const repeatsHeading = itemHeadingRepeatsDescription\(item, input\.recipes\[item\.id\]\)/.test(
+      componentPrint
+    ) &&
+    /itemHeadingRepeatsDescription\(item, recipe\) \? '' :/.test(componentPrint),
+  'SOR descriptions that equal their display heading must be printed only once'
+)
 
 // --- File > Export > PDF ----------------------------------------------------
 assert.ok(
@@ -50,6 +62,11 @@ assert.ok(
   /computeProjectPrintInputs/.test(exportLib) &&
     /computeProjectPrintInputs/.test(titleDashboard),
   'Dashboard and export must read the same derived project figures'
+)
+assert.ok(
+  /projectDashboardIsReady\(project, inputs\.items\)/.test(exportLib) &&
+    /updateFrontCoverEstimatedCost\([\s\S]*?inputs\.abstract\.grandTotal/.test(exportLib),
+  'Export must refresh an existing Front Page cost box from the settled General Abstract total'
 )
 
 // Explorer order: cover, introduction, abstract, tree children, lead, seigniorage, data.
@@ -330,8 +347,42 @@ assert.ok(
   /const COMPONENT_MIN_FONT_SIZE = 11/.test(componentPrint) &&
     /enforceComponentMinimumFontSize\(request\.html\)/.test(componentPrint) &&
     /enforceComponentMinimumFontSize\([\s\S]*?withItemDescription/.test(componentPrint) &&
-    /const readableHtml[\s\S]*?applySignatureFooterToPdf\([\s\S]*?readableHtml/.test(componentPrint),
+    /renderSignedPdf\(\s*\{\s*html: enforceComponentMinimumFontSize\(request\.html\)/.test(
+      componentPrint
+    ),
   'component renders must lift only tiny fonts before adding exempt signature fields'
+)
+// A figure's font-size is in user units of its own viewBox, not pixels. A bund
+// cross-section draws in a 470-unit box printed 176 mm wide, so its "8" is
+// 11 px of ink; lifting it to 11 units made the axis ticks 38% oversized and
+// the hearting/casing key twice its size, at coordinates worked out for the
+// smaller type.
+assert.ok(
+  /<svg\\b\[\^>\]\*>\[\\s\\S\]\*\?<\\\/svg>\/gi,\s*protect/.test(componentPrint) &&
+    !/clampSvg/.test(componentPrint) &&
+    !/font-size\\s\*=\\s\*/.test(componentPrint),
+  'drawings must be exempt from the body-text minimum, which cannot read their coordinate system'
+)
+assert.ok(
+  /estimate-signature-footer\b[\s\S]{0,200}protect/.test(componentPrint),
+  'signature typography must stay exempt from the minimum as well'
+)
+
+// A closing block may never buy a sheet of its own. Documents that plan their
+// own pages say so; everything else — every template detail page, and every
+// template added later — is placed against the real print engine instead.
+assert.ok(
+  /closingReserved: true/.test(componentPrint) &&
+    /carriesClosing: index === bundPages\.length - 1/.test(componentPrint),
+  'planned layouts declare their reserve, and a bund signs off once at the end of its detail set'
+)
+// Behaviour is covered by scripts/test-closing-block.cjs; these only guard the
+// shape the rest of the print path depends on.
+assert.ok(
+  /const budget = await pageCount/.test(closingBlock) &&
+    /\['normal', 'compact'\]/.test(closingBlock) &&
+    /bottom: request\.options\.margins\.bottom \+ CLOSING_BAND_MM \/ 25\.4/.test(closingBlock),
+  'the closing block is measured against the unsigned page count and leaves the flow before it costs a sheet'
 )
 // The signature is a non-shrinking member of the abstract's page frame.
 assert.ok(
@@ -344,6 +395,73 @@ assert.ok(
     /\.ga-sheet \.signature-print-footer strong \{[\s\S]*?font-size: max\(11px, \.82em\)/.test(abstractCss),
   'The General Abstract signatures must share one row with a deep signing area and compact names'
 )
+// --- The component abstract owns a real page frame, on every sheet ----------
+// Body padding is laid out once for the whole document, so it reached the top
+// of the first sheet and the foot of the last and nothing in between: every
+// continuation page began hard against the paper edge.
+const measuredDocument = read('src/renderer/src/lib/measuredPrintDocument.ts')
+assert.ok(
+  /const ABSTRACT_MARGINS: Margins = \{ top: 16, right: 14, bottom: 16, left: 14 \}/.test(
+    componentPrint
+  ) &&
+    /options: abstractPdfOptions\(\)/.test(componentPrint) &&
+    /body\{margin:0;padding:0;font:/.test(componentPrint) &&
+    !/padding:16mm 14mm/.test(componentPrint),
+  'Every component abstract sheet must carry its margin as a page margin, not as body padding'
+)
+// Row heights and page furniture were guessed before anything was laid out:
+// guessing high left a third of the sheet empty, guessing low stranded a row.
+assert.ok(
+  /await Promise\.all\(\[\s*measureAbstractGeometry\(/.test(componentPrint) &&
+    /readMeasuredDocument\(html, abstractContentWidthPx\(\)/.test(componentPrint) &&
+    /PAPER_MM\.A4\.h - ABSTRACT_MARGINS\.top - bottom\) \* PX_PER_MM/.test(componentPrint) &&
+    /chooseSmartAbstractPlan\(profiles, FILL_EACH_PAGE\)/.test(componentPrint),
+  'The component abstract must plan its pages on measured rows and the real sheet, not on constants'
+)
+// A clause row is five or six times a General Abstract provision, so a policy
+// written in row counts empties the sheet before the closing page.
+assert.ok(
+  /export const FILL_EACH_PAGE: SmartAbstractPolicy = \{\s*minFinalDetailRows: 0,\s*minFinalRows: 0/.test(
+    smartAbstract
+  ) &&
+    /final\[0\]\?\.keepWithPrevious === true/.test(smartAbstract),
+  'The fill policy must reserve no rows for the closing page while still keeping a total with its rows'
+)
+assert.ok(
+  /enforceComponentMinimumFontSize\(\s*`<!doctype html>/.test(componentPrint),
+  'The measured markup must be font-clamped exactly as the printed markup is'
+)
+assert.ok(
+  /overflow:hidden/.test(measuredDocument) &&
+    /catch \{\s*return null/.test(measuredDocument) &&
+    /typeof document === 'undefined'/.test(measuredDocument),
+  'The measuring frame must never grow a scrollbar, and must fall back rather than throw'
+)
+// --- a preview nobody is waiting for must stop, not just be discarded -------
+// Assembling a component parses and merges PDFs on the thread that answers the
+// keyboard. Dropping the result of a stale build leaves that work running, so
+// the window stops taking typing while a preview refreshes behind it.
+const componentDashboard = read('src/renderer/src/components/dashboard/ComponentDashboard.tsx')
+const previewStack = read('src/renderer/src/components/print/ComponentPrintPreviewStack.tsx')
+assert.ok(
+  /signal\?: AbortSignal/.test(componentPrint) &&
+    /stopIfCancelled\(\)\s*\n\s*await yieldToUi\(\)/.test(componentPrint) &&
+    /export function isPrintAbort/.test(componentPrint),
+  'a combined component build must be cancellable and must yield between documents'
+)
+for (const [name, source] of [
+  ['ComponentDashboard', componentDashboard],
+  ['ComponentPrintPreviewStack', previewStack]
+]) {
+  assert.ok(
+    /new AbortController\(\)/.test(source) &&
+      /signal: controller\.signal/.test(source) &&
+      /controller\.abort\(\)/.test(source) &&
+      /PRINT_REBUILD_DELAY_MS/.test(source),
+    `${name} must debounce its rebuild and abort the previous one`
+  )
+}
+
 assert.ok(
   /SEIGNIORAGE_FOOTER_CSS/.test(exportLib) &&
     /\.seig-print-page\{padding-bottom:6mm!important\}/.test(exportLib),

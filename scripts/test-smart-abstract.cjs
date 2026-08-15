@@ -16,7 +16,7 @@ const compiled = ts.transpileModule(source, {
 }).outputText
 const module_ = { exports: {} }
 new Function('module', 'exports', 'require', compiled)(module_, module_.exports, require)
-const { chooseSmartAbstractPlan } = module_.exports
+const { chooseSmartAbstractPlan, FILL_EACH_PAGE } = module_.exports
 
 const rows = (count, height = 20) =>
   Array.from({ length: count }, (_, index) => ({
@@ -79,5 +79,43 @@ const totalPlan = chooseSmartAbstractPlan([{
 for (const page of totalPlan.pages.slice(1)) {
   assert.notEqual(page.rows[0]?.value, 'total')
 }
+
+// --- Filling each sheet, for rows too tall to be reserved by the handful -----
+// A component abstract row carries the whole SSR clause. Six of them at 180 px
+// fill a sheet; stocking the closing page with five of those leaves one row on
+// the sheet before it — a page of white, to fill a page nobody asked to fill.
+const tall = { first: 871, continuation: 946, finalFirst: 841, finalContinuation: 916 }
+const balancedTall = chooseSmartAbstractPlan([
+  { density: 'normal', rows: rows(6, 180), capacities: tall }
+])
+assert.deepEqual(balancedTall.pages.map((page) => page.rows.length), [1, 5])
+
+const filledTall = chooseSmartAbstractPlan(
+  [{ density: 'normal', rows: rows(6, 180), capacities: tall }],
+  FILL_EACH_PAGE
+)
+assert.deepEqual(filledTall.pages.map((page) => page.rows.length), [4, 2])
+assert.deepEqual(
+  filledTall.pages.flatMap((page) => page.rows.map((row) => row.value)),
+  rows(6, 180).map((row) => row.value)
+)
+
+// Filling a sheet never promotes a total to the top of the next one.
+const filledTotal = chooseSmartAbstractPlan(
+  [{
+    density: 'normal',
+    rows: [
+      ...rows(5, 180),
+      { value: 'total', height: 40, detail: false, keepWithPrevious: true }
+    ],
+    capacities: { first: 920, continuation: 946, finalFirst: 841, finalContinuation: 916 }
+  }],
+  FILL_EACH_PAGE
+)
+assert.ok(filledTotal.pages.length > 1)
+for (const page of filledTotal.pages.slice(1)) {
+  assert.notEqual(page.rows[0]?.value, 'total')
+}
+assert.equal(filledTotal.pages.at(-1).rows.at(-1).value, 'total')
 
 console.log('smart Abstract pagination: all assertions passed')

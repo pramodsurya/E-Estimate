@@ -862,6 +862,14 @@ assert.equal(
   1,
   'the 1.00 m below-filter occupies the excavation instead of adding below a separate 0.20 m cut'
 )
+// The 0.50 m filter behind the inner face projects upstream of the rubble base,
+// so the cut is that much wider than the base. Over the extra strip the general
+// stripping is *transferred* into this code rather than added to it:
+// bundNetStrippingBands removes the same span from the stripping item, so total
+// earthwork is unchanged and only which code pays for it moves.
+const behindHorizontal =
+  bund.BUND_ROCKTOE_FILTER_BEHIND_M / Math.hypot(1, extrasData.rockToeInnerSlope)
+const behindStripping = behindHorizontal * extrasData.design.stripDepth
 near(
   bund.rowsTotal(
     bund.rockToeExcavationRows({
@@ -869,9 +877,9 @@ near(
       rockToeExcavationDepth: 0.2
     })
   ),
-  autoToeBaseWidth * 1 * 30,
+  (autoToeBaseWidth * 1 + behindStripping) * 30,
   0.1,
-  'filter excavation equals base width × the code-defined 1.00 m depth'
+  'filter excavation is base width × the 1.00 m depth, plus the stripping over the strip behind it'
 )
 assert.ok(
   bund.requiredItems(rockToeWithFilter).some((item) => item.role === 'rocktoe-filter'),
@@ -1016,8 +1024,25 @@ near(
   0.01,
   'chute lining = wetted perimeter × thickness × total length'
 )
+// The chute cutting resolves to the same SOR code as the general stripping, and
+// requiredItems merges items sharing a code because one code is one line of the
+// abstract. So the role disappears while the quantity does not: what has to be
+// checked is that the excavation is billed, not which line carries it.
 const chuteItems = bund.requiredItems(chuteData)
-assert.ok(chuteItems.some((i) => i.role === 'chute-exc'), 'chute excavation item generated')
+const billedVolume = (items) =>
+  items
+    .filter((item) => item.measure === 'volume')
+    .reduce((sum, item) => sum + item.quantity, 0)
+const chuteBilled = billedVolume(chuteItems)
+const withoutChuteExcavation = billedVolume(
+  bund.requiredItems({ ...chuteData, chuteDrainExcavationMaterial: null })
+)
+near(
+  chuteBilled - withoutChuteExcavation,
+  bund.chuteDrainExcavationQuantity(chuteData),
+  0.01,
+  'chute excavation reaches the estimate, inside the line that carries its code'
+)
 assert.ok(chuteItems.some((i) => i.role === 'chute-lining'), 'chute lining item generated')
 const stoneChuteData = {
   ...chuteData,
@@ -1148,18 +1173,29 @@ const splitChuteData = {
     ]
   }
 }
-const splitChuteItems = bund
-  .requiredItems(splitChuteData)
-  .filter((item) => item.role === 'chute-exc')
-assert.equal(splitChuteItems.length, 2, 'chute excavation is independently split by class')
+// The class split is checked by code rather than by role: the All Soils share
+// uses the same code as the general stripping and merges into that line, while
+// the HDR share has a code of its own and stays separate. What must hold either
+// way is that each class is billed its own percentage.
+const billedByCode = (data) => {
+  const totals = new Map()
+  for (const item of bund.requiredItems(data)) {
+    if (item.measure !== 'volume') continue
+    totals.set(item.ref.code, (totals.get(item.ref.code) ?? 0) + item.quantity)
+  }
+  return totals
+}
+const withSplit = billedByCode(splitChuteData)
+const withoutChute = billedByCode({ ...splitChuteData, chuteDrainExcavationMaterial: null })
+const chuteShare = (code) => (withSplit.get(code) ?? 0) - (withoutChute.get(code) ?? 0)
 near(
-  splitChuteItems.find((item) => item.ref.code === 'IRR-CAW-1-1').quantity,
+  chuteShare('IRR-CAW-1-1'),
   bund.chuteDrainExcavationQuantity(chuteData) * 0.6,
   0.01,
   'chute all-soils share'
 )
 near(
-  splitChuteItems.find((item) => item.ref.code === 'IRR-CAW-1-4').quantity,
+  chuteShare('IRR-CAW-1-4'),
   bund.chuteDrainExcavationQuantity(chuteData) * 0.4,
   0.01,
   'chute HDR share'
@@ -1484,9 +1520,22 @@ near(
   0.1,
   'toe-drain revetment area = developed width × bund length'
 )
-const dsToeBuildItem = bund.requiredItems(dsToeData).find((i) => i.role === 'dstoe-build')
-assert.ok(dsToeBuildItem, 'toe-drain revetment is generated without a manual section area')
-assert.equal(dsToeBuildItem.measure, 'area', 'toe-drain revetment uses the SQM code basis')
+// The revetment shares the pitching code, so requiredItems merges it into that
+// line — one code is one line of the abstract. Check that it is billed, and
+// billed by area, rather than that it kept a role of its own.
+const toeBuildCode = bund.BUND_DEFAULT_TOE_BUILD_CODE
+const areaBilledFor = (data, code) =>
+  bund
+    .requiredItems(data)
+    .filter((item) => item.ref.code === code && item.measure === 'area')
+    .reduce((sum, item) => sum + item.quantity, 0)
+near(
+  areaBilledFor(dsToeData, toeBuildCode) -
+    areaBilledFor({ ...dsToeData, downstreamToe: { ...dsToe, buildMaterial: null } }, toeBuildCode),
+  bund.rowsTotal(bund.toeBuildRows(dsToeData, dsToe)),
+  0.1,
+  'toe-drain revetment is billed by area, without a manual section area'
+)
 assert.equal(
   bund.BUND_DEFAULT_TOE_BUILD_CODE,
   'IRR-CAW-8-6',

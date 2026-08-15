@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Database, Timer, Truck } from 'lucide-react'
-import { collectProjectItemGroups, type ItemUsageBranch } from '../../lib/projectItems'
+import { projectItemGroups, type ItemUsageBranch } from '../../lib/projectItems'
 import { useStore } from '../../store/useStore'
 import EstimateLeadPanel from './EstimateLeadPanel'
 import SeignioragePanel from './SeignioragePanel'
@@ -15,7 +15,7 @@ export default function DataPanel(): JSX.Element | null {
   const [tab, setTab] = useState<BottomTab>('data')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const groups = useMemo(
-    () => (project ? collectProjectItemGroups(project.root) : []),
+    () => (project ? projectItemGroups(project.root) : []),
     [project]
   )
 
@@ -89,7 +89,7 @@ export default function DataPanel(): JSX.Element | null {
                       }
                     />
                     <span className="data-item-code">{group.displayName}</span>
-                    {group.displayName !== group.code && (
+                    {group.source !== 'SOR' && group.displayName !== group.code && (
                       <span className="data-item-origin">{group.code}</span>
                     )}
                     <span className="data-count">{group.usages.length}</span>

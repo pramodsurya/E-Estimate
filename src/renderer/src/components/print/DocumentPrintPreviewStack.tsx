@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { EestimateProject, Margins, PrintConfig, ProjectNode } from '../../types/project'
 import { buildDocumentPrintHtml } from '../../lib/documentPrint'
+import { PRINT_REBUILD_DELAY_MS } from '../../lib/componentPrint'
 import { resolveNodeSettings } from '../../lib/nodeSettings'
 import PdfPageStack from './PdfPageStack'
 import {
@@ -20,53 +21,59 @@ export default function DocumentPrintPreviewStack({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Building the HTML and asking the print engine for pages both cost real
+  // time, and `project` changes on every edit anywhere in the estimate. Wait
+  // for the editing to stop before spending either.
   useEffect(() => {
     let cancelled = false
     let objectUrl: string | null = null
     setPdfUrl(null)
     setError(null)
 
-    const inherited = resolveNodeSettings(project.root, node.id)
-    const config: PrintConfig = {
-      ...node.print,
-      pageSize: node.print?.pageSize ?? inherited.pageSize ?? 'A4',
-      orientation: node.print?.orientation ?? inherited.orientation ?? 'portrait',
-      margins: node.print?.margins ?? inherited.margins ?? DEFAULT_MARGINS,
-      scaleMode: node.print?.scaleMode ?? 'fit-width',
-      scalePercent: node.print?.scalePercent ?? 100
-    }
-    const pageSize = config.pageSize ?? 'A4'
-    const orientation = config.orientation ?? 'portrait'
-    const margins = config.margins ?? DEFAULT_MARGINS
-    const built = buildDocumentPrintHtml(
-      node,
-      config,
-      { pageSize, orientation, margins },
-      { projectName: project.meta.name, title: node.name }
-    )
+    const handle = window.setTimeout(() => {
+      const inherited = resolveNodeSettings(project.root, node.id)
+      const config: PrintConfig = {
+        ...node.print,
+        pageSize: node.print?.pageSize ?? inherited.pageSize ?? 'A4',
+        orientation: node.print?.orientation ?? inherited.orientation ?? 'portrait',
+        margins: node.print?.margins ?? inherited.margins ?? DEFAULT_MARGINS,
+        scaleMode: node.print?.scaleMode ?? 'fit-width',
+        scalePercent: node.print?.scalePercent ?? 100
+      }
+      const pageSize = config.pageSize ?? 'A4'
+      const orientation = config.orientation ?? 'portrait'
+      const margins = config.margins ?? DEFAULT_MARGINS
+      const built = buildDocumentPrintHtml(
+        node,
+        config,
+        { pageSize, orientation, margins },
+        { projectName: project.meta.name, title: node.name }
+      )
 
-    if (built.empty) return
-    const signed = applySignatureFooterToPdf(
-      built.html,
-      built.pdfOptions,
-      resolveDocumentSignatureFooter(project, node)
-    )
-    void window.api.print.toPdf(signed.html, signed.options)
-      .then((result) => {
-        if (cancelled) return
-        if (!result.ok || !result.data) throw new Error(result.error ?? 'Could not render document pages.')
-        const binary = atob(result.data)
-        const bytes = new Uint8Array(binary.length)
-        for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
-        objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
-        setPdfUrl(objectUrl)
-      })
-      .catch((reason: unknown) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason))
-      })
+      if (built.empty) return
+      const signed = applySignatureFooterToPdf(
+        built.html,
+        built.pdfOptions,
+        resolveDocumentSignatureFooter(project, node)
+      )
+      void window.api.print.toPdf(signed.html, signed.options)
+        .then((result) => {
+          if (cancelled) return
+          if (!result.ok || !result.data) throw new Error(result.error ?? 'Could not render document pages.')
+          const binary = atob(result.data)
+          const bytes = new Uint8Array(binary.length)
+          for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+          objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+          setPdfUrl(objectUrl)
+        })
+        .catch((reason: unknown) => {
+          if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason))
+        })
+    }, PRINT_REBUILD_DELAY_MS)
 
     return () => {
       cancelled = true
+      window.clearTimeout(handle)
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
   }, [node, project])

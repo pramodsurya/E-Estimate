@@ -1,3 +1,5 @@
+import type { ConveyanceClass, PipeLeadSource } from './project'
+
 export type RateAnalysisSectionKey = 'materials' | 'machinery' | 'labour'
 
 export interface RateAnalysisTextRun {
@@ -45,7 +47,28 @@ export interface RateAnalysisLine {
   unit: string
   quantity: number
   rate: number
+  /** Builder-only rate expression, resolved before the final SSR DATA is rendered. */
+  rateFormula?: string
+  /**
+   * Lead belongs to this resource row, never to the whole SSR item. Multiple
+   * Material/Machinery rows can independently be selected for Lead.
+   */
+  lead?: {
+    applicable: boolean
+    conveyanceClass?: ConveyanceClass
+    materialName?: string
+  }
+  /** Whether this individual resource is eligible for Seigniorage matching. */
+  seigniorageApplicable?: boolean
+  /** Explicit government mineral code selected for a manual/extract resource. */
+  seigniorageCode?: string
   amount: number
+  /** Stable extractor group used for apportionment/per-use calculations. */
+  groupId?: string
+  /** Source contribution factor retained for traceability. */
+  contributionFactor?: number
+  /** How a missing PDF amount cell was safely recovered by extraction. */
+  amountSource?: string
   /** Project-side row inserted by the user. */
   userAdded?: boolean
   /** Exact cells changed directly by the user; sourceValues remain immutable. */
@@ -58,6 +81,42 @@ export interface RateAnalysisLine {
   }
   resourceCode?: string
   rateSource?: string
+  /**
+   * Published identity of the resource this row is, carried across SOR years.
+   *
+   * Matching a saved edit onto a newly published sheet used to be inference —
+   * a code where one existed, otherwise the wording of the description. Both
+   * fail silently: a reworded row loses its edit, and two rows that happen to
+   * read alike swap theirs. The extractor now names each row instead, either by
+   * the master it resolves to (`sourceTable` + `masterCode`, with
+   * `rateComponent` where one master serves several lines) or, for a row with
+   * no master at all, by a `resourceKey` that is stable within its item.
+   *
+   * Absent on sheets saved before the extractor supplied it, so the older
+   * inference stays as a fallback — see `recipeMerge.ts`.
+   */
+  resourceIdentity?: {
+    sourceTable?: string
+    masterCode?: string
+    rateComponent?: string
+    /** Item-scoped key for a row that resolves to no master. */
+    resourceKey?: string
+  }
+  /**
+   * Material master code governing this line's rate. SSR lines carry no code of their
+   * own, so it is resolved through ssr_material_alias and cached here once matched.
+   */
+  materialCode?: string
+  /** Set when a per-project monthly material rate replaced the published rate. */
+  rateOverride?: {
+    materialCode: string
+    label: string
+    /** Rate as entered on the Cement/Steel page, in the master material's unit. */
+    masterRate: number
+    masterUnit: string
+    /** Published rate this replaced, retained for the audit trail. */
+    publishedRate: number
+  }
   sorRef?: {
     table: 'labour_rate' | 'machinery_rate'
     code: string
@@ -75,6 +134,16 @@ export interface RateAnalysisSection {
   key: RateAnalysisSectionKey
   label: string
   lines: RateAnalysisLine[]
+}
+
+export interface RateAnalysisSectionRule {
+  id: string
+  kind: 'per_use_divisor' | 'apportionment_percent' | 'percentage_addition'
+  section: RateAnalysisSectionKey
+  groupId: string
+  label: string
+  factor?: number
+  percent?: number
 }
 
 export interface RateAnalysisOptionalAdditionAnalysis {
@@ -214,6 +283,7 @@ export type RateAnalysisAuditStatus =
   | 'rounding'
   | 'mismatch'
   | 'unverifiable'
+  | 'published_amount'
   | 'user_added'
 
 export interface RateAnalysisAuditRow {
@@ -234,6 +304,8 @@ export interface RateAnalysisSectionAudit {
   recalculatedTotal: number | null
   difference: number | null
   verifiable: boolean
+  derivationComplete: boolean
+  unverifiableRows: number
   mismatchedRows: number
 }
 
@@ -302,6 +374,8 @@ export interface RateAnalysisRecipe {
   categoryKey: string
   itemCode: string
   documentTitle?: string
+  /** Published SSR section heading that groups the source item, when supplied. */
+  sectionHeading?: string
   description: string
   unit: string
   outputQuantity: number
@@ -311,6 +385,8 @@ export interface RateAnalysisRecipe {
   areaAllowanceLabel?: string
   overheadPercent: number
   sections: RateAnalysisSection[]
+  /** Stable rules extracted from the source table between detail totals and the abstract. */
+  sectionRules?: RateAnalysisSectionRule[]
   /** Source-document formatting and visibility metadata. */
   layout?: RateAnalysisLayout
   /** Supabase summary values. These are displayed without recomputing them. */
@@ -321,10 +397,45 @@ export interface RateAnalysisRecipe {
   multiRateClassification?: RateAnalysisMultiRateClassification
   /** Source-document figures associated with this SSR DATA. */
   sourceFigures?: RateAnalysisFigure[]
+  /** Optional estimator-supplied image stored with a Project DATA definition. */
+  projectDataImageUrl?: string
   /** Explicit editor calculation. Never replaces the stored Supabase source values. */
   recalculation?: RateAnalysisRecalculation
   /** True after an input change invalidates the last derived result. */
   calculationStale?: boolean
+  /**
+   * Published rows the estimator removed, by resource identity (see
+   * `recipeMerge.ts`). Deleting a row cannot be recorded by its absence: when
+   * the SOR year changes, a row missing from the saved sheet is otherwise
+   * indistinguishable from one newly published this year. Naming the removals
+   * keeps a deletion deleted while letting genuinely new resources through.
+   *
+   * Re-adding a row makes its entry moot rather than requiring it to be cleared:
+   * the merge only suppresses an identity the saved sheet no longer carries.
+   */
+  removedLines?: string[]
+  /**
+   * Edits the current schedule could not be given confidently, recorded when
+   * the sheet was merged onto a new SOR year. The DATA sheet warns against
+   * these rows: an edit that found no row in the new schedule is otherwise
+   * simply gone, and one matched on wording alone may have landed on a
+   * different resource that happens to read the same. Neither shows in a total.
+   */
+  unresolvedEdits?: Array<{
+    key: string
+    sectionKey: string
+    description: string
+    unit: string
+    editedFields: string[]
+    saved?: RateAnalysisLine
+    reason: 'dropped' | 'weak-match' | 'section-withdrawn'
+  }>
+  /**
+   * Warnings the estimator has answered — by accepting the match, or by
+   * deciding the lost edit no longer applies. Kept so the same question is not
+   * asked again every time the sheet is merged onto a schedule.
+   */
+  acknowledgedEdits?: string[]
   publishedRate?: number
   /** Printed non-numeric instruction/reference; it must never be coerced to zero. */
   publishedRateText?: string
@@ -342,6 +453,7 @@ export interface RateAnalysisRecipe {
       transportation?: string
       taxes?: string
     }
+    pipeLead?: PipeLeadSource
   }
   publishedLabourComponent?: number
   leadApplicability?: unknown

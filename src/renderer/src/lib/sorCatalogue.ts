@@ -48,6 +48,13 @@ export interface SorCataloguePriceMatch {
   source_context: Record<string, unknown>
 }
 
+export interface SorCatalogueItemSearchMatch extends SorCataloguePriceMatch {
+  catalogue_code: string
+  catalogue_name: string
+  part: string
+  section: string
+}
+
 const AUDIT_DIMENSIONS = new Set(['matrix_row', 'matrix_column'])
 const PRINTED_AXIS_DIMENSIONS = new Set(['row_label', 'column_label'])
 
@@ -162,6 +169,35 @@ export async function fetchSorCataloguePrice(
     source: row.source == null ? null : String(row.source),
     source_page: finiteNumber(row.source_page),
     source_context: record(row.source_context)
+  }))
+}
+
+export async function searchSorCatalogueItems(
+  query: string,
+  sorYear: string,
+  limit = 40
+): Promise<SorCatalogueItemSearchMatch[]> {
+  const { data, error } = await supabase.rpc('search_sor_catalogue_items', {
+    p_sor_year: sorYear,
+    p_query: query,
+    p_limit: limit
+  })
+  if (error) throw error
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    item_code: String(row.item_code ?? ''),
+    item_name: String(row.item_name ?? ''),
+    unit: row.unit == null ? null : String(row.unit),
+    dimensions: record(row.dimensions) as Record<string, SorCatalogueDimensionValue>,
+    rate: finiteNumber(row.rate),
+    rate_text: String(row.rate_text ?? ''),
+    effective_from: row.effective_from == null ? null : String(row.effective_from),
+    source: row.source == null ? null : String(row.source),
+    source_page: finiteNumber(row.source_page),
+    source_context: record(row.source_context),
+    catalogue_code: String(row.catalogue_code ?? ''),
+    catalogue_name: String(row.catalogue_name ?? ''),
+    part: String(row.part ?? ''),
+    section: String(row.section ?? '')
   }))
 }
 
@@ -285,4 +321,3 @@ export function sorCommercialTerms(
 export function sourceContextTitle(sourceContext: Record<string, unknown>): string | null {
   return typeof sourceContext.title === 'string' ? sourceContext.title : null
 }
-

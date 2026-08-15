@@ -98,9 +98,11 @@ const CODE_CLASSIFICATIONS: Record<string, DataMultiRateClassification> = {
   'IRR-DAW-1-10': 'quantity_depth_bands',
   'IRR-DAW-5-5': 'derived_adjustment_chain',
   'IRR-GAW-1-3': 'dual_measurement_basis',
+  'IRR-GAW-2-4': 'dual_measurement_basis',
   'IRR-GAW-2-7': 'dual_measurement_basis',
   'IRR-GAW-2-9': 'dual_measurement_basis',
   'IRR-GAW-2-10': 'dual_measurement_basis',
+  'IRR-GAW-2-11': 'dual_measurement_basis',
   'IRR-TAW-1-5': 'optional_addition'
 }
 

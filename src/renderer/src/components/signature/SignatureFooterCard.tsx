@@ -1,12 +1,13 @@
+import { useEffect, useRef, useState } from 'react'
 import { Plus, RotateCcw, Signature, Trash2 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { SignatureFooterSettings } from '../../types/project'
 import {
   DEFAULT_SIGNATURE_FOOTER,
-  hasSignatureFooterOverride,
   normalizeSignatureFooter,
+  printableSignatureRows,
   PROJECT_SIGNATURE_SCOPE,
-  resolveSignatureFooter
+  resolveSignatureFooterSource
 } from '../../lib/signatureFooter'
 
 function newRow(): SignatureFooterSettings['rows'][number] {
@@ -15,6 +16,65 @@ function newRow(): SignatureFooterSettings['rows'][number] {
     designation: '',
     office: ''
   }
+}
+
+/**
+ * A field that reaches the project once, when you have finished typing in it.
+ *
+ * Writing straight through on every keystroke replaced the whole project and
+ * pushed an undo step per character, and everything watching the project woke
+ * up each time — including any open print preview, which answered by
+ * re-assembling a PDF. Typing a designation is 25 of those. The text lives here
+ * while the field has the caret and is committed on blur, on Enter, and on
+ * unmount, so nothing typed is ever lost.
+ */
+function CommitOnBlurInput({
+  value,
+  placeholder,
+  onCommit
+}: {
+  value: string
+  placeholder: string
+  onCommit: (next: string) => void
+}): JSX.Element {
+  const [draft, setDraft] = useState(value)
+  const [editing, setEditing] = useState(false)
+  // Refs so the unmount commit sees the last keystroke, not the first render.
+  const pending = useRef({ draft: value, value, editing: false, onCommit })
+  pending.current = { draft, value, editing, onCommit }
+
+  useEffect(() => {
+    if (!editing) setDraft(value)
+  }, [editing, value])
+
+  useEffect(
+    () => () => {
+      const last = pending.current
+      if (last.editing && last.draft !== last.value) last.onCommit(last.draft)
+    },
+    []
+  )
+
+  const commit = (): void => {
+    setEditing(false)
+    if (draft !== value) onCommit(draft)
+  }
+
+  return (
+    <input
+      value={editing ? draft : value}
+      placeholder={placeholder}
+      onFocus={() => {
+        setDraft(value)
+        setEditing(true)
+      }}
+      onChange={(event) => setDraft(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur()
+      }}
+      onBlur={commit}
+    />
+  )
 }
 
 export default function SignatureFooterCard({
@@ -29,12 +89,15 @@ export default function SignatureFooterCard({
   if (!project) return null
 
   const isProject = scopeKey === PROJECT_SIGNATURE_SCOPE
-  const local = hasSignatureFooterOverride(project, scopeKey)
-  const settings = resolveSignatureFooter(project, scopeKey)
+  const { settings, sourceName, isLocal } = resolveSignatureFooterSource(project, scopeKey)
+  const local = isProject || isLocal
+  const inheritedRows = printableSignatureRows(settings)
   const save = (next: SignatureFooterSettings): void => update(scopeKey, next)
-  const customize = (): void =>
+  /** Take over this branch by copying whatever is currently inherited. */
+  const customize = (enabled = settings.enabled): void =>
     save({
       ...normalizeSignatureFooter(settings),
+      enabled,
       rows: settings.rows.map((row) => ({ ...row }))
     })
 
@@ -48,24 +111,57 @@ export default function SignatureFooterCard({
             <small>
               {isProject
                 ? 'Project default for dashboards, DATA and Pages (Front Page excluded)'
-                : local
-                  ? 'Local settings for this dashboard only'
-                  : 'Using the Project default'}
+                : isLocal
+                  ? 'Set here — also applies to everything under this subject'
+                  : `Inherited from ${sourceName}`}
             </small>
           </div>
         </div>
         {!isProject && (
-          local ? (
+          isLocal ? (
             <button className="btn-mini" onClick={() => update(scopeKey, null)}>
-              <RotateCcw size={12} /> Use Project default
+              <RotateCcw size={12} /> Use inherited
             </button>
           ) : (
-            <button className="btn-mini" onClick={customize}>Customize here</button>
+            <div className="signature-card-actions">
+              <button className="btn-mini" onClick={() => customize()}>Customize here</button>
+              {settings.enabled && inheritedRows.length > 0 && (
+                <button className="btn-mini" onClick={() => customize(false)}>
+                  No signature here
+                </button>
+              )}
+            </div>
           )
         )}
       </div>
 
-      {(isProject || local) && (
+      {!local && (
+        <div className="signature-inherited">
+          {settings.enabled && inheritedRows.length > 0 ? (
+            <>
+              <div className="signature-inherited-meta">
+                {settings.placement === 'every_page'
+                  ? 'Prints on every page'
+                  : 'Prints at the end of this subject'}
+              </div>
+              <div className="signature-inherited-rows">
+                {inheritedRows.map((row) => (
+                  <div className="signature-inherited-item" key={row.id}>
+                    <strong>{row.designation}</strong>
+                    <small>{row.office}</small>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="signature-inherited-meta">
+              No signature prints here — {sourceName} has it turned off.
+            </div>
+          )}
+        </div>
+      )}
+
+      {local && (
         <>
           <div className="signature-card-options">
             <label className="signature-enable">
@@ -102,30 +198,26 @@ export default function SignatureFooterCard({
             </div>
             {settings.rows.map((row) => (
               <div className="signature-row" key={row.id}>
-                <input
+                <CommitOnBlurInput
                   value={row.designation}
                   placeholder="e.g. Assistant Engineer"
-                  onChange={(event) =>
+                  onCommit={(designation) =>
                     save({
                       ...settings,
                       rows: settings.rows.map((candidate) =>
-                        candidate.id === row.id
-                          ? { ...candidate, designation: event.target.value }
-                          : candidate
+                        candidate.id === row.id ? { ...candidate, designation } : candidate
                       )
                     })
                   }
                 />
-                <input
+                <CommitOnBlurInput
                   value={row.office}
                   placeholder="e.g. Irrigation Division"
-                  onChange={(event) =>
+                  onCommit={(office) =>
                     save({
                       ...settings,
                       rows: settings.rows.map((candidate) =>
-                        candidate.id === row.id
-                          ? { ...candidate, office: event.target.value }
-                          : candidate
+                        candidate.id === row.id ? { ...candidate, office } : candidate
                       )
                     })
                   }
@@ -158,6 +250,9 @@ export default function SignatureFooterCard({
           </div>
           <p className="signature-card-note">
             Signatories print from left to right in the order shown above.
+            {isProject
+              ? ' Every component, sub-component, DATA, Lead, Seigniorage and Page uses this unless it sets its own.'
+              : ' Everything under this subject uses these unless it sets its own.'}
           </p>
         </>
       )}

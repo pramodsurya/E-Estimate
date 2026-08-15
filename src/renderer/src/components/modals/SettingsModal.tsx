@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import { CopyPlus, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import Modal from './Modal'
 import { useStore } from '../../store/useStore'
 import { findNode } from '../../lib/tree'
 import { SETTINGS_DEFAULTS as DEFAULTS } from '../../lib/nodeSettings'
 import { isRenamable, kindLabel } from '../nodeVisual'
 import type { ItemEditorType, NodeSettings } from '../../types/project'
-import { canCreateDataFromItem } from '../../lib/createdData'
 
 export default function SettingsModal(): JSX.Element {
   const nodeId = useStore((s) => s.settings.nodeId)
@@ -15,7 +14,6 @@ export default function SettingsModal(): JSX.Element {
   const renameNode = useStore((s) => s.renameNode)
   const updateNodeSettings = useStore((s) => s.updateNodeSettings)
   const setItemEditorType = useStore((s) => s.setItemEditorType)
-  const splitDataItem = useStore((s) => s.splitDataItem)
   const deleteNode = useStore((s) => s.deleteNode)
 
   const node = project && nodeId ? findNode(project.root, nodeId) : null
@@ -24,9 +22,6 @@ export default function SettingsModal(): JSX.Element {
   const [itemEditorType, setEditorType] = useState<ItemEditorType>(
     node?.itemEditorType ?? 'spreadsheet'
   )
-  const [creatingData, setCreatingData] = useState(false)
-  const [createdDataName, setCreatedDataName] = useState('')
-  const [createdDataError, setCreatedDataError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [cfg, setCfg] = useState<Required<NodeSettings>>({
     ...DEFAULTS,
@@ -45,21 +40,7 @@ export default function SettingsModal(): JSX.Element {
   const renamable = isRenamable(node)
   const isItem = node.kind === 'item'
   const isTitle = node.kind === 'title'
-  const canCreateData = canCreateDataFromItem(node)
-
   const save = (): void => {
-    if (creatingData) {
-      const requestedName = createdDataName.trim()
-      if (!requestedName) {
-        setCreatedDataError('A name is compulsory for the new DATA.')
-        return
-      }
-      const createdNodeId = splitDataItem(node.id, requestedName)
-      if (!createdNodeId) {
-        setCreatedDataError('The new DATA could not be created from this Item.')
-        return
-      }
-    }
     if (renamable && name.trim() && name.trim() !== node.name) renameNode(node.id, name.trim())
     if (isItem) {
       if (itemEditorType !== (node.itemEditorType ?? 'spreadsheet')) {
@@ -95,9 +76,7 @@ export default function SettingsModal(): JSX.Element {
         <button className="btn ghost" onClick={close}>
           Cancel
         </button>
-        <button className="btn" onClick={save} disabled={creatingData && !createdDataName.trim()}>
-          {creatingData ? 'Create DATA & Save' : 'Save'}
-        </button>
+        <button className="btn" onClick={save}>Save</button>
       </div>
     </>
   )
@@ -144,49 +123,6 @@ export default function SettingsModal(): JSX.Element {
             New items use Spreadsheet by default. Univer workbook content is stored in the project
             file.
           </div>
-          {canCreateData && (
-            <section className="settings-create-data">
-              <div className="settings-create-data-heading">
-                <div>
-                  <strong>Create New DATA</strong>
-                  <span>
-                    Clone this {node.sorCatalogue ? 'SOR catalogue' : 'SSR'} DATA for a similar
-                    Item in this component, then tweak it independently.
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className={`btn ghost ${creatingData ? 'active' : ''}`}
-                  onClick={() => {
-                    setCreatingData((current) => !current)
-                    setCreatedDataError('')
-                  }}
-                >
-                  <CopyPlus size={14} /> {creatingData ? 'Cancel New DATA' : 'Create New DATA'}
-                </button>
-              </div>
-              {creatingData && (
-                <div className="field settings-create-data-name">
-                  <label className="field-label">New DATA name *</label>
-                  <input
-                    className="text-input"
-                    value={createdDataName}
-                    autoFocus
-                    placeholder="e.g. Gate B"
-                    onChange={(event) => {
-                      setCreatedDataName(event.target.value)
-                      setCreatedDataError('')
-                    }}
-                  />
-                  <small>
-                    Your name is added to the source identity and the independent copy will
-                    appear under Created DATAs in Add Item.
-                  </small>
-                  {createdDataError && <div className="settings-create-data-error">{createdDataError}</div>}
-                </div>
-              )}
-            </section>
-          )}
         </>
       ) : (
         <>

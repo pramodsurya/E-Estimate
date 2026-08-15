@@ -7,6 +7,50 @@ const ts = require('typescript')
 const root = path.resolve(__dirname, '..')
 const filePath = path.join(root, 'src/renderer/src/lib/sorCatalogue.ts')
 const source = fs.readFileSync(filePath, 'utf8')
+const catalogueColumnSource = fs.readFileSync(
+  path.join(root, 'src/renderer/src/components/modals/SorCatalogueColumn.tsx'),
+  'utf8'
+)
+const catalogueSearchMigration = fs.readFileSync(
+  path.join(
+    root,
+    'supabase/migrations/20260730154500_add_sor_catalogue_item_search.sql'
+  ),
+  'utf8'
+)
+const catalogueSearchIndexMigration = fs.readFileSync(
+  path.join(
+    root,
+    'supabase/migrations/20260731083000_preserve_sor_search_dimensions.sql'
+  ),
+  'utf8'
+)
+
+assert.match(
+  source,
+  /searchSorCatalogueItems[\s\S]*?supabase\.rpc\('search_sor_catalogue_items'/,
+  'SOR item search must query the year-aware catalogue search RPC'
+)
+assert.match(
+  catalogueColumnSource,
+  /Search SOR item descriptions or catalogues/,
+  'Add Item must tell the user that catalogue descriptions are searchable'
+)
+assert.match(
+  catalogueColumnSource,
+  /Catalogue item matches[\s\S]*?chooseSearchMatch\(match\)/,
+  'Catalogue search results must open the exact published item cell'
+)
+assert.match(
+  catalogueSearchMigration,
+  /rate\.sor_year = p_sor_year[\s\S]*?to_tsvector\('simple'/,
+  'Catalogue item search must be limited to the selected SOR year and search item text'
+)
+assert.match(
+  catalogueSearchIndexMigration,
+  /search_vector tsvector[\s\S]*?using gin \(search_vector\)/,
+  'Catalogue description search must use a GIN full-text index'
+)
 const { outputText } = ts.transpileModule(source, {
   compilerOptions: {
     esModuleInterop: true,
@@ -99,4 +143,3 @@ assert.deepEqual(
 )
 
 console.log('SOR catalogue selection tests passed')
-

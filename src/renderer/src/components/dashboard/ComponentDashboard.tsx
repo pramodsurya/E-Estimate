@@ -32,7 +32,9 @@ import { createUniverWorkbookData } from '../../lib/univerSpreadsheet'
 import type { RateAnalysisRecipe, RateAnalysisTextRun } from '../../types/rateAnalysis'
 import {
   buildCombinedComponentPdf,
-  enforceComponentMinimumFontSize
+  enforceComponentMinimumFontSize,
+  isPrintAbort,
+  PRINT_REBUILD_DELAY_MS
 } from '../../lib/componentPrint'
 import PdfPageStack from '../print/PdfPageStack'
 import {
@@ -69,6 +71,7 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
   const setDashboardSnapshot = useStore((s) => s.setDashboardSnapshot)
   const setGuideWallMaterial = useStore((s) => s.setGuideWallMaterial)
   const resolveBundMaterials = useStore((s) => s.resolveBundMaterials)
+  const resolveMiSluiceNewMaterials = useStore((s) => s.resolveMiSluiceNewMaterials)
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false)
@@ -128,7 +131,8 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
     try {
       await resolveTemplateDashboardMaterials(node, {
         setGuideWallMaterial,
-        resolveBundMaterials
+        resolveBundMaterials,
+        resolveMiSluiceNewMaterials
       })
       const current = useStore.getState().project
       if (!current || current.id !== project.id) return
@@ -179,36 +183,45 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
   ).length
   const directCostPercent = componentTotal > 0 ? (directComponentTotal / componentTotal) * 100 : 0
 
+  // Every edit anywhere in the project replaces `project`, and re-assembling
+  // this component is seconds of PDF parsing and merging on the thread that
+  // also answers the keyboard. Wait for the editing to stop before starting,
+  // and abandon a build the moment its input is stale — otherwise a rename
+  // types one keystroke and then waits for a preview nobody asked to refresh.
   useEffect(() => {
     if ((!printPreviewOpen && !printView) || !project) return
-    let cancelled = false
+    const controller = new AbortController()
     let objectUrl: string | null = null
     setCombinedPrintStatus('rendering')
     setCombinedPrintError(null)
-    void buildCombinedComponentPdf({
-      project,
-      section: node,
-      recipes,
-      rateOf,
-      total: componentTotal,
-      fontScale: masterFontPercent / 100
-    })
-      .then((bytes) => {
-        if (cancelled) return
-        const copy = new ArrayBuffer(bytes.byteLength)
-        new Uint8Array(copy).set(bytes)
-        objectUrl = URL.createObjectURL(new Blob([copy], { type: 'application/pdf' }))
-        setCombinedPdfUrl(objectUrl)
-        setCombinedPrintStatus('idle')
+    const handle = window.setTimeout(() => {
+      void buildCombinedComponentPdf({
+        project,
+        section: node,
+        recipes,
+        rateOf,
+        total: componentTotal,
+        fontScale: masterFontPercent / 100,
+        signal: controller.signal
       })
-      .catch((error) => {
-        if (cancelled) return
-        setCombinedPdfUrl(null)
-        setCombinedPrintStatus('error')
-        setCombinedPrintError(error instanceof Error ? error.message : String(error))
-      })
+        .then((bytes) => {
+          if (controller.signal.aborted) return
+          const copy = new ArrayBuffer(bytes.byteLength)
+          new Uint8Array(copy).set(bytes)
+          objectUrl = URL.createObjectURL(new Blob([copy], { type: 'application/pdf' }))
+          setCombinedPdfUrl(objectUrl)
+          setCombinedPrintStatus('idle')
+        })
+        .catch((error) => {
+          if (controller.signal.aborted || isPrintAbort(error)) return
+          setCombinedPdfUrl(null)
+          setCombinedPrintStatus('error')
+          setCombinedPrintError(error instanceof Error ? error.message : String(error))
+        })
+    }, PRINT_REBUILD_DELAY_MS)
     return () => {
-      cancelled = true
+      window.clearTimeout(handle)
+      controller.abort()
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
   }, [printPreviewOpen, printView, project, node, allItems, recipes, rates, componentTotal, masterFontPercent])

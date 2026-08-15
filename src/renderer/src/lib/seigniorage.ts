@@ -292,6 +292,7 @@ export interface SeigniorageItemRow {
   slNo: number
   itemNodeId: string
   itemCode: string
+  itemSource?: ProjectNode['itemSource']
   description: string
   unit: string
   /** Computed applicable quantity (after mode-based calculation). */
@@ -418,6 +419,13 @@ function roundRupee(n: number): number {
 
 function roundQuantity(n: number): number {
   return Math.round((n + Number.EPSILON) * 1000) / 1000
+}
+
+/** SOR database identifiers are deliberately hidden from user-facing tables. */
+export function seigniorageItemDisplayName(
+  row: Pick<SeigniorageItemRow, 'itemCode' | 'itemSource' | 'description'>
+): string {
+  return row.itemSource === 'SOR' ? row.description : row.itemCode
 }
 
 function roundRatio(n: number): number {
@@ -711,7 +719,13 @@ export function computeSeigniorageTable(
         const policy = addonPolicyFromData(addonDataRecipe, configuredPolicy)
         const charge = policy.seig_code
           ? charges.find((c) => c.seig_code === policy.seig_code) ?? null
-          : null
+          : policy.status === 'PROJECT_DATA_MANUAL_SELECTION_REQUIRED'
+            ? null
+          : matchMaterialToSeigniorage(
+              policy.material_desc || policy.recipe_material_desc || policy.material_label || '',
+              policy.material_code || '',
+              charges
+            )
         const seigRate = rateForMaterialPolicy(policy, charge)
         const seigQty = computeApplicableQty(qty, policy)
         const seigniorage = seigQty != null && seigRate != null ? seigQty * seigRate : null
@@ -726,6 +740,7 @@ export function computeSeigniorageTable(
           slNo: 0,
           itemNodeId: item.id,
           itemCode,
+          itemSource: item.itemSource,
           description: item.itemDescription ?? item.name,
           unit: qtyUnit,
           quantity: seigQty,
@@ -835,6 +850,7 @@ export function computeSeigniorageTable(
       slNo: 0,
       itemNodeId: item.id,
       itemCode,
+      itemSource: item.itemSource,
       description: item.itemDescription ?? item.name,
       unit: item.unit ?? recipe?.unit ?? 'cum',
       quantity: qty,

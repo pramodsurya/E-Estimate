@@ -9,9 +9,16 @@ import {
 } from '../../lib/leadApplicability'
 import { conveyanceClassLabel } from '../../lib/lead'
 import { dashboardContextMatches } from '../../lib/dashboardSync'
-import { collectProjectItemGroups } from '../../lib/projectItems'
+import { projectItemGroups, type ProjectItemGroup } from '../../lib/projectItems'
+import { pipeLeadMaterialName } from '../../lib/pipeLead'
 import { useStore } from '../../store/useStore'
-import type { ConveyanceClass, LeadApplication, LeadVariant } from '../../types/project'
+import type {
+  ConveyanceClass,
+  LeadApplication,
+  LeadVariant,
+  PipeLeadSource
+} from '../../types/project'
+import type { RateAnalysisRecipe } from '../../types/rateAnalysis'
 
 interface LeadAbstractItem {
   key: string
@@ -21,6 +28,7 @@ interface LeadAbstractItem {
   variantCount: number
   linkedCount: number
   amount: number
+  pipeLead?: PipeLeadSource
 }
 
 const money = new Intl.NumberFormat('en-IN', {
@@ -34,19 +42,22 @@ export default function EstimateLeadPanel(): JSX.Element {
   const selection = useStore((state) => state.leadSelection)
 
   const groups = useMemo(
-    () => (project ? collectProjectItemGroups(project.root) : []),
+    () => (project ? projectItemGroups(project.root) : []),
     [project]
   )
   const variants = project?.leadChart?.variants ?? []
   const applications = project?.leadChart?.applications ?? []
+  const snapshotValid = project
+    ? dashboardContextMatches(project.dashboardSnapshot, project)
+    : false
   const metadata = useMemo(
     () =>
       new Map<string, unknown>(
-        project && dashboardContextMatches(project.dashboardSnapshot, project)
+        project && snapshotValid
           ? Object.entries(project.dashboardSnapshot?.leadApplicability ?? {})
           : []
       ),
-    [project]
+    [project, snapshotValid]
   )
 
   const items = useMemo(
@@ -57,9 +68,13 @@ export default function EstimateLeadPanel(): JSX.Element {
         metadata.get(group.code),
         group.usages.map((usage) => usage.node.dataVariant?.addonId)
       ),
-      source: group.source
+      source: group.source,
+      pipeLead: pipeLeadForGroup(
+        group,
+        snapshotValid ? project?.dashboardSnapshot?.recipes : undefined
+      )
     })), variants, applications),
-    [groups, metadata, variants, applications]
+    [groups, metadata, variants, applications, project?.dashboardSnapshot?.recipes, snapshotValid]
   )
 
   if (!project) return <div className="panel-reserved">Open a project before creating Lead.</div>
@@ -78,8 +93,10 @@ export default function EstimateLeadPanel(): JSX.Element {
         <div className="lead-abstract-list">
           {items.map((item) => {
             const selected =
-              selection?.materialName === item.name &&
-              selection.conveyanceClass === item.conveyanceClass
+              item.pipeLead
+                ? selection?.pipeLead?.pipeLeadItemCode === item.pipeLead.pipeLeadItemCode
+                : selection?.materialName === item.name &&
+                  selection.conveyanceClass === item.conveyanceClass
             return (
               <button
                 className={`lead-abstract-row ${selected ? 'selected' : ''}`}
@@ -87,7 +104,8 @@ export default function EstimateLeadPanel(): JSX.Element {
                 onClick={() =>
                   openLeadMaterial({
                     materialName: item.name,
-                    conveyanceClass: item.conveyanceClass
+                    conveyanceClass: item.conveyanceClass,
+                    pipeLead: item.pipeLead
                   })
                 }
                 title={`${item.dataCount} DATA item(s), ${item.variantCount} variant(s)`}
@@ -124,6 +142,9 @@ function activateGroupAddons(metadata: unknown, addonIds: Array<string | undefin
 }
 
 function leadAbstractClassLabel(name: string, conveyanceClass: ConveyanceClass): string {
+  if (conveyanceClass === 'RCC_PIPE') {
+    return 'Public Health RCC pipe conveyance · loading, unloading & stacking included'
+  }
   const material = name.trim().toLowerCase()
   if (material === 'sand') return 'Sand / fine aggregate'
   if (material === 'stone') return 'Stone / coarse aggregate'
@@ -131,15 +152,23 @@ function leadAbstractClassLabel(name: string, conveyanceClass: ConveyanceClass):
 }
 
 function buildLeadAbstract(
-  dataRows: Array<{ code: string; description: string; metadata: unknown; source: string }>,
+  dataRows: Array<{
+    code: string
+    description: string
+    metadata: unknown
+    source: string
+    pipeLead?: PipeLeadSource
+  }>,
   variants: LeadVariant[],
   applications: LeadApplication[]
 ): LeadAbstractItem[] {
   const byKey = new Map<string, LeadAbstractItem>()
 
-  const ensure = (ref: LeadMaterialRef): LeadAbstractItem => {
+  const ensure = (ref: LeadMaterialRef, pipeLead?: PipeLeadSource): LeadAbstractItem => {
     const canonical = canonicalLeadMaterialRef(ref)
-    const key = isDisposalLeadMaterial(canonical.name)
+    const key = pipeLead
+      ? `pipe:${pipeLead.pipeLeadItemCode}`
+      : isDisposalLeadMaterial(canonical.name)
       ? `disposal:${canonical.name.toLowerCase()}`
       : `${canonical.conveyanceClass}:${canonical.name.toLowerCase()}`
     let item = byKey.get(key)
@@ -151,7 +180,8 @@ function buildLeadAbstract(
         dataCount: 0,
         variantCount: 0,
         linkedCount: 0,
-        amount: 0
+        amount: 0,
+        pipeLead
       }
       byKey.set(key, item)
     }
@@ -159,25 +189,39 @@ function buildLeadAbstract(
   }
 
   for (const row of dataRows) {
-    if (row.source !== 'SSR') continue
+    if (row.pipeLead) {
+      ensure({
+        name: pipeLeadMaterialName(row.pipeLead),
+        conveyanceClass: 'RCC_PIPE',
+        source: row.pipeLead.pipeLeadCatalogueCode
+      }, row.pipeLead).dataCount += 1
+      continue
+    }
+    if (row.source !== 'SSR' && row.source !== 'PROJECT_DATA') continue
     for (const ref of materialRefsForLeadInfo(parseLeadInfo(row.metadata), row.description)) {
       ensure(ref).dataCount += 1
     }
   }
 
   for (const variant of variants) {
-    ensure({ name: variant.materialName, conveyanceClass: variant.conveyanceClass, source: '' })
+    ensure(
+      { name: variant.materialName, conveyanceClass: variant.conveyanceClass, source: '' },
+      variant.pipeLead
+    )
       .variantCount += 1
   }
 
   for (const application of applications) {
     const variant = variants.find((candidate) => candidate.id === application.variantId)
     if (!variant) continue
-    const item = ensure({
-      name: variant.materialName,
-      conveyanceClass: variant.conveyanceClass,
-      source: ''
-    })
+    const item = ensure(
+      {
+        name: variant.materialName,
+        conveyanceClass: variant.conveyanceClass,
+        source: ''
+      },
+      variant.pipeLead
+    )
     item.linkedCount += 1
     item.amount += application.grossAmount
   }
@@ -185,4 +229,17 @@ function buildLeadAbstract(
   return Array.from(byKey.values()).sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { numeric: true })
   )
+}
+
+function pipeLeadForGroup(
+  group: ProjectItemGroup,
+  recipes: Record<string, RateAnalysisRecipe> | undefined
+): PipeLeadSource | undefined {
+  for (const usage of group.usages) {
+    const linked =
+      usage.node.sorCatalogue?.pipeLead ??
+      recipes?.[usage.node.id]?.sorCatalogueSource?.pipeLead
+    if (linked) return linked
+  }
+  return undefined
 }

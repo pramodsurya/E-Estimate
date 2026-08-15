@@ -5,13 +5,10 @@
  */
 
 import type { PaperSize } from '../types/project'
-import type { SeigniorageItemRow } from './seigniorage'
+import { seigniorageItemDisplayName, type SeigniorageItemRow } from './seigniorage'
 
 const qtyFmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 3 })
-const rateFmt = new Intl.NumberFormat('en-IN', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2
-})
+const factorFmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 6 })
 
 export function paperMm(paper: PaperSize): { w: number; h: number } {
   if (paper === 'A3') return { w: 297, h: 420 }
@@ -36,9 +33,9 @@ export function seigQtyCalc(row: SeigniorageItemRow): string {
       : 'Review'
   }
   if (row.itemQuantity == null || row.quantityRatio == null) return '-'
-  const parts = [qtyFmt.format(row.itemQuantity), rateFmt.format(row.quantityRatio)]
+  const parts = [qtyFmt.format(row.itemQuantity), factorFmt.format(row.quantityRatio)]
   if (row.conversionFactor != null && row.conversionFactor !== 1) {
-    parts.push(rateFmt.format(row.conversionFactor))
+    parts.push(factorFmt.format(row.conversionFactor))
   }
   const applicable = row.quantity
   return `${parts.join(' × ')} = ${
@@ -64,7 +61,7 @@ const ROW_PAD = 3
  * under-counts, which over-packs the page and forces spurious splits.
  */
 export function rowHeight(row: SeigniorageItemRow, fontScale = 1): number {
-  const description = [row.itemCode, row.materialLabel, row.recipeMaterialDesc]
+  const description = [seigniorageItemDisplayName(row), row.materialLabel, row.recipeMaterialDesc]
     .filter(Boolean)
     .join(' ')
   // Larger text fits fewer characters per line as well as making each line

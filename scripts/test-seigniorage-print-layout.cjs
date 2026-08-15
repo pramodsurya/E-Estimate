@@ -6,7 +6,7 @@ const ts = require('typescript')
 
 const root = path.resolve(__dirname, '..')
 
-function loadTsModule(filePath) {
+function loadTsModule(filePath, mocks = {}) {
   const source = fs.readFileSync(filePath, 'utf8')
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: {
@@ -19,6 +19,7 @@ function loadTsModule(filePath) {
   const loadedModule = new Module(filePath, module)
   loadedModule.filename = filePath
   loadedModule.paths = Module._nodeModulePaths(path.dirname(filePath))
+  loadedModule.require = (request) => (request in mocks ? mocks[request] : require(request))
   loadedModule._compile(outputText, filePath)
   return loadedModule.exports
 }
@@ -27,6 +28,7 @@ const {
   buildPages,
   groupByMat,
   rowHeight,
+  seigQtyCalc,
   paperMm,
   HDR_H,
   SUMMARY_H,
@@ -34,7 +36,12 @@ const {
   TBL_HEADER_H,
   SUBTOTAL_H,
   GRAND_H
-} = loadTsModule(path.join(root, 'src/renderer/src/lib/seignioragePrintLayout.ts'))
+} = loadTsModule(path.join(root, 'src/renderer/src/lib/seignioragePrintLayout.ts'), {
+  './seigniorage': {
+    seigniorageItemDisplayName: (row) =>
+      row.itemSource === 'SOR' ? row.description || '' : row.itemCode || ''
+  }
+})
 
 let seq = 0
 // `materialDescLength` drives the height, because the description cell renders
@@ -75,6 +82,19 @@ const PAGE_H = A4.w - 12 - 12
 function allSections(pages) {
   return pages.flatMap((page, index) => page.sections.map((section) => ({ ...section, page: index })))
 }
+
+assert.match(
+  seigQtyCalc({
+    ...row('SEIG_BUILDING_STONE', 'Building Stone'),
+    itemQuantity: 10,
+    quantityRatio: 4.7,
+    conversionFactor: 0.001,
+    quantity: 0.047,
+    unit: 'MT'
+  }),
+  /0\.001/,
+  'kg-to-MT conversion must never be rounded to 0.00 in the printed working'
+)
 
 /** Re-derives the height the layout budgeted for a page. */
 function pageHeight(page, isFirst, fontScale = 1) {

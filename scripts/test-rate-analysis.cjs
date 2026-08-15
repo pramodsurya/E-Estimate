@@ -15,6 +15,11 @@ assert.doesNotMatch(
   /resolveSorInputRate|linkedRate:/,
   'Published SSR rows must not be replaced by zoned SOR reference rates'
 )
+assert.match(
+  rateAnalysisSource,
+  /sectionHeading:\s*textValue\(row\.section_heading\)\.trim\(\)\s*\|\|\s*undefined/,
+  'SSR recipe loading must preserve the published section heading'
+)
 const rateTableSource = fs.readFileSync(
   path.join(root, 'src/renderer/src/components/rateanalysis/RateAnalysisTable.tsx'),
   'utf8'
@@ -23,6 +28,66 @@ assert.doesNotMatch(
   rateTableSource,
   /SOR reference \{line\.linkedRate\.year\}/,
   'SSR tables must not print repeated SOR reference captions under values'
+)
+assert.match(
+  rateTableSource,
+  /rate-source-section-heading[\s\S]*?recipe\.sectionHeading/,
+  'SSR DATA sheets must display a published section heading when the backend supplies one'
+)
+assert.match(
+  rateTableSource,
+  /<SorDataSheet[\s\S]*?leadApplications=\{leadApplications\}[\s\S]*?leadVariants=\{leadVariants\}/,
+  'SOR DATA sheets must receive the Lead applications linked to the selected item'
+)
+assert.match(
+  rateTableSource,
+  /catalogueSource\?\.pipeLead && leadApplications\.length === 0[\s\S]*?Pipe conveyance Lead is not applied yet/,
+  'Linked RCC pipe DATA must explain when conveyance Lead has not been applied'
+)
+assert.match(
+  rateTableSource,
+  /<LeadAdditions[\s\S]*?applications=\{leadApplications\}[\s\S]*?baseFinalAmount=\{rate \* outputQuantity\}/,
+  'SOR DATA sheets must render applied Lead separately from the published base rate'
+)
+const sorSheetStart = rateTableSource.indexOf('function SorDataSheet(')
+const sorSheetEnd = rateTableSource.indexOf('function PublishedRateBlocks', sorSheetStart)
+const sorSheetSource =
+  sorSheetStart >= 0 && sorSheetEnd > sorSheetStart
+    ? rateTableSource.slice(sorSheetStart, sorSheetEnd)
+    : ''
+assert.match(
+  sorSheetSource,
+  /rate-sheet-code">SOR DATA/,
+  'The on-screen SOR sheet heading must not duplicate the description printed in its table row'
+)
+assert.match(
+  sorSheetSource,
+  /className="sor-sheet-audit"/,
+  'The SOR audit block must remain available in the on-screen item dashboard'
+)
+const dataSheetPrintSource = fs.readFileSync(
+  path.join(root, 'src/renderer/src/lib/dataSheetPrint.tsx'),
+  'utf8'
+)
+assert.match(
+  dataSheetPrintSource,
+  /\.sor-sheet-audit\{display:none!important\}/,
+  'Printed DATA sheets must omit the SOR row/column-label audit block'
+)
+assert.match(
+  dataSheetPrintSource,
+  /function SorPrintTable[\s\S]*?sheets\.map[\s\S]*?\{sheet\.recipe\.description\}/,
+  'Printed SOR DATA must render catalogue items as rows in one flowing table'
+)
+assert.match(
+  dataSheetPrintSource,
+  /const sorSheets = sheets\.filter[\s\S]*?let sorTableRendered = false/,
+  'All SOR items must be collected into one printed table'
+)
+assert.match(
+  dataSheetPrintSource,
+  /Base Rs\.[\s\S]*?\+ Lead Rs\./,
+  'The flowing SOR print table must show applied Lead as part of the final item rate'
 )
 
 function loadTsModule(filePath, mocks = {}) {
@@ -56,6 +121,12 @@ const {
   {
     './supabase': { supabase: {} },
     './dataVariants': { applyDataVariantToRecipe: (recipe) => recipe, buildDataVariantSpec: () => ({}) },
+    './pipeLead': { pipeLeadSourceFromContext: () => undefined },
+    './materialRates': {
+      applyMaterialRateOverrides: (recipe) => ({ recipe, applications: [] }),
+      fetchMaterialAliases: async () => new Map(),
+      fetchMonthlyMaterials: async () => []
+    },
     './projectItems': { projectItemKey: () => 'test' },
     './rateAnalysisVisibility': { parseRateAnalysisVisibility: () => ({}) },
     './sorCatalogue': {
@@ -260,12 +331,59 @@ const audit = auditPublishedRateAnalysis(publishedFirstRecipe)
 const materialAudit = audit.sections.find((section) => section.section === 'materials')
 const machineryAudit = audit.sections.find((section) => section.section === 'machinery')
 assert.equal(materialAudit.publishedTotal, 300)
-assert.equal(materialAudit.recalculatedTotal, 295)
-assert.equal(materialAudit.difference, -5)
+assert.equal(materialAudit.recalculatedTotal, 300)
+assert.equal(materialAudit.difference, 0)
 assert.equal(materialAudit.mismatchedRows, 1)
 assert.equal(machineryAudit.publishedTotal, 500)
 assert.equal(machineryAudit.recalculatedTotal, 500)
 assert.equal(audit.rows.find((row) => row.lineId === 'material-1').status, 'mismatch')
+
+const structuredRuleRecipe = {
+  ...publishedFirstRecipe,
+  itemCode: 'STRUCTURED-RULES',
+  sections: [
+    {
+      key: 'materials', label: 'A. Materials',
+      lines: [{
+        id: 'material-adjusted', slNo: '1', description: 'Base material', unit: 'LS',
+        quantity: 1, rate: 100, amount: 100, groupId: 'materials_1',
+        sourceValues: { quantity: '1', rate: '100', amount: '100.00' }
+      }]
+    },
+    {
+      key: 'machinery', label: 'B. Machinery',
+      lines: [{
+        id: 'machine-apportioned', slNo: '1', description: 'Shared machinery', unit: 'Hour',
+        quantity: 1, rate: 200, amount: 200, groupId: 'machinery_1',
+        sourceValues: { quantity: '1', rate: '200', amount: '200.00' }
+      }]
+    },
+    { key: 'labour', label: 'C. Labour', lines: [] }
+  ],
+  sectionRules: [
+    {
+      id: 'materials_1_adjustment_1', kind: 'percentage_addition', section: 'materials',
+      groupId: 'materials_1', percent: 10, label: 'Add scaffolding @ 10%'
+    },
+    {
+      id: 'machinery_1_factor', kind: 'apportionment_percent', section: 'machinery',
+      groupId: 'machinery_1', factor: 0.9, label: 'Apportioned machinery @ 90%'
+    }
+  ],
+  storedValues: {
+    sectionTotals: { materials: '110.00', machinery: '180.00', labour: '0.00' },
+    labourExtract: [],
+    abstract: []
+  }
+}
+const structuredAudit = auditPublishedRateAnalysis(structuredRuleRecipe)
+assert.equal(structuredAudit.sections.find((section) => section.section === 'materials').recalculatedTotal, 110)
+assert.equal(structuredAudit.sections.find((section) => section.section === 'machinery').recalculatedTotal, 180)
+const structuredEdit = recalculateRateAnalysis(updateRateAnalysisLine(
+  structuredRuleRecipe, 'materials', 'material-adjusted', { quantity: 2 }
+))
+assert.equal(structuredEdit.recalculation.sectionTotals.materials, '220.00')
+assert.match(structuredEdit.recalculation.trace.map((row) => row.formula).join('\n'), /10% of current materials_1/)
 
 const quantityEdited = updateRateAnalysisLine(
   publishedFirstRecipe,

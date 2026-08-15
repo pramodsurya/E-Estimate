@@ -3,6 +3,7 @@ import '@univerjs/preset-docs-drawing/lib/index.css'
 
 import {
   ICommandService,
+  JSONX,
   LocaleType,
   LogLevel,
   mergeLocales,
@@ -13,10 +14,10 @@ import {
 } from '@univerjs/core'
 import { UniverDocsCorePreset } from '@univerjs/preset-docs-core'
 import { UniverDocsDrawingPreset } from '@univerjs/preset-docs-drawing'
-import { InsertDocDrawingCommand, RemoveDocDrawingCommand } from '@univerjs/docs-drawing-ui'
+import { InsertDocDrawingCommand } from '@univerjs/docs-drawing-ui'
 import enUS from '@univerjs/preset-docs-core/locales/en-US'
 import drawingEnUS from '@univerjs/preset-docs-drawing/locales/en-US'
-import { DocSelectionManagerService } from '@univerjs/docs'
+import { DocSelectionManagerService, RichTextEditingMutation } from '@univerjs/docs'
 import { AlertTriangle, Crop, Hash, Printer } from 'lucide-react'
 import {
   forwardRef,
@@ -282,57 +283,128 @@ const UniverDocument = forwardRef<UniverDocumentHandle, UniverDocumentProps>(
                 })
                 return false
               }
-              const removed = await commandService.executeCommand(RemoveDocDrawingCommand.id, {
+              // Replace the image data in place. Removing and reinserting the
+              // drawing loses its live anchor and can race the editor debounce,
+              // which is why Update Cost previously appeared to do nothing.
+              const updatedDrawing = {
+                ...currentDrawing,
+                drawingType: nextDrawing.drawingType,
+                imageSourceType: (nextDrawing as { imageSourceType?: unknown }).imageSourceType,
+                source: nextSource,
+                title: nextDrawing.title,
+                description: nextDrawing.description,
+                layoutType: nextDrawing.layoutType,
+                behindDoc: nextDrawing.behindDoc,
+                wrapText: nextDrawing.wrapText,
+                allowTransform: (nextDrawing as { allowTransform?: unknown }).allowTransform
+              }
+              const actions = JSONX.getInstance().replaceOp(
+                ['drawings', drawingId],
+                currentDrawing,
+                updatedDrawing
+              )
+              const updated = commandService.syncExecuteCommand(RichTextEditingMutation.id, {
                 unitId: before.id,
-                drawings: [
-                  {
-                    unitId: before.id,
-                    subUnitId: before.id,
-                    drawingId,
-                    drawingType: currentDrawing.drawingType
-                  }
-                ]
+                actions,
+                textRanges: null,
+                noNeedSetTextRange: true
               })
-              console.info('[FrontCoverCost] remove command result', { drawingId, removed })
-              if (!removed) return false
+              await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+              const afterUpdate = documentApi.getSnapshot()
+              const savedDrawing = afterUpdate.drawings?.[drawingId] as
+                | { source?: string; layoutType?: unknown }
+                | undefined
+              const sourceUpdated = savedDrawing?.source === nextSource
+              console.info('[FrontCoverCost] update command result', {
+                drawingId,
+                updated: Boolean(updated),
+                sourceUpdated,
+                anchorPresent: Boolean(
+                  afterUpdate.body?.customBlocks?.some((block) => block.blockId === drawingId)
+                )
+              })
+              if (!sourceUpdated) return false
+              flush()
+              return true
             }
 
-            const afterRemoval = documentApi.getSnapshot()
-            const insertionOffset = Math.max(
-              0,
-              (afterRemoval.body?.dataStream.length ?? 2) - 2
-            )
-            activeUniver
-              .__getInjector()
-              .get(DocSelectionManagerService)
-              .replaceDocRanges(
-                [
-                  {
-                    startOffset: insertionOffset,
-                    endOffset: insertionOffset,
-                    segmentId: ''
-                  }
-                ],
-                { unitId: before.id, subUnitId: before.id },
-                true
-              )
-
-            const inserted = await commandService.executeCommand(InsertDocDrawingCommand.id, {
+            const drawingToInsert = {
+              ...nextDrawing,
               unitId: before.id,
-              drawings: [
-                {
-                  ...nextDrawing,
-                  unitId: before.id,
-                  subUnitId: before.id
-                }
-              ]
-            })
+              subUnitId: before.id
+            }
+            let inserted: unknown = false
+
+            // A false result from Univer can still leave the custom-block
+            // anchor behind. Do not insert a second anchor when repairing that
+            // partial state; only add the missing drawing and order records.
+            if (!currentAnchor) {
+              const insertionOffset = Math.max(
+                0,
+                (before.body?.dataStream.length ?? 2) - 2
+              )
+              activeUniver
+                .__getInjector()
+                .get(DocSelectionManagerService)
+                .replaceDocRanges(
+                  [
+                    {
+                      startOffset: insertionOffset,
+                      endOffset: insertionOffset,
+                      segmentId: ''
+                    }
+                  ],
+                  { unitId: before.id, subUnitId: before.id },
+                  true
+                )
+
+              inserted = await commandService.executeCommand(InsertDocDrawingCommand.id, {
+                unitId: before.id,
+                drawings: [drawingToInsert]
+              })
+            }
             await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
-            const afterInsert = documentApi.getSnapshot()
-            const drawingPresent = Boolean(afterInsert.drawings?.[drawingId])
-            const anchorPresent = Boolean(
+            let afterInsert = documentApi.getSnapshot()
+            let drawingPresent = Boolean(afterInsert.drawings?.[drawingId])
+            let anchorPresent = Boolean(
               afterInsert.body?.customBlocks?.some((block) => block.blockId === drawingId)
             )
+
+            if (anchorPresent && !drawingPresent) {
+              const json = JSONX.getInstance()
+              const addDrawing = json.insertOp(
+                ['drawings', drawingId],
+                drawingToInsert
+              )
+              const drawingOrder = afterInsert.drawingsOrder ?? []
+              const actions = drawingOrder.includes(drawingId)
+                ? addDrawing
+                : JSONX.compose(
+                    addDrawing,
+                    json.insertOp(['drawingsOrder', drawingOrder.length], drawingId)
+                  )
+              const recovered = commandService.syncExecuteCommand(
+                RichTextEditingMutation.id,
+                {
+                  unitId: before.id,
+                  actions,
+                  textRanges: null,
+                  noNeedSetTextRange: true
+                }
+              )
+              await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+              afterInsert = documentApi.getSnapshot()
+              drawingPresent = Boolean(afterInsert.drawings?.[drawingId])
+              anchorPresent = Boolean(
+                afterInsert.body?.customBlocks?.some((block) => block.blockId === drawingId)
+              )
+              console.info('[FrontCoverCost] recovered partial insertion', {
+                drawingId,
+                recovered: Boolean(recovered),
+                drawingPresent,
+                anchorPresent
+              })
+            }
             const insertResult = {
               drawingId,
               inserted,

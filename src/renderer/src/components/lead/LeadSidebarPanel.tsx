@@ -1,8 +1,15 @@
 import { ChevronRight, Layers3, Link2, Route } from 'lucide-react'
 import { dashboardContextMatches } from '../../lib/dashboardSync'
 import { conveyanceClassLabel } from '../../lib/lead'
+import {
+  canonicalLeadMaterialRef,
+  materialRefsForLeadInfo,
+  parseLeadInfo
+} from '../../lib/leadApplicability'
+import { projectDataForNode, projectDataLeadApplicability } from '../../lib/projectData'
+import { projectItemGroups } from '../../lib/projectItems'
 import { useStore } from '../../store/useStore'
-import type { ConveyanceClass } from '../../types/project'
+import type { ConveyanceClass, PipeLeadSource } from '../../types/project'
 
 interface MaterialSummary {
   key: string
@@ -10,6 +17,7 @@ interface MaterialSummary {
   conveyanceClass: ConveyanceClass
   variants: number
   applications: number
+  pipeLead?: PipeLeadSource
 }
 
 export default function LeadSidebarPanel(): JSX.Element {
@@ -25,17 +33,47 @@ export default function LeadSidebarPanel(): JSX.Element {
   const materialsByKey = new Map<string, MaterialSummary>()
 
   for (const variant of variants) {
-    const key = `${variant.materialName.trim().toLowerCase()}:${variant.conveyanceClass}`
-    const material = materialsByKey.get(key) ?? {
-      key,
+    // Old snapshots may pre-date a backend class correction. Normalizing here keeps
+    // the sidebar truthful immediately; the next Dashboard Sync persists the recipe.
+    const canonical = canonicalLeadMaterialRef({
       name: variant.materialName,
       conveyanceClass: variant.conveyanceClass,
+      source: ''
+    })
+    const key = `${canonical.name.trim().toLowerCase()}:${canonical.conveyanceClass}`
+    const material = materialsByKey.get(key) ?? {
+      key,
+      name: canonical.name,
+      conveyanceClass: canonical.conveyanceClass,
       variants: 0,
-      applications: 0
+      applications: 0,
+      pipeLead: variant.pipeLead
     }
     material.variants += 1
     material.applications += variant.applications.length
     materialsByKey.set(key, material)
+  }
+
+  if (project) {
+    for (const group of projectItemGroups(project.root)) {
+      if (group.source !== 'PROJECT_DATA') continue
+      const definition = projectDataForNode(project.projectData, group.usages[0]?.node)
+      if (!definition) continue
+      for (const ref of materialRefsForLeadInfo(
+        parseLeadInfo(projectDataLeadApplicability(definition)),
+        group.description
+      )) {
+        const key = `${ref.name.trim().toLowerCase()}:${ref.conveyanceClass}`
+        if (materialsByKey.has(key)) continue
+        materialsByKey.set(key, {
+          key,
+          name: ref.name,
+          conveyanceClass: ref.conveyanceClass,
+          variants: 0,
+          applications: 0
+        })
+      }
+    }
   }
 
   const materials = Array.from(materialsByKey.values()).sort((left, right) =>
@@ -99,8 +137,9 @@ export default function LeadSidebarPanel(): JSX.Element {
               key={material.key}
               onClick={() =>
                 openLeadMaterial({
-                  materialName: material.name,
-                  conveyanceClass: material.conveyanceClass
+                    materialName: material.name,
+                    conveyanceClass: material.conveyanceClass,
+                    pipeLead: material.pipeLead
                 })
               }
             >

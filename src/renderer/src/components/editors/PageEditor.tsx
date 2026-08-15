@@ -10,6 +10,7 @@ import {
   frontCoverHasEstimatedCost,
   updateFrontCoverEstimatedCost
 } from '../../lib/univerDocument'
+import { resolveProjectEstimatedCost } from '../../lib/projectPrintInputs'
 
 export default function PageEditor({ node }: { node: ProjectNode }): JSX.Element {
   const project = useStore((state) => state.project)
@@ -18,6 +19,11 @@ export default function PageEditor({ node }: { node: ProjectNode }): JSX.Element
   const [coverStatus, setCoverStatus] = useState<string | null>(null)
   const isFrontPage = node.pageTemplate === 'front'
   const hasCostPlaceholder = frontCoverHasEstimatedCost(node)
+
+  const currentDashboardCost = (): number | null => {
+    const currentProject = useStore.getState().project
+    return currentProject ? resolveProjectEstimatedCost(currentProject) : null
+  }
 
   const applyCostDrawing = async (
     documentData: ReturnType<typeof addFrontCoverEstimatedCost>
@@ -51,18 +57,15 @@ export default function PageEditor({ node }: { node: ProjectNode }): JSX.Element
     setCostUpdating(true)
     setCoverStatus(null)
     try {
-      const dashboardCost =
-        typeof project?.meta.estimatedCost === 'number' &&
-        Number.isFinite(project.meta.estimatedCost)
-          ? project.meta.estimatedCost
-          : null
+      const dashboardCost = currentDashboardCost()
+      if (dashboardCost === null) {
+        setCoverStatus('Open Project Dashboard and click Sync before adding cost')
+        return
+      }
       const documentData = addFrontCoverEstimatedCost(node, dashboardCost)
       await applyCostDrawing(documentData)
-      setCoverStatus(
-        dashboardCost === null
-          ? 'Cost placeholder added - drag it anywhere on the page'
-          : 'Cost image added from Dashboard - drag it anywhere on the page'
-      )
+      useStore.getState().updateMeta({ estimatedCost: dashboardCost })
+      setCoverStatus('Current Dashboard cost added - drag it anywhere on the page')
     } catch (reason) {
       console.error('[PageEditor] failed to add Front Cover cost placeholder', reason)
       setCoverStatus('Could not insert the cost image - check the console')
@@ -73,9 +76,13 @@ export default function PageEditor({ node }: { node: ProjectNode }): JSX.Element
 
   const updateCoverCost = async (): Promise<void> => {
     if (!isFrontPage || !project || costUpdating) return
-    const estimatedCost = project.meta.estimatedCost
-    if (typeof estimatedCost !== 'number' || !Number.isFinite(estimatedCost)) {
-      setCoverStatus('Sync the Project Dashboard before updating cost')
+    if (!hasCostPlaceholder) {
+      setCoverStatus('Add the cost box first')
+      return
+    }
+    const estimatedCost = currentDashboardCost()
+    if (estimatedCost === null) {
+      setCoverStatus('Open Project Dashboard and click Sync before updating cost')
       return
     }
 
@@ -84,7 +91,8 @@ export default function PageEditor({ node }: { node: ProjectNode }): JSX.Element
     try {
       const documentData = updateFrontCoverEstimatedCost(node, estimatedCost)
       await applyCostDrawing(documentData)
-      setCoverStatus('Estimated cost updated from Dashboard')
+      useStore.getState().updateMeta({ estimatedCost })
+      setCoverStatus('Estimated cost updated to the current Dashboard total')
     } catch (reason) {
       console.error('[PageEditor] failed to update Front Cover cost', reason)
       setCoverStatus('Cost update failed')
@@ -121,9 +129,13 @@ export default function PageEditor({ node }: { node: ProjectNode }): JSX.Element
             </button>
             <button
               className="btn ghost front-cover-cost-update"
-              disabled={costUpdating}
+              disabled={costUpdating || !hasCostPlaceholder}
               onClick={updateCoverCost}
-              title="Update only the movable Estimated Cost box from the Project Dashboard total"
+              title={
+                hasCostPlaceholder
+                  ? 'Update only the movable Estimated Cost box from the current Project Dashboard total'
+                  : 'Add the cost box before updating it'
+              }
             >
               <IndianRupee size={13} />
               {costUpdating ? 'Updating...' : 'Update Cost'}

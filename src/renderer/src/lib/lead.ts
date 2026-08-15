@@ -6,9 +6,38 @@ import type {
   LeadIncludedBasis,
   LeadRateCalculationDetail,
   LeadRateCalculationLine,
+  LeadVariant,
   SorZone
 } from '../types/project'
 export type { LeadHandlingMode } from '../types/project'
+
+/**
+ * Route colours for lead variants. A variant may pin one of its own; anything
+ * unpinned falls back to this cycle so two routes on the same map stay apart.
+ *
+ * One palette serves both the on-screen map and the print map, so a route keeps
+ * the same colour wherever it is drawn — which is the whole point of letting
+ * the user pin it in the first place.
+ */
+export const LEAD_ROUTE_COLORS = [
+  '#16a085',
+  '#e67e22',
+  '#8e44ad',
+  '#c49a00',
+  '#2471a3',
+  '#c0392b',
+  '#2d7d46',
+  '#b03a7a'
+]
+
+export function leadRouteColor(
+  variant: Pick<LeadVariant, 'mapColor'> | undefined,
+  index: number
+): string {
+  const pinned = variant?.mapColor?.trim()
+  if (pinned && /^#[0-9a-f]{6}$/i.test(pinned)) return pinned
+  return LEAD_ROUTE_COLORS[index % LEAD_ROUTE_COLORS.length]
+}
 
 export const CONVEYANCE_CLASSES: ConveyanceClass[] = [
   'EARTH',
@@ -17,7 +46,8 @@ export const CONVEYANCE_CLASSES: ConveyanceClass[] = [
   'STEEL',
   'SLAB_WOOD',
   'WATER',
-  'BRICKS'
+  'BRICKS',
+  'RCC_PIPE'
 ]
 
 export const CPOH_FACTOR = 1.13615
@@ -108,7 +138,8 @@ export function conveyanceClassLabel(value: ConveyanceClass): string {
     STEEL: 'Steel / packed material',
     SLAB_WOOD: 'Slabs / wood',
     WATER: 'Water',
-    BRICKS: 'Bricks'
+    BRICKS: 'Bricks',
+    RCC_PIPE: 'RCC pipe conveyance'
   }
   return labels[value]
 }
@@ -397,6 +428,7 @@ function zeroDisposalBreakdown(input: LeadVariantChargeInput): LeadChargeBreakdo
 }
 
 function defaultUnitForConveyanceClass(conveyanceClass: ConveyanceClass): string {
+  if (conveyanceClass === 'RCC_PIPE') return 'metre'
   if (conveyanceClass === 'CEMENT' || conveyanceClass === 'STEEL') return 'tonne'
   if (conveyanceClass === 'WATER') return '1000_litres'
   if (conveyanceClass === 'BRICKS') return '1000_nos'

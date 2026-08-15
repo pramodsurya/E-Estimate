@@ -119,6 +119,9 @@ export default function BundSectionDiagram({
               rl: section.groundLevel as number
             }))
           : [])
+    // A cleared section must stay empty. Do not let optional design overlays
+    // create a chart after both Existing and Proposed points have been removed.
+    if (pre.length < 2 && projected.length < 2) return null
     const strippingBands = leveling ? bundNetStrippingBands(data, section) : []
     const formationBands = leveling?.formation ?? []
     const heartingBands = heartingRepairBands(data, section)

@@ -9,7 +9,7 @@ set rate_structure =
   jsonb_build_object(
     'multi_rate_classification',
     case
-      when code in ('IRR-GAW-1-3','IRR-GAW-2-7','IRR-GAW-2-9','IRR-GAW-2-10')
+      when code in ('IRR-GAW-1-3','IRR-GAW-2-4','IRR-GAW-2-7','IRR-GAW-2-9','IRR-GAW-2-10','IRR-GAW-2-11')
         then 'dual_measurement_basis'
       when code in ('IRR-CAW-7-31','IRR-CAW-8-1')
         then 'optional_addition'
@@ -29,7 +29,7 @@ set rate_structure =
   end
 where code in (
   'IRR-CAW-7-31','IRR-CAW-8-1','IRR-CCDW-3-1','IRR-DAW-1-10','IRR-DAW-5-5',
-  'IRR-GAW-1-3','IRR-GAW-2-7','IRR-GAW-2-9','IRR-GAW-2-10'
+  'IRR-GAW-1-3','IRR-GAW-2-4','IRR-GAW-2-7','IRR-GAW-2-9','IRR-GAW-2-10','IRR-GAW-2-11'
 );
 
 -- The payable GAW rate is per tonne capacity; the tonne-weight rate is an
@@ -42,7 +42,7 @@ set base_rate = (
   order by case when entry->>'label' ilike '%capacity of hoist%' then 0 else 1 end
   limit 1
 )
-where sy.code in ('IRR-GAW-1-3','IRR-GAW-2-7','IRR-GAW-2-9','IRR-GAW-2-10')
+where sy.code in ('IRR-GAW-1-3','IRR-GAW-2-4','IRR-GAW-2-7','IRR-GAW-2-9','IRR-GAW-2-10','IRR-GAW-2-11')
   and exists (
     select 1
     from jsonb_array_elements(coalesce(sy.rate_values, '[]'::jsonb)) as entry

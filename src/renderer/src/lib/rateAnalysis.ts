@@ -8,7 +8,13 @@ import {
   sorCommercialTerms,
   sourceContextTitle
 } from './sorCatalogue'
-import type { ProjectNode } from '../types/project'
+import { pipeLeadSourceFromContext } from './pipeLead'
+import {
+  applyMaterialRateOverrides,
+  fetchMaterialAliases,
+  fetchMonthlyMaterials
+} from './materialRates'
+import type { MaterialRateOverride, ProjectNode } from '../types/project'
 import type {
   RateAnalysisCalculationTrace,
   RateAnalysisFigure,
@@ -17,7 +23,9 @@ import type {
   RateAnalysisPublishedBlock,
   RateAnalysisRecalculation,
   RateAnalysisRecipe,
+  RateAnalysisSection,
   RateAnalysisSectionKey,
+  RateAnalysisSectionRule,
   RateAnalysisStoredRow,
   RateAnalysisSummary,
   RateAnalysisTextRun,
@@ -36,6 +44,8 @@ interface RateAnalysisFetchOptions {
   zone?: SorZone
   areaAllowancePercent?: number
   areaAllowanceLabel?: string
+  /** Per-project cement/steel/PH rates, keyed by material_code. */
+  materialRateOverrides?: Record<string, MaterialRateOverride>
 }
 
 function numberOrNull(value: unknown): number | null {
@@ -461,6 +471,86 @@ export function calculateRateAnalysis(recipe: RateAnalysisRecipe): RateAnalysisS
   }
 }
 
+interface StructuredSectionResult {
+  total: number | null
+  complete: boolean
+  contributingRows: number
+  unverifiableRows: number
+  ruleTrace: Array<{ label: string; amount: number; formula: string }>
+}
+
+function structuredSectionResult(
+  section: RateAnalysisSection,
+  rules: RateAnalysisSectionRule[],
+  amountForLine: (line: RateAnalysisLine) => number | null
+): StructuredSectionResult {
+  const groupAmounts = new Map<string, number>()
+  let complete = true
+  let contributingRows = 0
+  let unverifiableRows = 0
+  for (const line of section.lines) {
+    const amount = amountForLine(line)
+    const hasSourceCells = Boolean(
+      line.sourceValues &&
+        (textValue(line.sourceValues.quantity).trim() ||
+          textValue(line.sourceValues.rate).trim() ||
+          textValue(line.sourceValues.amount).trim())
+    )
+    if (amount === null) {
+      if (hasSourceCells || line.userAdded) {
+        complete = false
+        unverifiableRows += 1
+      }
+      continue
+    }
+    const groupId = line.groupId || `${section.key}_1`
+    groupAmounts.set(groupId, roundMoney((groupAmounts.get(groupId) ?? 0) + amount))
+    contributingRows += 1
+  }
+
+  const sectionRules = rules.filter((rule) => rule.section === section.key)
+  const groupIds = new Set([
+    ...groupAmounts.keys(),
+    ...sectionRules.map((rule) => rule.groupId).filter(Boolean)
+  ])
+  let total = 0
+  const ruleTrace: StructuredSectionResult['ruleTrace'] = []
+  for (const groupId of groupIds) {
+    let groupTotal = groupAmounts.get(groupId) ?? 0
+    const factorRule = sectionRules.find(
+      (rule) => rule.groupId === groupId && rule.factor !== undefined
+    )
+    if (factorRule) {
+      groupTotal = roundMoney(groupTotal * numberValue(factorRule.factor, 1))
+      ruleTrace.push({
+        label: factorRule.label,
+        amount: groupTotal,
+        formula: `${groupId} x ${numberValue(factorRule.factor, 1)}`
+      })
+    }
+    for (const rule of sectionRules.filter(
+      (candidate) =>
+        candidate.groupId === groupId && candidate.kind === 'percentage_addition'
+    )) {
+      const addition = roundMoney((groupTotal * numberValue(rule.percent)) / 100)
+      groupTotal = roundMoney(groupTotal + addition)
+      ruleTrace.push({
+        label: rule.label,
+        amount: addition,
+        formula: `${numberValue(rule.percent)}% of current ${groupId}`
+      })
+    }
+    total = roundMoney(total + groupTotal)
+  }
+  return {
+    total: complete && contributingRows > 0 ? total : null,
+    complete,
+    contributingRows,
+    unverifiableRows,
+    ruleTrace
+  }
+}
+
 /**
  * Independently verify the printed SSR arithmetic without changing any adopted
  * value. This audit always uses the immutable published inputs in sourceValues.
@@ -472,8 +562,6 @@ export function auditPublishedRateAnalysis(
   const sections: RateAnalysisIndependentAudit['sections'] = []
 
   for (const section of recipe.sections) {
-    let recalculatedTotal = 0
-    let verifiableRows = 0
     let mismatchedRows = 0
 
     for (const line of section.lines) {
@@ -505,17 +593,15 @@ export function auditPublishedRateAnalysis(
       const status = line.userAdded
         ? 'user_added'
         : difference === null
-          ? 'unverifiable'
+          ? publishedAmount !== null
+            ? 'published_amount'
+            : 'unverifiable'
           : absoluteDifference <= 0.005
             ? 'matched'
             : absoluteDifference <= 0.05
               ? 'rounding'
               : 'mismatch'
 
-      if (!line.userAdded && recalculatedAmount !== null) {
-        recalculatedTotal = roundMoney(recalculatedTotal + recalculatedAmount)
-        verifiableRows += 1
-      }
       if (status === 'mismatch') mismatchedRows += 1
       rows.push({
         section: section.key,
@@ -531,8 +617,13 @@ export function auditPublishedRateAnalysis(
     }
 
     const publishedTotal = numberFromText(recipe.storedValues?.sectionTotals[section.key])
-    const verifiable = verifiableRows > 0
-    const independentTotal = verifiable ? recalculatedTotal : null
+    const structured = structuredSectionResult(
+      section,
+      recipe.sectionRules ?? [],
+      (line) => line.userAdded ? null : numberFromText(line.sourceValues?.amount)
+    )
+    const independentTotal = structured.total
+    const verifiable = structured.complete && structured.contributingRows > 0
     sections.push({
       section: section.key,
       publishedTotal,
@@ -542,6 +633,8 @@ export function auditPublishedRateAnalysis(
           ? null
           : roundMoney(independentTotal - publishedTotal),
       verifiable,
+      derivationComplete: structured.complete,
+      unverifiableRows: structured.unverifiableRows,
       mismatchedRows
     })
   }
@@ -648,9 +741,9 @@ export function recalculateRateAnalysis(recipe: RateAnalysisRecipe): RateAnalysi
     labour: 0
   }
   const financiallyChangedSections = new Set<RateAnalysisSectionKey>()
+  const calculationWarnings: string[] = []
 
   const sections = recipe.sections.map((section) => {
-    let total = 0
     let hasFinancialChanges = false
     const lines = section.lines.map((line) => {
       const independentlyCalculated = roundMoney(
@@ -663,12 +756,17 @@ export function recalculateRateAnalysis(recipe: RateAnalysisRecipe): RateAnalysi
             field === 'quantity' || field === 'rate' || field === 'amount'
           )
       )
+      const amountEdited = line.editedFields?.includes('amount') === true
+      const multiplicationEdited = line.editedFields?.some(
+        (field) => field === 'quantity' || field === 'rate'
+      ) === true
       const amount = financiallyChanged
-        ? independentlyCalculated
+        ? amountEdited && !multiplicationEdited
+          ? numberValue(line.amount)
+          : independentlyCalculated
         : line.sourceValues !== undefined
           ? recorded ?? 0
           : numberValue(line.amount)
-      total = roundMoney(total + amount)
       if (financiallyChanged) hasFinancialChanges = true
       trace.push({
         kind: 'line_item',
@@ -682,7 +780,9 @@ export function recalculateRateAnalysis(recipe: RateAnalysisRecipe): RateAnalysi
         contributes: true,
         status: financiallyChanged ? 'derived' : 'recorded',
         formula: financiallyChanged
-          ? 'user-edited/added row: quantity x rate adopted'
+          ? amountEdited && !multiplicationEdited
+            ? 'user-edited row: explicit amount adopted'
+            : 'user-edited/added row: quantity x rate adopted'
           : 'untouched published amount adopted'
       })
       return { ...line, amount }
@@ -692,9 +792,40 @@ export function recalculateRateAnalysis(recipe: RateAnalysisRecipe): RateAnalysi
       Number.NaN
     )
     const retainedPublishedTotal = !hasFinancialChanges && Number.isFinite(storedSectionTotal)
-    if (retainedPublishedTotal) total = roundMoney(storedSectionTotal)
+    const structured = structuredSectionResult(
+      { ...section, lines },
+      recipe.sectionRules ?? [],
+      (line) => {
+        const isEmptyHeading =
+          !line.userAdded &&
+          !textValue(line.sourceValues?.quantity).trim() &&
+          !textValue(line.sourceValues?.rate).trim() &&
+          !textValue(line.sourceValues?.amount).trim() &&
+          numberValue(line.amount) === 0
+        return isEmptyHeading ? null : numberValue(line.amount)
+      }
+    )
+    let total = retainedPublishedTotal
+      ? roundMoney(storedSectionTotal)
+      : structured.total ?? roundMoney(storedSectionTotal)
+    if (!retainedPublishedTotal && structured.total === null) {
+      calculationWarnings.push(
+        `${section.label} could not be safely derived because ${structured.unverifiableRows} contributing row(s) lack an amount; the published section total was retained.`
+      )
+    }
     if (hasFinancialChanges) financiallyChangedSections.add(section.key)
     sectionTotals[section.key] = total
+    for (const rule of structured.ruleTrace) {
+      trace.push({
+        kind: 'section_total',
+        section: section.key,
+        label: rule.label,
+        amount: formatCalculated(rule.amount),
+        contributes: true,
+        status: 'derived',
+        formula: rule.formula
+      })
+    }
     trace.push({
       kind: 'section_total',
       section: section.key,
@@ -703,7 +834,7 @@ export function recalculateRateAnalysis(recipe: RateAnalysisRecipe): RateAnalysi
       status: retainedPublishedTotal ? 'recorded' : 'derived',
       formula: retainedPublishedTotal
         ? `untouched published ${section.key} total retained`
-        : `vertical sum of published and user-recalculated ${section.key} rows`
+        : `structured sum of ${section.key} groups and source calculation rules`
     })
     return { ...section, lines }
   })
@@ -740,7 +871,7 @@ export function recalculateRateAnalysis(recipe: RateAnalysisRecipe): RateAnalysi
       labourExtract: recipe.storedValues?.labourExtract ?? [],
       abstract: calculationAbstractRows(recipe),
       trace,
-      warnings: [],
+      warnings: calculationWarnings,
       affectedSections: []
     }
     return { ...recipe, sections, recalculation, calculationStale: false }
@@ -767,7 +898,7 @@ export function recalculateRateAnalysis(recipe: RateAnalysisRecipe): RateAnalysi
   )
   const sourceAbstract = calculationAbstractRows(recipe)
   const abstract = mergeCalculationAbstractRows(sourceAbstract)
-  const warnings: string[] = []
+  const warnings: string[] = [...calculationWarnings]
   let current = subtotal
   let totalCostRow: RateAnalysisStoredRow | null = null
   let calculatedRate: number | null = null
@@ -1558,6 +1689,27 @@ function resourceCode(line: JsonRecord, table: string): string {
   return codeColumn ? textValue(line[codeColumn]) : ''
 }
 
+/**
+ * The extractor's own name for the resource a row is.
+ *
+ * Read defensively: sheets published before this was supplied simply have no
+ * identity, and the merge falls back to the older inference rather than
+ * mismatching on a half-parsed one.
+ */
+function parseResourceIdentity(raw: unknown): RateAnalysisLine['resourceIdentity'] {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const record = raw as JsonRecord
+  const identity = {
+    sourceTable: textValue(record.source_table) || undefined,
+    masterCode: textValue(record.master_code) || undefined,
+    rateComponent: textValue(record.rate_component) || undefined,
+    resourceKey: textValue(record.resource_key) || undefined
+  }
+  const named =
+    (identity.sourceTable && identity.masterCode) || identity.resourceKey
+  return named ? identity : undefined
+}
+
 function getRateSource(line: JsonRecord): string {
   const direct = textValue(line.rate_source)
   if (direct && direct !== 'formula') return direct
@@ -1824,6 +1976,7 @@ function buildSectionLines(
       rate: roundMoney(rate),
       amount,
       resourceCode: resourceCode(raw, table) || undefined,
+      resourceIdentity: parseResourceIdentity(raw.resource_identity),
       rateSource: source || textValue((raw.rate_formula as JsonRecord | undefined)?.type) || undefined
     })
   }
@@ -1880,6 +2033,10 @@ function storedSsrLines(
       quantity,
       rate: hasEffectiveRate ? effectiveRate : 0,
       amount: hasAmount ? amount : 0,
+      resourceIdentity: parseResourceIdentity(row.resource_identity),
+      groupId: textValue(row.group_id) || undefined,
+      contributionFactor: numberOrNull(row.contribution_factor) ?? undefined,
+      amountSource: textValue(row.amount_source) || undefined,
       sourceValues: {
         quantity: textValue(row.quantity),
         rate: textValue(row.rate),
@@ -1893,6 +2050,40 @@ function storedSsrLines(
     }
   })
   return { lines, unresolved }
+}
+
+function storedSectionRules(value: unknown): RateAnalysisSectionRule[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return []
+  const rules = jsonRows((value as JsonRecord).section_rules)
+  return rules.flatMap((row) => {
+    const section = textValue(row.section) as RateAnalysisSectionKey
+    const kind = textValue(row.kind) as RateAnalysisSectionRule['kind']
+    const id = textValue(row.id)
+    const groupId = textValue(row.group_id)
+    if (
+      !id || !groupId ||
+      !(['materials', 'machinery', 'labour'] as string[]).includes(section) ||
+      !(['per_use_divisor', 'apportionment_percent', 'percentage_addition'] as string[]).includes(kind)
+    ) return []
+    return [{
+      id,
+      kind,
+      section,
+      groupId,
+      label: textValue(row.label),
+      factor: numberOrNull(row.factor) ?? undefined,
+      percent: numberOrNull(row.percent) ?? undefined
+    }]
+  })
+}
+
+function storedStructuredSectionTotal(value: unknown, section: RateAnalysisSectionKey): string {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
+  const stored = (value as JsonRecord)[section]
+  if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
+    return textValue((stored as JsonRecord).amount)
+  }
+  return textValue(stored)
 }
 
 function storedRows(value: unknown): RateAnalysisStoredRow[] {
@@ -2219,6 +2410,7 @@ async function fetchSsrRecipe(
     categoryKey: SSR_ITEM_TABLE,
     itemCode: code,
     documentTitle: `${SSR_DOCUMENT_TITLES[textValue(row.subject)] ?? textValue(row.subject)}- ${year}`,
+    sectionHeading: textValue(row.section_heading).trim() || undefined,
     description,
     unit,
     outputQuantity,
@@ -2227,14 +2419,24 @@ async function fetchSsrRecipe(
     areaAllowanceLabel: options.areaAllowanceLabel,
     overheadPercent: storedOverheadPercent(yearRow, defaultOverheadPercent),
     sections,
+    sectionRules: storedSectionRules(row.rate_structure),
     layout,
     storedValues: {
       sectionTotals: {
         // The abstract is the authoritative published total. Detailed rows may be
         // absent (notably machinery/labour in dual-measurement GAW analyses).
-        materials: storedSectionTotal(abstractRows, 'A.') || storedLineTotal(sections[0].lines),
-        machinery: storedSectionTotal(abstractRows, 'B.') || storedLineTotal(sections[1].lines),
-        labour: storedSectionTotal(abstractRows, 'C.') || storedLineTotal(sections[2].lines)
+        materials:
+          storedStructuredSectionTotal(yearRow.totals, 'materials') ||
+          storedSectionTotal(abstractRows, 'A.') ||
+          storedLineTotal(sections[0].lines),
+        machinery:
+          storedStructuredSectionTotal(yearRow.totals, 'machinery') ||
+          storedSectionTotal(abstractRows, 'B.') ||
+          storedLineTotal(sections[1].lines),
+        labour:
+          storedStructuredSectionTotal(yearRow.totals, 'labour') ||
+          storedSectionTotal(abstractRows, 'C.') ||
+          storedLineTotal(sections[2].lines)
       },
       labourExtract,
       abstract: abstractRows
@@ -2378,7 +2580,7 @@ async function fetchSsrItemSource(code: string) {
   const withPolicy = await supabase
     .from(SSR_ITEM_TABLE)
     .select(
-      'code,subject,chapter,description,description_runs,images,unit,quantity,materials,machinery,labour,rate_structure,addon_table,lead_applicability,lead_policy,seigniorage_applicability'
+      'code,subject,chapter,section_heading,description,description_runs,images,unit,quantity,materials,machinery,labour,rate_structure,addon_table,lead_applicability,lead_policy,seigniorage_applicability'
     )
     .eq('code', code)
     .maybeSingle()
@@ -2388,7 +2590,7 @@ async function fetchSsrItemSource(code: string) {
   return supabase
     .from(SSR_ITEM_TABLE)
     .select(
-      'code,subject,chapter,description,description_runs,images,unit,quantity,materials,machinery,labour,rate_structure,addon_table,lead_applicability,seigniorage_applicability'
+      'code,subject,chapter,section_heading,description,description_runs,images,unit,quantity,materials,machinery,labour,rate_structure,addon_table,lead_applicability,seigniorage_applicability'
     )
     .eq('code', code)
     .maybeSingle()
@@ -2425,6 +2627,7 @@ async function fetchSorRecipe(
     const rateText = match.rate_text.trim()
     const description = node.itemDescription ?? match.item_name ?? node.name
     const unit = match.unit ?? node.unit ?? ''
+    const pipeLead = pipeLeadSourceFromContext(match.source_context, match.item_code)
     const sectionKey = sectionForSor(category)
     const sections = (Object.keys(SECTION_LABELS) as RateAnalysisSectionKey[]).map((key) => ({
       key,
@@ -2471,7 +2674,8 @@ async function fetchSorRecipe(
         source: match.source,
         sourcePage: match.source_page,
         sourceTitle: sourceContextTitle(match.source_context),
-        commercialTerms: sorCommercialTerms(match.source_context)
+        commercialTerms: sorCommercialTerms(match.source_context),
+        ...(pipeLead ? { pipeLead } : {})
       },
       unresolvedLines: rate === null ? 1 : 0
     }
@@ -2523,6 +2727,8 @@ async function fetchSorRecipe(
               rate: roundMoney(rate),
               amount: roundMoney(rate),
               resourceCode: code,
+              // Lets a per-project monthly rate reach a directly-added SOR material.
+              materialCode: category === 'material' ? code : undefined,
               rateSource: `${config.rateTable}.${config.rateFields[0]}`,
               linkedRate:
                 category === 'labour' || category === 'machinery'
@@ -2541,7 +2747,9 @@ async function fetchSorRecipe(
   return {
     schemaVersion: 1,
     itemKey: projectItemKey(node),
-    itemSource: node.itemSource ?? 'SOR',
+    // Project DATA is rendered as a local SOR-style recipe, not a separate
+    // published-rate source in the rate-analysis document schema.
+    itemSource: node.itemSource === 'PROJECT_DATA' ? 'SOR' : node.itemSource ?? 'SOR',
     categoryKey: category,
     itemCode: code,
     description: textValue(item[config.nameCol], node.itemDescription ?? node.name),
@@ -2571,11 +2779,43 @@ export async function fetchRateAnalysis(
     SSR_CATEGORIES.has(node.categoryKey)
       ? await fetchSsrRecipe(node, year, options)
       : await fetchSorRecipe(node, year, options)
+  const prepared = await withMaterialRateOverrides(recipe, options.materialRateOverrides)
+  // An overridden line changes quantity x rate, so the published abstract no longer
+  // holds. Recalculating rebuilds the totals from the lines actually in force.
+  const overridden = prepared.sections.some((section) =>
+    section.lines.some((line) => line.rateOverride)
+  )
   const projectCalculated =
-    recipe.itemSource === 'SSR' && numberValue(recipe.areaAllowancePercent) > 0
-      ? recalculateRateAnalysis({ ...recipe, recalculation: undefined })
-      : recipe
+    prepared.itemSource === 'SSR' &&
+    (numberValue(prepared.areaAllowancePercent) > 0 || overridden)
+      ? recalculateRateAnalysis({ ...prepared, recalculation: undefined })
+      : prepared
   return cloneRecipe(projectCalculated)
+}
+
+async function withMaterialRateOverrides(
+  recipe: RateAnalysisRecipe,
+  overrides: Record<string, MaterialRateOverride> | undefined
+): Promise<RateAnalysisRecipe> {
+  if (!overrides || !Object.keys(overrides).length) return recipe
+  const [aliases, monthlyMaterials] = await Promise.all([
+    fetchMaterialAliases(),
+    fetchMonthlyMaterials()
+  ])
+  const materials = new Map(monthlyMaterials.map((entry) => [entry.materialCode, entry]))
+  const { recipe: applied, applications } = applyMaterialRateOverrides(
+    recipe,
+    overrides,
+    aliases,
+    materials
+  )
+  if (!applications.length) return recipe
+  if (applied.itemSource !== 'SOR') return applied
+  // A SOR resource is priced straight off publishedRate, not off the abstract.
+  const overriddenLine = applied.sections
+    .flatMap((section) => section.lines)
+    .find((line) => line.rateOverride)
+  return overriddenLine ? { ...applied, publishedRate: overriddenLine.rate } : applied
 }
 
 /**
@@ -2599,6 +2839,9 @@ export async function fetchItemRate(
     )
     if (
       usesLinkedInputs ||
+      // A recalculation block supersedes the published rate - it is only present when
+      // something (area allowance, a material rate override) changed the lines.
+      recipe.recalculation !== undefined ||
       numberValue(recipe.areaAllowancePercent) > 0 ||
       recipe.dataVariant?.postRate ||
       (recipe.dataVariant?.kind === 'optional_addition' &&

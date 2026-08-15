@@ -40,6 +40,46 @@ const leadExports = loadTsModule(leadPath, {
   './supabase': { supabase: {} }
 })
 const {
+  normalizeLeadPrintSettings,
+  routeGeometryIntersectsBounds
+} = loadTsModule(path.join(root, 'src/renderer/src/lib/leadPrintLayout.ts'))
+
+{
+  // Regression: a saved zoom-18 view between separate routes must not count as
+  // route content merely because it lies inside their combined outer bounds.
+  const emptySavedFrame = {
+    south: 17.0503,
+    west: 78.5200,
+    north: 17.0548,
+    east: 78.5287
+  }
+  assert.equal(
+    routeGeometryIntersectsBounds(
+      [
+        [[17.0097, 78.5257], [17.0364, 78.5754]],
+        [[17.0700, 78.4733], [17.0985, 78.5000]]
+      ],
+      emptySavedFrame
+    ),
+    false
+  )
+  assert.equal(
+    routeGeometryIntersectsBounds([[[17.0525, 78.5100], [17.0525, 78.5400]]], emptySavedFrame),
+    true,
+    'a route segment crossing the viewport must remain a valid saved view'
+  )
+  assert.deepEqual(
+    normalizeLeadPrintSettings({ mapView: { lat: 17.05, lon: 78.52, zoom: 18 } }).mapView,
+    { lat: 17.05, lon: 78.52, zoom: 18 }
+  )
+  assert.equal(
+    normalizeLeadPrintSettings({ mapView: { lat: 17.05, lon: 78.52, zoom: 19 } }).mapView,
+    null,
+    'views outside Leaflet print-map limits must be discarded'
+  )
+}
+
+const {
   calculateLeadChargeFromRows,
   calculateLeadVariantChargeFromRows,
   loadingUnloadingCautionForBreakdown
@@ -95,6 +135,50 @@ const {
   assert.equal(quantity.quantity, 18)
   assert.equal(quantity.unit, 'cum')
   assert.match(quantity.source, /Selected optional DATA material quantity/)
+}
+
+{
+  // Project SSR DATA can expose several Lead resources. Only the rows selected
+  // for Lead contribute; a visually similar unchecked row must not be charged.
+  const info = parseLeadInfo({
+    classes: ['EARTH', 'STEEL'],
+    materials: { Sand: 'EARTH', Steel: 'STEEL' }
+  })
+  const recipe = {
+    categoryKey: 'project_data',
+    outputQuantity: 1,
+    unit: 'Each',
+    sections: [
+      {
+        key: 'materials',
+        lines: [
+          {
+            description: 'Fine sand', unit: 'Cum', quantity: 2,
+            lead: { applicable: true, materialName: 'Sand', conveyanceClass: 'EARTH' }
+          },
+          {
+            description: 'Fine sand', unit: 'Cum', quantity: 99,
+            lead: { applicable: false, materialName: 'Sand', conveyanceClass: 'EARTH' }
+          }
+        ]
+      },
+      {
+        key: 'machinery',
+        lines: [{
+          description: 'Steel lifting frame', unit: 'tonne', quantity: 3,
+          lead: { applicable: true, materialName: 'Steel', conveyanceClass: 'STEEL' }
+        }]
+      }
+    ]
+  }
+  assert.equal(
+    quantityForVariant(recipe, { materialName: 'Sand', conveyanceClass: 'EARTH' }, info).quantity,
+    2
+  )
+  assert.equal(
+    quantityForVariant(recipe, { materialName: 'Steel', conveyanceClass: 'STEEL' }, info).quantity,
+    3
+  )
 }
 
 {
@@ -627,6 +711,35 @@ function calculate(input) {
   )
   assert.equal(quantity.quantity, 15.44)
   assert.equal(quantity.unit, 'tonne')
+}
+
+{
+  // Regression: this legacy backend row named a reinforcement-steel material but
+  // assigned it the CEMENT class. It must create one STEEL route, never Steel + Cement.
+  const misclassifiedSteel = parseLeadInfo({
+    classes: ['CEMENT'],
+    materials: { 'Reinforcement steel 8 mm dia': 'CEMENT' },
+    builtin: { all_leads: false }
+  })
+  assert.equal(canonicalLeadConveyanceClass('Reinforcement steel 8 mm dia', 'CEMENT'), 'STEEL')
+  assert.deepEqual(materialRefsForLeadInfo(misclassifiedSteel), [
+    {
+      name: 'Steel',
+      conveyanceClass: 'STEEL',
+      source: 'Reinforcement steel 8 mm dia'
+    }
+  ])
+
+  // A DATA whose published rate includes all Leads must not create an empty
+  // Lead-material entry from its descriptive material metadata.
+  assert.deepEqual(
+    materialRefsForLeadInfo(parseLeadInfo({
+      classes: ['STEEL'],
+      materials: { 'Reinforcement steel 8 mm dia': 'STEEL' },
+      builtin: { all_leads: true }
+    })),
+    []
+  )
 }
 
 {

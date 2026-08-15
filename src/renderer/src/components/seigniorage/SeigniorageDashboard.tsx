@@ -12,6 +12,7 @@ import {
 import {
   computeSeigniorageTable,
   permitPercentFor,
+  seigniorageItemDisplayName,
   type SeigniorageCalculation,
   type SeigniorageCharge,
   type SeigniorageItemRow
@@ -40,6 +41,7 @@ const rateFmt = new Intl.NumberFormat('en-IN', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2
 })
+const factorFmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 6 })
 const intFmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 })
 
 interface MaterialGroup {
@@ -283,7 +285,7 @@ function SeigniorageTableRow({ row, slNo }: { row: SeigniorageItemRow; slNo: num
     <div className={`seig-calc-tbody-row ${needsRate || needsReview ? 'needs-rate' : ''}`}>
       <span className="scol-sl">{slNo}</span>
       <span className="scol-desc">
-        <strong>{row.itemCode}</strong>
+        <strong>{seigniorageItemDisplayName(row)}</strong>
         <span>{row.description}</span>
         {materialLine && <small>{materialLine}</small>}
         {row.mode && row.mode !== 'RECIPE_MATERIAL_RATIO' && (
@@ -395,10 +397,10 @@ function seigniorageQtyText(row: SeigniorageItemRow): string {
   if (row.itemQuantity == null || row.quantityRatio == null) return '-'
   const parts = [
     qtyFmt.format(row.itemQuantity),
-    rateFmt.format(row.quantityRatio)
+    factorFmt.format(row.quantityRatio)
   ]
   if (row.conversionFactor != null && row.conversionFactor !== 1) {
-    parts.push(rateFmt.format(row.conversionFactor))
+    parts.push(factorFmt.format(row.conversionFactor))
   }
   const seigQty = row.quantity
   const result = seigQty != null ? `${qtyFmt.format(seigQty)} ${row.unit}` : '—'

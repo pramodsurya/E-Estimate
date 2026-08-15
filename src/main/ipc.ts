@@ -6,6 +6,7 @@ import { addRecent, clearRecent, listRecent, removeRecent } from './recentStore'
 
 const FILE_FILTERS = [{ name: 'E-Estimate Project', extensions: ['eestimate'] }]
 const PDF_FILTERS = [{ name: 'PDF Document', extensions: ['pdf'] }]
+const WORKBOOK_FILTERS = [{ name: 'Excel Workbook', extensions: ['xlsx'] }]
 
 function sanitize(name: string): string {
   return name.replace(/[\\/:*?"<>|]+/g, '_').trim() || 'Project'
@@ -101,6 +102,24 @@ export function registerIpc(): void {
     })
     if (res.canceled || !res.filePath) return { canceled: true }
     const target = res.filePath.toLowerCase().endsWith('.pdf') ? res.filePath : `${res.filePath}.pdf`
+    await fs.writeFile(target, Buffer.from(data, 'base64'))
+    return { canceled: false, path: target }
+  })
+
+  // The comparative statement is issued as a signed sheet *and* as something to
+  // work with, so the save path cannot be PDF-only.
+  ipcMain.handle('export:workbook', async (e, payload: ExportPdfPayload) => {
+    const { data, name, defaultPath } = payload
+    const w = BrowserWindow.fromWebContents(e.sender)!
+    const res = await dialog.showSaveDialog(w, {
+      title: 'Export Excel Workbook',
+      defaultPath: defaultPath || `${sanitize(name)}.xlsx`,
+      filters: WORKBOOK_FILTERS
+    })
+    if (res.canceled || !res.filePath) return { canceled: true }
+    const target = res.filePath.toLowerCase().endsWith('.xlsx')
+      ? res.filePath
+      : `${res.filePath}.xlsx`
     await fs.writeFile(target, Buffer.from(data, 'base64'))
     return { canceled: false, path: target }
   })

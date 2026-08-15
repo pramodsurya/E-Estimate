@@ -106,7 +106,7 @@ assert.ok(
   'A DOC item may form its own exact document boundary without splitting every spreadsheet DATA code'
 )
 assert.ok(
-  /chooseSmartAbstractPlan\(profiles\)/.test(componentPrint) &&
+  /chooseSmartAbstractPlan\(profiles, FILL_EACH_PAGE\)/.test(componentPrint) &&
     /abstract-page-break/.test(componentPrint) &&
     /abstract-final-block/.test(componentPrint) &&
     /SIGNATURE_FOOTER_SLOT/.test(componentPrint) &&
@@ -164,6 +164,40 @@ const cover = read('src/renderer/src/lib/univerDocument.ts')
 assert.ok(
   /withoutFrontCoverParagraphBorders\(existing\)/.test(cover),
   'Existing Front Pages must remove the old text-crossing paragraph rules'
+)
+
+// --- an unrelated edit must not rebuild a live document editor -------------
+// A preview only re-reads its content when it remounts, so the key has to
+// change when the document does and not before. Keying on `project.updatedAt`
+// tore down a whole Univer engine because a rate moved somewhere else.
+const projectPrintView = read('src/renderer/src/components/print/ProjectPrintView.tsx')
+assert.ok(
+  !/key=\{`vpv:\$\{node\.id\}:\$\{project\.updatedAt\}`\}/.test(projectPrintView) &&
+    /useContentRevision\(node\.documentData\)/.test(projectPrintView) &&
+    /key=\{`vpv:\$\{node\.id\}:\$\{revision\}`\}/.test(projectPrintView),
+  'the live document preview must remount on its own content, not on any project edit'
+)
+
+// --- previews must not rebuild once per keystroke --------------------------
+for (const [name, file] of [
+  ['ItemPrintPreviewStack', 'src/renderer/src/components/print/ItemPrintPreviewStack.tsx'],
+  ['DocumentPrintPreviewStack', 'src/renderer/src/components/print/DocumentPrintPreviewStack.tsx'],
+  ['DataDashboard', 'src/renderer/src/components/data/DataDashboard.tsx']
+]) {
+  const source = read(file)
+  assert.ok(
+    /PRINT_REBUILD_DELAY_MS/.test(source) && /window\.clearTimeout\(handle\)/.test(source),
+    `${name} must wait out the edit before rendering, and drop the pending build on cleanup`
+  )
+}
+
+// --- the ranking model must not sit in memory for the whole session --------
+const semantic = read('src/renderer/src/lib/semanticMasterSearch.ts')
+assert.ok(
+  /const WORKER_IDLE_MS/.test(semantic) &&
+    /worker\?\.terminate\(\)\s*\n\s*worker = null/.test(semantic) &&
+    /if \(pending\.size > 0\) return/.test(semantic),
+  'the semantic search worker must be released when idle, and never under a live request'
 )
 
 console.log('project VPV: all assertions passed')

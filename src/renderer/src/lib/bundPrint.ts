@@ -118,6 +118,19 @@ function ssrHead(
   )
 }
 
+/**
+ * One exhibit: a drawing and the handful of dimensions that read off it.
+ *
+ * `table{break-inside:auto}` is right for the schedules — a chainage run has to
+ * be free to cross sheets — but a three-row parameter table is not a schedule.
+ * Left to flow it can shed its last row onto the next page, and a drawing
+ * separated from the dimensions it is drawn to is not worth the white space
+ * that keeping them together costs.
+ */
+function keepTogether(...parts: string[]): string {
+  return `<div class="bp-keep">${parts.filter(Boolean).join('')}</div>`
+}
+
 /** A single total line with its workings and no repeated code. */
 function totalLine(workings: string, quantity: number, unit: string): string {
   return (
@@ -553,6 +566,7 @@ function phreaticBlocks(data: BundData): string[] {
     `<h3>Phreatic line</h3>`,
     `<p class="bp-lead">${escapeHtml(caption)}</p>`,
     
+    keepTogether(
     `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" class="bp-fig">` +
     defs +
     water +
@@ -579,6 +593,7 @@ function phreaticBlocks(data: BundData): string[] {
         `<td class="n" colspan="2">${reference.cutsFace ? 'Yes' : 'No'}</td></tr>`
       : '') +
     `</tbody></table>`
+    )
   ]
 }
 
@@ -716,13 +731,15 @@ function componentDetailsBlocks(root: ProjectNode, data: BundData): string[] {
       `<p class="bp-lead">Cut-off trench at the upstream toe. It anchors the slope pitching where ` +
         `pitching is used, and stands on its own otherwise.</p>`
     )
-    parts.push(usToeFigure(data))
     parts.push(
-      `<table class="bp-t"><tbody>` +
-        `<tr><td class="l">Top width</td><td class="n">${f2(toe.topWidth)}</td><td class="u">m</td></tr>` +
-        `<tr><td class="l">Bottom width</td><td class="n">${f2(toe.bottomWidth)}</td><td class="u">m</td></tr>` +
-        `<tr><td class="l">Depth</td><td class="n">${f2(toe.depth)}</td><td class="u">m</td></tr>` +
-        `</tbody></table>`
+      keepTogether(
+        usToeFigure(data),
+        `<table class="bp-t"><tbody>` +
+          `<tr><td class="l">Top width</td><td class="n">${f2(toe.topWidth)}</td><td class="u">m</td></tr>` +
+          `<tr><td class="l">Bottom width</td><td class="n">${f2(toe.bottomWidth)}</td><td class="u">m</td></tr>` +
+          `<tr><td class="l">Depth</td><td class="n">${f2(toe.depth)}</td><td class="u">m</td></tr>` +
+          `</tbody></table>`
+      )
     )
     parts.push(totalLine('Excavation quantity', rowsTotal(toeExcavationRows(data, toe)), 'cum'))
   }
@@ -735,18 +752,20 @@ function componentDetailsBlocks(root: ProjectNode, data: BundData): string[] {
         `emerging there and the runoff off the downstream face, so the toe does not stand saturated.</p>`
     )
     const drainDepths = orderedSections(data).map((sec) => toeDrainDepthAt(sec, data))
-    parts.push(dsDrainFigure(data, drainDepths.length ? Math.max(...drainDepths) : 0))
     parts.push(
-      `<table class="bp-t"><tbody>` +
-        (toe.invertLevel != null
-          ? `<tr><td class="l">Invert RL</td><td class="n">${f3(toe.invertLevel)}</td><td class="u"></td></tr>` +
-            `<tr><td class="l">Base width at invert</td><td class="n">${f2(toe.bottomWidth)}</td><td class="u">m</td></tr>` +
-            `<tr><td class="l">Left side slope</td><td class="n">1:${f2(toe.leftSlope)}</td><td class="u"></td></tr>` +
-            `<tr><td class="l">Right side slope</td><td class="n">1:${f2(toe.rightSlope)}</td><td class="u"></td></tr>`
-          : `<tr><td class="l">Top width</td><td class="n">${f2(toe.topWidth)}</td><td class="u">m</td></tr>` +
-            `<tr><td class="l">Bottom width</td><td class="n">${f2(toe.bottomWidth)}</td><td class="u">m</td></tr>` +
-            `<tr><td class="l">Depth</td><td class="n">${f2(toe.depth)}</td><td class="u">m</td></tr>`) +
-        `</tbody></table>`
+      keepTogether(
+        dsDrainFigure(data, drainDepths.length ? Math.max(...drainDepths) : 0),
+        `<table class="bp-t"><tbody>` +
+          (toe.invertLevel != null
+            ? `<tr><td class="l">Invert RL</td><td class="n">${f3(toe.invertLevel)}</td><td class="u"></td></tr>` +
+              `<tr><td class="l">Base width at invert</td><td class="n">${f2(toe.bottomWidth)}</td><td class="u">m</td></tr>` +
+              `<tr><td class="l">Left side slope</td><td class="n">1:${f2(toe.leftSlope)}</td><td class="u"></td></tr>` +
+              `<tr><td class="l">Right side slope</td><td class="n">1:${f2(toe.rightSlope)}</td><td class="u"></td></tr>`
+            : `<tr><td class="l">Top width</td><td class="n">${f2(toe.topWidth)}</td><td class="u">m</td></tr>` +
+              `<tr><td class="l">Bottom width</td><td class="n">${f2(toe.bottomWidth)}</td><td class="u">m</td></tr>` +
+              `<tr><td class="l">Depth</td><td class="n">${f2(toe.depth)}</td><td class="u">m</td></tr>`) +
+          `</tbody></table>`
+      )
     )
     parts.push(totalLine('Excavation quantity', rowsTotal(toeExcavationRows(data, toe)), 'cum'))
     if (toe.buildMaterial) {
@@ -845,8 +864,7 @@ function componentDetailsBlocks(root: ProjectNode, data: BundData): string[] {
         `proposed design face, so the fill that forms it is already measured inside the formation ` +
         `quantity. Only what is placed on the shelf is billed here.</p>`
     )
-    parts.push(bermFigure(data, berm))
-    parts.push(bermDesignTable(berm))
+    parts.push(keepTogether(bermFigure(data, berm), bermDesignTable(berm)))
     if (berm.surfaceMaterial) {
       const surfacing = bermSurfaceMeasurement(data, berm)
       parts.push(ssrHead(root, data, berm.surfaceMaterial, 'Berm shelf surfacing'))
@@ -1294,8 +1312,9 @@ function styles(fontScale: number, orientation: BundPageOrientation): string {
     /* Break hints. Everything below exists so the engine can fill a sheet
        without splitting something that has to stay whole. */
     h3,h4{break-after:avoid;page-break-after:avoid}
-    .bp-fig,.bp-ssr,.bp-sec,.bp-xcode,.bp-fam{break-inside:avoid;page-break-inside:avoid}
+    .bp-fig,.bp-ssr,.bp-sec,.bp-xcode,.bp-fam,.bp-keep{break-inside:avoid;page-break-inside:avoid}
     table{break-inside:auto}
+    .bp-keep table{break-inside:avoid;page-break-inside:avoid}
     thead{display:table-header-group}
     tr{break-inside:avoid;page-break-inside:avoid}
 

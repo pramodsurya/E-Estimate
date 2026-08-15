@@ -153,6 +153,58 @@ assert.equal(stoneCalc.totalSmft, 234)
 assert.equal(stoneCalc.totalPermit, 9360)
 assert.equal(stoneCalc.grandTotal, 11700 + 3510 + 234 + 9360)
 
+// A manual/extract Project DATA resource may be marked for Seigniorage, but
+// it must not guess a mineral rate from its typed description. The estimator
+// selects the official mineral code before any charge is calculated.
+const manualSelectionRequired = computeSeigniorageTable(
+  project([item('manual-1', 'DATA-SSR-001', 10)]),
+  charges,
+  [],
+  {
+    'DATA-SSR-001': {
+      applicable: true,
+      rows: [{
+        seig_code: null,
+        mode: 'RECIPE_MATERIAL_RATIO',
+        quantity_basis: 'ITEM_QTY_X_RATIO',
+        quantity_ratio: 0.4,
+        conversion_factor: 1,
+        charge_unit: 'cum',
+        material_key: 'manual-sand',
+        material_label: 'Hand-entered filling',
+        material_desc: 'Hand-entered filling',
+        status: 'PROJECT_DATA_MANUAL_SELECTION_REQUIRED'
+      }]
+    }
+  }
+)
+assert.equal(manualSelectionRequired.rows[0].seigRate, null)
+assert.equal(manualSelectionRequired.rows[0].seigniorage, null)
+
+const manualSelectionConfirmed = computeSeigniorageTable(
+  project([item('manual-1', 'DATA-SSR-001', 10)]),
+  charges,
+  [],
+  {
+    'DATA-SSR-001': {
+      applicable: true,
+      rows: [{
+        seig_code: 'SEIG_ORDINARY_SAND',
+        mode: 'RECIPE_MATERIAL_RATIO',
+        quantity_basis: 'ITEM_QTY_X_RATIO',
+        quantity_ratio: 0.4,
+        conversion_factor: 1,
+        charge_unit: 'cum',
+        material_key: 'manual-sand',
+        material_label: 'Hand-entered filling',
+        material_desc: 'Hand-entered filling'
+      }]
+    }
+  }
+)
+assert.equal(manualSelectionConfirmed.rows[0].seigRate, 40.5)
+assert.equal(manualSelectionConfirmed.rows[0].seigniorage, 4 * 40.5)
+
 const graniteCalc = computeSeigniorageTable(
   project([item('i2', 'IRR-B-1', 100)]),
   charges,
@@ -404,5 +456,24 @@ assert.equal(cawMurum.quantity, 9)
 assert.equal(cawMurum.unit.toLowerCase(), 'cum')
 assert.equal(cawMurum.conversionRequired, false)
 assert.equal(cawMurum.seigniorage, 9 * 39)
+
+// Fabricated hoist DATA is priced by capacity. Its reference fabricated-weight
+// basis and Plummer-block hardware must never create an inferred mineral row.
+const fabricatedHoist = item('gaw-2-11', 'IRR-GAW-2-11', 10)
+fabricatedHoist.unit = 't capacity'
+const fabricatedHoistCalc = computeSeigniorageTable(
+  project([fabricatedHoist]),
+  charges,
+  [],
+  {
+    'IRR-GAW-2-11': {
+      applicable: false,
+      rows: [],
+      reason: 'Fabricated mechanical item; no evidenced minor-mineral input.'
+    }
+  }
+)
+assert.equal(fabricatedHoistCalc.rows.length, 0)
+assert.equal(fabricatedHoistCalc.totalSeigniorage, 0)
 
 console.log('seigniorage permit fee: all assertions passed')

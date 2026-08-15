@@ -154,6 +154,13 @@ export function canonicalLeadConveyanceClass(
   const text = normalizeDescription(materialName)
   if (isFineAggregate(text) || /\bsand\b/.test(text)) return 'EARTH'
   if (isCoarseAggregate(text) || /aggregate|rubble|stone|boulder|khandki/.test(text)) return 'STONE'
+  // The published class is occasionally wrong (for example a reinforcement-steel
+  // row was imported as CEMENT). Lead groups must follow the physical material,
+  // otherwise one "Steel" material is split into two routes/classes.
+  if (/\bsteel\b|reinforcement|tmt|hysd|structural steel|wire fabric|g\.?i\.? sheet/.test(text)) {
+    return 'STEEL'
+  }
+  if (/\bcement\b/.test(text)) return 'CEMENT'
   return normalizeMaterialConveyanceClass(materialName, conveyanceClass)
 }
 
@@ -170,7 +177,14 @@ export function canonicalLeadMaterialRef(ref: LeadMaterialRef): LeadMaterialRef 
 }
 
 export function materialRefsForLeadInfo(info: LeadInfo, _description = ''): LeadMaterialRef[] {
-  if (info.policy?.purpose === 'NO_EXTRA_LEAD' || info.policy?.purpose === 'REVIEW_REQUIRED') {
+  // "All leads" is a complete published-price rule. It must not create an empty
+  // material card in the Lead workspace merely because legacy metadata also lists
+  // the materials that were used to build the rate.
+  if (
+    info.allLeads ||
+    info.policy?.purpose === 'NO_EXTRA_LEAD' ||
+    info.policy?.purpose === 'REVIEW_REQUIRED'
+  ) {
     return []
   }
   if (info.policy?.purpose === 'EXCAVATED_DISPOSAL') {
@@ -184,10 +198,15 @@ export function materialRefsForLeadInfo(info: LeadInfo, _description = ''): Lead
   }
 
   const refs: LeadMaterialRef[] = []
+  // `classes` is legacy summary metadata. If a concrete material row supplied a
+  // class, that class has already been represented above (and may have been
+  // corrected by canonicalLeadConveyanceClass), so it must not add a stale card.
+  const sourceMaterialClasses = new Set(Object.values(info.materials))
   for (const [description, conveyanceClass] of Object.entries(info.materials)) {
+    const canonicalClass = canonicalLeadConveyanceClass(description, conveyanceClass)
     refs.push({
-      name: materialNameFor(description, conveyanceClass),
-      conveyanceClass,
+      name: materialNameFor(description, canonicalClass),
+      conveyanceClass: canonicalClass,
       source: description
     })
   }
@@ -195,6 +214,7 @@ export function materialRefsForLeadInfo(info: LeadInfo, _description = ''): Lead
     refs.push({ name: 'Earth', conveyanceClass: 'EARTH', source: 'Earthwork item quantity' })
   }
   for (const conveyanceClass of info.classes) {
+    if (sourceMaterialClasses.has(conveyanceClass)) continue
     if (!refs.some((ref) => ref.conveyanceClass === conveyanceClass)) {
       refs.push({
         name: materialNameFor('', conveyanceClass),
@@ -259,13 +279,14 @@ export function materialNameFor(description: string, conveyanceClass: Conveyance
     STEEL: 'Steel',
     SLAB_WOOD: 'Slab/Wood',
     WATER: 'Water',
-    BRICKS: 'Bricks'
+    BRICKS: 'Bricks',
+    RCC_PIPE: 'RCC Pipe'
   }
   return labels[conveyanceClass]
 }
 
 export function isEligibleForLead(group: ProjectItemGroup, variant: LeadVariant, info: LeadInfo): boolean {
-  if (group.source !== 'SSR') return false
+  if (group.source !== 'SSR' && group.source !== 'PROJECT_DATA') return false
   if (info.allLeads) return false
   const variantName = variant.materialName.toLowerCase()
   const variantClass = canonicalLeadConveyanceClass(variant.materialName, variant.conveyanceClass)
@@ -353,7 +374,14 @@ export function quantityForVariant(
     }
   }
 
-  const materials = recipe.sections.find((section) => section.key === 'materials')?.lines ?? []
+  const resources = recipe.sections
+    .filter((section) => section.key === 'materials' || section.key === 'machinery')
+    .flatMap((section) => section.lines)
+  const selectedProjectDataResources = resources.filter((line) => line.lead?.applicable)
+  const resourcesForMatching =
+    recipe.categoryKey === 'project_data' && selectedProjectDataResources.length
+      ? selectedProjectDataResources
+      : resources
   const variantClass = canonicalLeadConveyanceClass(variant.materialName, variant.conveyanceClass)
   const targetUnit = leadQuantityUnitForClass(variantClass)
   const addonRule = addonLeadRuleForVariant(info, variant)
@@ -404,7 +432,7 @@ export function quantityForVariant(
         materialNameFor(name, classKey).toLowerCase() === variant.materialName.toLowerCase()
     )
     .map(([name]) => name)
-  const directMatches = materialMatches(materials, [
+  const directMatches = materialMatches(resourcesForMatching, [
     variant.materialName,
     ...materialAliases(variant.materialName, variantClass),
     ...mappedNames
@@ -415,7 +443,7 @@ export function quantityForVariant(
       return {
         quantity: converted.quantity,
         unit: targetUnit,
-        source: `DATA material quantity: ${converted.sources.join(', ')}`
+        source: `DATA resource quantity: ${converted.sources.join(', ')}`
       }
     }
     return {
@@ -447,7 +475,7 @@ function materialMatches(lines: RateAnalysisLine[], names: string[]): RateAnalys
     .filter((name) => name.length >= 3)
   if (!needles.length) return []
   return lines.filter((line) => {
-    const text = `${line.description} ${line.resourceCode ?? ''}`.toLowerCase()
+    const text = `${line.description} ${line.resourceCode ?? ''} ${line.lead?.materialName ?? ''}`.toLowerCase()
     return needles.some((needle) => text.includes(needle))
   })
 }
@@ -564,6 +592,7 @@ function materialAliases(materialName: string, conveyanceClass: ConveyanceClass)
 }
 
 function leadQuantityUnitForClass(conveyanceClass: ConveyanceClass): string {
+  if (conveyanceClass === 'RCC_PIPE') return 'metre'
   if (conveyanceClass === 'CEMENT' || conveyanceClass === 'STEEL') return 'tonne'
   if (conveyanceClass === 'WATER') return '1000_litres'
   if (conveyanceClass === 'BRICKS') return '1000_nos'

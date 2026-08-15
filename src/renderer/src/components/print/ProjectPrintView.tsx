@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Pencil } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { EestimateProject, PageTemplateId, ProjectNode } from '../../types/project'
@@ -21,6 +22,42 @@ import {
 } from '../../lib/signatureFooter'
 
 const ignorePrintEdit = (): void => undefined
+
+/**
+ * A live document preview only re-reads its content when it is remounted, so
+ * the key has to change whenever the document does — and *only* then.
+ *
+ * Keying on `project.updatedAt` changed it on every edit anywhere in the
+ * estimate, which tore down and rebuilt a whole Univer engine — plugins,
+ * canvas renderers and all — because a rate or a signature moved somewhere
+ * else entirely. Mutations share structure (see `patchNode`), so this node's
+ * own `documentData` changes identity exactly when this document changes.
+ */
+function useContentRevision(content: unknown): number {
+  const seen = useRef({ content, revision: 0 })
+  if (seen.current.content !== content) {
+    seen.current = { content, revision: seen.current.revision + 1 }
+  }
+  return seen.current.revision
+}
+
+function LiveDocumentPage({
+  node,
+  allowImages
+}: {
+  node: ProjectNode
+  allowImages: boolean
+}): JSX.Element {
+  const revision = useContentRevision(node.documentData)
+  return (
+    <UniverDocument
+      key={`vpv:${node.id}:${revision}`}
+      node={node}
+      allowImages={allowImages}
+      preview
+    />
+  )
+}
 
 interface Props {
   project: EestimateProject
@@ -103,12 +140,7 @@ export default function ProjectPrintView({
             Nothing written yet. Choose <strong>Edit</strong> to open {label} and type into it.
           </div>
         ) : (
-          <UniverDocument
-            key={`vpv:${node.id}:${project.updatedAt}`}
-            node={node}
-            allowImages={node.pageTemplate === 'front'}
-            preview
-          />
+          <LiveDocumentPage node={node} allowImages={node.pageTemplate === 'front'} />
         )}
       </article>
     )
@@ -163,9 +195,6 @@ export default function ProjectPrintView({
             printSettings={project.leadChart?.printSettings}
             signatureFooter={resolveSignatureFooter(project, LEAD_SIGNATURE_SCOPE)}
             onUpdatePrintSettings={ignorePrintEdit}
-            onUpsertPoint={ignorePrintEdit}
-            onUpsertMapDirection={ignorePrintEdit}
-            onRemoveMapDirection={ignorePrintEdit}
             onClose={ignorePrintEdit}
             rates={project.dashboardSnapshot?.leadRates ?? []}
             embedded

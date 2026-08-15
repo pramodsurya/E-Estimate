@@ -5,6 +5,7 @@ import {
   GUIDE_WALL_DEFAULT_WALL_CODE
 } from './guideWall'
 import { unresolvedBundMaterialCodes } from './bund'
+import { migrateMiSluiceNewData, unresolvedMiSluiceNewMaterialCodes } from './miSluiceNew'
 import { fetchSsrItems, type MasterItem } from './masterData'
 
 export interface TemplateMaterialActions {
@@ -14,6 +15,7 @@ export interface TemplateMaterialActions {
     item: MasterItem
   ) => void
   resolveBundMaterials: (nodeId: string, masters: MasterItem[]) => string[]
+  resolveMiSluiceNewMaterials: (nodeId: string, masters: MasterItem[]) => string[]
 }
 
 /**
@@ -26,7 +28,13 @@ export async function resolveTemplateDashboardMaterials(
 ): Promise<void> {
   const nodes: ProjectNode[] = []
   const visit = (node: ProjectNode): void => {
-    if (node.templateId === 'guide-wall' || node.templateId === 'bund') nodes.push(node)
+    if (
+      node.templateId === 'guide-wall' ||
+      node.templateId === 'bund' ||
+      node.templateId === 'mi-sluice-new'
+    ) {
+      nodes.push(node)
+    }
     node.children.forEach(visit)
   }
   visit(root)
@@ -44,9 +52,19 @@ export async function resolveTemplateDashboardMaterials(
       ? unresolvedBundMaterialCodes(node.bund).map((code) => ({ node, code }))
       : []
   )
+  const sluicePending = nodes.flatMap((node) =>
+    node.templateId === 'mi-sluice-new' && node.miSluiceNew
+      ? unresolvedMiSluiceNewMaterialCodes(migrateMiSluiceNewData(node.miSluiceNew)).map((code) => ({
+          node,
+          code
+        }))
+      : []
+  )
   const prefixes = new Set<string>()
   if (guideNodes.length) prefixes.add('IRR-CCDW')
-  bundPending.forEach(({ code }) => prefixes.add(code.split('-').slice(0, 2).join('-')))
+  for (const { code } of [...bundPending, ...sluicePending]) {
+    prefixes.add(code.split('-').slice(0, 2).join('-'))
+  }
   if (!prefixes.size) return
 
   const masters = (
@@ -76,4 +94,21 @@ export async function resolveTemplateDashboardMaterials(
       throw new Error(`Could not resolve template code(s): ${remaining.join(', ')}`)
     }
   }
+
+  for (const { node } of dedupeByNode(sluicePending)) {
+    const remaining = actions.resolveMiSluiceNewMaterials(node.id, masters)
+    if (remaining.length) {
+      throw new Error(`Could not resolve template code(s): ${remaining.join(', ')}`)
+    }
+  }
+}
+
+/** One entry per node — a node with several bare codes is resolved in one pass. */
+function dedupeByNode(entries: { node: ProjectNode; code: string }[]): { node: ProjectNode }[] {
+  const seen = new Set<string>()
+  return entries.filter(({ node }) => {
+    if (seen.has(node.id)) return false
+    seen.add(node.id)
+    return true
+  })
 }

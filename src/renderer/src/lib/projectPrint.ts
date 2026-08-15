@@ -23,15 +23,15 @@ import type { ProjectPrintSettings } from './projectPrintSettings'
 import { buildCombinedComponentPdf } from './componentPrint'
 import { componentItemsTotal } from './finalNumber'
 import type { ProjectAbstract } from './projectAbstract'
-import { PERMIT_GO_REFERENCE } from './seigniorage'
+import { PERMIT_GO_REFERENCE, seigniorageItemDisplayName } from './seigniorage'
 import type { SeigniorageCalculation, SeigniorageItemRow } from './seigniorage'
 import {
-  applySignatureFooterToPdf,
   LEAD_SIGNATURE_SCOPE,
   PROJECT_SIGNATURE_SCOPE,
   resolveSignatureFooter,
   SEIGNIORAGE_SIGNATURE_SCOPE
 } from './signatureFooter'
+import { renderSignedPdf as placeClosingBlock } from './closingBlock'
 
 export type {
   ProjectPrintSectionKey,
@@ -174,7 +174,7 @@ export function seigniorageHtml(input: ProjectPrintInput): string | null {
     .map(
       (row: SeigniorageItemRow, index: number) => `<tr>
         <td class="ctr">${index + 1}</td>
-        <td><strong>${escapeHtml(row.itemCode)}</strong><br><span>${escapeHtml(
+        <td><strong>${escapeHtml(seigniorageItemDisplayName(row))}</strong><br><span>${escapeHtml(
           row.description
         )}</span>${
           row.materialLabel ? `<br><small>${escapeHtml(row.materialLabel)}</small>` : ''
@@ -304,18 +304,23 @@ async function renderPdf(html: string, options: PdfOptions): Promise<Uint8Array>
   return decodeBase64(result.data)
 }
 
+/**
+ * The General Abstract, the seigniorage statement and the lead statement are
+ * free-flowing documents with no page model of their own, so their signatures
+ * are placed against the real print engine rather than simply appended — see
+ * `closingBlock.ts`. Otherwise a statement that happens to end near the foot of
+ * a sheet signs itself off on a page carrying nothing else.
+ */
 async function renderSignedPdf(
   project: EestimateProject,
   scopeKey: string,
   html: string,
   options: PdfOptions
 ): Promise<Uint8Array> {
-  const signed = applySignatureFooterToPdf(
-    html,
-    options,
-    resolveSignatureFooter(project, scopeKey)
+  return placeClosingBlock(
+    { html, options, signature: resolveSignatureFooter(project, scopeKey) },
+    renderPdf
   )
-  return renderPdf(signed.html, signed.options)
 }
 
 export async function buildProjectPdf(input: ProjectPrintInput): Promise<Uint8Array> {

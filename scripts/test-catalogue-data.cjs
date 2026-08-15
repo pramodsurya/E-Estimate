@@ -65,47 +65,7 @@ function catalogueNode(extra = {}) {
 }
 
 async function main() {
-  const createdData = loadTsModule(
-    path.join(root, 'src/renderer/src/lib/createdData.ts')
-  )
   const source = catalogueNode()
-  assert.equal(createdData.canCreateDataFromItem(source), true)
-  assert.equal(
-    createdData.canCreateDataFromItem({ ...source, itemSource: 'SOR', sorCatalogue: undefined }),
-    false,
-    'basic SOR rows are inputs, not independently cloned catalogue DATAs'
-  )
-  assert.equal(
-    createdData.canCreateDataFromItem({ ...source, itemSource: 'SSR', sorCatalogue: undefined }),
-    true
-  )
-
-  const copied = createdData.createdDataSourceFields(source)
-  assert.deepEqual(copied.sorCatalogue, source.sorCatalogue)
-  assert.notEqual(copied.sorCatalogue, source.sorCatalogue)
-  assert.notEqual(copied.sorCatalogue.dimensions, source.sorCatalogue.dimensions)
-  assert.notEqual(copied.sorCatalogue.commercialTerms, source.sorCatalogue.commercialTerms)
-  copied.sorCatalogue.dimensions.diameter_mm = 900
-  assert.equal(source.sorCatalogue.dimensions.diameter_mm, 600)
-
-  const legacyCreated = {
-    ...source,
-    id: 'legacy-created',
-    name: 'PH_MATERIAL_01_Custom pipe DATA',
-    splitFromNodeId: source.id,
-    splitFromItemKey: `SOR:sor_catalogue:${source.itemCode}`,
-    createdDataId: 'legacy-created',
-    sorCatalogue: undefined
-  }
-  const repairedRoot = createdData.repairCreatedDataCatalogueSelections({
-    id: 'root',
-    kind: 'title',
-    name: 'Project',
-    children: [source, legacyCreated]
-  })
-  const repairedCreated = repairedRoot.children.find((node) => node.id === 'legacy-created')
-  assert.deepEqual(repairedCreated.sorCatalogue, source.sorCatalogue)
-  assert.notEqual(repairedCreated.sorCatalogue, source.sorCatalogue)
 
   let catalogueMatches = [{
     item_code: source.itemCode,
@@ -129,6 +89,14 @@ async function main() {
       './dataVariants': {
         applyDataVariantToRecipe: (recipe) => recipe,
         buildDataVariantSpec: () => ({})
+      },
+      './pipeLead': {
+        pipeLeadSourceFromContext: () => undefined
+      },
+      './materialRates': {
+        applyMaterialRateOverrides: (recipe) => ({ recipe, applications: [] }),
+        fetchMaterialAliases: async () => new Map(),
+        fetchMonthlyMaterials: async () => []
       },
       './projectItems': {
         projectItemKey: () => `SOR:sor_catalogue:${source.itemCode}`
@@ -171,6 +139,153 @@ async function main() {
     'a printed reference must not be converted to a zero-valued DATA line'
   )
 
+  const projectData = loadTsModule(
+    path.join(root, 'src/renderer/src/lib/projectData.ts'),
+    {
+      './rateAnalysis': {
+        recalculateRateAnalysis: (recipe) => recipe
+      },
+      './rateAnalysisVisibility': {
+        defaultRateAnalysisLayout: (description) => ({ description })
+      },
+      './projectItems': {
+        projectItemKey: (node) => `PROJECT_DATA:${node.projectDataId}`
+      }
+    }
+  )
+  const projectDataDefinition = {
+    id: 'project-data-1',
+    kind: 'sor',
+    code: 'DATA-SOR-001',
+    description: 'Supplying approved sand',
+    unit: 'Cum',
+    rate: 1350,
+    lead: {
+      applicable: true,
+      materialName: 'Sand',
+      conveyanceClass: 'EARTH'
+    }
+  }
+  const projectDataNode = {
+    ...source,
+    id: 'project-data-node',
+    itemSource: 'PROJECT_DATA',
+    itemCode: 'DATA-SOR-001',
+    itemDescription: projectDataDefinition.description,
+    projectDataId: projectDataDefinition.id
+  }
+  const projectDataRecipe = projectData.projectDataRecipe(
+    projectDataDefinition,
+    projectDataNode,
+    '2025-26',
+    'zone_3'
+  )
+  assert.equal(projectDataRecipe.itemSource, 'SOR')
+  assert.equal(projectDataRecipe.publishedRate, 1350)
+  assert.equal(projectDataRecipe.sections[0].lines[0].description, projectDataDefinition.description)
+  assert.deepEqual(projectDataRecipe.leadApplicability, {
+    classes: ['EARTH'],
+    materials: { Sand: 'EARTH' }
+  })
+  assert.equal(projectDataRecipe.seigniorageApplicability.applicable, true)
+  assert.equal(
+    projectDataRecipe.seigniorageApplicability.rows[0].material_desc,
+    projectDataDefinition.description
+  )
+  assert.equal(
+    projectData.projectDataRecipe(
+      { ...projectDataDefinition, seigniorage: { applicable: false } },
+      projectDataNode,
+      '2025-26',
+      'zone_3'
+    ).seigniorageApplicability.applicable,
+    false,
+    'a user-disabled Project DATA must not enter the Seigniorage dashboard'
+  )
+
+  const projectSsrDataDefinition = {
+    id: 'project-ssr-data-1',
+    kind: 'ssr',
+    code: 'DATA-SSR-001',
+    description: 'Providing and removing scaffolding',
+    unit: 'Sqm',
+    imageDataUrl: 'data:image/png;base64,project-data-image',
+    outputQuantity: 2,
+    overheadPercent: 0,
+    lead: { applicable: false },
+    sections: [
+      {
+        key: 'materials',
+        label: 'A. Materials',
+        lines: [
+          {
+            id: 'mat-1',
+            slNo: '1',
+            description: 'Sand filling',
+            unit: 'Cum',
+            quantity: 2,
+            rate: 100,
+            amount: 200,
+            lead: {
+              applicable: true,
+              materialName: 'Sand',
+              conveyanceClass: 'EARTH'
+            }
+          },
+          {
+            id: 'mat-2',
+            slNo: '2',
+            description: 'Scaffolding allowance',
+            unit: 'Each',
+            quantity: 1,
+            rate: 0,
+            rateFormula: '=MAT1_RATE * 10%',
+            amount: 0
+          }
+        ]
+      },
+      {
+        key: 'machinery',
+        label: 'B. Machinery',
+        lines: [{
+          id: 'mac-1',
+          slNo: '1',
+          description: 'Steel lifting frame',
+          unit: 'Each',
+          quantity: 1,
+          rate: 20,
+          amount: 20,
+          lead: {
+            applicable: true,
+            materialName: 'Steel',
+            conveyanceClass: 'STEEL'
+          },
+          seigniorageApplicable: false
+        }]
+      },
+      { key: 'labour', label: 'C. Labour', lines: [] }
+    ]
+  }
+  const resolvedSsrSections = projectData.resolveProjectSsrSections(projectSsrDataDefinition.sections)
+  assert.equal(resolvedSsrSections[0].lines[1].rate, 10)
+  assert.equal(resolvedSsrSections[0].lines[1].amount, 10)
+  assert.equal(projectData.projectDataRate(projectSsrDataDefinition), 115)
+  const projectSsrRecipe = projectData.projectDataRecipe(
+    projectSsrDataDefinition,
+    { ...projectDataNode, projectDataId: projectSsrDataDefinition.id, itemCode: projectSsrDataDefinition.code },
+    '2025-26',
+    'zone_3'
+  )
+  assert.equal(projectSsrRecipe.itemSource, 'SSR')
+  assert.equal(projectSsrRecipe.sections[0].lines[1].rate, 10)
+  assert.equal(projectSsrRecipe.sections[0].lines[1].amount, 10)
+  assert.equal(projectSsrRecipe.projectDataImageUrl, 'data:image/png;base64,project-data-image')
+  assert.equal(projectSsrRecipe.seigniorageApplicability.rows.length, 2)
+  assert.deepEqual(projectData.projectDataLeadApplicability(projectSsrDataDefinition), {
+    classes: ['EARTH', 'STEEL'],
+    materials: { Sand: 'EARTH', Steel: 'STEEL' }
+  })
+
   let dashboardFetch = async () => {
     throw new Error('This item does not contain a saved SOR catalogue selection.')
   }
@@ -183,10 +298,18 @@ async function main() {
         fetchSsrLeadApplicability: async () => ({})
       },
       './projectItems': {
+        projectItemDisplayName: (node) =>
+          node.itemSource === 'SOR' ? node.itemDescription ?? node.name : node.itemCode ?? node.name,
         projectItemKey: (node) => `${node.itemSource}:${node.categoryKey}:${node.itemCode}`,
         projectNodePath: () => [],
         rateAnalysisOverrideForNode: () => null,
         rateAnalysisOverrideResolution: () => ({ recipe: null, scope: 'shared' })
+      },
+      './projectData': {
+        projectDataForNode: projectData.projectDataForNode,
+        projectDataLeadApplicability: projectData.projectDataLeadApplicability,
+        projectDataRecipe: projectData.projectDataRecipe,
+        projectDataRate: projectData.projectDataRate
       },
       './leadApplications': { scopedLeadRateAddition: () => 0 },
       './rateAnalysis': {
@@ -194,6 +317,11 @@ async function main() {
         fetchRateAnalysis: (...args) => dashboardFetch(...args)
       },
       './projectTax': { fetchGstRateRules: async () => [] },
+      './pipeLead': {
+        fetchPipeLeadQuote: async () => ({}),
+        fetchPipeLeadQuoteForMaterial: async () => ({}),
+        pipeLeadQuoteBreakdown: () => ({})
+      },
       './seigniorage': {
         fetchSeigniorageCharges: async () => [],
         fetchSeignioragePolicies: async () => ({}),
@@ -226,6 +354,13 @@ async function main() {
   const compiled = await dashboardSync.fetchDashboardItemData(project, [source])
   assert.equal(compiled.rates[source.id], 2846)
   assert.equal(compiled.recipes[source.id].sorCatalogueSource.catalogueCode, 'PH_MATERIAL_01')
+
+  const customCompiled = await dashboardSync.fetchDashboardItemData(
+    { ...project, projectData: [projectDataDefinition] },
+    [projectDataNode]
+  )
+  assert.equal(customCompiled.rates[projectDataNode.id], 1350)
+  assert.equal(customCompiled.recipes[projectDataNode.id].itemCode, 'DATA-SOR-001')
 
   project.dashboardSnapshot = {
     syncedAt: '2026-07-01T00:00:00.000Z',

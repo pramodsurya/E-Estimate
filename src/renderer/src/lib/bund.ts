@@ -1382,6 +1382,11 @@ export function sectionDesignOffsets(
   section: BundSection,
   design: BundDesign
 ): number[] {
+  const stored = section.designPointOffsets
+  // Toe RLs are inputs to the explicit "Generate design points" action.
+  // Do not recreate cleared Proposed points just because those inputs are
+  // still present after a user has deliberately cleared the proposal.
+  if (stored && stored.length < 2) return stored
   if (
     section.upstreamGroundLevel != null &&
     section.downstreamGroundLevel != null
@@ -1393,8 +1398,7 @@ export function sectionDesignOffsets(
     )
     if (regenerated.length >= 2) return regenerated.map((point) => point.offset)
   }
-  const stored = section.designPointOffsets ?? []
-  if (stored.length >= 2 && section.pre.length >= 2) {
+  if (stored && stored.length >= 2 && section.pre.length >= 2) {
     const oldUsToe = Math.min(...stored)
     const oldDsToe = Math.max(...stored)
     const regenerated = sevenPointDesignFromGroundLevels(
@@ -1404,7 +1408,7 @@ export function sectionDesignOffsets(
     )
     if (regenerated.length >= 2) return regenerated.map((point) => point.offset)
   }
-  return stored
+  return stored ?? []
 }
 
 /**
@@ -1883,7 +1887,9 @@ export function designedArea(height: number, design: BundDesign): number {
 export function projectedProfile(section: BundSection, design: BundDesign): BundPoint[] {
   let base: BundPoint[]
   // A stored full profile is retained for imported/legacy projects.
-  if (section.projected && section.projected.length >= 2) {
+  // An empty stored profile is an intentional user clear, not a missing
+  // legacy profile to derive again from Existing ground.
+  if (Array.isArray(section.projected)) {
     base = section.projected
   } else if (section.pre.length >= 2) {
     // Restoration: derive from the design against the surveyed ground.

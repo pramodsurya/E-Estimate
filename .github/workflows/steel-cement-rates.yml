@@ -1,0 +1,56 @@
+# Discover new PRED monthly steel/cement circulars.
+#
+# Scheduled and manual only. This repository is public, so the workflow must
+# never run on a pull request: a fork could otherwise propose a change that
+# reads the service-role key out of the runner.
+#
+# The job downloads circulars and files them for review. It publishes no rate
+# and touches no live table — see scripts/sql/material_rate_documents.sql.
+name: Steel and cement circulars
+
+on:
+  schedule:
+    # 03:20 UTC on the 3rd and 18th — after a month turns over, and again in
+    # case the department publishes late. Times are UTC; IST is +5:30.
+    - cron: '20 3 3,18 * *'
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'Ignore circulars older than this year'
+        default: '2024'
+      limit:
+        description: 'Maximum circulars to take this run'
+        default: '24'
+      dry_run:
+        description: 'Report only; download and write nothing'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  # Two runs writing the same documents would race on the unique source_url.
+  group: steel-cement-rates
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Discover and file new circulars
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node scripts/rate-scraper/sync.cjs \
+            --since=${{ github.event.inputs.since || '2024' }} \
+            --limit=${{ github.event.inputs.limit || '24' }} \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}

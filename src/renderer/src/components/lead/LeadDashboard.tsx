@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   Eye,
   LayoutDashboard,
+  MapPinned,
   Printer,
   RefreshCw,
   Route
@@ -27,13 +28,11 @@ export default function LeadDashboard(): JSX.Element | null {
   const setDashboardSnapshot = useStore((state) => state.setDashboardSnapshot)
   const openLeadMaterial = useStore((state) => state.openLeadMaterial)
   const updateLeadPrintSettings = useStore((state) => state.updateLeadPrintSettings)
-  const upsertLeadPoint = useStore((state) => state.upsertLeadPoint)
-  const upsertLeadMapDirection = useStore((state) => state.upsertLeadMapDirection)
-  const removeLeadMapDirection = useStore((state) => state.removeLeadMapDirection)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState('')
   const [printView, setPrintView] = useState(false)
   const [printPreview, setPrintPreview] = useState(false)
+  const [mapPrintLayout, setMapPrintLayout] = useState(false)
 
   const snapshotValid = project
     ? dashboardContextMatches(project.dashboardSnapshot, project)
@@ -79,7 +78,11 @@ export default function LeadDashboard(): JSX.Element | null {
     mapDirections: [],
     printSettings: undefined
   }
-  const renderPrintPreview = (embedded: boolean, onClose: () => void): JSX.Element => (
+  const renderPrintPreview = (
+    embedded: boolean,
+    onClose: () => void,
+    mapLayoutEditor = false
+  ): JSX.Element => (
     <LeadPrintPreviewModal
       year={project.meta.sorYear}
       zone={project.meta.sorZone ?? 'zone_3'}
@@ -92,12 +95,10 @@ export default function LeadDashboard(): JSX.Element | null {
       printSettings={chart.printSettings}
       signatureFooter={resolveSignatureFooter(project, LEAD_SIGNATURE_SCOPE)}
       onUpdatePrintSettings={updateLeadPrintSettings}
-      onUpsertPoint={upsertLeadPoint}
-      onUpsertMapDirection={upsertLeadMapDirection}
-      onRemoveMapDirection={removeLeadMapDirection}
       onClose={onClose}
       rates={snapshotValid ? project.dashboardSnapshot?.leadRates ?? [] : []}
       embedded={embedded}
+      mapLayoutEditor={mapLayoutEditor}
     />
   )
 
@@ -136,6 +137,16 @@ export default function LeadDashboard(): JSX.Element | null {
             }}
           >
             <Printer size={15} /> Print Preview
+          </button>
+          <button
+            className="btn ghost"
+            onClick={() => {
+              setPrintPreview(false)
+              setPrintView(false)
+              setMapPrintLayout(true)
+            }}
+          >
+            <MapPinned size={15} /> Map Print Layout
           </button>
           <button
             className="btn ghost"
@@ -209,10 +220,11 @@ export default function LeadDashboard(): JSX.Element | null {
                       className="btn-mini"
                       onClick={() =>
                         openLeadMaterial({
-                          materialName: entry.materialName,
-                          conveyanceClass: entry.conveyanceClass,
-                          variantId: entry.variantId
-                        })
+                           materialName: entry.materialName,
+                           conveyanceClass: entry.conveyanceClass,
+                           variantId: entry.variantId,
+                           pipeLead: entry.pipeLead
+                         })
                       }
                     >
                       Open
@@ -227,6 +239,7 @@ export default function LeadDashboard(): JSX.Element | null {
       )}
 
       {printPreview && renderPrintPreview(false, () => setPrintPreview(false))}
+      {mapPrintLayout && renderPrintPreview(false, () => setMapPrintLayout(false), true)}
     </div>
   )
 }

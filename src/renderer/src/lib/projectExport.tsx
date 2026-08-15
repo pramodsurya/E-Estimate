@@ -31,7 +31,14 @@ import {
   splitPreviewPages,
   type PreviewPageRun
 } from './previewPrint'
-import { computeProjectPrintInputs } from './projectPrintInputs'
+import {
+  computeProjectPrintInputs,
+  projectDashboardIsReady
+} from './projectPrintInputs'
+import {
+  frontCoverHasEstimatedCost,
+  updateFrontCoverEstimatedCost
+} from './univerDocument'
 import {
   applySignatureFooterToPdf,
   LEAD_SIGNATURE_SCOPE,
@@ -289,7 +296,23 @@ export async function buildProjectExportPdf(
   const inputs = computeProjectPrintInputs(project)
   const { settings } = inputs
 
-  const front = project.root.children.find((child) => child.pageTemplate === 'front')
+  const storedFront = project.root.children.find((child) => child.pageTemplate === 'front')
+  // Export is built after the General Abstract total has settled. Refresh only
+  // the existing cost drawing in the export snapshot so a stale/blank cover can
+  // never disagree with the current synced Dashboard, while preserving every
+  // user edit and the drawing's chosen position.
+  const front =
+    storedFront &&
+    frontCoverHasEstimatedCost(storedFront) &&
+    projectDashboardIsReady(project, inputs.items)
+      ? {
+          ...storedFront,
+          documentData: updateFrontCoverEstimatedCost(
+            storedFront,
+            inputs.abstract.grandTotal
+          )
+        }
+      : storedFront
   const introduction = project.root.children.find(
     (child) => child.pageTemplate === 'introduction'
   )
@@ -391,9 +414,6 @@ export async function buildProjectExportPdf(
           printSettings={project.leadChart?.printSettings}
           signatureFooter={resolveSignatureFooter(project, LEAD_SIGNATURE_SCOPE)}
           onUpdatePrintSettings={() => undefined}
-          onUpsertPoint={() => undefined}
-          onUpsertMapDirection={() => undefined}
-          onRemoveMapDirection={() => undefined}
           onClose={() => undefined}
           rates={project.dashboardSnapshot?.leadRates ?? []}
           embedded

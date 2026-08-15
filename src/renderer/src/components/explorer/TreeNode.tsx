@@ -5,6 +5,7 @@ import type { ProjectNode } from '../../types/project'
 import { canReorderBetween, findNode, isComponentLike } from '../../lib/tree'
 import { guideWallDetailId } from '../../lib/guideWall'
 import { bundDetailId } from '../../lib/bund'
+import { miSluiceNewDetailId } from '../../lib/miSluiceNew'
 import { NodeIcon, isRenamable, nodeDisplayName } from '../nodeVisual'
 
 const TreeNode = memo(function TreeNode({
@@ -25,7 +26,10 @@ const TreeNode = memo(function TreeNode({
   // component's Detailed dashboard, so they are not shown as tree nodes.
   const visibleChildren = node.children.filter((child) => !child.templateGenerated)
   // Template components always carry a synthetic "Detailed" row.
-  const isTemplate = node.templateId === 'guide-wall' || node.templateId === 'bund'
+  const isTemplate =
+    node.templateId === 'guide-wall' ||
+    node.templateId === 'bund' ||
+    node.templateId === 'mi-sluice-new'
   const hasChildren = visibleChildren.length > 0 || isTemplate
   const isOpen = expandedFlag ?? (node.kind === 'title' || isTemplate)
   const renamable = isRenamable(node)
@@ -202,7 +206,11 @@ const TreeNode = memo(function TreeNode({
       {isOpen && isTemplate && (
         <TemplateDetailRow
           detailId={
-            node.templateId === 'bund' ? bundDetailId(node.id) : guideWallDetailId(node.id)
+            node.templateId === 'bund'
+              ? bundDetailId(node.id)
+              : node.templateId === 'mi-sluice-new'
+                ? miSluiceNewDetailId(node.id)
+                : guideWallDetailId(node.id)
           }
           depth={depth + 1}
         />

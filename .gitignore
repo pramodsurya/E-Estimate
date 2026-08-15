@@ -9,3 +9,7 @@ vendor/win-x64/
 .DS_Store
 .env
 .env.local
+.codex-temp/
+__pycache__/
+*.pyc
+.codex-work/
