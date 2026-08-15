@@ -1,6 +1,6 @@
 {
   "name": "e-estimate",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "E-Estimate — construction cost estimation desktop app for Telangana SOR/SSR",
   "main": "./out/main/index.js",
   "author": "E-Estimate",
