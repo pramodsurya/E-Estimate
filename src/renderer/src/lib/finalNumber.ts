@@ -6,7 +6,7 @@ import type { EestimateProject, ProjectNode } from '../types/project'
 import { isUniverWorkbookData } from './univerSpreadsheet'
 import { resolveDocumentFinal } from './documentFinal'
 import {
-  collectProjectItemGroups,
+  projectItemGroupIndex,
   projectItemKey,
   rateAnalysisOverrideForNode
 } from './projectItems'
@@ -80,7 +80,9 @@ export function getItemRate(project: EestimateProject | null, node: ProjectNode)
 export function getItemLeadRate(project: EestimateProject | null, node: ProjectNode): number {
   if (!project || node.kind !== 'item') return 0
   const itemKey = projectItemKey(node)
-  const group = collectProjectItemGroups(project.root).find((candidate) => candidate.key === itemKey)
+  // Per-item, so it must not walk the tree: `componentItemsTotal` calls this
+  // once for every item it prices.
+  const group = projectItemGroupIndex(project.root).get(itemKey)
   const isLegacyTarget = group?.usages[0]?.node.id === node.id
   const recipe = rateAnalysisOverrideForNode(project, node)
   const outputQuantity = recipe?.outputQuantity || 0

@@ -14,6 +14,7 @@ import {
 import Modal from './Modal'
 import { useStore } from '../../store/useStore'
 import { findNode } from '../../lib/tree'
+import { projectDataRate } from '../../lib/projectData'
 import {
   SOR_CATEGORIES,
   SSR_CATEGORIES,
@@ -21,7 +22,7 @@ import {
   fetchSsrItems,
   type MasterItem
 } from '../../lib/masterData'
-import type { DataVariantSelection, ProjectNode } from '../../types/project'
+import type { DataVariantSelection, ProjectDataDefinition } from '../../types/project'
 import SsrCode from '../templates/SsrCode'
 import SorCatalogueColumn from './SorCatalogueColumn'
 import {
@@ -46,16 +47,6 @@ function itemKey(m: MasterItem): string {
   return `${m.side}:${m.category}:${m.code}`
 }
 
-interface CreatedDataItem {
-  /** Stable project-local DATA id shared by all Item usages. */
-  id: string
-  name: string
-  originalCode: string
-  description: string
-  source: string
-  unit?: string | null
-}
-
 type SortDir = 'asc' | 'desc'
 type CacheEntry = { status: 'loading' | 'loaded' | 'error'; items: MasterItem[]; error?: string }
 interface SemanticRankingState extends SemanticSearchProgress {
@@ -69,10 +60,10 @@ export default function AddItemModal(): JSX.Element {
   const project = useStore((s) => s.project)
   const close = useStore((s) => s.closeAddItem)
   const addItems = useStore((s) => s.addItemsFromMaster)
-  const addCreatedDataItems = useStore((s) => s.addCreatedDataItems)
+  const addProjectDataItems = useStore((s) => s.addProjectDataItems)
 
   const [selected, setSelected] = useState<Map<string, MasterItem>>(new Map())
-  const [selectedCreated, setSelectedCreated] = useState<Set<string>>(new Set())
+  const [selectedProjectData, setSelectedProjectData] = useState<Set<string>>(new Set())
   const [variantSpecs, setVariantSpecs] = useState<Record<string, DataVariantSpec> | null>(null)
   const [variantSelections, setVariantSelections] = useState<Record<string, DataVariantSelection>>({})
   const [preparingVariants, setPreparingVariants] = useState(false)
@@ -83,11 +74,7 @@ export default function AddItemModal(): JSX.Element {
     if (!parentId) return project.root.name
     return findNode(project.root, parentId)?.name ?? project.root.name
   }, [project, parentId])
-  const createdItems = useMemo(
-    () => (project ? collectCreatedDataItems(project.root) : []),
-    [project]
-  )
-
+  const projectData = project?.projectData ?? []
   const add = (m: MasterItem): void =>
     setSelected((prev) => new Map(prev).set(itemKey(m), m))
   const removeKey = (k: string): void =>
@@ -98,7 +85,7 @@ export default function AddItemModal(): JSX.Element {
     })
 
   const addPreparedItems = (): void => {
-    if (selected.size + selectedCreated.size === 0 || !project) return
+    if (selected.size + selectedProjectData.size === 0 || !project) return
     const targetId = parentId ?? project.root.id
     if (selected.size) {
       addItems(
@@ -110,12 +97,14 @@ export default function AddItemModal(): JSX.Element {
         }))
       )
     }
-    if (selectedCreated.size) addCreatedDataItems(targetId, Array.from(selectedCreated))
+    if (selectedProjectData.size) {
+      addProjectDataItems(targetId, Array.from(selectedProjectData))
+    }
     close()
   }
 
   const confirm = async (): Promise<void> => {
-    if (selected.size + selectedCreated.size === 0 || !project) return
+    if (selected.size + selectedProjectData.size === 0 || !project) return
     if (selected.size === 0) {
       addPreparedItems()
       return
@@ -161,7 +150,7 @@ export default function AddItemModal(): JSX.Element {
 
   const variantCodes = variantSpecs ? Object.keys(variantSpecs) : []
   const allVariantsChosen = variantCodes.every((code) => Boolean(variantSelections[code]))
-  const selectedCount = selected.size + selectedCreated.size
+  const selectedCount = selected.size + selectedProjectData.size
 
   const footer = (
     <>
@@ -243,14 +232,14 @@ export default function AddItemModal(): JSX.Element {
               onAdd={add}
               onRemove={removeKey}
             />
-            <CreatedDataColumn
-              items={createdItems}
-              selected={selectedCreated}
-              onToggle={(createdDataId) =>
-                setSelectedCreated((current) => {
+            <ProjectDataColumn
+              definitions={projectData}
+              selected={selectedProjectData}
+              onToggle={(id) =>
+                setSelectedProjectData((current) => {
                   const next = new Set(current)
-                  if (next.has(createdDataId)) next.delete(createdDataId)
-                  else next.add(createdDataId)
+                  if (next.has(id)) next.delete(id)
+                  else next.add(id)
                   return next
                 })
               }
@@ -263,6 +252,55 @@ export default function AddItemModal(): JSX.Element {
         </>
       )}
     </Modal>
+  )
+}
+
+function ProjectDataColumn({
+  definitions,
+  selected,
+  onToggle
+}: {
+  definitions: ProjectDataDefinition[]
+  selected: Set<string>
+  onToggle: (id: string) => void
+}): JSX.Element {
+  return (
+    <div className="additem-col project-data-col">
+      <div className="col-header">
+        <h3>Project DATA</h3>
+        <span className="col-tag">Created in DATA Dashboard</span>
+      </div>
+      <div className="project-data-list">
+        {definitions.length === 0 ? (
+          <div className="project-data-empty">
+            Create a DATA in the DATA Dashboard, then add it to this Component here.
+          </div>
+        ) : (
+          definitions.map((definition) => {
+            const selectedHere = selected.has(definition.id)
+            const rate = projectDataRate(definition)
+            return (
+              <button
+                type="button"
+                className={`project-data-row ${selectedHere ? 'selected' : ''}`}
+                key={definition.id}
+                title={definition.description}
+                onClick={() => onToggle(definition.id)}
+              >
+                <span className="project-data-check">{selectedHere ? <Check size={12} /> : null}</span>
+                <span className="project-data-copy">
+                  <strong>{definition.code}</strong>
+                  <span>{definition.description}</span>
+                  <small>
+                    {definition.kind === 'ssr' ? 'SSR type' : 'SOR type'} · ₹ {rate.toLocaleString('en-IN')} / {definition.unit}
+                  </small>
+                </span>
+              </button>
+            )
+          })
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -350,77 +388,6 @@ function VariantReview({
   )
 }
 
-function collectCreatedDataItems(root: ProjectNode): CreatedDataItem[] {
-  const items = new Map<string, CreatedDataItem>()
-
-  function visit(node: ProjectNode): void {
-    if (node.kind === 'item' && node.splitFromItemKey) {
-      const id = node.createdDataId ?? node.id
-      if (!items.has(id)) items.set(id, {
-        id,
-        name: node.name,
-        originalCode: node.itemCode?.trim() || node.splitFromItemKey,
-        description: node.itemDescription ?? node.name,
-        source: node.itemSource ?? 'DATA',
-        unit: node.unit
-      })
-    }
-    node.children.forEach(visit)
-  }
-
-  visit(root)
-  return Array.from(items.values()).sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { numeric: true })
-  )
-}
-
-function CreatedDataColumn({
-  items,
-  selected,
-  onToggle
-}: {
-  items: CreatedDataItem[]
-  selected: Set<string>
-  onToggle: (createdDataId: string) => void
-}): JSX.Element {
-  return (
-    <div className="additem-col created-data-col">
-      <div className="col-header">
-        <h3>Created DATAs</h3>
-        <span className="col-tag">Project-local reusable DATA</span>
-      </div>
-      <div className="created-data-list">
-        {items.length === 0 ? (
-          <div className="created-data-empty">Created DATA will appear here.</div>
-        ) : (
-          items.map((item) => (
-            <button
-              type="button"
-              className={`created-data-row ${selected.has(item.id) ? 'selected' : ''}`}
-              key={item.id}
-              title={item.description}
-              onClick={() => onToggle(item.id)}
-            >
-              <div className="created-data-main">
-                <span className="created-data-check">
-                  {selected.has(item.id) ? <Check size={12} /> : null}
-                </span>
-                <span className="created-data-name">{item.name}</span>
-                <span className="created-data-origin">{item.originalCode}</span>
-              </div>
-              <span className="created-data-desc">{item.description}</span>
-              <span className="created-data-meta">
-                {item.source}
-                {item.unit ? ` | ${item.unit}` : ''}
-              </span>
-            </button>
-          ))
-        )}
-      </div>
-    </div>
-  )
-}
-
 interface ColumnProps {
   side: 'SSR' | 'SOR'
   tag: string
@@ -430,6 +397,90 @@ interface ColumnProps {
   onAdd: (m: MasterItem) => void
   onRemove: (key: string) => void
   trailingCategory?: JSX.Element
+}
+
+/**
+ * The same SSR search, category, and AI-ranking selector used by Add Item.
+ * Other workflows can pick one SSR code without duplicating a second search UI.
+ */
+export function SsrCodeSelectionColumn({
+  onPick
+}: {
+  onPick: (item: MasterItem) => void
+}): JSX.Element {
+  return (
+    <Column
+      side="SSR"
+      tag="Unified SSR / TAW DAW CAW GAW CCDW PMW"
+      categories={SSR_CATEGORIES}
+      fetcher={fetchSsrItems}
+      selected={new Map()}
+      onAdd={onPick}
+      onRemove={() => undefined}
+    />
+  )
+}
+
+/**
+ * Read-only DATA browser input. It deliberately reuses the exact Add Item
+ * selectors so code search (including AI ranking), categories, and the SOR
+ * catalogue behave identically everywhere.
+ */
+export function BackendDataSelectionColumns({
+  sorYear,
+  onPick
+}: {
+  sorYear: string
+  onPick: (item: MasterItem) => void
+}): JSX.Element {
+  const [source, setSource] = useState<'SOR' | 'SSR'>('SSR')
+  const selected = new Map<string, MasterItem>()
+  return (
+    <div className="backend-data-selection-cols">
+      <div className="backend-data-source-tabs" role="tablist" aria-label="Backend DATA source">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={source === 'SSR'}
+          className={source === 'SSR' ? 'active' : ''}
+          onClick={() => setSource('SSR')}
+        >
+          SSR DATA
+          <small>AI code search</small>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={source === 'SOR'}
+          className={source === 'SOR' ? 'active' : ''}
+          onClick={() => setSource('SOR')}
+        >
+          SOR DATA
+          <small>Rates &amp; catalogue</small>
+        </button>
+      </div>
+      <div className="backend-data-code-list">
+        {source === 'SSR' ? (
+          <Column
+            side="SSR"
+            tag="Unified SSR / TAW DAW CAW GAW CCDW PMW"
+            categories={SSR_CATEGORIES}
+            fetcher={fetchSsrItems}
+            selected={selected}
+            onAdd={onPick}
+            onRemove={() => undefined}
+          />
+        ) : (
+          <SorSelectionColumn
+            sorYear={sorYear}
+            selected={selected}
+            onAdd={onPick}
+            onRemove={() => undefined}
+          />
+        )}
+      </div>
+    </div>
+  )
 }
 
 function SorSelectionColumn({
@@ -731,12 +782,14 @@ function Column({
                       const added = selected.has(key)
                       return (
                         <div key={key} className={`item-row ${added ? 'added' : ''}`}>
-                          <SsrCode
-                            code={it.code}
-                            description={it.description}
-                            className="item-code"
-                            strong={false}
-                          />
+                          {side !== 'SOR' ? (
+                            <SsrCode
+                              code={it.code}
+                              description={it.description}
+                              className="item-code"
+                              strong={false}
+                            />
+                          ) : null}
                           <span className="item-desc-stack" title={it.description}>
                             <span className="item-desc">{it.description}</span>
                             {q && match && match.reasons.length > 0 ? (
@@ -791,12 +844,16 @@ function SelectedBar({
           {entries.map(([k, m]) => (
             <span className="selected-chip" key={k} title={m.description}>
               <span className="sc-side">{m.side}</span>
-              <SsrCode
-                code={m.code}
-                description={m.description}
-                className="sc-label"
-                strong={false}
-              />
+              {m.side === 'SOR' ? (
+                <span className="sc-label">{m.description}</span>
+              ) : (
+                <SsrCode
+                  code={m.code}
+                  description={m.description}
+                  className="sc-label"
+                  strong={false}
+                />
+              )}
               <button onClick={() => onRemove(k)} title="Remove">
                 <X size={12} />
               </button>

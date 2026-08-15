@@ -10,3 +10,6 @@ vendor/win-x64/
 .env
 .env.local
 .codex-temp/
+__pycache__/
+*.pyc
+.codex-work/

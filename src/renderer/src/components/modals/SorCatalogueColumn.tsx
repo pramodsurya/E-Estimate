@@ -23,11 +23,13 @@ import {
   fetchSorCatalogues,
   groupSorCatalogueOptions,
   nextSorDimension,
+  searchSorCatalogueItems,
   singletonSorDimensions,
   sorCommercialTerms,
   sourceContextTitle,
   visibleSorDimensions,
   type SorCatalogue,
+  type SorCatalogueItemSearchMatch,
   type SorCatalogueOption,
   type SorCatalogueOptionsByDimension,
   type SorCataloguePriceMatch
@@ -36,6 +38,7 @@ import type {
   SorCatalogueDimensionValue,
   SorCatalogueItemSelection
 } from '../../types/project'
+import { pipeLeadCatalogueLabel, pipeLeadSourceFromContext } from '../../lib/pipeLead'
 
 interface SelectionStep {
   key: string
@@ -51,11 +54,23 @@ interface LookupState {
   error: string | null
 }
 
+interface CatalogueItemSearchState {
+  loading: boolean
+  matches: SorCatalogueItemSearchMatch[]
+  error: string | null
+}
+
 const EMPTY_LOOKUP: LookupState = {
   loading: false,
   options: {},
   matches: [],
   remainingCount: 0,
+  error: null
+}
+
+const EMPTY_ITEM_SEARCH: CatalogueItemSearchState = {
+  loading: false,
+  matches: [],
   error: null
 }
 
@@ -131,7 +146,15 @@ export default function SorCatalogueColumn({
   const [steps, setSteps] = useState<SelectionStep[]>([])
   const [lookup, setLookup] = useState<LookupState>(EMPTY_LOOKUP)
   const [chosenMatch, setChosenMatch] = useState<SorCataloguePriceMatch | null>(null)
+  const [directMatch, setDirectMatch] = useState<SorCatalogueItemSearchMatch | null>(null)
+  const [itemSearch, setItemSearch] =
+    useState<CatalogueItemSearchState>(EMPTY_ITEM_SEARCH)
   const requestSequence = useRef(0)
+  const searchSequence = useRef(0)
+  const catalogue = useMemo(
+    () => catalogues.find((candidate) => candidate.catalogue_code === catalogueCode) ?? null,
+    [catalogueCode, catalogues]
+  )
 
   useEffect(() => {
     let active = true
@@ -154,16 +177,56 @@ export default function SorCatalogueColumn({
     }
   }, [catalogueReload])
 
-  const catalogue = useMemo(
-    () => catalogues.find((candidate) => candidate.catalogue_code === catalogueCode) ?? null,
-    [catalogueCode, catalogues]
-  )
+  useEffect(() => {
+    const query = search.trim()
+    if (catalogue || query.length < 2) {
+      setItemSearch(EMPTY_ITEM_SEARCH)
+      return
+    }
+
+    const sequence = ++searchSequence.current
+    let active = true
+    setItemSearch((current) => ({ ...current, loading: true, error: null }))
+    const timer = window.setTimeout(() => {
+      void searchSorCatalogueItems(query, sorYear)
+        .then((matches) => {
+          if (!active || searchSequence.current !== sequence) return
+          setItemSearch({ loading: false, matches, error: null })
+        })
+        .catch((error) => {
+          if (!active || searchSequence.current !== sequence) return
+          setItemSearch({
+            loading: false,
+            matches: [],
+            error: error instanceof Error ? error.message : String(error)
+          })
+        })
+    }, 250)
+
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [catalogue, search, sorYear])
+
   const filters = useMemo(() => filtersFromSteps(steps), [steps])
   const filterSignature = useMemo(() => JSON.stringify(filters), [filters])
 
   useEffect(() => {
     if (!catalogue) {
       setLookup(EMPTY_LOOKUP)
+      return
+    }
+
+    if (directMatch?.catalogue_code === catalogue.catalogue_code) {
+      requestSequence.current += 1
+      setLookup({
+        loading: false,
+        options: {},
+        matches: [directMatch],
+        remainingCount: 1,
+        error: null
+      })
       return
     }
 
@@ -243,7 +306,7 @@ export default function SorCatalogueColumn({
     return () => {
       active = false
     }
-  }, [catalogue, filterSignature, filters, sorYear])
+  }, [catalogue, directMatch, filterSignature, filters, sorYear])
 
   const filteredCatalogues = useMemo(() => {
     const query = search.trim().toLocaleLowerCase()
@@ -267,15 +330,25 @@ export default function SorCatalogueColumn({
     }
     return Array.from(groups.entries())
   }, [filteredCatalogues])
+  const itemSearchActive = search.trim().length >= 2
 
   const nextDimension = nextSorDimension(lookup.options, filters)
   const exactMatch =
-    chosenMatch ?? (lookup.matches.length === 1 ? lookup.matches[0] : null)
+    directMatch ?? chosenMatch ?? (lookup.matches.length === 1 ? lookup.matches[0] : null)
 
   const chooseCatalogue = (nextCatalogue: SorCatalogue): void => {
     setCatalogueCode(nextCatalogue.catalogue_code)
     setSteps([])
     setChosenMatch(null)
+    setDirectMatch(null)
+    setLookup(EMPTY_LOOKUP)
+  }
+
+  const chooseSearchMatch = (match: SorCatalogueItemSearchMatch): void => {
+    setCatalogueCode(match.catalogue_code)
+    setSteps([])
+    setChosenMatch(null)
+    setDirectMatch(match)
     setLookup(EMPTY_LOOKUP)
   }
 
@@ -283,6 +356,7 @@ export default function SorCatalogueColumn({
     setCatalogueCode(null)
     setSteps([])
     setChosenMatch(null)
+    setDirectMatch(null)
     setLookup(EMPTY_LOOKUP)
   }
 
@@ -295,11 +369,13 @@ export default function SorCatalogueColumn({
   const truncateAt = (index: number): void => {
     setSteps((current) => current.slice(0, index))
     setChosenMatch(null)
+    setDirectMatch(null)
   }
 
   const addMatch = (match: SorCataloguePriceMatch): void => {
     if (!catalogue) return
     const commercialTerms = sorCommercialTerms(match.source_context)
+    const pipeLead = pipeLeadSourceFromContext(match.source_context, match.item_code)
     const selection: SorCatalogueItemSelection = {
       catalogueCode: catalogue.catalogue_code,
       catalogueName: catalogue.name,
@@ -313,7 +389,8 @@ export default function SorCatalogueColumn({
       source: match.source,
       sourcePage: match.source_page,
       sourceTitle: sourceContextTitle(match.source_context),
-      commercialTerms
+      commercialTerms,
+      ...(pipeLead ? { pipeLead } : {})
     }
     onAdd({
       side: 'SOR',
@@ -350,7 +427,7 @@ export default function SorCatalogueColumn({
             <Search size={14} />
             <input
               className="text-input"
-              placeholder="Search catalogue, section or code…"
+              placeholder="Search SOR item descriptions or catalogues…"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -368,40 +445,98 @@ export default function SorCatalogueColumn({
                   Retry
                 </button>
               </div>
-            ) : catalogueGroups.length === 0 ? (
-              <div className="sor-lookup-state">No catalogue matches “{search}”.</div>
             ) : (
-              catalogueGroups.map(([part, rows]) => (
-                <section className="sor-catalogue-group" key={part}>
-                  <div className="sor-catalogue-part">
-                    <Layers3 size={13} />
-                    <span>{partLabel(part)}</span>
-                    <b>{rows.length}</b>
-                  </div>
-                  {rows.map((candidate) => {
-                    const dimensionCount = Object.keys(candidate.dimension_schema).filter(
-                      (key) => key !== 'matrix_row' && key !== 'matrix_column'
-                    ).length
-                    return (
-                      <button
-                        type="button"
-                        className="sor-catalogue-row"
-                        key={candidate.catalogue_code}
-                        onClick={() => chooseCatalogue(candidate)}
-                      >
-                        <span>
-                          <strong>{candidate.name}</strong>
-                          <small>{candidate.section}</small>
-                        </span>
-                        <span className="sor-catalogue-row-meta">
-                          {dimensionCount} dimension{dimensionCount === 1 ? '' : 's'}
+              <>
+                {itemSearchActive ? (
+                  <section className="sor-item-search-results">
+                    <div className="sor-catalogue-part">
+                      <Search size={13} />
+                      <span>Catalogue item matches</span>
+                      {!itemSearch.loading ? <b>{itemSearch.matches.length}</b> : null}
+                    </div>
+                    {itemSearch.loading ? (
+                      <div className="sor-lookup-state sor-item-search-state">
+                        <LoaderCircle className="spin" size={15} />
+                        Searching descriptions in SOR {sorYear}…
+                      </div>
+                    ) : itemSearch.error ? (
+                      <div className="sor-lookup-error">
+                        <CircleAlert size={15} />
+                        <span>Could not search catalogue items: {itemSearch.error}</span>
+                      </div>
+                    ) : (
+                      itemSearch.matches.map((match) => (
+                        <button
+                          type="button"
+                          className="sor-item-search-row"
+                          key={match.item_code}
+                          onClick={() => chooseSearchMatch(match)}
+                        >
+                          <span>
+                            <small>{match.catalogue_name}</small>
+                            <strong>{match.item_name || match.catalogue_name}</strong>
+                            <em>
+                              {Object.entries(visibleSorDimensions(match.dimensions))
+                                .slice(0, 3)
+                                .map(([key, value]) => optionLabel(key, value))
+                                .join(' · ') || match.section}
+                            </em>
+                          </span>
+                          <b>
+                            {match.rate === null
+                              ? match.rate_text || 'Reference'
+                              : `₹ ${match.rate.toLocaleString('en-IN')}`}
+                            <small>/ {match.unit || 'unit'}</small>
+                          </b>
                           <ChevronRight size={14} />
-                        </span>
-                      </button>
-                    )
-                  })}
-                </section>
-              ))
+                        </button>
+                      ))
+                    )}
+                    {!itemSearch.loading &&
+                    !itemSearch.error &&
+                    itemSearch.matches.length === 0 ? (
+                      <div className="sor-lookup-state sor-item-search-state">
+                        No SOR {sorYear} item description matches “{search}”.
+                      </div>
+                    ) : null}
+                  </section>
+                ) : null}
+
+                {catalogueGroups.map(([part, rows]) => (
+                  <section className="sor-catalogue-group" key={part}>
+                    <div className="sor-catalogue-part">
+                      <Layers3 size={13} />
+                      <span>{partLabel(part)}</span>
+                      <b>{rows.length}</b>
+                    </div>
+                    {rows.map((candidate) => {
+                      const dimensionCount = Object.keys(candidate.dimension_schema).filter(
+                        (key) => key !== 'matrix_row' && key !== 'matrix_column'
+                      ).length
+                      return (
+                        <button
+                          type="button"
+                          className="sor-catalogue-row"
+                          key={candidate.catalogue_code}
+                          onClick={() => chooseCatalogue(candidate)}
+                        >
+                          <span>
+                            <strong>{candidate.name}</strong>
+                            <small>{candidate.section}</small>
+                          </span>
+                          <span className="sor-catalogue-row-meta">
+                            {dimensionCount} dimension{dimensionCount === 1 ? '' : 's'}
+                            <ChevronRight size={14} />
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </section>
+                ))}
+                {catalogueGroups.length === 0 && !itemSearchActive ? (
+                  <div className="sor-lookup-state">No catalogue matches “{search}”.</div>
+                ) : null}
+              </>
             )}
           </div>
         </>
@@ -410,7 +545,6 @@ export default function SorCatalogueColumn({
           <div className="sor-selected-catalogue">
             <span>{partLabel(catalogue.part)} · {catalogue.section}</span>
             <strong>{catalogue.name}</strong>
-            <small>{catalogue.catalogue_code}</small>
           </div>
 
           {steps.length > 0 ? (
@@ -542,6 +676,7 @@ function CatalogueResult({
   const selectedKey = `SOR:${SOR_CATALOGUE_CATEGORY}:${match.item_code}`
   const added = selected.has(selectedKey)
   const commercialTerms = sorCommercialTerms(match.source_context)
+  const pipeLead = pipeLeadSourceFromContext(match.source_context, match.item_code)
   const dimensions = visibleSorDimensions(match.dimensions)
   const sourceTitle = sourceContextTitle(match.source_context)
   const hasPublishedValue = match.rate !== null || Boolean(match.rate_text.trim())
@@ -556,7 +691,6 @@ function CatalogueResult({
         <div>
           <small>{catalogue.name}</small>
           <strong>{match.item_name}</strong>
-          <span>{match.item_code}</span>
         </div>
         <div className={match.rate === null ? 'reference' : ''}>
           {match.rate === null ? (
@@ -584,6 +718,13 @@ function CatalogueResult({
           <CircleAlert size={15} />
           This is printed text, not a zero-valued rate. The item will remain uncosted until a
           numeric rate is published or adopted.
+        </div>
+      ) : null}
+      {pipeLead ? (
+        <div className="sor-reference-note">
+          <Truck size={15} />
+          Linked to {pipeLeadCatalogueLabel(pipeLead)}. After adding this RCC pipe, it will
+          appear in Lead for source-to-site distance and automatic conveyance pricing.
         </div>
       ) : null}
 

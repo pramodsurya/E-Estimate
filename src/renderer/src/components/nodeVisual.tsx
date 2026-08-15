@@ -1,4 +1,5 @@
 import { BookOpen, Box, Component as ComponentIcon, FileText, Layers, ScrollText, Table2 } from 'lucide-react'
+import { projectItemDisplayName } from '../lib/projectItems'
 import type { ProjectNode } from '../types/project'
 
 export function NodeIcon({ node, size = 15 }: { node: ProjectNode; size?: number }): JSX.Element {
@@ -33,11 +34,7 @@ export function NodeIcon({ node, size = 15 }: { node: ProjectNode; size?: number
 }
 
 export function nodeDisplayName(node: ProjectNode): string {
-  if (node.kind === 'item' && node.splitFromItemKey) return node.name
-  if (node.kind === 'item' && node.itemCode) {
-    return node.dataVariant ? `${node.itemCode} - ${node.dataVariant.label}` : node.itemCode
-  }
-  return node.name
+  return projectItemDisplayName(node)
 }
 
 /** SOR/SSR item names are locked; only "Others" items and structural nodes can be renamed. */

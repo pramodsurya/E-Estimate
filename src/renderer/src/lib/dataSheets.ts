@@ -5,6 +5,7 @@
  */
 
 import { recalculateRateAnalysis } from './rateAnalysis'
+import { mergeSavedRecipe } from './recipeMerge'
 import { collectProjectItemGroups, type ProjectItemGroup } from './projectItems'
 import { dashboardContextMatches, dashboardItemIsSynced } from './dashboardSync'
 import { findNode } from './tree'
@@ -28,6 +29,44 @@ export interface DataSheet {
   recipe: RateAnalysisRecipe
   leadApplications: LeadApplication[]
   leadVariants: LeadVariant[]
+  /** Resolved SOR row values consumed unchanged by the flowing print table. */
+  sorPrintRate: SorDataPrintRate | null
+}
+
+export interface SorDataPrintRate {
+  hasNumericRate: boolean
+  baseRate: number
+  leadRate: number
+  finalRate: number
+  hasLead: boolean
+  rateText: string
+}
+
+function resolveSorDataPrintRate(
+  recipe: RateAnalysisRecipe,
+  applications: LeadApplication[]
+): SorDataPrintRate | null {
+  if (recipe.itemSource !== 'SOR') return null
+  const sourceSection = recipe.sections.find((section) => section.lines.length > 0)
+  const sourceRate = sourceSection?.lines[0]?.rate
+  const numericRate = recipe.publishedRate ?? sourceRate
+  const hasNumericRate =
+    typeof numericRate === 'number' && Number.isFinite(numericRate)
+  const baseRate = hasNumericRate ? numericRate : 0
+  const outputQuantity = recipe.outputQuantity || 1
+  const leadAmount = applications.reduce(
+    (total, application) => total + application.grossAmount,
+    0
+  )
+  const leadRate = leadAmount / outputQuantity
+  return {
+    hasNumericRate,
+    baseRate,
+    leadRate,
+    finalRate: baseRate + leadRate,
+    hasLead: leadAmount > 0,
+    rateText: recipe.publishedRateText?.trim() ?? ''
+  }
 }
 
 export function cloneRecipe(recipe: RateAnalysisRecipe): RateAnalysisRecipe {
@@ -43,19 +82,9 @@ export function adoptSavedRecipe(
   loaded: RateAnalysisRecipe,
   saved: RateAnalysisRecipe
 ): RateAnalysisRecipe {
-  const merged = {
-    ...loaded,
-    ...saved,
-    year: loaded.year,
-    zone: loaded.zone,
-    areaAllowancePercent: loaded.areaAllowancePercent,
-    areaAllowanceLabel: loaded.areaAllowanceLabel,
-    layout: loaded.layout,
-    sourceFigures: loaded.sourceFigures,
-    publishedRateBlocks: loaded.publishedRateBlocks,
-    multiRateClassification: loaded.multiRateClassification,
-    dataVariant: loaded.dataVariant
-  }
+  // Row by row and field by field, so an edited rate does not hold back the
+  // rest of the sheet — see `recipeMerge.ts`.
+  const merged = mergeSavedRecipe(loaded, saved)
   return cloneRecipe(
     merged.itemSource === 'SOR'
       ? {
@@ -122,6 +151,12 @@ export function resolveDataSheet(
       ? cloneRecipe(override)
       : null
   if (!recipe) return null
+  const leadApplications = leadApplicationsForSheet(
+    project,
+    selection.itemKey,
+    itemNode,
+    group
+  )
 
   return {
     id: selection.scopeNodeId
@@ -132,8 +167,9 @@ export function resolveDataSheet(
     group,
     scopeNode: scopeNode ?? null,
     recipe,
-    leadApplications: leadApplicationsForSheet(project, selection.itemKey, itemNode, group),
-    leadVariants: project.leadChart?.variants ?? []
+    leadApplications,
+    leadVariants: project.leadChart?.variants ?? [],
+    sorPrintRate: resolveSorDataPrintRate(recipe, leadApplications)
   }
 }
 

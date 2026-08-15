@@ -36,15 +36,23 @@ interface Props {
   value: { lat: number; lng: number } | null
   onPick: (lat: number, lng: number) => void
   recenterToken: number
+  onReady?: () => void
 }
 
-export default function LocationMap({ value, onPick, recenterToken }: Props): JSX.Element {
+export default function LocationMap({
+  value,
+  onPick,
+  recenterToken,
+  onReady
+}: Props): JSX.Element {
   return (
     <div className="map-wrap">
       <MapContainer
         center={value ? [value.lat, value.lng] : TELANGANA_CENTER}
         zoom={value ? 12 : 7}
         scrollWheelZoom
+        keyboard={false}
+        whenReady={onReady}
       >
         <MapLayers />
         <ClickPicker onPick={onPick} />

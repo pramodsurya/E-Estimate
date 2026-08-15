@@ -11,7 +11,7 @@ import {
   Save,
   Wrench
 } from 'lucide-react'
-import { collectProjectItemGroups } from '../../lib/projectItems'
+import { projectItemGroups } from '../../lib/projectItems'
 import { adoptSavedRecipe, cloneRecipe } from '../../lib/dataSheets'
 import {
   auditPublishedRateAnalysis,
@@ -19,8 +19,13 @@ import {
 } from '../../lib/rateAnalysis'
 import {
   calculateLeadVariantChargeFromRows,
-  loadingUnloadingCautionForBreakdown
+  loadingUnloadingCautionForBreakdown,
+  type LeadChargeBreakdown
 } from '../../lib/lead'
+import {
+  fetchPipeLeadQuoteForMaterial,
+  pipeLeadQuoteBreakdown
+} from '../../lib/pipeLead'
 import {
   addonLeadRuleForVariant,
   basisForData,
@@ -33,7 +38,7 @@ import { findNode } from '../../lib/tree'
 import {
   dashboardContextMatches,
   dashboardItemIsSynced,
-  syncIndividualDataSnapshot
+  syncDataDashboardSnapshot
 } from '../../lib/dashboardSync'
 import { useStore } from '../../store/useStore'
 import { nodeDisplayName } from '../nodeVisual'
@@ -80,6 +85,7 @@ function leadApplicationChanged(left: LeadApplication, right: LeadApplication): 
     left.handlingOverrideReason !== right.handlingOverrideReason ||
     left.deliveryAtSiteWarning !== right.deliveryAtSiteWarning ||
     left.rateZone !== right.rateZone ||
+    left.rateYear !== right.rateYear ||
     moneyChanged(left.quantity, right.quantity) ||
     moneyChanged(left.leadRate, right.leadRate) ||
     moneyChanged(left.loadingRate, right.loadingRate) ||
@@ -106,6 +112,7 @@ function leadVariantSignature(variant: LeadVariant): string {
     variant.mechanicalConveyanceReachesFinalPoint,
     variant.includedBasis,
     variant.rateSource,
+    variant.pipeLead?.pipeLeadItemCode ?? '',
     variant.customGrossRate ?? ''
   ].join(':')
 }
@@ -129,7 +136,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
   const [syncing, setSyncing] = useState(false)
 
   const groups = useMemo(
-    () => (project ? collectProjectItemGroups(project.root) : []),
+    () => (project ? projectItemGroups(project.root) : []),
     [project]
   )
   const group = groups.find((candidate) => candidate.key === selection?.key)
@@ -163,7 +170,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
   const leadApplicationSignature = leadApplications
     .map(
       (application) =>
-        `${application.id}:${application.variantId}:${application.grossRate}:${application.grossAmount}:${application.calculation?.deductedLeadRate ?? ''}`
+        `${application.id}:${application.variantId}:${application.grossRate}:${application.grossAmount}:${application.calculation?.deductedLeadRate ?? ''}:${application.rateYear ?? ''}`
     )
     .join('|')
   const leadVariantUpdateSignature = leadVariants.map(leadVariantSignature).join('|')
@@ -208,7 +215,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
       setDefaultRecipe(null)
       setCurrent(active)
       setDraft(cloneRecipe(active))
-      setNotice('Showing the saved project recipe. Click Sync this DATA to refresh its source data.')
+      setNotice('Showing the saved project recipe. Click Sync All DATA to refresh every source DATA.')
     } else {
       setDefaultRecipe(null)
       setCurrent(null)
@@ -234,7 +241,10 @@ export default function RateAnalysisDashboard(): JSX.Element {
       !current ||
       !group ||
       leadApplications.length === 0 ||
-      syncedLeadRates.length === 0
+      (syncedLeadRates.length === 0 &&
+        !leadApplications.some((application) =>
+          leadVariants.find((variant) => variant.id === application.variantId)?.pipeLead
+        ))
     ) {
       return
     }
@@ -258,40 +268,52 @@ export default function RateAnalysisDashboard(): JSX.Element {
         const variant = leadVariants.find((candidate) => candidate.id === application.variantId)
         if (!variant) continue
 
-        const quantity = quantityForVariant(current, variant, info)
-        const effectiveQuantity = application.quantityManuallyEdited
-          ? Math.max(0, application.quantity)
-          : quantity.quantity
-        const effectiveQuantitySource = application.quantityManuallyEdited
-          ? application.quantitySource || `Edited disposal quantity: ${formatQuantity(effectiveQuantity)} ${application.unit || quantity.unit}`
-          : quantity.source
-        const breakdown = calculateLeadVariantChargeFromRows(syncedLeadRates, {
-          year: project.meta.sorYear,
-          zone: project.meta.sorZone ?? 'zone_3',
-          conveyanceClass: variant.conveyanceClass,
-          distanceKm: variant.leadKm,
-          quantity: effectiveQuantity,
-          liftM: variant.liftM,
-          includedInitialLiftM: liftInfo.includedInitialLiftM,
-          includesAllLifts: liftInfo.includesAllLifts,
-          mechanicalConveyanceReachesFinalPoint:
-            variant.mechanicalConveyanceReachesFinalPoint ?? variant.leadKm > 0.15,
-          handlingMode: handlingModeForData(info, variant, variant.handlingMode),
-          materialName: variant.materialName,
-          includedBasis: basis(variant),
-          customGrossRate: variant.rateSource === 'chart' ? null : variant.customGrossRate ?? null,
-          chargeCode: variant.chargeCode,
-          leadMultiplier: info.policy?.haulLegs ?? 1
-        })
+        let effectiveQuantitySource: string
+        let breakdown: LeadChargeBreakdown
+        if (variant.pipeLead) {
+          const quote = await fetchPipeLeadQuoteForMaterial({
+            materialItemCode: group.code,
+            sorYear: project.meta.sorYear,
+            distanceKm: variant.actualLeadKm ?? variant.leadKm,
+            quantity: current.outputQuantity || 1,
+            zone: null
+          })
+          breakdown = pipeLeadQuoteBreakdown(quote, project.meta.sorZone ?? 'zone_3')
+          effectiveQuantitySource =
+            `Published ${current.outputQuantity || 1} ${quote.unit} SOR pipe-rate basis`
+        } else {
+          const quantity = quantityForVariant(current, variant, info)
+          const effectiveQuantity = application.quantityManuallyEdited
+            ? Math.max(0, application.quantity)
+            : quantity.quantity
+          effectiveQuantitySource = application.quantityManuallyEdited
+            ? application.quantitySource || `Edited disposal quantity: ${formatQuantity(effectiveQuantity)} ${application.unit || quantity.unit}`
+            : quantity.source
+          breakdown = calculateLeadVariantChargeFromRows(syncedLeadRates, {
+            year: project.meta.sorYear,
+            zone: project.meta.sorZone ?? 'zone_3',
+            conveyanceClass: variant.conveyanceClass,
+            distanceKm: variant.leadKm,
+            quantity: effectiveQuantity,
+            liftM: variant.liftM,
+            includedInitialLiftM: liftInfo.includedInitialLiftM,
+            includesAllLifts: liftInfo.includesAllLifts,
+            mechanicalConveyanceReachesFinalPoint:
+              variant.mechanicalConveyanceReachesFinalPoint ?? variant.leadKm > 0.15,
+            handlingMode: handlingModeForData(info, variant, variant.handlingMode),
+            materialName: variant.materialName,
+            includedBasis: basis(variant),
+            customGrossRate: variant.rateSource === 'chart' ? null : variant.customGrossRate ?? null,
+            chargeCode: variant.chargeCode,
+            leadMultiplier: info.policy?.haulLegs ?? 1
+          })
+        }
         const next: LeadApplication = {
           ...application,
-          addonId: addonLeadRuleForVariant(info, variant)?.addonId ?? application.addonId,
-          itemCode: `${group.displayName} · ${
-            group.usages
-              .find((usage) => usage.node.id === activeItemNodeId)
-              ?.path.map((node) => node.name)
-              .join(' > ') || 'Project'
-          }`,
+          addonId: variant.pipeLead
+            ? application.addonId
+            : addonLeadRuleForVariant(info, variant)?.addonId ?? application.addonId,
+          itemCode: group.displayName,
           itemNodeId: application.itemNodeId ?? activeItemNodeId,
           quantity: breakdown.quantity,
           quantityManuallyEdited: application.quantityManuallyEdited,
@@ -309,6 +331,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
           netAmount: breakdown.netAmount,
           calculation: breakdown.calculation,
           rateZone: project.meta.sorZone ?? 'zone_3',
+          rateYear: project.meta.sorYear,
           handlingWarning:
             loadingUnloadingCautionForBreakdown(breakdown, variant.handlingMode) || undefined
         }
@@ -344,31 +367,19 @@ export default function RateAnalysisDashboard(): JSX.Element {
     return <div className="rate-state">The selected item is no longer in this project.</div>
   }
 
-  const syncThisData = async (): Promise<void> => {
+  const syncAllData = async (): Promise<void> => {
     if (syncing || editing) return
     const sourceProject = useStore.getState().project
     if (!sourceProject || sourceProject.id !== project.id) return
-    const sourceItems = collectProjectItemGroups(sourceProject.root)
-      .find((candidate) => candidate.key === group.key)
-      ?.usages.map((usage) => usage.node) ?? []
-    if (!sourceItems.length) {
-      setError('This DATA is no longer present in the project.')
-      return
-    }
-    if (
-      sourceItems.some((node) => node.itemSource !== 'SSR' && node.itemSource !== 'SOR')
-    ) {
-      setError('This custom DATA does not have an SSR/SOR source to synchronize.')
-      return
-    }
 
     setSyncing(true)
     setError('')
     setNotice('')
     try {
-      const next = await syncIndividualDataSnapshot(sourceProject, sourceItems)
+      const next = await syncDataDashboardSnapshot(sourceProject)
       if (useStore.getState().project?.id === sourceProject.id) {
         setDashboardSnapshot(next)
+        setNotice('All project DATA has been refreshed from the active sources.')
       }
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : String(reason))
@@ -452,7 +463,9 @@ export default function RateAnalysisDashboard(): JSX.Element {
         <div className="rate-toolbar-title">
           <strong>{group.displayName}</strong>
           <span>
-            {group.displayName !== group.code ? `Source ${group.code} | ` : ''}
+            {group.source !== 'SOR' && group.displayName !== group.code
+              ? `Source ${group.code} | `
+              : ''}
             {project.meta.sorYear}
             {group.source === 'SOR'
               ? ` | ${zoneLabel(project.meta.sorZone ?? 'zone_3')} SOR rate`
@@ -466,11 +479,11 @@ export default function RateAnalysisDashboard(): JSX.Element {
           <button
             className="btn ghost"
             disabled={syncing || editing}
-            onClick={() => void syncThisData()}
-            title="Refresh only this DATA from the active SOR/SSR year"
+            onClick={() => void syncAllData()}
+            title="Refresh every project DATA from the active SOR/SSR sources"
           >
             <RefreshCw className={syncing ? 'spin' : undefined} size={14} />
-            {syncing ? 'Syncing…' : 'Sync this DATA'}
+            {syncing ? 'Syncing all DATA…' : 'Sync All DATA'}
           </button>
           <button
             className="btn ghost"
@@ -532,18 +545,18 @@ export default function RateAnalysisDashboard(): JSX.Element {
           <button
             className="btn"
             disabled={syncing}
-            onClick={() => void syncThisData()}
+            onClick={() => void syncAllData()}
           >
             <RefreshCw className={syncing ? 'spin' : undefined} size={15} />
-            {syncing ? 'Syncing this DATA…' : 'Sync this DATA'}
+            {syncing ? 'Syncing all DATA…' : 'Sync All DATA'}
           </button>
         </div>
       )}
       {syncing && !draft && (
         <div className="rate-state syncing">
           <RefreshCw className="spin" size={20} />
-          <strong>Syncing this DATA</strong>
-          <span>Reading the active SOR/SSR year and preparing this recipe…</span>
+          <strong>Syncing all DATA</strong>
+          <span>Reading every active SOR/SSR source and rebuilding the DATA Dashboard…</span>
         </div>
       )}
       {!error && draft && (
@@ -611,7 +624,12 @@ export default function RateAnalysisDashboard(): JSX.Element {
 }
 
 function RecalculationAudit({ recipe }: { recipe: RateAnalysisRecipe }): JSX.Element {
-  const result = recipe.recalculation
+  // Snapshot recipes are stored without the trace to keep the project file small;
+  // rebuild it here so the audit reads the same either way.
+  const result =
+    recipe.recalculation && !recipe.recalculation.trace.length
+      ? recalculateRateAnalysis(recipe).recalculation
+      : recipe.recalculation
   const audit = auditPublishedRateAnalysis(recipe)
   const hasUserEdits = recipe.sections.some((section) =>
     section.lines.some((line) => line.userAdded || (line.editedFields?.length ?? 0) > 0)
@@ -649,14 +667,14 @@ function RecalculationAudit({ recipe }: { recipe: RateAnalysisRecipe }): JSX.Ele
           <div className="rate-audit-section" key={section.section}>
             <strong>{sectionLabels[section.section]}</strong>
             <span>Published/printed <b>{value(section.publishedTotal)}</b></span>
-            <span>Independent row sum <b>{value(section.recalculatedTotal)}</b></span>
+            <span>Reconciled published-row sum <b>{value(section.recalculatedTotal)}</b></span>
             <span>
               Difference <b>{value(section.difference)}</b>
             </span>
             <small>
               {section.verifiable
-                ? `${section.mismatchedRows} published row mismatch${section.mismatchedRows === 1 ? '' : 'es'}`
-                : 'Detailed published rows are unavailable for verification'}
+                ? `${section.mismatchedRows} displayed multiplication difference${section.mismatchedRows === 1 ? '' : 's'}`
+                : `${section.unverifiableRows} contributing row${section.unverifiableRows === 1 ? '' : 's'} unavailable for verification`}
             </small>
           </div>
         ))}
@@ -679,7 +697,7 @@ function RecalculationAudit({ recipe }: { recipe: RateAnalysisRecipe }): JSX.Ele
               <span>{value(row.publishedAmount)}</span>
               <span>{value(row.recalculatedAmount)}</span>
               <span>{value(row.difference)}</span>
-              <strong>{row.status === 'rounding' ? 'Rounding difference' : 'Published mismatch'}</strong>
+              <strong>{row.status === 'rounding' ? 'Rounding difference' : 'Displayed cells do not reproduce amount'}</strong>
             </div>
           ))}
         </div>

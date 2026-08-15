@@ -16,7 +16,14 @@ import {
   type ProjectAbstract
 } from './projectAbstract'
 import { classifyEarthwork, resolveGstRateRule } from './projectTax'
-import { dashboardContextMatches, dashboardItemIsSynced } from './dashboardSync'
+import {
+  dashboardComponentCompileSignature,
+  dashboardContextMatches,
+  dashboardDataCompileSignature,
+  dashboardItemIsSynced,
+  dashboardItemsSignature,
+  dashboardLeadCompileSignature
+} from './dashboardSync'
 import { resolveProjectPrintSettings, type ProjectPrintSettings } from './projectPrintSettings'
 
 export const EMPTY_SEIGNIORAGE: SeigniorageCalculation = {
@@ -64,6 +71,57 @@ export function collectProjectItems(node: ProjectNode): ProjectNode[] {
   }
   node.children.forEach(visit)
   return items
+}
+
+function collectComponentDashboards(node: ProjectNode): ProjectNode[] {
+  const dashboards: ProjectNode[] = []
+  const visit = (current: ProjectNode): void => {
+    if (current.kind === 'component' || current.kind === 'subcomponent') {
+      dashboards.push(current)
+    }
+    current.children.forEach(visit)
+  }
+  node.children.forEach(visit)
+  return dashboards
+}
+
+/**
+ * True only when the frozen Project Dashboard totals still describe the
+ * current tree, DATA inputs, Lead inputs, components and Seigniorage inputs.
+ * Cost consumers use this instead of trusting the last number cached in meta.
+ */
+export function projectDashboardIsReady(
+  project: EestimateProject,
+  items = collectProjectItems(project.root)
+): boolean {
+  const snapshot = project.dashboardSnapshot
+  if (!dashboardContextMatches(snapshot, project)) return false
+
+  return (
+    Boolean(snapshot?.projectSyncedAt) &&
+    snapshot?.projectItemsSignature === dashboardItemsSignature(items) &&
+    snapshot?.dataCompileSignature === dashboardDataCompileSignature(project, items) &&
+    snapshot?.leadCompileSignature === dashboardLeadCompileSignature(project) &&
+    Boolean(snapshot?.seigniorageSyncedAt) &&
+    items.every((item) => dashboardItemIsSynced(snapshot, item)) &&
+    collectComponentDashboards(project.root).every((component) => {
+      const componentItems = collectProjectItems(component)
+      return (
+        Boolean(snapshot?.componentSyncedAt?.[component.id]) &&
+        typeof snapshot?.componentTotals?.[component.id] === 'number' &&
+        snapshot?.componentCompileSignatures?.[component.id] ===
+          dashboardComponentCompileSignature(project, componentItems)
+      )
+    })
+  )
+}
+
+/** Current sanctioned project total, or null until Project Dashboard Sync is valid. */
+export function resolveProjectEstimatedCost(project: EestimateProject): number | null {
+  const items = collectProjectItems(project.root)
+  if (!projectDashboardIsReady(project, items)) return null
+  const value = computeProjectPrintInputs(project, items).abstract.grandTotal
+  return Number.isFinite(value) ? value : null
 }
 
 export function computeProjectPrintInputs(

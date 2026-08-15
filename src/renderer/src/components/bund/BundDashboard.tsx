@@ -202,6 +202,87 @@ const blankLevelRow = (offset: number): LevelRow => ({
   projected: null
 })
 
+interface DecimalInputProps {
+  value: number | null
+  onValueChange: (value: number | null) => void
+  placeholder?: string
+  disabled?: boolean
+  title?: string
+  allowBlank?: boolean
+}
+
+/**
+ * Keeps partial decimal text intact while the parent persists valid values.
+ * Native controlled number inputs sanitise "-", "92.", and ".5" during a
+ * rerender, which made the caret appear to jump out of Existing RL cells.
+ */
+function DecimalInput({
+  value,
+  onValueChange,
+  placeholder,
+  disabled,
+  title,
+  allowBlank = true
+}: DecimalInputProps): JSX.Element {
+  const [draft, setDraft] = useState(() => (value == null ? '' : String(value)))
+  const focused = useRef(false)
+  const latestValue = useRef(value)
+  latestValue.current = value
+
+  useEffect(() => {
+    if (!focused.current) setDraft(value == null ? '' : String(value))
+  }, [value])
+
+  const restoreCommittedValue = (): void => {
+    const raw = draft.trim()
+    if (raw === '') {
+      setDraft(
+        allowBlank || latestValue.current == null
+          ? ''
+          : String(latestValue.current)
+      )
+      return
+    }
+    const parsed = Number(raw)
+    setDraft(
+      Number.isFinite(parsed)
+        ? String(parsed)
+        : latestValue.current == null
+          ? ''
+          : String(latestValue.current)
+    )
+  }
+
+  return (
+    <input
+      className="text-input"
+      type="text"
+      inputMode="decimal"
+      value={draft}
+      placeholder={placeholder}
+      disabled={disabled}
+      title={title}
+      onFocus={() => {
+        focused.current = true
+      }}
+      onBlur={() => {
+        focused.current = false
+        restoreCommittedValue()
+      }}
+      onChange={(event) => {
+        const raw = event.target.value
+        setDraft(raw)
+        if (raw.trim() === '') {
+          if (allowBlank) onValueChange(null)
+          return
+        }
+        const parsed = Number(raw)
+        if (Number.isFinite(parsed)) onValueChange(parsed)
+      }}
+    />
+  )
+}
+
 /**
  * Build the table from a section. Only the existing ground and any *overrides*
  * of the stripped/proposed surfaces are shown as values — a derived surface
@@ -214,14 +295,17 @@ function toLevelRows(section: BundSection, data: BundData): LevelRow[] {
   const overrideProjected =
     section.projectedOverrides ??
     (section.projected && section.projected.length >= 2 ? section.projected : [])
-  const levelingLimits = bundLevelingLimits(section, data)
+  // The generated proposal points belong to the Proposed column. Do not keep
+  // showing their blank rows after that column has been cleared.
+  const hasGeneratedDesignPoints = (section.designPointOffsets?.length ?? 0) >= 2
+  const levelingLimits = hasGeneratedDesignPoints ? bundLevelingLimits(section, data) : null
   const offsets = [
     ...new Set(
       [
         ...section.pre.map((p) => p.offset),
         ...overrideStripped.map((p) => p.offset),
         ...overrideProjected.map((p) => p.offset),
-        ...sectionDesignOffsets(section, data.design),
+        ...(hasGeneratedDesignPoints ? sectionDesignOffsets(section, data.design) : []),
         ...(levelingLimits
           ? [levelingLimits.startOffset, levelingLimits.endOffset]
           : [])
@@ -255,7 +339,9 @@ export default function BundDashboard({
   // Levels are stored about the centre-line but shown as a tape distance
   // measured from the upstream toe, so the u/s toe reads 0.
   const toeOrigin = selected ? upstreamToeOffset(selected, data) : 0
-  const selectedLevelingLimits = selected ? bundLevelingLimits(selected, data) : null
+  const designPointsGenerated = (selected?.designPointOffsets?.length ?? 0) >= 2
+  const selectedLevelingLimits =
+    selected && designPointsGenerated ? bundLevelingLimits(selected, data) : null
   const [picker, setPicker] = useState<BundItemRole | null>(null)
   // Berm codes live inside design.berms, so their picker needs the berm too.
   const [bermPicker, setBermPicker] = useState<{
@@ -1154,8 +1240,7 @@ export default function BundDashboard({
       setDesignMessage(null)
       return
     }
-    const built = toLevelRows(selected, data)
-    setLevelRows(built.length ? built : [blankLevelRow(0)])
+    setLevelRows(toLevelRows(selected, data))
     setDesignMessage(null)
     // Ordinary level edits keep the buffer authoritative.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1180,11 +1265,23 @@ export default function BundDashboard({
     const projectedOverrides = rows
       .filter((r) => r.projected != null)
       .map((r) => ({ offset: r.offset, rl: r.projected as number }))
+    // An empty array is an intentional "Clear Proposed" state. Keep it while
+    // editing Existing points, so the blue design line does not return until
+    // the user deliberately generates proposed points again.
+    const proposedWasCleared =
+      Array.isArray(selected.projected) && selected.projected.length === 0
+    const sectionPatchSetsProjected = Object.prototype.hasOwnProperty.call(
+      sectionPatch,
+      'projected'
+    )
 
     updateSection(selected.id, {
       pre,
       stripped: null,
-      projected: null,
+      projected:
+        proposedWasCleared && !sectionPatchSetsProjected && projectedOverrides.length === 0
+          ? []
+          : null,
       strippedOverrides: strippedOverrides.length ? strippedOverrides : undefined,
       projectedOverrides: projectedOverrides.length ? projectedOverrides : undefined,
       ...sectionPatch
@@ -1197,9 +1294,11 @@ export default function BundDashboard({
     writeLevels(rows, sectionPatch)
   }
 
-  const editLevel = (index: number, key: keyof LevelRow, raw: string): void => {
-    const value = raw.trim() === '' ? null : Number(raw)
-    if (value != null && !Number.isFinite(value)) return
+  const editLevel = (
+    index: number,
+    key: keyof LevelRow,
+    value: number | null
+  ): void => {
     applyLevels(
       levelRows.map((candidate, i) =>
         i === index ? { ...candidate, [key]: value } : candidate
@@ -1216,10 +1315,33 @@ export default function BundDashboard({
     applyLevels(levelRows.filter((_, i) => i !== index))
   }
 
+  /**
+   * Clear every Existing Ground input and discard its generated design-grid
+   * rows. A separately typed Proposed point is left intact until its own
+   * clear button is pressed.
+   */
+  const clearExistingLevels = (): void => {
+    applyLevels(
+      levelRows.filter((row) => row.projected != null),
+      {
+        groundLevel: null,
+        upstreamGroundLevel: null,
+        downstreamGroundLevel: null,
+        designPointOffsets: []
+      }
+    )
+  }
+
+  /** Clear Proposed points and their generated design-grid rows. */
+  const clearProposedLevels = (): void => {
+    applyLevels(
+      levelRows.filter((row) => row.pre != null),
+      { projected: [], projectedOverrides: undefined, designPointOffsets: [] }
+    )
+  }
+
   // The proposed level is derived from the design until the design points are
   // laid out, so there is nothing meaningful to override before that.
-  const designPointsGenerated = (selected?.designPointOffsets?.length ?? 0) > 0
-
   const populateSevenDesignPoints = (): void => {
     if (!selected) return
     const upstreamGroundLevel = selected.upstreamGroundLevel
@@ -1276,7 +1398,10 @@ export default function BundDashboard({
     }
     merged.sort((a, b) => a.offset - b.offset)
 
-    applyLevels(merged, { designPointOffsets: designPoints.map((point) => point.offset) })
+    applyLevels(merged, {
+      projected: null,
+      designPointOffsets: designPoints.map((point) => point.offset)
+    })
     setDesignMessage(
       `${designPoints.length} design points populated for the selected chainage.`
     )
@@ -2341,9 +2466,36 @@ export default function BundDashboard({
                       </>
                     )}
                   </div>
-                  <button className="btn ghost bund-add-point-top" onClick={addLevelRow}>
-                    <Plus size={13} /> Add a point
-                  </button>
+                  <div className="bund-level-actions">
+                    <button className="btn ghost" onClick={addLevelRow}>
+                      <Plus size={13} /> Add a point
+                    </button>
+                    <button
+                      className="btn ghost"
+                      title="Remove all Existing Ground points for this chainage"
+                      disabled={
+                        !levelRows.some((row) => row.pre != null) &&
+                        selected.upstreamGroundLevel == null &&
+                        selected.downstreamGroundLevel == null
+                      }
+                      onClick={clearExistingLevels}
+                    >
+                      <Trash2 size={13} /> Clear Existing
+                    </button>
+                    <button
+                      className="btn ghost"
+                      title="Remove all Proposed Bund points for this chainage"
+                      disabled={
+                        !levelRows.some((row) => row.projected != null) &&
+                        !(selected.projected && selected.projected.length >= 2) &&
+                        !(selected.projectedOverrides && selected.projectedOverrides.length > 0) &&
+                        !designPointsGenerated
+                      }
+                      onClick={clearProposedLevels}
+                    >
+                      <Trash2 size={13} /> Clear Proposed
+                    </button>
+                  </div>
                   <table className="bund-levels">
                     <thead>
                       <tr>
@@ -2416,19 +2568,16 @@ export default function BundDashboard({
                         >
                           <td>
                             <div className="bund-offset-cell">
-                              <input
-                                className="text-input"
-                                type="number"
-                                step="any"
+                              <DecimalInput
                                 value={Math.round((row.offset - toeOrigin) * 1000) / 1000}
-                                onChange={(e) => {
-                                  const typed = Number(e.target.value)
-                                  if (e.target.value.trim() === '' || !Number.isFinite(typed)) return
+                                allowBlank={false}
+                                onValueChange={(typed) => {
+                                  if (typed == null) return
                                   // Stored centre-relative; typed from the u/s toe.
                                   editLevel(
                                     i,
                                     'offset',
-                                    String(Math.round((toeOrigin + typed) * 1000) / 1000)
+                                    Math.round((toeOrigin + typed) * 1000) / 1000
                                   )
                                 }}
                               />
@@ -2449,21 +2598,15 @@ export default function BundDashboard({
                             </div>
                           </td>
                           <td>
-                            <input
-                              className="text-input"
-                              type="number"
-                              step="any"
-                              value={row.pre ?? ''}
+                            <DecimalInput
+                              value={row.pre}
                               placeholder={autoPre != null ? autoPre.toFixed(3) : undefined}
-                              onChange={(e) => editLevel(i, 'pre', e.target.value)}
+                              onValueChange={(value) => editLevel(i, 'pre', value)}
                             />
                           </td>
                           <td>
-                            <input
-                              className="text-input"
-                              type="number"
-                              step="any"
-                              value={row.stripped ?? ''}
+                            <DecimalInput
+                              value={row.stripped}
                               placeholder={
                                 effectivePre != null
                                   ? automaticStrippedLevelAt(
@@ -2473,15 +2616,12 @@ export default function BundDashboard({
                                     ).toFixed(3)
                                   : undefined
                               }
-                              onChange={(e) => editLevel(i, 'stripped', e.target.value)}
+                              onValueChange={(value) => editLevel(i, 'stripped', value)}
                             />
                           </td>
                           <td>
-                            <input
-                              className="text-input"
-                              type="number"
-                              step="any"
-                              value={row.projected ?? ''}
+                            <DecimalInput
+                              value={row.projected}
                               placeholder={automaticProposed.toFixed(3)}
                               disabled={!designPointsGenerated || isLevelingPlatform}
                               title={
@@ -2491,7 +2631,7 @@ export default function BundDashboard({
                                   ? 'Overrides the design level at this offset'
                                   : 'Generate the design points first — the proposed level is derived from the design until then'
                               }
-                              onChange={(e) => editLevel(i, 'projected', e.target.value)}
+                              onValueChange={(value) => editLevel(i, 'projected', value)}
                             />
                           </td>
                           <td>

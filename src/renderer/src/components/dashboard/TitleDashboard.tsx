@@ -14,6 +14,7 @@ import {
   RefreshCw,
   ReceiptIndianRupee,
   ScrollText,
+  Scale,
   Settings,
   ShieldCheck,
   Trash2
@@ -23,23 +24,23 @@ import type { ProjectNode } from '../../types/project'
 import type { RateAnalysisRecipe } from '../../types/rateAnalysis'
 import { ProjectDetailsForm } from '../newproject/NewProjectForm'
 import Modal from '../modals/Modal'
-import { NodeIcon } from '../nodeVisual'
-import { computeProjectPrintInputs } from '../../lib/projectPrintInputs'
-import type { AbstractLine } from '../../lib/projectAbstract'
+import { NodeIcon, nodeDisplayName } from '../nodeVisual'
 import {
-  dashboardComponentCompileSignature,
-  dashboardContextMatches,
-  dashboardDataCompileSignature,
-  dashboardItemIsSynced,
-  dashboardItemsSignature,
-  dashboardLeadCompileSignature,
-  syncProjectDashboardSnapshot
-} from '../../lib/dashboardSync'
+  collectProjectItems,
+  computeProjectPrintInputs,
+  projectDashboardIsReady
+} from '../../lib/projectPrintInputs'
+import type { AbstractLine } from '../../lib/projectAbstract'
+import { syncProjectDashboardSnapshot } from '../../lib/dashboardSync'
 import { resolveTemplateDashboardMaterials } from '../../lib/templateDashboardSync'
 import SignatureFooterCard from '../signature/SignatureFooterCard'
 import { PROJECT_SIGNATURE_SCOPE } from '../../lib/signatureFooter'
 
 const ProjectPrintView = lazy(() => import('../print/ProjectPrintView'))
+// Both years are priced on demand, so nothing here is worth loading until asked for.
+const ComparativeStatementPanel = lazy(
+  () => import('../comparative/ComparativeStatementPanel')
+)
 
 const money = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const estimateMoney = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 })
@@ -59,31 +60,18 @@ function EstimateCostSync({ value }: { value: number | null }): null {
   return null
 }
 
-function collectItems(node: ProjectNode): ProjectNode[] {
-  const items: ProjectNode[] = []
-  const visit = (current: ProjectNode): void => {
-    if (current.kind === 'item') items.push(current)
-    else current.children.forEach(visit)
-  }
-  node.children.forEach(visit)
-  return items
-}
-
-function collectComponentDashboards(node: ProjectNode): ProjectNode[] {
-  const dashboards: ProjectNode[] = []
-  const visit = (current: ProjectNode): void => {
-    if (current.kind === 'component' || current.kind === 'subcomponent') {
-      dashboards.push(current)
-    }
-    current.children.forEach(visit)
-  }
-  node.children.forEach(visit)
-  return dashboards
-}
-
 export default function TitleDashboard(): JSX.Element | null {
   const [editingProject, setEditingProject] = useState(false)
   const [printView, setPrintView] = useState(false)
+  const [comparativeOpen, setComparativeOpen] = useState(false)
+  /**
+   * Once opened, the panel stays mounted and is only hidden.
+   *
+   * Generating a statement is two full dashboard syncs. Unmounting on the way
+   * back to the dashboard would throw that away along with the scope, the years
+   * and the rates typed in — so leaving is leaving the page, not the work.
+   */
+  const [comparativeMounted, setComparativeMounted] = useState(false)
   const [miscOpen, setMiscOpen] = useState(false)
   const [earthworkOpen, setEarthworkOpen] = useState(false)
   const [miscName, setMiscName] = useState('')
@@ -106,10 +94,10 @@ export default function TitleDashboard(): JSX.Element | null {
   const setDashboardSnapshot = useStore((state) => state.setDashboardSnapshot)
   const setGuideWallMaterial = useStore((state) => state.setGuideWallMaterial)
   const resolveBundMaterials = useStore((state) => state.resolveBundMaterials)
+  const resolveMiSluiceNewMaterials = useStore((state) => state.resolveMiSluiceNewMaterials)
 
-  const allItems = useMemo(() => (project ? collectItems(project.root) : []), [project?.root])
-  const componentDashboards = useMemo(
-    () => (project ? collectComponentDashboards(project.root) : []),
+  const allItems = useMemo(
+    () => (project ? collectProjectItems(project.root) : []),
     [project?.root]
   )
 
@@ -117,25 +105,8 @@ export default function TitleDashboard(): JSX.Element | null {
 
   const { meta, root } = project
   const pages = root.children.filter((child) => child.kind === 'page')
-  const snapshotValid = dashboardContextMatches(project.dashboardSnapshot, project)
-  const snapshot = snapshotValid ? project.dashboardSnapshot : undefined
-  const dashboardReady =
-    snapshotValid &&
-    Boolean(snapshot?.projectSyncedAt) &&
-    snapshot?.projectItemsSignature === dashboardItemsSignature(allItems) &&
-    snapshot?.dataCompileSignature === dashboardDataCompileSignature(project, allItems) &&
-    snapshot?.leadCompileSignature === dashboardLeadCompileSignature(project) &&
-    Boolean(snapshot?.seigniorageSyncedAt) &&
-    allItems.every((item) => dashboardItemIsSynced(snapshot, item)) &&
-    componentDashboards.every((component) => {
-      const componentItems = collectItems(component)
-      return (
-        Boolean(snapshot?.componentSyncedAt?.[component.id]) &&
-        typeof snapshot?.componentTotals?.[component.id] === 'number' &&
-        snapshot?.componentCompileSignatures?.[component.id] ===
-          dashboardComponentCompileSignature(project, componentItems)
-      )
-    })
+  const dashboardReady = projectDashboardIsReady(project, allItems)
+  const snapshot = project.dashboardSnapshot
   // Shared with the View Print View and the PDF export, so all three agree.
   const printInputs = computeProjectPrintInputs(project, allItems)
   const {
@@ -160,11 +131,12 @@ export default function TitleDashboard(): JSX.Element | null {
     try {
       await resolveTemplateDashboardMaterials(project.root, {
         setGuideWallMaterial,
-        resolveBundMaterials
+        resolveBundMaterials,
+        resolveMiSluiceNewMaterials
       })
       const current = useStore.getState().project
       if (!current || current.id !== project.id) return
-      const currentItems = collectItems(current.root)
+      const currentItems = collectProjectItems(current.root)
       const next = await syncProjectDashboardSnapshot(current, currentItems)
       if (useStore.getState().project?.id === current.id) {
         setDashboardSnapshot(next)
@@ -213,16 +185,6 @@ export default function TitleDashboard(): JSX.Element | null {
           <h1 className="dash-title">
             <NodeIcon node={root} size={23} /> {meta.name || root.name}
           </h1>
-          <div className="project-meta-chips">
-            <span>{meta.sorYear || 'Year not set'}</span>
-            {meta.sorYear === '2026-27' && <span>{zoneLabel}</span>}
-            <span>{meta.areaAllowancePercent ?? 0}% area allowance</span>
-            <span>{abstract.componentLines.length} component(s)</span>
-            <span>{allItems.length} DATA</span>
-            {dashboardReady && snapshot?.projectSyncedAt && (
-              <span>Synced {new Date(snapshot.projectSyncedAt).toLocaleString()}</span>
-            )}
-          </div>
         </div>
         <div className="dash-actions">
           <button
@@ -243,6 +205,15 @@ export default function TitleDashboard(): JSX.Element | null {
             {printView ? <LayoutDashboard size={15} /> : <Eye size={15} />}
             {printView ? 'Dashboard View' : 'View Print View'}
           </button>
+          <button
+            className="btn ghost"
+            onClick={() => {
+              setComparativeMounted(true)
+              setComparativeOpen(true)
+            }}
+          >
+            <Scale size={15} /> Comparative Statement
+          </button>
           <button className="btn" onClick={() => addComponent()}>
             <Plus size={15} /> Add Component
           </button>
@@ -254,9 +225,31 @@ export default function TitleDashboard(): JSX.Element | null {
             <Settings size={15} />
           </button>
         </div>
+        <div className="project-meta-chips" aria-label="Project summary">
+          <span>{meta.sorYear || 'Year not set'}</span>
+          {meta.sorYear === '2026-27' && <span>{zoneLabel}</span>}
+          <span>{meta.areaAllowancePercent ?? 0}% area allowance</span>
+          <span>{abstract.componentLines.length} component(s)</span>
+          <span>{allItems.length} DATA</span>
+          {dashboardReady && snapshot?.projectSyncedAt && (
+            <span>Synced {new Date(snapshot.projectSyncedAt).toLocaleString()}</span>
+          )}
+        </div>
       </div>
 
-      {printView ? (
+      {comparativeMounted && (
+        <div style={{ display: comparativeOpen ? 'contents' : 'none' }}>
+          <Suspense
+            fallback={<div className="workarea-loading">Loading comparative statement…</div>}
+          >
+            <ComparativeStatementPanel
+              project={project}
+              onClose={() => setComparativeOpen(false)}
+            />
+          </Suspense>
+        </div>
+      )}
+      {comparativeOpen ? null : printView ? (
         <Suspense fallback={<div className="workarea-loading">Loading print view…</div>}>
           <ProjectPrintView
             project={project}
@@ -651,7 +644,7 @@ export default function TitleDashboard(): JSX.Element | null {
               return (
                 <div key={row.node.id}>
                   <div>
-                    <strong>{row.node.itemCode ?? row.node.name}</strong>
+                    <strong>{nodeDisplayName(row.node)}</strong>
                     <span>{row.node.itemDescription ?? row.node.name}</span>
                     <small>{row.classification.reason}</small>
                   </div>

@@ -13,6 +13,32 @@ const AddStructureModal = lazy(() => import('./components/modals/AddStructureMod
 const SettingsModal = lazy(() => import('./components/modals/SettingsModal'))
 const ExportPdfModal = lazy(() => import('./components/modals/ExportPdfModal'))
 
+/**
+ * A project with nowhere to be written is not being saved.
+ *
+ * The autosave is gated on the project having a file. One is asked for the
+ * moment a project is created, but that can be cancelled — and a quiet failure
+ * to save is the one thing an estimator must never discover afterwards. So it
+ * is said, on every screen, until there is a file.
+ */
+function UnsavedProjectNotice(): JSX.Element | null {
+  const project = useStore((state) => state.project)
+  const filePath = useStore((state) => state.filePath)
+  const saveProjectAs = useStore((state) => state.saveProjectAs)
+  if (!project || filePath) return null
+  return (
+    <div className="unsaved-project-notice">
+      <span>
+        <strong>This project has not been saved yet.</strong> Nothing you enter is being kept
+        — choose where it should live and it saves itself from then on.
+      </span>
+      <button className="btn" onClick={() => void saveProjectAs()}>
+        Save project
+      </button>
+    </div>
+  )
+}
+
 export default function App(): JSX.Element {
   const view = useStore((s) => s.view)
   const loadRecent = useStore((s) => s.loadRecent)
@@ -73,6 +99,7 @@ export default function App(): JSX.Element {
   return (
     <div className="app">
       <TitleBar />
+      {showShell && <UnsavedProjectNotice />}
       <div className="app-body">
         {showShell && <ActivityBar />}
         {showShell && <SideBar />}

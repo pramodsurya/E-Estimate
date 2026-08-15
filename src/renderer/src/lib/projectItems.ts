@@ -34,7 +34,36 @@ export interface RateAnalysisOverrideResolution {
 
 const nodePathCache = new WeakMap<ProjectNode, Map<string, ProjectNode[]>>()
 
+/** User-facing item identity. SOR catalogue codes remain internal database keys. */
+export function projectItemDisplayName(
+  node: Pick<
+    ProjectNode,
+    | 'name'
+    | 'kind'
+    | 'itemSource'
+    | 'itemCode'
+    | 'itemDescription'
+    | 'projectDataId'
+    | 'splitFromItemKey'
+    | 'dataVariant'
+  >
+): string {
+  if (node.kind !== 'item') return node.name
+  if (node.projectDataId) return node.itemCode?.trim() || node.name
+  if (node.splitFromItemKey) return node.name
+  if (node.itemSource === 'SOR') {
+    return node.itemDescription?.trim() || node.name
+  }
+  if (node.itemCode) {
+    return node.dataVariant
+      ? `${node.itemCode} - ${node.dataVariant.label}`
+      : node.itemCode
+  }
+  return node.name
+}
+
 export function projectItemKey(node: ProjectNode): string {
+  if (node.projectDataId) return `PROJECT_DATA:${node.projectDataId}`
   if (node.splitFromItemKey) return `SPLIT:${node.createdDataId ?? node.id}`
   const source = node.itemSource ?? 'OTHERS'
   const category = node.categoryKey ?? 'custom'
@@ -121,6 +150,43 @@ function addBranch(
   }
 }
 
+/**
+ * One grouping per project version, shared by everything that asks for it.
+ *
+ * `collectProjectItemGroups` walks the whole tree and allocates a group, a
+ * usage list and a branch list for every distinct item. That is fine once; it
+ * was not fine per item, which is what `getItemLeadRate` was doing — a full
+ * tree walk for each item it priced, so totalling a component was quadratic in
+ * the size of the project. Several panels mounted at once each paid for their
+ * own walk too.
+ *
+ * Mutations replace the root object (see `patchNode`), so the root is exactly
+ * the right cache key: a new version misses, and the old entry goes when the
+ * old tree does. Nothing mutates the returned groups, so sharing them is safe.
+ */
+const groupsByRoot = new WeakMap<ProjectNode, ProjectItemGroup[]>()
+const groupIndexByRoot = new WeakMap<ProjectNode, Map<string, ProjectItemGroup>>()
+
+/** Memoised `collectProjectItemGroups`. Prefer this on any hot path. */
+export function projectItemGroups(root: ProjectNode): ProjectItemGroup[] {
+  let groups = groupsByRoot.get(root)
+  if (!groups) {
+    groups = collectProjectItemGroups(root)
+    groupsByRoot.set(root, groups)
+  }
+  return groups
+}
+
+/** The same grouping, addressed by item key instead of scanned for one. */
+export function projectItemGroupIndex(root: ProjectNode): Map<string, ProjectItemGroup> {
+  let index = groupIndexByRoot.get(root)
+  if (!index) {
+    index = new Map(projectItemGroups(root).map((group) => [group.key, group]))
+    groupIndexByRoot.set(root, index)
+  }
+  return index
+}
+
 export function collectProjectItemGroups(root: ProjectNode): ProjectItemGroup[] {
   const groups = new Map<string, ProjectItemGroup>()
 
@@ -130,11 +196,11 @@ export function collectProjectItemGroups(root: ProjectNode): ProjectItemGroup[] 
       let group = groups.get(key)
       if (!group) {
         const code = node.itemCode?.trim() || node.name
-        const displayName = node.dataVariant ? `${code} - ${node.dataVariant.label}` : code
+        const displayName = projectItemDisplayName(node)
         group = {
           key,
           code,
-          displayName: node.splitFromItemKey ? node.name : displayName,
+          displayName,
           description: node.itemDescription ?? node.name,
           source: node.itemSource ?? 'OTHERS',
           categoryKey: node.categoryKey ?? 'custom',
@@ -144,7 +210,7 @@ export function collectProjectItemGroups(root: ProjectNode): ProjectItemGroup[] 
         groups.set(key, group)
       }
       group.description = node.itemDescription ?? group.description
-      if (node.splitFromItemKey) group.displayName = node.name
+      group.displayName = projectItemDisplayName(node)
       group.usages.push({ node, path })
       addBranch(group.branches, path, node.id)
       return

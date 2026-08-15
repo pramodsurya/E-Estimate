@@ -6,7 +6,7 @@ import type {
   Orientation,
   SignatureFooterSettings
 } from '../../types/project'
-import { PERMIT_GO_REFERENCE } from '../../lib/seigniorage'
+import { PERMIT_GO_REFERENCE, seigniorageItemDisplayName } from '../../lib/seigniorage'
 import type { SeigniorageCalculation, SeigniorageItemRow } from '../../lib/seigniorage'
 import { buildPages, groupByMat, paperMm, seigQtyCalc } from '../../lib/seignioragePrintLayout'
 import SignatureFooterPrint from '../signature/SignatureFooterPrint'
@@ -128,7 +128,7 @@ export function SeignioragePrintPages({
                     <tr key={r.id}>
                       <td className="sp-sl">{sec.rowStart + i + 1}</td>
                       <td className="sp-desc">
-                        <div className="sp-code">{r.itemCode}</div>
+                        <div className="sp-code">{seigniorageItemDisplayName(r)}</div>
                         {(r.materialLabel || r.recipeMaterialDesc) && (
                           <div className="sp-mat">
                             {[r.materialLabel, r.recipeMaterialDesc].filter(Boolean).join(' - ')}
@@ -253,7 +253,7 @@ export default function SeignioragePrintPreviewModal({ calc, projectName, printS
                         <tr key={r.id}>
                           <td className="sp-sl">{sec.rowStart + i + 1}</td>
                           <td className="sp-desc">
-                            <div className="sp-code">{r.itemCode}</div>
+                            <div className="sp-code">{seigniorageItemDisplayName(r)}</div>
                             {(r.materialLabel || r.recipeMaterialDesc) && (
                               <div className="sp-mat">
                                 {[r.materialLabel, r.recipeMaterialDesc].filter(Boolean).join(' - ')}

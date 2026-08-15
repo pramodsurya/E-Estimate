@@ -47,6 +47,70 @@ function noop(): void {
   /* Printed sheets are read-only. */
 }
 
+function formatMoney(value: number): string {
+  return value.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })
+}
+
+/**
+ * Printed SOR items belong to one schedule, not one document per generated
+ * catalogue cell. Keeping them in a single table removes the repeated item
+ * heading and lets Chromium continue with the next row in the available space.
+ */
+function SorPrintTable({ sheets }: { sheets: DataSheet[] }): JSX.Element {
+  return (
+    <article className="rate-sheet sor-data-sheet sor-print-flow-table">
+      <div className="sor-data-title">
+        <span>DATA</span>
+        <strong>Schedule of Rates</strong>
+      </div>
+      <table className="sor-data-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sheets.map((sheet) => {
+            const rate = sheet.sorPrintRate
+
+            return (
+              <tr key={sheet.id}>
+                <td>{sheet.recipe.description}</td>
+                <td>
+                  {rate && !rate.hasNumericRate && rate.rateText ? (
+                    <div className="sor-published-reference">
+                      <small>Printed reference</small>
+                      <strong>{rate.rateText}</strong>
+                    </div>
+                  ) : rate?.hasNumericRate ? (
+                    <div className="sor-print-rate">
+                      <strong>
+                        Rs. {formatMoney(rate.finalRate)} / {sheet.recipe.unit || 'unit'}
+                      </strong>
+                      {rate.hasLead ? (
+                        <small>
+                          Base Rs. {formatMoney(rate.baseRate)} + Lead Rs.{' '}
+                          {formatMoney(rate.leadRate)} / {sheet.recipe.unit || 'unit'}
+                        </small>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <strong>Rate not published</strong>
+                  )}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </article>
+  )
+}
+
 /**
  * Download every published SSR figure once and inline it as a data URL. Blob
  * URLs belong to this window and would not resolve in the print renderer.
@@ -102,8 +166,15 @@ function printOverrides(zoom: number): string {
     .data-print-code{break-inside:auto;page-break-inside:auto}
     .data-print-code+.data-print-code{margin-top:26px;padding-top:24px;border-top:2px solid #b8cad7}
     .rate-sheet{width:100%;min-width:0;max-width:none;margin:0;padding:0;border-radius:0;background:transparent;box-shadow:none}
+    .sor-print-flow-table{padding-bottom:0}
+    .sor-print-flow-table .sor-data-title{margin-top:0}
+    .sor-print-flow-table .sor-data-table thead{display:table-header-group}
+    .sor-print-flow-table .sor-data-table tr{break-inside:avoid;page-break-inside:avoid}
+    .sor-print-rate{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+    .sor-print-rate small{color:#526a78;font-size:10px;font-weight:500;line-height:1.35}
     .rate-sheet .rate-section,.rate-sheet .rate-abstract{break-inside:auto;page-break-inside:auto}
     .rate-sheet .rate-section-title,.rate-sheet .rate-document-header,.rate-sheet .rate-sheet-heading{break-after:avoid;page-break-after:avoid}
+    .sor-sheet-audit{display:none!important}
     .rate-table thead{display:table-header-group}
     .rate-table tr{break-inside:avoid;page-break-inside:avoid}
     .rate-sheet figure{break-inside:avoid;page-break-inside:avoid}
@@ -124,21 +195,36 @@ export function buildDataSheetsPrintHtml(
   const designWidth = SHEET_DESIGN_WIDTH / (geometry.fontScale || 1)
   const zoom = Number(((printableMm * PX_PER_MM) / designWidth).toFixed(4))
 
-  const body = sheets
-    .map(
-      (sheet) =>
-        `<section class="data-print-code">${renderToStaticMarkup(
-          <RateAnalysisTable
-            recipe={sheet.recipe}
-            editing={false}
-            onChange={noop}
-            leadApplications={sheet.leadApplications}
-            leadVariants={sheet.leadVariants}
-            figureUrls={figureUrls}
-          />
-        )}</section>`
+  const bodyParts: string[] = []
+  const sorSheets = sheets.filter((sheet) => sheet.recipe.itemSource === 'SOR')
+  let sorTableRendered = false
+
+  for (const sheet of sheets) {
+    if (sheet.recipe.itemSource === 'SOR') {
+      if (!sorTableRendered) {
+        bodyParts.push(
+          `<section class="data-print-code data-print-sor-flow">${renderToStaticMarkup(
+            <SorPrintTable sheets={sorSheets} />
+          )}</section>`
+        )
+        sorTableRendered = true
+      }
+      continue
+    }
+    bodyParts.push(
+      `<section class="data-print-code">${renderToStaticMarkup(
+        <RateAnalysisTable
+          recipe={sheet.recipe}
+          editing={false}
+          onChange={noop}
+          leadApplications={sheet.leadApplications}
+          leadVariants={sheet.leadVariants}
+          figureUrls={figureUrls}
+        />
+      )}</section>`
     )
-    .join('')
+  }
+  const body = bodyParts.join('')
 
   return `<!doctype html><html><head><meta charset="utf-8"><style>${appCss}</style><style>${printOverrides(
     zoom

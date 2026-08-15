@@ -158,9 +158,16 @@ assert.ok(
     /JSON\.stringify\(currentDocumentData\) !== lastSerialized/.test(documentEditor),
   'a retiring Front Page editor must not overwrite a newly added cost object'
 )
+assert.ok(
+  /anchorPresent && !drawingPresent/.test(documentEditor) &&
+    /insertOp\([\s\S]*?\['drawings', drawingId\]/.test(documentEditor) &&
+    /insertOp\(\['drawingsOrder', drawingOrder\.length\], drawingId\)/.test(documentEditor),
+  'a partial Univer insertion must recover the missing drawing and order records without duplicating its anchor'
+)
 
 assert.ok(
   /Update Cost/.test(pageEditor) &&
+    /resolveProjectEstimatedCost\(currentProject\)/.test(pageEditor) &&
     /updateFrontCoverEstimatedCost\(node, estimatedCost\)/.test(pageEditor),
   'the Front Page toolbar must update only its Dashboard cost object'
 )
@@ -189,11 +196,16 @@ assert.ok(
   !/DETAILED ESTIMATE/.test(univerDocument) &&
     /ESTIMATED COST/.test(univerDocument) &&
     /FRONT_COVER_COST_DESCRIPTION/.test(univerDocument) &&
-    /PositionedObjectLayoutType\.WRAP_NONE/.test(univerDocument) &&
+    /PositionedObjectLayoutType\.WRAP_SQUARE/.test(univerDocument) &&
     /allowTransform: true/.test(univerDocument) &&
     /GeoID/.test(univerDocument) &&
     /SUB-DIVISION NO\./.test(univerDocument),
   'the default Front Cover must use a movable Dashboard-cost object'
+)
+assert.ok(
+  /drawings: \{ \[logoId\]: logo \}/.test(univerDocument) &&
+    /drawingsOrder: \[logoId\]/.test(univerDocument),
+  'a new Front Cover must not silently export an empty cost placeholder before Add Cost'
 )
 assert.ok(
   /export function updateFrontCoverEstimatedCost\(/.test(univerDocument) &&

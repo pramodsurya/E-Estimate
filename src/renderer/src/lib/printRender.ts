@@ -118,10 +118,10 @@ export interface PrintRenderResult extends PrintableRender {
 
 const DEFAULT_COL_W = 88
 const DEFAULT_ROW_H = 24
-const PX_PER_MM = 96 / 25.4 // CSS px at 96 dpi
+export const PX_PER_MM = 96 / 25.4 // CSS px at 96 dpi
 
 /** Paper sizes in mm (portrait). */
-const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
+export const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
   A4: { w: 210, h: 297 },
   A3: { w: 297, h: 420 },
   A2: { w: 420, h: 594 },

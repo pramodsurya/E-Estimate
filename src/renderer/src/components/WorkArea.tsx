@@ -3,6 +3,7 @@ import { useStore, useSelectedNode } from '../store/useStore'
 import { findNode } from '../lib/tree'
 import { parseGuideWallDetailId } from '../lib/guideWall'
 import { parseBundDetailId } from '../lib/bund'
+import { parseMiSluiceNewDetailId } from '../lib/miSluiceNew'
 import HomeScreen from './home/HomeScreen'
 
 const NewProjectForm = lazy(() => import('./newproject/NewProjectForm'))
@@ -10,6 +11,7 @@ const TitleDashboard = lazy(() => import('./dashboard/TitleDashboard'))
 const ComponentDashboard = lazy(() => import('./dashboard/ComponentDashboard'))
 const GuideWallDetail = lazy(() => import('./guidewall/GuideWallDetail'))
 const BundDetail = lazy(() => import('./bund/BundDetail'))
+const MiSluiceDetail = lazy(() => import('./sluice/MiSluiceDetail'))
 const PageEditor = lazy(() => import('./editors/PageEditor'))
 const loadItemSpreadsheet = () => import('./editors/ItemSpreadsheet')
 const ItemSpreadsheet = lazy(loadItemSpreadsheet)
@@ -30,6 +32,7 @@ export default function WorkArea(): JSX.Element {
   const selected = useSelectedNode()
   const detailComponentId = parseGuideWallDetailId(selectedId)
   const bundDetailComponentId = parseBundDetailId(selectedId)
+  const sluiceDetailComponentId = parseMiSluiceNewDetailId(selectedId)
 
   useEffect(() => {
     if (view === 'home' || view === 'newproject') return
@@ -62,6 +65,10 @@ export default function WorkArea(): JSX.Element {
     // The same synthetic row under a Bund component.
     const comp = root ? findNode(root, bundDetailComponentId) : null
     content = comp ? <BundDetail key={comp.id} node={comp} /> : <TitleDashboard />
+  } else if (sluiceDetailComponentId) {
+    // The same synthetic row under a new MI tank sluice component.
+    const comp = root ? findNode(root, sluiceDetailComponentId) : null
+    content = comp ? <MiSluiceDetail key={comp.id} node={comp} /> : <TitleDashboard />
   } else if (!selected || selected.kind === 'title') {
     content = <TitleDashboard />
   } else if (selected.kind === 'component' || selected.kind === 'subcomponent') {
@@ -77,6 +84,8 @@ export default function WorkArea(): JSX.Element {
         <GuideWallDetail key={owner.id} node={owner} />
       ) : owner && owner.templateId === 'bund' ? (
         <BundDetail key={owner.id} node={owner} />
+      ) : owner && owner.templateId === 'mi-sluice-new' ? (
+        <MiSluiceDetail key={owner.id} node={owner} />
       ) : (
         <ItemSpreadsheet key={selected.id} node={selected} />
       )

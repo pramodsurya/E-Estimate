@@ -204,6 +204,22 @@ assert.ok(zonedHtml.includes('— hearting</td>'), 'the per-section areas split 
 assert.ok(zonedHtml.includes('— casing</td>'), 'the per-section areas split out the casing')
 assert.ok(!/NaN|Infinity/.test(zonedHtml), 'no NaN or Infinity anywhere in the printed pages')
 
+// --- a drawing and the dimensions read off it are one exhibit ---------------
+// `table{break-inside:auto}` is right for the schedules, which have to be free
+// to cross sheets. A three-row parameter table is not a schedule: left to flow
+// it sheds its last row onto the next page, alone.
+assert.ok(
+  /,\.bp-keep\{break-inside:avoid;page-break-inside:avoid\}/.test(zonedHtml) &&
+    /\.bp-keep table\{break-inside:avoid;page-break-inside:avoid\}/.test(zonedHtml),
+  'a kept-together exhibit and its parameter table must both resist splitting'
+)
+for (const block of zonedHtml.match(/<div class="bp-keep">[\s\S]*?<\/table><\/div>/g) ?? []) {
+  assert.ok(
+    /class="bp-fig"/.test(block) && /<table class="bp-t"/.test(block),
+    'a kept-together block must pair a figure with the table that dimensions it'
+  )
+}
+
 // A repair is zoned too, and must print the same core on its sections.
 const zonedRepair = { ...loaded, mode: 'restoration' }
 const repairHtml = htmlOf(zonedRepair)

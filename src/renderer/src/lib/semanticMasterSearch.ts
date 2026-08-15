@@ -21,9 +21,31 @@ interface WorkerMessage {
 
 const MAX_SEMANTIC_CANDIDATES = 48
 const REQUEST_TIMEOUT_MS = 120_000
+/**
+ * How long the ranking model is kept resident after the last search.
+ *
+ * The worker holds a 21 MB int8 ONNX model, the ONNX Runtime WASM heap and a
+ * tokenizer — tens of megabytes that used to stay for the whole session after
+ * a single use of any SSR/SOR picker, whether or not another search ever
+ * happened. The model file itself stays in the Cache API, so coming back after
+ * an idle spell costs a session re-init, not the 21 MB download.
+ */
+const WORKER_IDLE_MS = 180_000
 let worker: Worker | null = null
+let idleTimer = 0
 let nextRequestId = 1
 const pending = new Map<number, PendingRequest>()
+
+/** Drop the model once nothing has needed it for a while. */
+function scheduleIdleShutdown(): void {
+  window.clearTimeout(idleTimer)
+  if (!worker || pending.size > 0) return
+  idleTimer = window.setTimeout(() => {
+    if (pending.size > 0) return
+    worker?.terminate()
+    worker = null
+  }, WORKER_IDLE_MS)
+}
 
 function semanticWorker(): Worker {
   if (worker) return worker
@@ -45,6 +67,7 @@ function semanticWorker(): Worker {
 
     window.clearTimeout(request.timer)
     pending.delete(message.id)
+    scheduleIdleShutdown()
     if (message.type === 'error') {
       request.reject(new Error(message.message ?? 'Semantic search is unavailable.'))
       return
@@ -81,9 +104,12 @@ export function rerankMasterSearch(
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => {
       pending.delete(id)
+      scheduleIdleShutdown()
       reject(new Error('Semantic search took too long; description ranking is still available.'))
     }, REQUEST_TIMEOUT_MS)
     pending.set(id, { resolve, reject, onProgress, timer })
+    // A search in flight must never be shut down under itself.
+    window.clearTimeout(idleTimer)
     onProgress?.({ status: 'loading', message: 'Preparing AI relevance ranking' })
     semanticWorker().postMessage({
       type: 'rerank',

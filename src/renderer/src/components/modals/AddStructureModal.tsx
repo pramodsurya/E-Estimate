@@ -167,6 +167,9 @@ export default function AddStructureModal(): JSX.Element | null {
           value={location}
           onPick={(lat, lng) => setLocation({ lat, lng, label: name.trim() || title })}
           recenterToken={recenterToken}
+          onReady={() => {
+            window.setTimeout(() => nameRef.current?.focus({ preventScroll: true }), 0)
+          }}
         />
       </div>
     </Modal>

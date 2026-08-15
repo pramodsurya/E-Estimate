@@ -31,6 +31,8 @@ const api = {
   export: {
     pdf: (data: string, name: string, defaultPath?: string) =>
       ipcRenderer.invoke('export:pdf', { data, name, defaultPath }),
+    workbook: (data: string, name: string, defaultPath?: string) =>
+      ipcRenderer.invoke('export:workbook', { data, name, defaultPath }),
     reveal: (path: string) => ipcRenderer.invoke('export:reveal', path)
   },
   // ── Auto-update ──

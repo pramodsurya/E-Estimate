@@ -4,20 +4,32 @@ import type {
   CompiledLeadDashboardEntry,
   DashboardDataSnapshot,
   EestimateProject,
+  LeadApplication,
   ProjectNode
 } from '../types/project'
 import type { RateAnalysisRecipe } from '../types/rateAnalysis'
+import { mergeSavedRecipe } from './recipeMerge'
 import {
   calculateLeadVariantChargeFromRows,
   fetchLeadRates,
-  fetchSsrLeadApplicability
+  fetchSsrLeadApplicability,
+  type LeadRateRow
 } from './lead'
+import { basisForData, handlingModeForData, parseLeadInfo } from './leadApplicability'
 import {
+  projectItemDisplayName,
   projectItemKey,
   projectNodePath,
   rateAnalysisOverrideForNode,
   rateAnalysisOverrideResolution
 } from './projectItems'
+import {
+  projectDataForNode,
+  projectDataHasLead,
+  projectDataLeadApplicability,
+  projectDataRate,
+  projectDataRecipe
+} from './projectData'
 import { scopedLeadRateAddition } from './leadApplications'
 import { calculateRateAnalysis } from './rateAnalysis'
 import { fetchGstRateRules } from './projectTax'
@@ -28,6 +40,11 @@ import {
   projectSeigniorageItemCodes
 } from './seigniorage'
 import { componentItemsTotal, readFinalValueFromSnapshot } from './finalNumber'
+import {
+  fetchPipeLeadQuote,
+  fetchPipeLeadQuoteForMaterial,
+  pipeLeadQuoteBreakdown
+} from './pipeLead'
 
 export interface DashboardItemData {
   rates: Record<string, number>
@@ -48,12 +65,33 @@ function errorMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason)
 }
 
+/**
+ * Stable digest of the project's material rate overrides. Editing a cement or steel
+ * rate must invalidate every compiled dashboard, otherwise the old rate keeps showing.
+ */
+export function materialRateSignature(project: EestimateProject): string {
+  const overrides = project.meta.materialRateOverrides ?? {}
+  const codes = Object.keys(overrides).sort()
+  if (!codes.length && !project.meta.materialRateAsOf) return ''
+  return JSON.stringify({
+    asOf: project.meta.materialRateAsOf ?? '',
+    overrides: codes.map((code) => ({
+      code,
+      rate: overrides[code].rate,
+      source: overrides[code].source,
+      effectiveFrom: overrides[code].effectiveFrom ?? '',
+      label: overrides[code].label ?? ''
+    }))
+  })
+}
+
 export function dashboardContext(project: EestimateProject): DashboardDataSnapshot['context'] {
   return {
     sorYear: project.meta.sorYear ?? '',
     sorZone: project.meta.sorZone ?? 'zone_3',
     areaAllowancePercent: project.meta.areaAllowancePercent ?? 0,
-    areaAllowanceLabel: project.meta.areaAllowanceLabel
+    areaAllowanceLabel: project.meta.areaAllowanceLabel,
+    materialRateSignature: materialRateSignature(project)
   }
 }
 
@@ -67,7 +105,9 @@ export function dashboardContextMatches(
     snapshot.context.sorYear === context.sorYear &&
     snapshot.context.sorZone === context.sorZone &&
     snapshot.context.areaAllowancePercent === context.areaAllowancePercent &&
-    snapshot.context.areaAllowanceLabel === context.areaAllowanceLabel
+    snapshot.context.areaAllowanceLabel === context.areaAllowanceLabel &&
+    (snapshot.context.materialRateSignature ?? '') ===
+      (context.materialRateSignature ?? '')
   )
 }
 
@@ -86,6 +126,11 @@ export function collectDashboardItems(node: ProjectNode): ProjectNode[] {
 
 export function dashboardItemSignature(item: ProjectNode): string {
   return JSON.stringify({
+    // Version 2 includes the published SSR `section_heading` in each compiled
+    // recipe. This makes older snapshots refresh instead of silently retaining
+    // a recipe that was saved before headings were available in DATA.
+    sourceShapeVersion: item.itemSource === 'SSR' ? 2 : 1,
+    projectDataId: item.projectDataId ?? '',
     itemCode: item.itemCode ?? '',
     categoryKey: item.categoryKey ?? '',
     itemSource: item.itemSource ?? '',
@@ -139,15 +184,7 @@ export function dashboardRecipeForNode(
   const saved = rateAnalysisOverrideForNode(project, item)
   if (!source) return saved ?? undefined
   if (!saved) return source
-  return {
-    ...source,
-    ...saved,
-    year: source.year,
-    zone: source.zone,
-    layout: source.layout,
-    sourceFigures: source.sourceFigures,
-    publishedRateBlocks: source.publishedRateBlocks
-  }
+  return mergeSavedRecipe(source, saved)
 }
 
 export async function fetchDashboardItemData(
@@ -168,13 +205,42 @@ export async function fetchDashboardItemData(
     8,
     async (group) => {
     const representative = group[0]
+    const projectData = projectDataForNode(project.projectData, representative)
+    if (representative.projectDataId) {
+      if (!projectData) {
+        return group.map((item) => ({
+          id: item.id,
+          rate: null,
+          recipe: null,
+          sourceFailure: {
+            code: item.itemCode?.trim() || item.name,
+            message: 'The linked project DATA definition no longer exists.'
+          }
+        }))
+      }
+      return Promise.all(group.map(async (item) => {
+        const recipe = await projectDataRecipe(
+          projectData,
+          item,
+          context.sorYear,
+          context.sorZone,
+          project.meta.materialRateOverrides
+        )
+        return {
+          id: item.id,
+          rate: dashboardRateFromRecipe(recipe),
+          recipe
+        }
+      }))
+    }
     let fetchedRecipe: RateAnalysisRecipe | null = null
     let fetchFailure: string | null = null
     try {
       fetchedRecipe = await fetchRateAnalysis(representative, context.sorYear, {
         zone: context.sorZone,
         areaAllowancePercent: context.areaAllowancePercent,
-        areaAllowanceLabel: context.areaAllowanceLabel
+        areaAllowanceLabel: context.areaAllowanceLabel,
+        materialRateOverrides: project.meta.materialRateOverrides
       })
     } catch (reason) {
       fetchFailure = errorMessage(reason)
@@ -225,9 +291,23 @@ export async function fetchDashboardItemData(
   const recipes: Record<string, RateAnalysisRecipe> = {}
   for (const row of rows) {
     if (typeof row.rate === 'number') rates[row.id] = row.rate
-    if (row.recipe) recipes[row.id] = row.recipe
+    if (row.recipe) recipes[row.id] = leanSnapshotRecipe(row.recipe)
   }
   return { rates, recipes }
+}
+
+/**
+ * Drop the per-line calculation trace before a recipe is stored in the dashboard
+ * snapshot. The trace is display-only audit detail, but the snapshot is serialized
+ * into the .eestimate file on every save, and carrying it makes each recalculated
+ * recipe ~2.4x larger. The Rate Analysis audit view rebuilds it on demand.
+ */
+function leanSnapshotRecipe(recipe: RateAnalysisRecipe): RateAnalysisRecipe {
+  if (!recipe.recalculation?.trace?.length) return recipe
+  return {
+    ...recipe,
+    recalculation: { ...recipe.recalculation, trace: [] }
+  }
 }
 
 function dashboardRateFromRecipe(recipe: RateAnalysisRecipe): number | null {
@@ -239,8 +319,12 @@ function dashboardRateFromRecipe(recipe: RateAnalysisRecipe): number | null {
   const usesLinkedInputs = recipe.sections.some((section) =>
     section.lines.some((line) => Boolean(line.linkedRate))
   )
+  const usesMaterialRateOverride = recipe.sections.some((section) =>
+    section.lines.some((line) => Boolean(line.rateOverride))
+  )
   if (
     !usesLinkedInputs &&
+    !usesMaterialRateOverride &&
     !(typeof recipe.areaAllowancePercent === 'number' && recipe.areaAllowancePercent > 0) &&
     !recipe.dataVariant?.postRate &&
     !(
@@ -342,10 +426,29 @@ export function dashboardDataCompileSignature(
   project: EestimateProject,
   items = collectDashboardItems(project.root)
 ): string {
+  const usedProjectDataIds = new Set(
+    items.map((item) => item.projectDataId).filter((id): id is string => Boolean(id))
+  )
   return JSON.stringify({
+    projectData: (project.projectData ?? [])
+      .filter((definition) => usedProjectDataIds.has(definition.id))
+      .map((definition) => ({
+        id: definition.id,
+        code: definition.code,
+        description: definition.description,
+        unit: definition.unit,
+        kind: definition.kind,
+        rate: projectDataRate(definition),
+        outputQuantity: definition.kind === 'ssr' ? definition.outputQuantity : null,
+        overheadPercent: definition.kind === 'ssr' ? definition.overheadPercent : null,
+        sections: definition.kind === 'ssr' ? definition.sections : null,
+        lead: definition.lead
+      }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
     items: items
       .map((item) => ({
         id: item.id,
+        projectDataId: item.projectDataId ?? null,
         key: projectItemKey(item),
         signature: dashboardItemSignature(item),
         description: item.itemDescription ?? item.name,
@@ -371,7 +474,19 @@ export function dashboardDataCompileSignature(
 }
 
 export function dashboardLeadCompileSignature(project: EestimateProject): string {
+  const usedProjectDataIds = new Set(
+    collectDashboardItems(project.root)
+      .map((item) => item.projectDataId)
+      .filter((id): id is string => Boolean(id))
+  )
   return JSON.stringify({
+    projectData: (project.projectData ?? [])
+      .filter((definition) => usedProjectDataIds.has(definition.id))
+      .map((definition) => ({
+        id: definition.id,
+        lead: projectDataLeadApplicability(definition)
+      }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
     variants: [...(project.leadChart?.variants ?? [])].sort((a, b) =>
       a.id.localeCompare(b.id)
     ),
@@ -441,8 +556,13 @@ export function compileDataDashboardEntries(
     if (manualEdited) {
       baseRate = item.rate as number
     } else if (resolution.recipe) {
+      // Price the edit against the year the project is now on. Calculating the
+      // saved override on its own would return the rate of the year it was
+      // edited in, however long ago that was — the sheet would print the
+      // current year over an old number.
+      const priced = dashboardRecipeForNode(project, snapshot, item) ?? resolution.recipe
       try {
-        const calculated = calculateRateAnalysis(resolution.recipe).ratePerUnit
+        const calculated = calculateRateAnalysis(priced).ratePerUnit
         if (Number.isFinite(calculated)) baseRate = calculated
       } catch {
         // Keep the synced source rate when a project edit is incomplete.
@@ -452,11 +572,7 @@ export function compileDataDashboardEntries(
     const recipe = dashboardRecipeForNode(project, snapshot, item)
     const path = structuralPathLabel(project, item)
     const code = item.itemCode?.trim() || item.name
-    const displayName = item.splitFromItemKey
-      ? item.name
-      : item.dataVariant
-        ? `${code} - ${item.dataVariant.label}`
-        : code
+    const displayName = projectItemDisplayName(item)
     const existing = entries.get(key)
     if (existing) {
       existing.usageCount += 1
@@ -518,7 +634,11 @@ export function compileLeadDashboardEntries(
     .map((variant) => {
       let variantRate: number | null = null
       let rateUnit = ''
-      if (rates.length) {
+      const pipeQuote = snapshot.pipeLeadQuotes?.[variant.id]
+      if (variant.pipeLead && pipeQuote) {
+        variantRate = pipeQuote.leadRatePerMetre
+        rateUnit = pipeQuote.unit
+      } else if (!variant.pipeLead && rates.length) {
         try {
           const breakdown = calculateLeadVariantChargeFromRows(rates, {
             year: project.meta.sorYear,
@@ -553,7 +673,7 @@ export function compileLeadDashboardEntries(
           return {
             applicationId: application.id,
             itemKey: application.itemKey,
-            itemCode: application.itemCode,
+            itemCode: item ? projectItemDisplayName(item) : application.itemCode,
             itemNodeId: application.itemNodeId,
             appliedAt: application.appliedAt,
             appliedPath: item ? structuralPathLabel(project, item) : 'Shared DATA',
@@ -576,6 +696,7 @@ export function compileLeadDashboardEntries(
         leadKm: variant.leadKm,
         liftM: variant.liftM,
         rateSource: variant.rateSource,
+        pipeLead: variant.pipeLead,
         variantRate,
         rateUnit,
         applications: linked
@@ -586,6 +707,185 @@ export function compileLeadDashboardEntries(
         left.materialName.localeCompare(right.materialName) ||
         left.variantName.localeCompare(right.variantName)
     )
+}
+
+function projectWithLeadApplicationUpdates(
+  project: EestimateProject,
+  updates: LeadApplication[]
+): EestimateProject {
+  if (!updates.length) return project
+  const byId = new Map(updates.map((application) => [application.id, application]))
+  return {
+    ...project,
+    leadChart: {
+      ...(project.leadChart ?? {
+        points: [],
+        assignments: [],
+        itemChoices: []
+      }),
+      applications: (project.leadChart?.applications ?? []).map(
+        (application) => byId.get(application.id) ?? application
+      )
+    }
+  }
+}
+
+/**
+ * Re-price ordinary lead charges at the year being synced.
+ *
+ * `lead_rate` is published per year, but only *pipe* lead applications were
+ * ever recomputed — an ordinary conveyance charge kept the `grossAmount` it was
+ * given when it was applied, and that amount is added straight onto the item
+ * rate. Change the SOR year and the schedule moved while the charge did not.
+ *
+ * Only the *rates* are recomputed. The quantity is the estimator's — it may
+ * have been typed by hand — and the haul itself has not changed: the variant
+ * still holds the same route, lift and handling. What changed is the schedule
+ * those inputs are priced against.
+ *
+ * Deliberately narrow: an application already priced in this year is left
+ * exactly as it is. Re-pricing it could only move a figure that is already
+ * right, and this path exists to fix ones that are known to be wrong.
+ */
+function repriceLeadApplications(
+  project: EestimateProject,
+  leadRates: LeadRateRow[],
+  applicability: Map<string, unknown>,
+  items: ProjectNode[]
+): LeadApplication[] {
+  const year = project.meta.sorYear ?? ''
+  const zone = project.meta.sorZone ?? 'zone_3'
+  const variants = new Map(
+    (project.leadChart?.variants ?? []).map((variant) => [variant.id, variant])
+  )
+  const updates: LeadApplication[] = []
+  for (const application of project.leadChart?.applications ?? []) {
+    if (application.rateYear === year && application.rateZone === zone) continue
+    const variant = variants.get(application.variantId)
+    // Pipe lead has its own refresh, which re-derives quantity from the quote.
+    if (!variant || variant.pipeLead) continue
+    const item = application.itemNodeId
+      ? items.find((candidate) => candidate.id === application.itemNodeId)
+      : items.find((candidate) => projectItemKey(candidate) === application.itemKey)
+    const info = parseLeadInfo(applicability.get(item?.itemCode?.trim() ?? ''))
+    const description = `${item?.itemDescription ?? ''} ${application.itemCode}`
+    try {
+      const breakdown = calculateLeadVariantChargeFromRows(leadRates, {
+        year,
+        zone,
+        conveyanceClass: variant.conveyanceClass,
+        distanceKm: variant.leadKm,
+        quantity: application.quantity,
+        liftM: variant.liftM,
+        includedInitialLiftM: variant.includedInitialLiftM,
+        includesAllLifts: variant.includesAllLifts,
+        mechanicalConveyanceReachesFinalPoint:
+          variant.mechanicalConveyanceReachesFinalPoint,
+        handlingMode: handlingModeForData(info, variant, variant.handlingMode),
+        materialName: variant.materialName,
+        includedBasis: basisForData(info, variant.includedBasis, description, variant),
+        customGrossRate: variant.rateSource === 'chart' ? null : variant.customGrossRate ?? null,
+        chargeCode: variant.chargeCode,
+        leadMultiplier: info.policy?.haulLegs ?? 1
+      })
+      const outputQuantity = application.outputQuantity || 0
+      updates.push({
+        ...application,
+        leadRate: breakdown.leadRate,
+        loadingRate: breakdown.loadingRate,
+        unloadingRate: breakdown.unloadingRate,
+        liftRate: breakdown.liftRate,
+        grossRate: breakdown.grossRate,
+        grossAmount: breakdown.grossAmount,
+        rateAddition:
+          outputQuantity > 0 ? breakdown.grossAmount / outputQuantity : application.rateAddition,
+        netRate: breakdown.netRate,
+        netAmount: breakdown.netAmount,
+        calculation: breakdown.calculation,
+        rateZone: zone,
+        rateYear: year,
+        appliedAt: new Date().toISOString()
+      })
+    } catch {
+      // A charge this schedule cannot price keeps its stored figure and its old
+      // `rateYear`, so the staleness stays visible instead of being papered over.
+    }
+  }
+  return updates
+}
+
+async function refreshPipeLeadApplications(
+  project: EestimateProject,
+  recipes: Record<string, RateAnalysisRecipe>,
+  items: ProjectNode[]
+): Promise<LeadApplication[]> {
+  const variants = new Map(
+    (project.leadChart?.variants ?? [])
+      .filter((variant) => variant.pipeLead)
+      .map((variant) => [variant.id, variant])
+  )
+  if (!variants.size) return []
+  return Promise.all(
+    (project.leadChart?.applications ?? []).flatMap((application) => {
+      const variant = variants.get(application.variantId)
+      if (!variant?.pipeLead) return []
+      const pipeLead = variant.pipeLead
+      const item = application.itemNodeId
+        ? items.find((candidate) => candidate.id === application.itemNodeId)
+        : items.find((candidate) => projectItemKey(candidate) === application.itemKey)
+      if (!item) return []
+      const recipe = rateAnalysisOverrideForNode(project, item) ?? recipes[item.id]
+      const materialItemCode = item.itemCode?.trim()
+      if (!recipe || !materialItemCode) return []
+      return [(
+        async (): Promise<LeadApplication> => {
+          const outputQuantity = recipe.outputQuantity || 1
+          const quote = await fetchPipeLeadQuoteForMaterial({
+            materialItemCode,
+            sorYear: project.meta.sorYear,
+            distanceKm: variant.actualLeadKm ?? variant.leadKm,
+            quantity: outputQuantity,
+            zone: null
+          })
+          if (quote.pipeLeadItemCode !== pipeLead.pipeLeadItemCode) {
+            throw new Error(
+              `${materialItemCode} no longer maps to ${pipeLead.pipeLeadItemCode} for SOR ${project.meta.sorYear}.`
+            )
+          }
+          const breakdown = pipeLeadQuoteBreakdown(
+            quote,
+            project.meta.sorZone ?? 'zone_3'
+          )
+          return {
+            ...application,
+            itemCode: projectItemDisplayName(item),
+            quantity: breakdown.quantity,
+            quantityManuallyEdited: false,
+            quantitySource: `Published ${outputQuantity} ${quote.unit} SOR pipe-rate basis`,
+            unit: breakdown.unit,
+            leadRate: breakdown.leadRate,
+            loadingRate: 0,
+            unloadingRate: 0,
+            liftRate: 0,
+            grossRate: breakdown.grossRate,
+            grossAmount: breakdown.grossAmount,
+            outputQuantity,
+            rateAddition: breakdown.grossAmount / outputQuantity,
+            netRate: breakdown.netRate,
+            netAmount: breakdown.netAmount,
+            calculation: breakdown.calculation,
+            rateZone: project.meta.sorZone ?? 'zone_3',
+            rateYear: project.meta.sorYear,
+            handlingWarning: undefined,
+            handlingOverrideReason: undefined,
+            deliveryAtSiteOverrideReason: undefined,
+            deliveryAtSiteWarning: undefined,
+            appliedAt: new Date().toISOString()
+          }
+        }
+      )()]
+    })
+  )
 }
 
 /** DATA total Sync: refresh source rows, then recompile every effective DATA. */
@@ -720,12 +1020,41 @@ export async function syncLeadDashboardSnapshot(
         .map((item) => item.itemCode as string)
     )
   )
-  const [itemData, leadRates, applicability] = await Promise.all([
+  const pipeVariants = project.leadChart?.variants?.filter((variant) => variant.pipeLead) ?? []
+  const customLeadMetadata = Object.fromEntries(
+    items.flatMap((item) => {
+      const definition = projectDataForNode(project.projectData, item)
+      return definition && projectDataHasLead(definition)
+        ? [[definition.code, projectDataLeadApplicability(definition)] as const]
+        : []
+    })
+  )
+  const [itemData, leadRates, applicability, pipeLeadQuoteEntries] = await Promise.all([
     fetchDashboardItemData(project, items),
     fetchLeadRates(project.meta.sorYear, project.meta.sorZone ?? 'zone_3'),
-    fetchSsrLeadApplicability(leadCodes)
+    fetchSsrLeadApplicability(leadCodes),
+    Promise.all(
+      pipeVariants.map(async (variant) => [
+        variant.id,
+        await fetchPipeLeadQuote({
+          pipeLeadItemCode: variant.pipeLead!.pipeLeadItemCode,
+          sorYear: project.meta.sorYear,
+          distanceKm: variant.actualLeadKm ?? variant.leadKm,
+          quantity: 1,
+          zone: null
+        })
+      ] as const)
+    )
   ])
   const merged = mergeDashboardItemData(project, items, itemData)
+  const leadApplicationUpdates = [
+    ...repriceLeadApplications(project, leadRates, applicability, items),
+    ...(await refreshPipeLeadApplications(project, merged.recipes, items))
+  ]
+  const projectWithCurrentPipeLead = projectWithLeadApplicationUpdates(
+    project,
+    leadApplicationUpdates
+  )
   const syncedAt = new Date().toISOString()
   const withLead: DashboardDataSnapshot = {
     ...merged,
@@ -734,15 +1063,20 @@ export async function syncLeadDashboardSnapshot(
     componentSyncedAt: {},
     projectSyncedAt: undefined,
     leadSyncedAt: syncedAt,
-    leadCompileSignature: dashboardLeadCompileSignature(project),
+    leadCompileSignature: dashboardLeadCompileSignature(projectWithCurrentPipeLead),
     leadRates,
+    pipeLeadQuotes: Object.fromEntries(pipeLeadQuoteEntries),
+    leadApplicationUpdates,
     leadApplicability: Object.fromEntries(
-      Array.from(applicability, ([code, row]) => [code, row.lead_applicability])
+      [
+        ...Array.from(applicability, ([code, row]) => [code, row.lead_applicability] as const),
+        ...Object.entries(customLeadMetadata)
+      ]
     )
   }
   return {
     ...withLead,
-    leadDashboardEntries: compileLeadDashboardEntries(project, withLead)
+    leadDashboardEntries: compileLeadDashboardEntries(projectWithCurrentPipeLead, withLead)
   }
 }
 
@@ -753,13 +1087,22 @@ export async function syncSeigniorageDashboardSnapshot(
   const previous = dashboardContextMatches(project.dashboardSnapshot, project)
     ? project.dashboardSnapshot
     : undefined
+  const items = collectDashboardItems(project.root)
+  const dataSignature = dashboardDataCompileSignature(project, items)
+  // A Seigniorage-only Sync must still see newly added DATA. Normally Project
+  // Sync has already prepared this snapshot; this fills the gap for a user who
+  // opens Seigniorage directly after adding a Material/Machinery resource.
+  const hasProjectData = items.some((item) => item.itemSource === 'PROJECT_DATA')
+  const sourceSnapshot = hasProjectData && previous?.dataCompileSignature !== dataSignature
+    ? await syncDataDashboardSnapshot(project, items)
+    : previous ?? emptySnapshot(project)
   const [seigniorageCharges, seignioragePolicies] = await Promise.all([
     fetchSeigniorageCharges(),
     fetchSeignioragePolicies(projectSeigniorageItemCodes(project))
   ])
   const syncedAt = new Date().toISOString()
   return {
-    ...(previous ?? emptySnapshot(project)),
+    ...sourceSnapshot,
     syncedAt,
     projectSyncedAt: undefined,
     seigniorageSyncedAt: syncedAt,
@@ -778,7 +1121,13 @@ export async function syncProjectDashboardSnapshot(
   const withSnapshot = (
     source: EestimateProject,
     dashboardSnapshot: DashboardDataSnapshot
-  ): EestimateProject => ({ ...source, dashboardSnapshot })
+  ): EestimateProject => ({
+    ...projectWithLeadApplicationUpdates(
+      source,
+      dashboardSnapshot.leadApplicationUpdates ?? []
+    ),
+    dashboardSnapshot
+  })
 
   // Lead feeds DATA, DATA gives the components their rates and descriptions,
   // and Seigniorage is charged on the quantities those components settle on.

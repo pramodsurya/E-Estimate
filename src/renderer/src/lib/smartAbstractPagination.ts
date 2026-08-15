@@ -49,6 +49,34 @@ export interface SmartAbstractProfile<T> {
 const MIN_FINAL_DETAIL_ROWS = 4
 const MIN_FINAL_ROWS = 5
 
+/**
+ * How much the closing page is owed.
+ *
+ * These are row *counts*, which only works where the rows are of a kind — the
+ * General Abstract's one-line provisions. A component abstract's rows carry the
+ * full SSR clause and run five or six times as tall, so reserving five of them
+ * empties half of the page before, to fill a page nobody asked to be full.
+ */
+export interface SmartAbstractPolicy {
+  minFinalDetailRows: number
+  minFinalRows: number
+}
+
+/** Carry a tail forward so a continuation never looks accidental. */
+export const BALANCED_FINAL_PAGE: SmartAbstractPolicy = {
+  minFinalDetailRows: MIN_FINAL_DETAIL_ROWS,
+  minFinalRows: MIN_FINAL_ROWS
+}
+
+/**
+ * Fill every sheet as far as it goes; the closing page takes whatever is left,
+ * even if that is a single row. Totals are still kept with the rows they total.
+ */
+export const FILL_EACH_PAGE: SmartAbstractPolicy = {
+  minFinalDetailRows: 0,
+  minFinalRows: 0
+}
+
 function rowsHeight<T>(rows: SmartAbstractRow<T>[]): number {
   return rows.reduce((sum, row) => sum + Math.max(1, row.height), 0)
 }
@@ -63,7 +91,8 @@ function flowCapacity(capacities: SmartAbstractCapacities, pageIndex: number): n
 
 function rawPages<T>(
   rows: SmartAbstractRow<T>[],
-  capacities: SmartAbstractCapacities
+  capacities: SmartAbstractCapacities,
+  policy: SmartAbstractPolicy
 ): { pages: SmartAbstractRow<T>[][]; forcedFinalTail: boolean } {
   if (rows.length === 0) return { pages: [[]], forcedFinalTail: false }
   const pages: SmartAbstractRow<T>[][] = []
@@ -98,12 +127,14 @@ function rawPages<T>(
     // The flow capacity is intentionally larger than the final-page capacity
     // because the latter reserves totals and signatures. Never consume every
     // row into that larger space: leave a useful tail for the measured final
-    // page instead of creating a hidden signature overflow.
+    // page instead of creating a hidden signature overflow. Under a fill
+    // policy that tail is one row — the least that can move — so this page
+    // keeps every row it can physically hold.
     if (remaining.length === 0 && page.length > 1) {
       forcedFinalTail = true
       const tail: SmartAbstractRow<T>[] = []
       const nextFinalCapacity = capacities.finalContinuation
-      while (page.length > 1 && tail.length < MIN_FINAL_ROWS) {
+      while (page.length > 1 && tail.length < policy.minFinalRows) {
         const candidate = page[page.length - 1]
         if (tail.length > 0 && rowsHeight(tail) + candidate.height > nextFinalCapacity) break
         tail.unshift(page.pop()!)
@@ -117,16 +148,20 @@ function rawPages<T>(
   return { pages, forcedFinalTail }
 }
 
-function finalIsOrphan<T>(pages: SmartAbstractRow<T>[][]): boolean {
+function finalIsOrphan<T>(
+  pages: SmartAbstractRow<T>[][],
+  policy: SmartAbstractPolicy
+): boolean {
   if (pages.length <= 1) return false
   const final = pages[pages.length - 1]
   const detailCount = final.filter((row) => row.detail).length
-  return detailCount < MIN_FINAL_DETAIL_ROWS || final.length < MIN_FINAL_ROWS
+  return detailCount < policy.minFinalDetailRows || final.length < policy.minFinalRows
 }
 
 function rebalanceFinalPage<T>(
   sourcePages: SmartAbstractRow<T>[][],
-  capacities: SmartAbstractCapacities
+  capacities: SmartAbstractCapacities,
+  policy: SmartAbstractPolicy
 ): SmartAbstractRow<T>[][] {
   const pages = sourcePages.map((page) => [...page])
   if (pages.length <= 1) return pages
@@ -134,9 +169,11 @@ function rebalanceFinalPage<T>(
   const previous = pages[pages.length - 2]
   const capacity = finalCapacity(capacities, pages.length - 1)
 
+  // A total may never open a sheet, whatever the policy — it belongs to the
+  // rows above it, so it drags one of them across with it.
   const finalNeedsRows = (): boolean =>
-    final.filter((row) => row.detail).length < MIN_FINAL_DETAIL_ROWS ||
-    final.length < MIN_FINAL_ROWS ||
+    final.filter((row) => row.detail).length < policy.minFinalDetailRows ||
+    final.length < policy.minFinalRows ||
     final[0]?.keepWithPrevious === true
 
   while (finalNeedsRows() && previous.length > 1) {
@@ -147,10 +184,13 @@ function rebalanceFinalPage<T>(
   return pages
 }
 
-function planForProfile<T>(profile: SmartAbstractProfile<T>): SmartAbstractPlan<T> {
-  const raw = rawPages(profile.rows, profile.capacities)
-  const orphan = raw.forcedFinalTail || finalIsOrphan(raw.pages)
-  const balanced = rebalanceFinalPage(raw.pages, profile.capacities)
+function planForProfile<T>(
+  profile: SmartAbstractProfile<T>,
+  policy: SmartAbstractPolicy
+): SmartAbstractPlan<T> {
+  const raw = rawPages(profile.rows, profile.capacities, policy)
+  const orphan = raw.forcedFinalTail || finalIsOrphan(raw.pages, policy)
+  const balanced = rebalanceFinalPage(raw.pages, profile.capacities, policy)
   return {
     density: profile.density,
     pages: balanced.map((rows, index) => ({
@@ -168,15 +208,16 @@ function planForProfile<T>(profile: SmartAbstractProfile<T>): SmartAbstractPlan<
  * or removes the orphan. This prevents needless shrinking on ordinary sheets.
  */
 export function chooseSmartAbstractPlan<T>(
-  profiles: SmartAbstractProfile<T>[]
+  profiles: SmartAbstractProfile<T>[],
+  policy: SmartAbstractPolicy = BALANCED_FINAL_PAGE
 ): SmartAbstractPlan<T> {
   if (profiles.length === 0) {
     return { density: 'normal', pages: [], avoidedOrphan: false }
   }
-  let chosen = planForProfile(profiles[0])
+  let chosen = planForProfile(profiles[0], policy)
   for (const profile of profiles.slice(1)) {
     if (!chosen.avoidedOrphan) break
-    const candidate = planForProfile(profile)
+    const candidate = planForProfile(profile, policy)
     const removesPage = candidate.pages.length < chosen.pages.length
     const removesOrphan = !candidate.avoidedOrphan
     if (removesPage || removesOrphan) chosen = candidate

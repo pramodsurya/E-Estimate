@@ -1,11 +1,32 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { MapPinned, Plus, Printer, Settings, X } from 'lucide-react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent
+} from 'react'
+import { MapPinned, Printer, Settings, X } from 'lucide-react'
 import L from 'leaflet'
-import { MapContainer, Marker, Polyline, Popup, Tooltip, useMap, useMapEvents } from 'react-leaflet'
+import {
+  MapContainer,
+  Marker,
+  Polyline,
+  Popup,
+  ScaleControl,
+  Tooltip,
+  useMap,
+  useMapEvents
+} from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import MapLayers from '../map/MapLayers'
-import { conveyanceClassLabel, type LeadRateRow } from '../../lib/lead'
-import { newId } from '../../lib/tree'
+import MapLayers, { type MapLayerType } from '../map/MapLayers'
+import { conveyanceClassLabel, leadRouteColor, type LeadRateRow } from '../../lib/lead'
+import {
+  LEAD_PRINT_PAGE_LABELS,
+  MIN_MAP_BOX_HEIGHT_MM,
+  normalizeLeadPrintSettings,
+  routeGeometryIntersectsBounds
+} from '../../lib/leadPrintLayout'
 import type {
   ConveyanceClass,
   LeadApplication,
@@ -13,7 +34,6 @@ import type {
   LeadChargeCode,
   LeadMapDirection,
   LeadPoint,
-  LeadPointKind,
   LeadPrintPageKey,
   LeadPrintSettings,
   LeadVariant,
@@ -21,12 +41,9 @@ import type {
   SignatureFooterSettings,
   SorZone
 } from '../../types/project'
-import LeadMapDirectionEditor, {
-  blankLeadMapDirectionDraft,
-  draftFromLeadMapDirection,
-  type LeadMapDirectionDraft
-} from './LeadMapDirectionEditor'
+import LeadMapPrintLayout from './LeadMapPrintLayout'
 import SignatureFooterPrint from '../signature/SignatureFooterPrint'
+import { pipeLeadCatalogueLabel } from '../../lib/pipeLead'
 
 type AppliedChargeCode = Exclude<LeadChargeCode, 'AUTO'>
 
@@ -73,14 +90,13 @@ interface Props {
   printSettings?: LeadPrintSettings
   signatureFooter?: SignatureFooterSettings
   onUpdatePrintSettings: (settings: LeadPrintSettings) => void
-  onUpsertPoint: (point: LeadPoint) => void
-  onUpsertMapDirection: (direction: LeadMapDirection) => void
-  onRemoveMapDirection: (directionId: string) => void
   onClose: () => void
   /** Already-synced dashboard rows. Print Preview never fetches its own data. */
   rates?: LeadRateRow[]
   /** Omits dialog chrome so the same preview pages can be mounted in Project VPV. */
   embedded?: boolean
+  /** Opens a popup editor with controls beside only the printed map page. */
+  mapLayoutEditor?: boolean
 }
 
 const PROJECT_WORK_POINT_ID = '__project_work_location__'
@@ -165,42 +181,10 @@ const km = new Intl.NumberFormat('en-IN', {
   maximumFractionDigits: 3
 })
 
-const DEFAULT_PRINT_SETTINGS: Required<Pick<LeadPrintSettings, 'pageSize' | 'margins' | 'showMapLabels' | 'showRouteArrows' | 'showBaseMap'>> & {
-  pages: Record<LeadPrintPageKey, { orientation: 'portrait' | 'landscape' }>
-} = {
-  pageSize: 'A4',
-  margins: { top: 15, right: 12, bottom: 15, left: 12 },
-  pages: {
-    chart: { orientation: 'portrait' },
-    calculation: { orientation: 'portrait' },
-    map: { orientation: 'landscape' }
-  },
-  showMapLabels: true,
-  showRouteArrows: true,
-  showBaseMap: true
-}
-
 const PAGE_LABELS: Record<LeadPrintPageKey, string> = {
-  chart: 'Lead Print 1 - Source chart',
-  calculation: 'Lead Print 2 - Rate calculations',
-  map: 'Lead Print 3 - Map'
-}
-
-const POINT_KINDS: Array<{ value: LeadPointKind; label: string }> = [
-  { value: 'quarry', label: 'Quarry' },
-  { value: 'sand_reach', label: 'Sand reach' },
-  { value: 'godown', label: 'Godown' },
-  { value: 'stockyard', label: 'Stockyard' },
-  { value: 'water', label: 'Water source' },
-  { value: 'other', label: 'Other' }
-]
-
-interface PrintPointDraft {
-  code: string
-  name: string
-  kind: LeadPointKind
-  lat: string
-  lon: string
+  chart: `Lead Print 1 - ${LEAD_PRINT_PAGE_LABELS.chart}`,
+  calculation: `Lead Print 2 - ${LEAD_PRINT_PAGE_LABELS.calculation}`,
+  map: `Lead Print 3 - ${LEAD_PRINT_PAGE_LABELS.map}`
 }
 
 export default function LeadPrintPreviewModal({
@@ -215,25 +199,19 @@ export default function LeadPrintPreviewModal({
   printSettings,
   signatureFooter,
   onUpdatePrintSettings,
-  onUpsertPoint,
-  onUpsertMapDirection,
-  onRemoveMapDirection,
   onClose,
   rates = [],
-  embedded = false
+  embedded = false,
+  mapLayoutEditor = false
 }: Props): JSX.Element {
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [mapSettingsOpen, setMapSettingsOpen] = useState(false)
-  const [directionDraft, setDirectionDraft] = useState<LeadMapDirectionDraft>(() =>
-    blankLeadMapDirectionDraft()
-  )
-  const [directionDrawing, setDirectionDrawing] = useState(false)
-  const [pointDraft, setPointDraft] = useState<PrintPointDraft>(() => blankPrintPointDraft(points))
+  const [mapSettingsOpen, setMapSettingsOpen] = useState(mapLayoutEditor)
+  const layoutEditing = !embedded && (mapLayoutEditor || mapSettingsOpen)
 
-  const layout = normalizePrintSettings(printSettings)
+  const layout = normalizeLeadPrintSettings(printSettings)
 
   const updateLayout = (patch: LeadPrintSettings): void => {
-    onUpdatePrintSettings(normalizePrintSettings({ ...layout, ...patch }))
+    onUpdatePrintSettings(normalizeLeadPrintSettings({ ...layout, ...patch }))
   }
 
   const updatePageOrientation = (
@@ -244,7 +222,7 @@ export default function LeadPrintPreviewModal({
       ...layout,
       pages: {
         ...layout.pages,
-        [page]: { orientation }
+        [page]: { ...layout.pages[page], orientation }
       }
     })
   }
@@ -302,77 +280,50 @@ export default function LeadPrintPreviewModal({
       ),
     [applied]
   )
-
-  const addPrintPoint = (): void => {
-    const code = pointDraft.code.trim().toUpperCase()
-    const lat = Number(pointDraft.lat)
-    const lon = Number(pointDraft.lon)
-    if (!code || !Number.isFinite(lat) || !Number.isFinite(lon)) return
-    onUpsertPoint({
-      id: newId(),
-      code,
-      name: pointDraft.name.trim(),
-      kind: pointDraft.kind,
-      lat,
-      lon
-    })
-    setPointDraft(blankPrintPointDraft([...points, {
-      id: code,
-      code,
-      name: pointDraft.name.trim(),
-      kind: pointDraft.kind,
-      lat,
-      lon
-    }]))
-  }
-
-  const handleMapClick = (lat: number, lon: number): void => {
-    if (directionDrawing) {
-      setDirectionDraft((current) => ({
-        ...current,
-        points: [...current.points, { lat, lon }]
-      }))
-      return
-    }
-    setPointDraft((current) => ({
-      ...current,
-      lat: lat.toFixed(6),
-      lon: lon.toFixed(6)
-    }))
-  }
+  const appliedPipeLeads = useMemo(
+    () => applied.filter((row) => Boolean(row.variant.pipeLead)),
+    [applied]
+  )
 
   return (
     <div className={embedded ? 'lead-print-embedded' : 'lead-print-overlay'} role={embedded ? undefined : 'dialog'} aria-modal={embedded ? undefined : 'true'}>
-      <div className={embedded ? 'lead-print-embedded-shell' : 'lead-print-shell'}>
+      <div className={`${embedded ? 'lead-print-embedded-shell' : 'lead-print-shell'} ${layoutEditing ? 'map-layout-editor' : ''}`}>
         {!embedded && <div className="lead-print-toolbar">
           <div>
-            <strong>Lead Chart Print Preview</strong>
+            <strong>{layoutEditing ? 'Map Print Layout' : 'Lead Chart Print Preview'}</strong>
             <span>{year} | {zoneLabel(zone)} SOR rates | {applied.length} applied item(s)</span>
           </div>
           <div>
-            <button
+            {!mapLayoutEditor && <button
               className={`btn ghost ${settingsOpen ? 'active' : ''}`}
               type="button"
-              onClick={() => setSettingsOpen((open) => !open)}
+              onClick={() => {
+                setSettingsOpen((open) => !open)
+                setMapSettingsOpen(false)
+              }}
             >
               <Settings size={14} /> Settings
-            </button>
-            <button
+            </button>}
+            {!mapLayoutEditor && <button
               className={`btn ghost ${mapSettingsOpen ? 'active' : ''}`}
               type="button"
-              onClick={() => setMapSettingsOpen((open) => !open)}
+              onClick={() => {
+                setMapSettingsOpen((open) => !open)
+                setSettingsOpen(false)
+              }}
             >
-              <MapPinned size={14} /> Map Print Settings
-            </button>
+              <MapPinned size={14} /> Map Print Layout
+            </button>}
             <button className="btn ghost" type="button" onClick={() => window.print()}>
-              <Printer size={14} /> Print
+              <Printer size={14} /> {layoutEditing ? 'Print Map' : 'Print'}
             </button>
             <button className="btn ghost" type="button" onClick={onClose}>
               <X size={14} /> Close
             </button>
           </div>
         </div>}
-        {!embedded && settingsOpen && (
+        <div className={layoutEditing ? 'lead-map-layout-editor-body' : undefined}>
+        {!embedded && settingsOpen && !layoutEditing && (
           <PrintSettingsPanel
             settings={layout}
             onUpdate={updateLayout}
@@ -380,29 +331,15 @@ export default function LeadPrintPreviewModal({
             onUpdatePageOrientation={updatePageOrientation}
           />
         )}
-        {!embedded && mapSettingsOpen && (
-          <MapPrintSettingsPanel
-            pointDraft={pointDraft}
-            onPointDraftChange={setPointDraft}
-            onAddPoint={addPrintPoint}
-            variants={applied.map((row) => row.variant)}
-            assignments={assignments}
-            directions={mapDirections}
-            points={points}
-            site={site}
-            directionDraft={directionDraft}
-            drawing={directionDrawing}
-            onDirectionDraftChange={setDirectionDraft}
-            onDrawingChange={setDirectionDrawing}
-            onSaveDirection={(direction) => {
-              onUpsertMapDirection(direction)
-              setDirectionDraft(draftFromLeadMapDirection(direction))
-              setDirectionDrawing(false)
-            }}
-            onDeleteDirection={onRemoveMapDirection}
+        {layoutEditing && (
+          <LeadMapPrintLayout
+            settings={layout}
+            onChange={onUpdatePrintSettings}
+            embedded
           />
         )}
         <div className="lead-print-scroll">
+          {!layoutEditing && <>
           <article
             className={`lead-print-page ${layout.pages.chart.orientation}`}
             style={printPageStyle(layout, 'chart', signatureFooter)}
@@ -415,11 +352,11 @@ export default function LeadPrintPreviewModal({
               <strong>E-Estimate</strong>
             </header>
 
-            {usedCodes.length === 0 ? (
+            {usedCodes.length === 0 && appliedPipeLeads.length === 0 ? (
               <div className="lead-print-empty">
                 No Lead/Lift variant has been applied to any item yet.
               </div>
-            ) : rates.length === 0 ? (
+            ) : usedCodes.length > 0 && rates.length === 0 ? (
               <div className="lead-print-empty">
                 Lead chart rows are not in the dashboard snapshot. Close Print Preview and click Sync.
               </div>
@@ -432,6 +369,7 @@ export default function LeadPrintPreviewModal({
                 />
               ))
             )}
+            {appliedPipeLeads.length > 0 && <PipeLeadSourceTable rows={appliedPipeLeads} />}
             {signatureFooter?.enabled && signatureFooter.placement === 'every_page' && (
               <SignatureFooterPrint settings={signatureFooter} />
             )}
@@ -443,7 +381,10 @@ export default function LeadPrintPreviewModal({
           >
             <header className="lead-print-section-header">
               <h2>Applied Variant Rate Calculations</h2>
-              <p>Only applied Lead variants are included. Rate basis: {zoneLabel(zone)} SOR.</p>
+              <p>
+                Only applied Lead variants are included. Common Lead uses {zoneLabel(zone)} SOR;
+                RCC pipes use the statewide Public Health Table 6/7 rate.
+              </p>
             </header>
             {applied.length === 0 ? (
               <div className="lead-print-empty">Apply a Lead variant to an item to show calculations.</div>
@@ -463,33 +404,49 @@ export default function LeadPrintPreviewModal({
               <SignatureFooterPrint settings={signatureFooter} />
             )}
           </article>
+          </>}
 
           <article
-            className={`lead-print-page ${layout.pages.map.orientation}`}
+            className={`lead-print-page map-page ${layout.pages.map.orientation}`}
             style={printPageStyle(layout, 'map', signatureFooter)}
           >
-            <header className="lead-print-section-header">
-              <h2>Lead Route Map</h2>
-              <p>Printed route schematic for points and applied Lead variant directions.</p>
-            </header>
+            {layout.showMapHeader && (
+              <header className="lead-print-section-header">
+                <h2>{layout.mapTitle || 'Lead Route Map'}</h2>
+                {layout.mapSubtitle && <p>{layout.mapSubtitle}</p>}
+              </header>
+            )}
             <LeadPrintRouteMap
               applied={applied}
               assignments={assignments}
               points={points}
               site={site}
               mapDirections={mapDirections}
-              directionDraft={directionDraft}
-              showLabels={layout.showMapLabels}
+              mapLayerType={layout.mapLayerType}
+              showPointLabels={layout.showMapPointLabels}
+              showRouteLabels={layout.showMapRouteLabels}
+              pointLabelMode={layout.mapPointLabelMode}
+              labelSize={layout.mapLabelSize}
               showRouteArrows={layout.showRouteArrows}
               showBaseMap={layout.showBaseMap}
-              editing={mapSettingsOpen}
-              drawing={directionDrawing}
-              onMapClick={handleMapClick}
+              showLegend={layout.showMapLegend}
+              legendPosition={layout.mapLegendPosition}
+              showScale={layout.showMapScale}
+              boxHeightMm={layout.mapBoxHeightMm}
+              boxWidthPercent={layout.mapBoxWidthPercent}
+              view={layout.mapView}
+              interactive={layoutEditing}
+              onViewChange={(mapView) => updateLayout({ ...layout, mapView })}
+              onViewReset={() => updateLayout({ ...layout, mapView: null })}
+              onBoxHeightChange={(mapBoxHeightMm) =>
+                updateLayout({ ...layout, mapBoxHeightMm })
+              }
             />
             {signatureFooter?.enabled && (
               <SignatureFooterPrint settings={signatureFooter} />
             )}
           </article>
+        </div>
         </div>
       </div>
     </div>
@@ -502,7 +459,7 @@ function PrintSettingsPanel({
   onUpdateMargin,
   onUpdatePageOrientation
 }: {
-  settings: ReturnType<typeof normalizePrintSettings>
+  settings: ReturnType<typeof normalizeLeadPrintSettings>
   onUpdate: (settings: LeadPrintSettings) => void
   onUpdateMargin: (side: keyof NonNullable<LeadPrintSettings['margins']>, value: string) => void
   onUpdatePageOrientation: (page: LeadPrintPageKey, orientation: 'portrait' | 'landscape') => void
@@ -519,6 +476,7 @@ function PrintSettingsPanel({
           >
             <option value="A4">A4</option>
             <option value="A3">A3</option>
+            <option value="A2">A2</option>
             <option value="Letter">Letter</option>
             <option value="Legal">Legal</option>
           </select>
@@ -559,157 +517,6 @@ function PrintSettingsPanel({
           </div>
         ))}
       </div>
-      <div className="lead-print-map-toggles">
-        <label>
-          <input
-            type="checkbox"
-            checked={settings.showMapLabels}
-            onChange={(event) => onUpdate({ ...settings, showMapLabels: event.target.checked })}
-          />
-          Show map labels
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={settings.showRouteArrows}
-            onChange={(event) => onUpdate({ ...settings, showRouteArrows: event.target.checked })}
-          />
-          Show route direction arrows
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={settings.showBaseMap}
-            onChange={(event) => onUpdate({ ...settings, showBaseMap: event.target.checked })}
-          />
-          Show base map
-        </label>
-      </div>
-    </div>
-  )
-}
-
-function MapPrintSettingsPanel({
-  pointDraft,
-  onPointDraftChange,
-  onAddPoint,
-  variants,
-  assignments,
-  directions,
-  points,
-  site,
-  directionDraft,
-  drawing,
-  onDirectionDraftChange,
-  onDrawingChange,
-  onSaveDirection,
-  onDeleteDirection
-}: {
-  pointDraft: PrintPointDraft
-  onPointDraftChange: (draft: PrintPointDraft) => void
-  onAddPoint: () => void
-  variants: LeadVariant[]
-  assignments: LeadAssignment[]
-  directions: LeadMapDirection[]
-  points: LeadSelectablePoint[]
-  site: ProjectLocation | null
-  directionDraft: LeadMapDirectionDraft
-  drawing: boolean
-  onDirectionDraftChange: (draft: LeadMapDirectionDraft) => void
-  onDrawingChange: (drawing: boolean) => void
-  onSaveDirection: (direction: LeadMapDirection) => void
-  onDeleteDirection: (directionId: string) => void
-}): JSX.Element {
-  const canAddPoint =
-    pointDraft.code.trim().length > 0 &&
-    Number.isFinite(Number(pointDraft.lat)) &&
-    Number.isFinite(Number(pointDraft.lon))
-
-  return (
-    <div className="lead-print-map-settings">
-      <section>
-        <strong>Set New Point</strong>
-        <div className="lead-form-grid">
-          <label>
-            Code
-            <input
-              className="text-input"
-              value={pointDraft.code}
-              onChange={(event) =>
-                onPointDraftChange({ ...pointDraft, code: event.target.value.toUpperCase() })
-              }
-            />
-          </label>
-          <label>
-            Kind
-            <select
-              className="select-input"
-              value={pointDraft.kind}
-              onChange={(event) =>
-                onPointDraftChange({ ...pointDraft, kind: event.target.value as LeadPointKind })
-              }
-            >
-              {POINT_KINDS.map((kind) => (
-                <option key={kind.value} value={kind.value}>{kind.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="span-2">
-            Name
-            <input
-              className="text-input"
-              value={pointDraft.name}
-              onChange={(event) => onPointDraftChange({ ...pointDraft, name: event.target.value })}
-            />
-          </label>
-          <label>
-            Latitude
-            <input
-              className="text-input"
-              value={pointDraft.lat}
-              onChange={(event) => onPointDraftChange({ ...pointDraft, lat: event.target.value })}
-            />
-          </label>
-          <label>
-            Longitude
-            <input
-              className="text-input"
-              value={pointDraft.lon}
-              onChange={(event) => onPointDraftChange({ ...pointDraft, lon: event.target.value })}
-            />
-          </label>
-        </div>
-        <div className="lead-point-actions">
-          <button className="btn" type="button" disabled={!canAddPoint} onClick={onAddPoint}>
-            <Plus size={14} /> Add Point
-          </button>
-          <button
-            className="btn ghost"
-            type="button"
-            disabled={!pointDraft.lat && !pointDraft.lon}
-            onClick={() => onPointDraftChange({ ...pointDraft, lat: '', lon: '' })}
-          >
-            Clear Point
-          </button>
-        </div>
-        <small>When the line tool is off, clicking the map fills this point location.</small>
-      </section>
-      <section>
-        <strong>Direction / Line Tool</strong>
-        <LeadMapDirectionEditor
-          variants={variants}
-          assignments={assignments}
-          directions={directions}
-          points={points}
-          site={site}
-          draft={directionDraft}
-          drawing={drawing}
-          onDraftChange={onDirectionDraftChange}
-          onDrawingChange={onDrawingChange}
-          onSave={onSaveDirection}
-          onDelete={onDeleteDirection}
-        />
-      </section>
     </div>
   )
 }
@@ -790,6 +597,42 @@ function RateChartSourceTable({
   )
 }
 
+function PipeLeadSourceTable({ rows }: { rows: AppliedLead[] }): JSX.Element {
+  return (
+    <section className="lead-print-source-block">
+      <h2>RCC pipe conveyance rates</h2>
+      <h3>Public Health RCC pipe conveyance — statewide published rates</h3>
+      <table className="lead-print-source-table">
+        <thead>
+          <tr>
+            <th>Pipe / class group</th>
+            <th>Diameter</th>
+            <th>Actual lead</th>
+            <th>Adopted rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ application, variant }) => (
+            <tr key={variant.id}>
+              <td>
+                {variant.pipeLead ? pipeLeadCatalogueLabel(variant.pipeLead) : 'RCC pipe conveyance'} ·{' '}
+                {variant.pipeLead?.pipeClassGroup.replaceAll('_', ' / ')}
+              </td>
+              <td>{variant.pipeLead?.diameterMm} mm</td>
+              <td>{km.format(variant.actualLeadKm ?? variant.leadKm)} km</td>
+              <td>Rs. {money.format(application.grossRate)} / {application.unit}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="lead-print-note">
+        Up to 5 km rate plus each started kilometre thereafter. Loading, unloading, and stacking
+        are included.
+      </p>
+    </section>
+  )
+}
+
 function AppliedCalculationBlock({
   row,
   zone,
@@ -803,6 +646,7 @@ function AppliedCalculationBlock({
   // Applications saved before zoned Lead support used the generic database
   // rate, which is the published Zone III value for the zoned 2026-27 chart.
   const calculationZone = application.rateZone ?? 'zone_3'
+  const pipeLead = variant.pipeLead
   return (
     <section className="lead-print-calc-block">
       <div className="lead-print-calc-heading">
@@ -810,7 +654,11 @@ function AppliedCalculationBlock({
           <strong>{variant.materialName} - {variantDisplayName(variant)}</strong>
           <span>{routeLabel}</span>
         </div>
-        <b>{codes.join(' + ') || 'No charge'} · {zoneLabel(calculationZone)}</b>
+        <b>
+          {pipeLead
+            ? `${pipeLeadCatalogueLabel(pipeLead)} · Statewide`
+            : `${codes.join(' + ') || 'No charge'} · ${zoneLabel(calculationZone)}`}
+        </b>
       </div>
       <table className="lead-print-calc-table">
         <tbody>
@@ -859,7 +707,7 @@ function AppliedCalculationBlock({
           </tr>
         </tbody>
       </table>
-      {calculationZone !== zone && (
+      {!pipeLead && calculationZone !== zone && (
         <p className="lead-print-warning">
           This saved calculation uses {zoneLabel(calculationZone)}. Open its Lead dashboard to
           refresh it with the project&apos;s selected {zoneLabel(zone)} rates.
@@ -889,87 +737,81 @@ function LeadPrintRouteMap({
   points,
   site,
   mapDirections,
-  directionDraft,
-  showLabels,
+  mapLayerType,
+  showPointLabels,
+  showRouteLabels,
+  pointLabelMode,
+  labelSize,
   showRouteArrows,
   showBaseMap,
-  editing,
-  drawing,
-  onMapClick
+  showLegend,
+  legendPosition,
+  showScale,
+  boxHeightMm,
+  boxWidthPercent,
+  view,
+  interactive = false,
+  onViewChange,
+  onViewReset,
+  onBoxHeightChange
 }: {
   applied: AppliedLead[]
   assignments: LeadAssignment[]
   points: LeadSelectablePoint[]
   site: ProjectLocation | null
   mapDirections: LeadMapDirection[]
-  directionDraft: LeadMapDirectionDraft
-  showLabels: boolean
+  mapLayerType: MapLayerType
+  showPointLabels: boolean
+  showRouteLabels: boolean
+  pointLabelMode: 'code' | 'name' | 'code_name'
+  labelSize: 'small' | 'medium' | 'large'
   showRouteArrows: boolean
   showBaseMap: boolean
-  editing: boolean
-  drawing: boolean
-  onMapClick: (lat: number, lon: number) => void
+  showLegend: boolean
+  legendPosition: 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right'
+  showScale: boolean
+  /** 0 fills the page below the heading. */
+  boxHeightMm: number
+  boxWidthPercent: number
+  view: { lat: number; lon: number; zoom: number } | null
+  /** Layout editing: pan/zoom the map and drag its bottom edge. */
+  interactive?: boolean
+  onViewChange?: (view: { lat: number; lon: number; zoom: number }) => void
+  onViewReset?: () => void
+  onBoxHeightChange?: (heightMm: number) => void
 }): JSX.Element {
   const routes = useMemo(
     () => buildRouteLines(applied, assignments, points, site, mapDirections),
     [applied, assignments, points, site, mapDirections]
   )
-  const draftRoute = useMemo<RouteLine | null>(() => {
-    if (directionDraft.points.length < 2) return null
-    const from = routePointFromCoordinate('draft-from', 'Draft start', directionDraft.points[0])
-    const to = routePointFromCoordinate(
-      'draft-to',
-      'Draft end',
-      directionDraft.points[directionDraft.points.length - 1]
-    )
-    return {
-      id: 'draft-direction',
-      label: directionDraft.label || 'Draft direction',
-      from,
-      to,
-      color: directionDraft.color || '#0e639c',
-      geometry: directionDraft.points.map((point) => [point.lat, point.lon])
-    }
-  }, [directionDraft])
-  const visibleRoutes = useMemo(
-    () => (draftRoute ? [...routes, draftRoute] : routes),
-    [draftRoute, routes]
-  )
+  const visibleRoutes = routes
   const displayPoints = useMemo(
-    () => uniqueRoutePoints([
-      ...visibleRoutes,
-      ...(editing ? points.map((point) => pointRouteLine(point)) : []),
-      ...(editing && site
-        ? [
-            pointRouteLine({
-              id: PROJECT_WORK_POINT_ID,
-              code: 'Work Location',
-              name: site.label || 'Project work location',
-              kind: 'site',
-              lat: site.lat,
-              lon: site.lng
-            })
-          ]
-        : [])
-    ]),
-    [editing, points, site, visibleRoutes]
+    () => uniqueRoutePoints(visibleRoutes),
+    [visibleRoutes]
+  )
+  // One swatch per associated route. First/last-mile connectors are drawn in
+  // their parent route's own colour and already carry no label on the map, so
+  // listing them here only repeated the same colour three times over.
+  const legendRoutes = useMemo(
+    () => visibleRoutes.filter((route) => !route.suppressLabel),
+    [visibleRoutes]
   )
 
-  const [osmRoutes, setOsmRoutes] = useState<Record<string, [number, number][]>>({})
-
-  useEffect(() => {
-    setOsmRoutes(
-      Object.fromEntries(
-        visibleRoutes.map((route) => [
-          route.id,
-          route.geometry ?? [
-            [route.from.lat, route.from.lon],
-            [route.to.lat, route.to.lon]
-          ]
-        ])
-      )
+  const osmRoutes = useMemo<Record<string, [number, number][]>>(() => {
+    return Object.fromEntries(
+      visibleRoutes.map((route) => {
+        const geometry = (route.geometry ?? []).filter(
+          ([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon)
+        )
+        const fallback = [
+          [route.from.lat, route.from.lon],
+          [route.to.lat, route.to.lon]
+        ].filter(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon)) as [number, number][]
+        return [route.id, geometry.length >= 2 ? geometry : fallback]
+      })
     )
   }, [visibleRoutes])
+  const routeCoordinates = useMemo(() => Object.values(osmRoutes), [osmRoutes])
 
   const bounds = useMemo(() => {
     // Frame the markers AND every drawn route line, so a route whose two
@@ -1012,8 +854,10 @@ function LeadPrintRouteMap({
   useEffect(() => {
     if (!mapHost) return
     const check = (): void => {
-      const rect = mapHost.getBoundingClientRect()
-      if (rect.width > 1 && rect.height > 1) setMapSized(true)
+      // The flex map can briefly be only its 2px border while the print page is
+      // laying out. Mounting Leaflet at that moment makes bounds-fit resolve to
+      // max zoom and that empty view used to be persisted as a user map view.
+      if (mapHost.clientWidth >= 64 && mapHost.clientHeight >= 64) setMapSized(true)
     }
     check()
     const observer = new ResizeObserver(check)
@@ -1026,24 +870,57 @@ function LeadPrintRouteMap({
   }
 
   return (
-    <div ref={setMapHost} className={`lead-print-map ${editing ? 'editing' : ''}`}>
+    <div
+      ref={setMapHost}
+      className={`lead-print-map ${boxHeightMm > 0 ? 'fixed-height' : 'fill-page'} ${
+        interactive ? 'interactive' : ''
+      }`}
+      style={{
+        ...(boxHeightMm > 0 ? { height: `${boxHeightMm}mm`, flex: '0 0 auto' } : {}),
+        width: `${boxWidthPercent}%`
+      }}
+    >
       {bounds && mapSized && (
         <MapContainer
-          bounds={bounds}
+          // A saved pan/zoom wins over the automatic fit; without one the map
+          // still frames every route the way it always has.
+          {...(view
+            ? { center: [view.lat, view.lon] as [number, number], zoom: view.zoom }
+            : { bounds })}
           // Explicit cap so a bounds-fit can never resolve to zoom Infinity
           // (Leaflet's default maxZoom before any tile layer mounts).
           maxZoom={18}
-          style={{ height: '100%', width: '100%' }}
-          zoomControl={false}
-          scrollWheelZoom={editing}
-          dragging={editing}
+          // The host is flex-sized (`height: auto`). Percentage height on the
+          // Leaflet child can therefore resolve to zero even though the host's
+          // used height fills the printed page. Absolute insets follow that used
+          // box size and keep the live preview/PDF map visible.
+          style={{ position: 'absolute', inset: 0, height: 'auto', width: 'auto' }}
+          zoomControl={interactive}
+          scrollWheelZoom={interactive}
+          doubleClickZoom={interactive}
+          dragging={interactive}
           attributionControl={false}
         >
           {showBaseMap && (
-            <MapLayers printQuality />
+            <MapLayers key={mapLayerType} printQuality selected={mapLayerType} showControl={false} />
           )}
-          {editing && <EditableMapClick onPick={onMapClick} />}
-          <FitBoundsOnce bounds={bounds} />
+          <SyncMapToPrintBox bounds={bounds} autoFit={!view} />
+          {view && (
+            <EnsureRouteContentVisible
+              bounds={bounds}
+              routes={routeCoordinates}
+              onEmptyView={onViewReset}
+            />
+          )}
+          {interactive && onViewChange && (
+            <MapViewRecorder
+              bounds={bounds}
+              routes={routeCoordinates}
+              onChange={onViewChange}
+              onEmptyView={onViewReset}
+            />
+          )}
+          {showScale && <ScaleControl imperial={false} position="bottomleft" />}
           {Object.entries(osmRoutes).map(([routeId, coords]) => {
             const route = visibleRoutes.find((r) => r.id === routeId)
             if (!route || coords.length < 2) return null
@@ -1052,11 +929,20 @@ function LeadPrintRouteMap({
                 key={routeId}
                 positions={coords}
                 color={route.color}
-                weight={route.id === 'draft-direction' ? 5 : 4}
+                weight={4}
                 opacity={0.85}
-                dashArray={route.id === 'draft-direction' || route.dashed ? '6 7' : undefined}
+                dashArray={route.dashed ? '6 7' : undefined}
               >
-                {showLabels && !route.suppressLabel && <Popup>{route.label}</Popup>}
+                {!route.suppressLabel && <Popup>{route.label}</Popup>}
+                {showRouteLabels && !route.suppressLabel && (
+                  <Tooltip
+                    permanent
+                    direction="center"
+                    className={`lead-print-route-label ${labelSize}`}
+                  >
+                    {route.label}
+                  </Tooltip>
+                )}
               </Polyline>
             )
           })}
@@ -1082,9 +968,14 @@ function LeadPrintRouteMap({
                 routePointColor(point, visibleRoutes) ?? '#0e639c'
               )}
             >
-              {showLabels && (
-                <Tooltip permanent direction="top" offset={[0, -38]}>
-                  {point.code}
+              {showPointLabels && (
+                <Tooltip
+                  permanent
+                  direction="top"
+                  offset={[0, -38]}
+                  className={`lead-print-point-label ${labelSize}`}
+                >
+                  {pointPrintLabel(point, pointLabelMode)}
                 </Tooltip>
               )}
               <Popup>
@@ -1096,34 +987,219 @@ function LeadPrintRouteMap({
           ))}
         </MapContainer>
       )}
-      {editing && (
-        <p className="lead-print-map-edit-note">
-          {drawing
-            ? 'Line tool active: click the map to add direction points.'
-            : 'Click the map to set a new point location.'}
-        </p>
+      {showLegend && legendRoutes.length > 0 && (
+        <div className={`lead-print-map-legend ${legendPosition}`}>
+          <strong>Route legend</strong>
+          {legendRoutes.map((route) => (
+            <span key={route.id}>
+              <i style={{ background: route.color }} />
+              {route.label}
+            </span>
+          ))}
+        </div>
+      )}
+      {interactive && onBoxHeightChange && (
+        <MapBoxResizeHandle host={mapHost} onChange={onBoxHeightChange} />
       )}
     </div>
   )
 }
 
-function FitBoundsOnce({ bounds }: { bounds: L.LatLngBounds }): null {
+/** How many screen px one printed mm currently occupies, including any scale. */
+function measurePxPerMm(host: HTMLElement): number {
+  const probe = document.createElement('div')
+  probe.style.cssText = 'position:absolute;visibility:hidden;width:0;height:100mm'
+  host.appendChild(probe)
+  const perMm = probe.getBoundingClientRect().height / 100
+  probe.remove()
+  return perMm > 0 ? perMm : 96 / 25.4
+}
+
+function mapContainsRoute(map: L.Map, routes: ReadonlyArray<ReadonlyArray<[number, number]>>): boolean {
+  const frame = map.getBounds()
+  if (!frame.isValid()) return false
+  return routeGeometryIntersectsBounds(routes, {
+    south: frame.getSouth(),
+    west: frame.getWest(),
+    north: frame.getNorth(),
+    east: frame.getEast()
+  })
+}
+
+function fitRouteBounds(map: L.Map, bounds: L.LatLngBounds): void {
+  if (!bounds.isValid()) return
+  try {
+    map.fitBounds(bounds, { padding: [30, 30], animate: false })
+  } catch {
+    // A transient map/layout state can reject fitBounds; ignore rather than crash.
+  }
+}
+
+/** Repairs a legacy/saved viewport when it contains no part of any printed route. */
+function EnsureRouteContentVisible({
+  bounds,
+  routes,
+  onEmptyView
+}: {
+  bounds: L.LatLngBounds
+  routes: ReadonlyArray<ReadonlyArray<[number, number]>>
+  onEmptyView?: () => void
+}): null {
   const map = useMap()
+  const checkedRoutes = useRef<ReadonlyArray<ReadonlyArray<[number, number]>> | null>(null)
   useEffect(() => {
-    if (!bounds || !bounds.isValid()) return
-    try {
-      map.fitBounds(bounds, { padding: [30, 30] })
-    } catch {
-      // A transient map/layout state can reject fitBounds; ignore rather than crash.
-    }
-  }, [bounds, map])
+    if (routes.length === 0 || checkedRoutes.current === routes) return
+    checkedRoutes.current = routes
+    if (mapContainsRoute(map, routes)) return
+    fitRouteBounds(map, bounds)
+    // Null restores automatic route fitting, so later route edits also remain visible.
+    onEmptyView?.()
+  }, [bounds, map, onEmptyView, routes])
   return null
 }
 
-function EditableMapClick({ onPick }: { onPick: (lat: number, lon: number) => void }): null {
+/** Keeps the printed view in step with deliberate user pan/zoom interactions. */
+function MapViewRecorder({
+  bounds,
+  routes,
+  onChange,
+  onEmptyView
+}: {
+  bounds: L.LatLngBounds
+  routes: ReadonlyArray<ReadonlyArray<[number, number]>>
+  onChange: (view: { lat: number; lon: number; zoom: number }) => void
+  onEmptyView?: () => void
+}): null {
+  const map = useMap()
+  const userInteractionPending = useRef(false)
+
+  useEffect(() => {
+    const container = map.getContainer()
+    const markInteraction = (): void => {
+      userInteractionPending.current = true
+    }
+    const markKeyboardInteraction = (event: KeyboardEvent): void => {
+      if (['+', '=', '-', '_'].includes(event.key)) markInteraction()
+    }
+    container.addEventListener('pointerdown', markInteraction, true)
+    container.addEventListener('wheel', markInteraction, true)
+    container.addEventListener('keydown', markKeyboardInteraction, true)
+    return () => {
+      container.removeEventListener('pointerdown', markInteraction, true)
+      container.removeEventListener('wheel', markInteraction, true)
+      container.removeEventListener('keydown', markKeyboardInteraction, true)
+    }
+  }, [map])
+
+  const recordUserView = (): void => {
+    if (!userInteractionPending.current) return
+    userInteractionPending.current = false
+    if (!mapContainsRoute(map, routes)) {
+      fitRouteBounds(map, bounds)
+      onEmptyView?.()
+      return
+    }
+    const center = map.getCenter()
+    onChange({ lat: center.lat, lon: center.lng, zoom: map.getZoom() })
+  }
+
   useMapEvents({
-    click: (event) => onPick(event.latlng.lat, event.latlng.lng)
+    moveend: recordUserView,
+    zoomend: recordUserView
   })
+  return null
+}
+
+/**
+ * Drag the bottom edge to grow the map down the page. Height is committed in
+ * mm so the printed box matches what was dragged, whatever the preview zoom.
+ */
+function MapBoxResizeHandle({
+  host,
+  onChange
+}: {
+  host: HTMLDivElement | null
+  onChange: (heightMm: number) => void
+}): JSX.Element {
+  const startDrag = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    if (!host) return
+    event.preventDefault()
+    event.stopPropagation()
+    const startY = event.clientY
+    const startHeightPx = host.getBoundingClientRect().height
+    // Measured, not assumed: the preview may be scaled, and a transformed
+    // ancestor would otherwise make every drag off by that factor.
+    const pxPerMm = measurePxPerMm(host)
+    const handle = event.currentTarget
+    handle.setPointerCapture(event.pointerId)
+
+    const move = (moveEvent: PointerEvent): void => {
+      const nextPx = startHeightPx + (moveEvent.clientY - startY)
+      onChange(Math.max(MIN_MAP_BOX_HEIGHT_MM, Math.round(nextPx / pxPerMm)))
+    }
+    const stop = (): void => {
+      handle.releasePointerCapture(event.pointerId)
+      handle.removeEventListener('pointermove', move)
+      handle.removeEventListener('pointerup', stop)
+      handle.removeEventListener('pointercancel', stop)
+    }
+    handle.addEventListener('pointermove', move)
+    handle.addEventListener('pointerup', stop)
+    handle.addEventListener('pointercancel', stop)
+  }
+
+  return (
+    <div
+      className="lead-print-map-resize"
+      role="separator"
+      aria-label="Drag to resize the map box"
+      title="Drag to resize the map box"
+      onPointerDown={startDrag}
+    >
+      <span />
+    </div>
+  )
+}
+
+function pointPrintLabel(
+  point: RoutePoint,
+  mode: 'code' | 'name' | 'code_name'
+): string {
+  if (mode === 'code') return point.code
+  if (mode === 'name') return point.label || point.code
+  return point.label && point.label !== point.code ? `${point.code} - ${point.label}` : point.code
+}
+
+/** Keep Leaflet's internal pixel grid synchronized with the flex-sized print box. */
+function SyncMapToPrintBox({
+  bounds,
+  autoFit
+}: {
+  bounds: L.LatLngBounds
+  autoFit: boolean
+}): null {
+  const map = useMap()
+  useEffect(() => {
+    const container = map.getContainer()
+    let frame = 0
+    const sync = (): void => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        if (container.clientWidth < 2 || container.clientHeight < 2) return
+        map.invalidateSize({ animate: false, pan: false })
+        if (autoFit) fitRouteBounds(map, bounds)
+      })
+    }
+
+    sync()
+    const observer = new ResizeObserver(sync)
+    observer.observe(container)
+    void document.fonts?.ready.then(sync)
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
+  }, [autoFit, bounds, map])
   return null
 }
 
@@ -1182,6 +1258,7 @@ function chargeCodesForApplication(
   variant: LeadVariant,
   application: LeadApplication
 ): AppliedChargeCode[] {
+  if (variant.pipeLead) return []
   const codes = new Set<AppliedChargeCode>()
   if (
     application.leadRate > 0 ||
@@ -1285,7 +1362,7 @@ function buildRouteLines(
       from,
       to,
       label: `${row.variant.materialName} ${km.format(row.variant.leadKm)} km`,
-      color: colors[index % colors.length],
+      color: leadRouteColor(row.variant, index),
       geometry: row.variant.routeGeometry?.map(
         (point) => [point.lat, point.lon] as [number, number]
       ),
@@ -1306,7 +1383,7 @@ function buildRouteLines(
           firstGeometry.at(-1)!
         ),
         label: `First mile ${km.format(row.variant.firstMileKm ?? 0)} km`,
-        color: colors[index % colors.length],
+        color: leadRouteColor(row.variant, index),
         geometry: firstGeometry.map((point) => [point.lat, point.lon] as [number, number]),
         variantId: row.variant.id,
         dashed: true,
@@ -1329,7 +1406,7 @@ function buildRouteLines(
           lastGeometry.at(-1)!
         ),
         label: `Last mile ${km.format(row.variant.lastMileKm ?? 0)} km`,
-        color: colors[index % colors.length],
+        color: leadRouteColor(row.variant, index),
         geometry: lastGeometry.map((point) => [point.lat, point.lon] as [number, number]),
         variantId: row.variant.id,
         dashed: true,
@@ -1369,17 +1446,6 @@ function pointFromLeadPoint(point: LeadSelectablePoint | null | undefined): Rout
     label: point.name || point.kind.replaceAll('_', ' '),
     lat: point.lat,
     lon: point.lon
-  }
-}
-
-function pointRouteLine(point: LeadSelectablePoint): RouteLine {
-  const routePoint = pointFromLeadPoint(point)!
-  return {
-    id: `point:${point.id}`,
-    label: routePoint.label,
-    from: routePoint,
-    to: routePoint,
-    color: '#0e639c'
   }
 }
 
@@ -1432,36 +1498,12 @@ function orderIndex(order: string[], value: string): number {
   return index === -1 ? order.length : index
 }
 
-function normalizePrintSettings(settings?: LeadPrintSettings) {
-  return {
-    pageSize: settings?.pageSize ?? DEFAULT_PRINT_SETTINGS.pageSize,
-    margins: settings?.margins ?? DEFAULT_PRINT_SETTINGS.margins,
-    pages: {
-      chart: {
-        orientation:
-          settings?.pages?.chart?.orientation ?? DEFAULT_PRINT_SETTINGS.pages.chart.orientation
-      },
-      calculation: {
-        orientation:
-          settings?.pages?.calculation?.orientation ??
-          DEFAULT_PRINT_SETTINGS.pages.calculation.orientation
-      },
-      map: {
-        orientation: settings?.pages?.map?.orientation ?? DEFAULT_PRINT_SETTINGS.pages.map.orientation
-      }
-    },
-    showMapLabels: settings?.showMapLabels ?? DEFAULT_PRINT_SETTINGS.showMapLabels,
-    showRouteArrows: settings?.showRouteArrows ?? DEFAULT_PRINT_SETTINGS.showRouteArrows,
-    showBaseMap: settings?.showBaseMap ?? DEFAULT_PRINT_SETTINGS.showBaseMap
-  }
-}
-
 function printPageStyle(
-  settings: ReturnType<typeof normalizePrintSettings>,
+  settings: ReturnType<typeof normalizeLeadPrintSettings>,
   page: LeadPrintPageKey,
   signatureFooter?: SignatureFooterSettings
 ): CSSProperties {
-  const size = paperSizeMm(settings.pageSize)
+  const size = paperSizeMm(page === 'map' ? settings.mapPageSize : settings.pageSize)
   const orientation = settings.pages[page].orientation
   const width = orientation === 'landscape' ? size.height : size.width
   const height = orientation === 'landscape' ? size.width : size.height
@@ -1480,29 +1522,11 @@ function printPageStyle(
 }
 
 function paperSizeMm(pageSize: LeadPrintSettings['pageSize']): { width: number; height: number } {
+  if (pageSize === 'A2') return { width: 420, height: 594 }
   if (pageSize === 'A3') return { width: 297, height: 420 }
   if (pageSize === 'Letter') return { width: 216, height: 279 }
   if (pageSize === 'Legal') return { width: 216, height: 356 }
   return { width: 210, height: 297 }
-}
-
-function blankPrintPointDraft(points: LeadSelectablePoint[]): PrintPointDraft {
-  const used = new Set(points.map((point) => point.code.toUpperCase()))
-  let code = 'P1'
-  for (let index = 1; index <= 99; index += 1) {
-    const candidate = `P${index}`
-    if (!used.has(candidate)) {
-      code = candidate
-      break
-    }
-  }
-  return {
-    code,
-    name: '',
-    kind: 'other',
-    lat: '',
-    lon: ''
-  }
 }
 
 function formatRate(value: number | undefined): string {

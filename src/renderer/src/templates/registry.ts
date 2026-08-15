@@ -22,6 +22,12 @@ export const COMPONENT_TEMPLATES: ComponentTemplateDef[] = [
     name: 'Small Earthen Bund',
     description:
       'Repair of a small earthen tank bund. Cross-section per chainage, proposed bund auto-drawn from the tank levels, Mean Sectional Area quantities for stripping, formation and rolling, with a to-scale section drawing.'
+  },
+  {
+    id: 'mi-sluice-new',
+    name: 'MI Tank Sluice — New',
+    description:
+      'New headwall or tower sluice. Hydraulic capacity check, civil quantities, mechanical BOM, SSR items and a live labelled tank-section diagram.'
   }
 ]
 

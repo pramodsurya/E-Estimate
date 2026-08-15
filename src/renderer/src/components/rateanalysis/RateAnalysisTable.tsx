@@ -15,6 +15,8 @@ import {
   plainTextRun
 } from '../../lib/rateAnalysisVisibility'
 import { supabase } from '../../lib/supabase'
+import { pipeLeadCatalogueLabel } from '../../lib/pipeLead'
+import { lineIdentity } from '../../lib/recipeMerge'
 import type {
   LeadApplication,
   LeadRateCalculationDetail,
@@ -42,6 +44,110 @@ interface FormulaRef {
   label: string
 }
 
+/**
+ * Edits the current schedule could not be given, and what to do about each.
+ *
+ * An edit that finds no row in the new year is simply gone from the sheet, and
+ * one matched on wording alone may have landed on a resource that merely reads
+ * the same. Neither shows up in a total, so neither can be left unsaid — but a
+ * warning nobody can answer becomes wallpaper, so each one carries its actions:
+ * accept it, or put the row back as your own.
+ */
+function UnresolvedEditsNotice({
+  recipe,
+  onChange
+}: {
+  recipe: RateAnalysisRecipe
+  onChange: (next: RateAnalysisRecipe) => void
+}): JSX.Element | null {
+  const entries = recipe.unresolvedEdits ?? []
+  if (entries.length === 0) return null
+
+  const acknowledge = (keys: string[]): void => {
+    onChange({
+      ...recipe,
+      acknowledgedEdits: Array.from(
+        new Set([...(recipe.acknowledgedEdits ?? []), ...keys])
+      ),
+      unresolvedEdits: entries.filter((entry) => !keys.includes(entry.key))
+    })
+  }
+
+  /** Put a lost row back as the estimator's own, values and all. */
+  const restore = (entry: (typeof entries)[number]): void => {
+    const saved = entry.saved
+    if (!saved) return
+    onChange(
+      invalidateRateAnalysisCalculation({
+        ...recipe,
+        acknowledgedEdits: Array.from(
+          new Set([...(recipe.acknowledgedEdits ?? []), entry.key])
+        ),
+        unresolvedEdits: entries.filter((candidate) => candidate.key !== entry.key),
+        sections: recipe.sections.map((section) =>
+          section.key === entry.sectionKey
+            ? {
+                ...section,
+                // As a project row: it has no counterpart in this schedule, so
+                // it must not be matched against one next year either.
+                lines: [...section.lines, { ...saved, userAdded: true }]
+              }
+            : section
+        )
+      })
+    )
+  }
+
+  const label = (entry: (typeof entries)[number]): string =>
+    entry.reason === 'weak-match'
+      ? 'matched on description alone'
+      : entry.reason === 'section-withdrawn'
+        ? 'its section is not published this year'
+        : 'no row in this year answers to it'
+
+  return (
+    <div className="rate-unresolved-edits">
+      <div className="rate-unresolved-head">
+        <strong>
+          {entries.length} edit{entries.length === 1 ? '' : 's'} could not be carried onto SOR{' '}
+          {recipe.year} with confidence.
+        </strong>
+        <button
+          type="button"
+          className="btn-mini"
+          onClick={() => acknowledge(entries.map((entry) => entry.key))}
+        >
+          Ignore all
+        </button>
+      </div>
+      <ul>
+        {entries.map((entry) => (
+          <li key={entry.key} className={`rate-unresolved-${entry.reason}`}>
+            <span>
+              <b>{entry.description}</b> <small>({entry.editedFields.join(', ')})</small> —{' '}
+              {label(entry)}.
+            </span>
+            <span className="rate-unresolved-actions">
+              {entry.reason !== 'weak-match' && entry.saved && (
+                <button type="button" className="btn-mini" onClick={() => restore(entry)}>
+                  Add back as my row
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn-mini"
+                onClick={() => acknowledge([entry.key])}
+              >
+                {entry.reason === 'weak-match' ? 'Accept' : 'Ignore'}
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 export default function RateAnalysisTable({
   recipe,
   editing,
@@ -65,7 +171,16 @@ export default function RateAnalysisTable({
   figureUrls?: Record<string, string>
 }): JSX.Element {
   if (recipe.itemSource === 'SOR') {
-    return <SorDataSheet recipe={recipe} editing={editing} onChange={onChange} />
+    return (
+      <SorDataSheet
+        recipe={recipe}
+        editing={editing}
+        onChange={onChange}
+        leadApplications={leadApplications}
+        leadVariants={leadVariants}
+        onLeadApplicationQuantityChange={onLeadApplicationQuantityChange}
+      />
+    )
   }
 
   const summary = calculateBaseRateAnalysis(recipe)
@@ -154,10 +269,29 @@ export default function RateAnalysisTable({
   const deleteSectionLine = (sectionKey: RateAnalysisSectionKey, lineId: string): void => {
     const section = recipe.sections.find((candidate) => candidate.key === sectionKey)
     if (!section) return
-    setSectionLines(
-      sectionKey,
-      section.lines.filter((line) => line.id !== lineId)
-    )
+    const removedLine = section.lines.find((line) => line.id === lineId)
+    const lines = section.lines.filter((line) => line.id !== lineId)
+    // A published row must be recorded as removed, not merely left out: when the
+    // SOR year changes, a row missing from this sheet is otherwise
+    // indistinguishable from one newly published this year, and would come back.
+    // A row the estimator added has no published counterpart to suppress.
+    if (removedLine && !removedLine.userAdded) {
+      const identity = lineIdentity(removedLine)
+      const removedLines = recipe.removedLines ?? []
+      onChange(
+        invalidateRateAnalysisCalculation({
+          ...recipe,
+          sections: recipe.sections.map((candidate) =>
+            candidate.key === sectionKey ? { ...candidate, lines } : candidate
+          ),
+          removedLines: removedLines.includes(identity)
+            ? removedLines
+            : [...removedLines, identity]
+        })
+      )
+      return
+    }
+    setSectionLines(sectionKey, lines)
   }
 
   const setStoredRows = (area: StoredRowArea, rows: RateAnalysisStoredRow[]): void => {
@@ -187,6 +321,7 @@ export default function RateAnalysisTable({
 
   return (
     <article className={`rate-sheet ${recalculated ? 'rate-sheet-recalculated' : 'rate-sheet-published'}`}>
+      <UnresolvedEditsNotice recipe={recipe} onChange={onChange} />
       <div className="rate-document-header">
         {layout.codeVisible && <strong className="rate-sheet-code">{recipe.itemCode}</strong>}
         <div className="rate-document-meta">
@@ -200,6 +335,9 @@ export default function RateAnalysisTable({
           </small>
         </div>
       </div>
+      {recipe.sectionHeading?.trim() ? (
+        <div className="rate-source-section-heading">{recipe.sectionHeading}</div>
+      ) : null}
       {layout.descriptionVisible &&
         (editing ? (
           <textarea
@@ -214,6 +352,14 @@ export default function RateAnalysisTable({
             />
           </div>
         ))}
+
+      {recipe.projectDataImageUrl ? (
+        <img
+          className="rate-project-data-image"
+          src={recipe.projectDataImageUrl}
+          alt="DATA reference"
+        />
+      ) : null}
 
       {recipe.sourceFigures && recipe.sourceFigures.length > 0 && (
         <SsrSourceFigures
@@ -380,7 +526,7 @@ export default function RateAnalysisTable({
               </div>
             ) : null}
 
-            {section.key === 'labour' && (
+            {section.key === 'labour' && summary.areaAllowancePercent > 0 && (
               <div className="area-allowance-analysis">
                 <div className="area-allowance-analysis-title">Area Allowance</div>
                 <div className="area-allowance-analysis-row">
@@ -921,11 +1067,17 @@ function SsrSourceFigures({
 function SorDataSheet({
   recipe,
   editing,
-  onChange
+  onChange,
+  leadApplications,
+  leadVariants,
+  onLeadApplicationQuantityChange
 }: {
   recipe: RateAnalysisRecipe
   editing: boolean
   onChange: (recipe: RateAnalysisRecipe) => void
+  leadApplications: LeadApplication[]
+  leadVariants: LeadVariant[]
+  onLeadApplicationQuantityChange?: (applicationId: string, quantity: number) => void
 }): JSX.Element {
   const sourceSection = recipe.sections.find((section) => section.lines.length > 0)
   const sourceLine = sourceSection?.lines[0]
@@ -934,6 +1086,7 @@ function SorDataSheet({
   const rate = hasNumericRate ? numericRate : 0
   const rateText = recipe.publishedRateText?.trim() ?? ''
   const catalogueSource = recipe.sorCatalogueSource
+  const outputQuantity = recipe.outputQuantity || 1
 
   const updateDescription = (description: string): void => {
     onChange({
@@ -974,8 +1127,9 @@ function SorDataSheet({
 
   return (
     <article className="rate-sheet sor-data-sheet">
+      <UnresolvedEditsNotice recipe={recipe} onChange={onChange} />
       <div className="rate-document-header">
-        <strong className="rate-sheet-code">{recipe.itemCode}</strong>
+        <strong className="rate-sheet-code">SOR DATA</strong>
         <div className="rate-document-meta">
           <span>
             SOR {recipe.year} · {catalogueSource?.catalogueName ?? zoneLabel(recipe.zone ?? 'zone_3')}
@@ -1060,6 +1214,31 @@ function SorDataSheet({
             </p>
           ) : null}
         </div>
+      ) : null}
+      {catalogueSource?.pipeLead && leadApplications.length === 0 ? (
+        <section className="sor-pipe-lead-status">
+          <strong>Pipe conveyance Lead is not applied yet</strong>
+          <span>
+            Open Lead, select this RCC pipe, create a route with the actual source-to-site
+            distance, and apply the variant to this DATA item.
+          </span>
+          <small>
+            {pipeLeadCatalogueLabel(catalogueSource.pipeLead)} ·{' '}
+            {catalogueSource.pipeLead.pipeClassGroup.replaceAll('_', ' / ')} ·{' '}
+            {catalogueSource.pipeLead.diameterMm} mm
+          </small>
+        </section>
+      ) : null}
+      {leadApplications.length > 0 ? (
+        <LeadAdditions
+          applications={leadApplications}
+          variants={leadVariants}
+          outputQuantity={outputQuantity}
+          baseFinalAmount={rate * outputQuantity}
+          baseRate={rate}
+          editing={editing}
+          onQuantityChange={onLeadApplicationQuantityChange}
+        />
       ) : null}
     </article>
   )

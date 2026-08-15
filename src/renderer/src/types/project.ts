@@ -1,11 +1,15 @@
 // E-Estimate project model. Serialized as JSON into a `.eestimate` file.
 
-import type { RateAnalysisRecipe, SeigniorageApplicabilityPolicy } from './rateAnalysis'
+import type {
+  RateAnalysisRecipe,
+  RateAnalysisSection,
+  SeigniorageApplicabilityPolicy
+} from './rateAnalysis'
 import type { IDocumentData, IWorkbookData } from '@univerjs/core'
 
 export type NodeKind = 'title' | 'page' | 'component' | 'subcomponent' | 'item'
 
-export type ItemSource = 'SSR' | 'SOR' | 'OTHERS'
+export type ItemSource = 'SSR' | 'SOR' | 'PROJECT_DATA' | 'OTHERS'
 export type ItemEditorType = 'spreadsheet' | 'document'
 
 export type DataVariantKind = 'upto' | 'type' | 'optional_addition' | 'quantity_band'
@@ -22,12 +26,110 @@ export interface DataVariantSelection {
   addonId?: string
 }
 
+interface ProjectDataDefinitionBase {
+  id: string
+  code: string
+  description: string
+  unit: string
+  /** Optional image supplied by the estimator when creating this DATA. */
+  imageDataUrl?: string
+  /**
+   * Whole-DATA Lead. Used when a published SSR carries one transport rule for
+   * the complete work (for example excavated disposal or fabricated parts),
+   * rather than a particular Material/Machinery row.
+   */
+  lead?: {
+    applicable: boolean
+    /** Common lead classification selected by the estimator when lead is applicable. */
+    conveyanceClass?: ConveyanceClass
+    materialName?: string
+    /** Published or estimator-selected whole-DATA transport rule. */
+    policy?: LeadPolicy
+  }
+  /**
+   * Project DATA can opt into the normal material-to-seigniorage matching flow.
+   * Existing project files without this field retain automatic matching.
+   */
+  /** @deprecated Legacy item-wide Seigniorage flag. New SSR DATA stores it per resource row. */
+  seigniorage?: {
+    applicable: boolean
+  }
+  createdAt: string
+  updatedAt: string
+}
+
+/** A reusable simple SOR-type project DATA definition. */
+export interface ProjectSorDataDefinition extends ProjectDataDefinitionBase {
+  kind: 'sor'
+  rate: number
+}
+
+/** A reusable custom SSR DATA definition. Its Abstract is always derived from these sections. */
+export interface ProjectSsrDataDefinition extends ProjectDataDefinitionBase {
+  kind: 'ssr'
+  outputQuantity: number
+  overheadPercent: number
+  sections: RateAnalysisSection[]
+}
+
+export type ProjectDataDefinition = ProjectSorDataDefinition | ProjectSsrDataDefinition
+
+export type ProjectDataDefinitionInput =
+  | Omit<ProjectSorDataDefinition, 'id' | 'code' | 'createdAt' | 'updatedAt'>
+  | Omit<ProjectSsrDataDefinition, 'id' | 'code' | 'createdAt' | 'updatedAt'>
+
 export type SorCatalogueDimensionValue = string | number | boolean | null
 
 export interface SorCatalogueCommercialTerms {
   basis?: string
   transportation?: string
   taxes?: string
+}
+
+/**
+ * Exact RCC pipe-conveyance cell linked by `get_sor_catalogue_price`.
+ *
+ * These rates come from Public Health Tables 6/7 and deliberately remain
+ * separate from both the ordinary SOR catalogue and the common Lead chart.
+ */
+export interface PipeLeadSource {
+  materialItemCode: string
+  pipeLeadItemCode: string
+  pipeLeadCatalogueCode: string
+  catalogueName?: string
+  pipeEndType?: string
+  pipeClassGroup: string
+  diameterMm: number
+  unit?: string
+  rateScope?: string
+  autoApply: boolean
+  distanceInputRequired: boolean
+  handlingIncluded: string[]
+}
+
+export interface PipeLeadQuote {
+  status: string
+  sorYear: string
+  materialItemCode?: string
+  pipeLeadItemCode: string
+  pipeLeadCatalogueCode: string
+  catalogueName: string
+  pipeEndType: string
+  pipeClassGroup: string
+  pipeClasses: string[]
+  diameterMm: number
+  unit: string
+  distanceKm: number
+  quantity: number
+  upto5KmRate: number
+  additionalPerStartedKmRate: number
+  additionalStartedKm: number
+  leadRatePerMetre: number
+  amount: number
+  rateScope: string
+  selectedZone: string | null
+  sourcePage: number | null
+  handlingIncluded: string[]
 }
 
 /**
@@ -50,6 +152,8 @@ export interface SorCatalogueItemSelection {
   sourcePage: number | null
   sourceTitle?: string | null
   commercialTerms?: SorCatalogueCommercialTerms
+  /** Automatic Public Health Table 6/7 conveyance link, when this is an RCC pipe. */
+  pipeLead?: PipeLeadSource
 }
 
 /**
@@ -218,7 +322,7 @@ export type SpreadsheetDocument = IWorkbookData | LegacySpreadsheetDocument
 // totals and the Lead / Seigniorage / Abstract prints keep working unchanged.
 // ---------------------------------------------------------------------------
 
-export type ComponentTemplateId = 'guide-wall' | 'bund'
+export type ComponentTemplateId = 'guide-wall' | 'bund' | 'mi-sluice-new'
 
 export interface GuideWallPoint {
   lat: number
@@ -309,6 +413,119 @@ export interface GuideWallData {
   excavationRows: GuideWallExcavationRow[]
   /** Generated items, one per distinct (role, code) actually in use. */
   materialItems: GuideWallMaterialItem[]
+}
+
+// ---------------------------------------------------------------------------
+// New MI tank sluice. This is a quantity template, not a structural design
+// substitute: the engineer enters the approved geometry and mechanical BOM;
+// the template keeps the estimate, hydraulic check, drawing and SSR rows in
+// step with those inputs.
+// ---------------------------------------------------------------------------
+
+export type MiSluiceOpeningShape = 'rectangular' | 'circular'
+export type MiSluiceIntakeType = 'headwall' | 'tower'
+export type MiSluiceMaterialRole =
+  | 'excavation'
+  | 'pcc'
+  | 'rcc'
+  | 'reinforcement'
+  | 'embedded'
+  | 'gate'
+  | 'hoist'
+  | 'embedded-paint'
+  | 'gate-paint'
+  | 'hoist-paint'
+
+export interface MiSluiceMaterialItem {
+  role: MiSluiceMaterialRole
+  code: string
+  itemNodeId: string
+}
+
+export interface MiSluiceNewData {
+  configured: boolean
+  intakeType: MiSluiceIntakeType
+  openingShape: MiSluiceOpeningShape
+  vents: number
+  levels: {
+    sill: number
+    minimumOperating: number
+    ftl: number
+    mwl: number
+    tbl: number
+  }
+  hydraulic: {
+    designDischarge: number
+    dischargeCoefficient: number
+    minimumCrownCover: number
+  }
+  opening: {
+    width: number
+    height: number
+    diameter: number
+  }
+  barrel: {
+    length: number
+    outerWidth: number
+    outerHeight: number
+  }
+  excavation: {
+    length: number
+    width: number
+    depth: number
+  }
+  pcc: {
+    length: number
+    width: number
+    thickness: number
+  }
+  intake: {
+    length: number
+    averageThickness: number
+    height: number
+  }
+  downstreamHeadwall: {
+    length: number
+    averageThickness: number
+    height: number
+  }
+  wingWalls: {
+    count: number
+    length: number
+    averageThickness: number
+    averageHeight: number
+  }
+  returnWalls: {
+    count: number
+    length: number
+    averageThickness: number
+    averageHeight: number
+  }
+  cutoffWalls: {
+    count: number
+    width: number
+    thickness: number
+    depth: number
+  }
+  stillingBasin: {
+    length: number
+    width: number
+    slabThickness: number
+    sideWallCount: number
+    sideWallThickness: number
+    sideWallHeight: number
+  }
+  reinforcementKgPerCum: number
+  mechanical: {
+    embeddedTonnes: number
+    gateTonnes: number
+    hoistTonnes: number
+    embeddedPaintSqm: number
+    gatePaintSqm: number
+    hoistPaintSqm: number
+  }
+  materials: Record<MiSluiceMaterialRole, TemplateMaterialRef | null>
+  materialItems: MiSluiceMaterialItem[]
 }
 
 // ---------------------------------------------------------------------------
@@ -803,6 +1020,8 @@ export interface ProjectNode {
   guideWall?: GuideWallData
   /** Bund template state (templateId === 'bund'). */
   bund?: BundData
+  /** New MI tank sluice template state (templateId === 'mi-sluice-new'). */
+  miSluiceNew?: MiSluiceNewData
 
   /**
    * Item nodes whose quantity is computed by a component template. Carries the
@@ -815,7 +1034,7 @@ export interface ProjectNode {
   /** Component id that owns and edits this generated item. */
   templateOwnerId?: string
   /** Which template role produced this item. */
-  templateItemRole?: 'wall' | 'base' | 'excavation' | BundItemRole
+  templateItemRole?: 'wall' | 'base' | 'excavation' | BundItemRole | MiSluiceMaterialRole
 
   /**
    * Page/document item nodes: free-form document content.
@@ -839,9 +1058,13 @@ export interface ProjectNode {
   itemSource?: ItemSource
   itemCode?: string
   itemDescription?: string
+  /** Source record in the project DATA library. It is reusable across Components. */
+  projectDataId?: string
+  /** @deprecated Legacy Create New DATA reference; no longer written by the app. */
   splitFromNodeId?: string
+  /** @deprecated Legacy Create New DATA identity; retained to read existing projects. */
   splitFromItemKey?: string
-  /** Stable project-local DATA identity shared by every usage of a cloned DATA. */
+  /** @deprecated Legacy Create New DATA identity; retained to read existing projects. */
   createdDataId?: string
   /** Optional work point for a component/sub-component. Defaults to project location. */
   location?: ProjectLocation | null
@@ -936,11 +1159,12 @@ export type ConveyanceClass =
   | 'SLAB_WOOD'
   | 'WATER'
   | 'BRICKS'
+  | 'RCC_PIPE'
 
 export type LeadPointKind = 'site' | 'quarry' | 'sand_reach' | 'godown' | 'water' | 'stockyard' | 'other'
 export type LeadHandlingMode = 'none' | 'manual_no_idle' | 'manual_with_idle' | 'mechanical'
 export type LeadIncludedBasis = 'none' | 'initial_50m' | 'initial_1km' | 'all_leads'
-export type LeadRateSource = 'chart' | 'dtl' | 'manual'
+export type LeadRateSource = 'chart' | 'dtl' | 'manual' | 'pipe_catalogue'
 export type LeadRoadCondition = 'normal' | 'certified_ghat' | 'ce_exceptional'
 export type LeadAccessDistanceMode = 'auto' | 'manual'
 export type LeadTransportPurpose =
@@ -1014,9 +1238,27 @@ export interface LeadPrintSettings {
   pageSize?: PaperSize
   margins?: Margins
   pages?: Partial<Record<LeadPrintPageKey, LeadPrintPageSettings>>
+  mapPageSize?: PaperSize
+  mapLayerType?: 'map' | 'satellite' | 'toposheet' | 'toposheet_transparent'
   showMapLabels?: boolean
+  showMapPointLabels?: boolean
+  showMapRouteLabels?: boolean
+  mapPointLabelMode?: 'code' | 'name' | 'code_name'
+  mapLabelSize?: 'small' | 'medium' | 'large'
   showRouteArrows?: boolean
   showBaseMap?: boolean
+  showMapLegend?: boolean
+  mapLegendPosition?: 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right'
+  showMapScale?: boolean
+  showMapHeader?: boolean
+  mapTitle?: string
+  mapSubtitle?: string
+  /** Map box height in mm. Unset (or 0) fills the page below the heading. */
+  mapBoxHeightMm?: number
+  /** Map box width as a percentage of the printable width. */
+  mapBoxWidthPercent?: number
+  /** Saved pan/zoom. Unset or null means "fit the routes". */
+  mapView?: { lat: number; lon: number; zoom: number } | null
 }
 
 export interface SeignioragePrintSettings {
@@ -1060,6 +1302,8 @@ export interface LeadVariant {
   firstMileGeometry?: LeadMapCoordinate[]
   /** Last access connector, drawn in the selected haul direction. */
   lastMileGeometry?: LeadMapCoordinate[]
+  /** Route colour pinned by the user; unset means the automatic cycle. */
+  mapColor?: string
   routeSource?: 'osrm' | 'manual' | 'legacy'
   routeCalculatedAt?: string
   roadRouteKm?: number
@@ -1083,6 +1327,8 @@ export interface LeadVariant {
   handlingMode: LeadHandlingMode
   includedBasis: LeadIncludedBasis
   rateSource: LeadRateSource
+  /** Linked Public Health Table 6/7 cell for RCC pipe conveyance variants. */
+  pipeLead?: PipeLeadSource
   customGrossRate?: number | null
   active: boolean
   createdAt: string
@@ -1115,6 +1361,8 @@ export interface LeadApplication {
   calculation?: LeadRateCalculationDetail
   /** SOR zone used to calculate the persisted Lead rates. */
   rateZone?: SorZone
+  /** SOR year used to calculate the persisted Lead rate. */
+  rateYear?: string
   handlingWarning?: string
   handlingOverrideReason?: string
   deliveryAtSiteOverrideReason?: string
@@ -1148,6 +1396,22 @@ export interface LeadChart {
 
 export type SorZone = 'zone_1' | 'zone_2' | 'zone_3'
 
+/**
+ * A cement/steel/Public-Health rate fixed for THIS project only. Monthly G.O.
+ * circulars keep moving in the master data; an estimate must stay on the rate it was
+ * sanctioned with, so the value is copied into the project rather than referenced.
+ */
+export interface MaterialRateOverride {
+  /** Rate in the master material's own unit (tonne / MT). */
+  rate: number
+  source: 'MONTHLY_CIRCULAR' | 'MANUAL'
+  /** effective_from of the circular chosen, when source is MONTHLY_CIRCULAR. */
+  effectiveFrom?: string
+  /** Printed provenance, e.g. "G.O. monthly material circular - May 2026". */
+  label?: string
+  setAt: string
+}
+
 export interface ProjectMeta {
   name: string
   sorYear: string
@@ -1168,6 +1432,13 @@ export interface ProjectMeta {
   flags: string[]
   /** GST selection. Automatic mode resolves the live Supabase slab. */
   taxSettings?: ProjectTaxSettings
+  /** Per-project cement/steel/PH rates, keyed by material_code. Never global. */
+  materialRateOverrides?: Record<string, MaterialRateOverride>
+  /**
+   * Date the project prices monthly materials at. Defaults to today when unset, so a
+   * project opened later still resolves the circular that was current for it.
+   */
+  materialRateAsOf?: string
 }
 
 export type CompiledDataScope = 'shared' | 'shared_edit' | 'component_edit' | 'item_edit' | 'lead_edit'
@@ -1229,6 +1500,7 @@ export interface CompiledLeadDashboardEntry {
   leadKm: number
   liftM: number
   rateSource: LeadRateSource
+  pipeLead?: PipeLeadSource
   /** Cost per Lead unit compiled from the synced Lead chart rows. */
   variantRate: number | null
   rateUnit: string
@@ -1265,6 +1537,14 @@ export interface DashboardDataSnapshot {
   /** Effective final DATA rates frozen by the last Project/Title Sync. */
   projectRates?: Record<string, number | null>
   projectRecipes?: Record<string, RateAnalysisRecipe>
+  /**
+   * On-disk form of `componentRecipes` / `projectRecipes` — see `projectFile.ts`.
+   * Present only in a saved file; expanded back into the maps above on load, and
+   * never seen by anything that reads the snapshot.
+   */
+  componentItemIds?: Record<string, string[]>
+  mergedRecipes?: Record<string, RateAnalysisRecipe>
+  projectComponentIds?: string[]
   /** Set only when the complete Title dashboard (rates, tax, charges, Lead) synced. */
   projectSyncedAt?: string
   /** Item identity/version set covered by the complete Title sync. */
@@ -1274,6 +1554,8 @@ export interface DashboardDataSnapshot {
     sorZone: SorZone
     areaAllowancePercent: number
     areaAllowanceLabel?: string
+    /** Digest of the project's material rate overrides; a change forces a re-sync. */
+    materialRateSignature?: string
   }
   syncedItemIds: string[]
   itemSignatures?: Record<string, string>
@@ -1303,6 +1585,10 @@ export interface DashboardDataSnapshot {
   seigniorageSyncedAt?: string
   seignioragePolicies: Record<string, SeigniorageApplicabilityPolicy>
   leadApplicability?: Record<string, unknown>
+  /** Current-year Public Health Table 6/7 quotes keyed by Lead variant id. */
+  pipeLeadQuotes?: Record<string, PipeLeadQuote>
+  /** Pipe applications recalculated during Sync and adopted into project Lead state. */
+  leadApplicationUpdates?: LeadApplication[]
   leadRates?: Array<{
     charge_code: string
     year: string
@@ -1332,6 +1618,8 @@ export interface EestimateProject {
   meta: ProjectMeta
   /** The Title node — root of the project tree. */
   root: ProjectNode
+  /** Project DATA library. Definitions only become visible in DATA/Lead once used by an Item. */
+  projectData?: ProjectDataDefinition[]
   leadChart?: LeadChart
   /** Project-local recipe edits, shared by every usage of the same item code. */
   rateAnalysisOverrides?: Record<string, RateAnalysisRecipe>

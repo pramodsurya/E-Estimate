@@ -1,7 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Check, X } from 'lucide-react'
 import { SSR_CATEGORIES, fetchSsrItems, type MasterItem } from '../../lib/masterData'
 import { fetchDataVariantSpecs, type DataVariantSpec } from '../../lib/dataVariants'
+import {
+  applySemanticScores,
+  parseMasterSearch,
+  rankMasterItems,
+  shouldUseSemanticSearch,
+  type MasterSearchMatch
+} from '../../lib/masterSearch'
+import {
+  rerankMasterSearch,
+  semanticCandidateMatches,
+  type SemanticSearchProgress
+} from '../../lib/semanticMasterSearch'
 import type { DataVariantSelection } from '../../types/project'
 import { useStore } from '../../store/useStore'
 import SsrCode from './SsrCode'
@@ -9,6 +21,13 @@ import DataVariantReview, {
   defaultSelectionForVariantSpec,
   selectionForVariantOption
 } from './DataVariantReview'
+
+const MAX_PICKER_RESULTS = 60
+
+interface SemanticRanking extends SemanticSearchProgress {
+  signature: string
+  scores: Record<string, number>
+}
 
 /**
  * SSR item chooser used by the component templates to attach a code to a
@@ -31,6 +50,8 @@ export default function MaterialPicker({
   const project = useStore((state) => state.project)
   const [category, setCategory] = useState(initialCategory)
   const [search, setSearch] = useState(initialSearch)
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch)
+  const [semanticRanking, setSemanticRanking] = useState<SemanticRanking | null>(null)
   const [items, setItems] = useState<MasterItem[]>([])
   const [loading, setLoading] = useState(false)
   const [checkingVariant, setCheckingVariant] = useState(false)
@@ -62,13 +83,84 @@ export default function MaterialPicker({
     }
   }, [category])
 
-  const q = search.trim().toLowerCase()
-  const filtered = (q
-    ? items.filter(
-        (i) => i.code.toLowerCase().includes(q) || i.description.toLowerCase().includes(q)
-      )
-    : items
-  ).slice(0, 60)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search), 250)
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  // Same ranking pipeline as the Add DATA modal: exact constraints and
+  // description relevance first, then the AI worker re-orders the shortlist.
+  // A plain substring filter used to require the whole typed phrase to appear
+  // verbatim, so natural queries like "excavation drain seating" found nothing.
+  const q = debouncedSearch.trim()
+  const parsedSearch = useMemo(() => parseMasterSearch(q), [q])
+  const lexicalMatches = useMemo(
+    () => (q ? rankMasterItems(items, parsedSearch) : []),
+    [items, parsedSearch, q]
+  )
+  const semanticCandidates = useMemo(
+    () => semanticCandidateMatches(lexicalMatches),
+    [lexicalMatches]
+  )
+  const semanticSignature = useMemo(
+    () => `${parsedSearch.normalized}|${semanticCandidates.map((match) => match.key).join('|')}`,
+    [parsedSearch.normalized, semanticCandidates]
+  )
+
+  useEffect(() => {
+    if (
+      !q ||
+      loading ||
+      !shouldUseSemanticSearch(parsedSearch) ||
+      semanticCandidates.length < 2
+    ) {
+      setSemanticRanking(null)
+      return
+    }
+
+    let active = true
+    const updateProgress = (progress: SemanticSearchProgress): void => {
+      if (!active) return
+      setSemanticRanking({ ...progress, signature: semanticSignature, scores: {} })
+    }
+    updateProgress({ status: 'loading', message: 'Preparing AI relevance ranking' })
+    void rerankMasterSearch(q, semanticCandidates, updateProgress)
+      .then((scores) => {
+        if (!active) return
+        setSemanticRanking({
+          status: 'ready',
+          message: 'AI-ranked from item descriptions',
+          signature: semanticSignature,
+          scores
+        })
+      })
+      .catch((error) => {
+        if (!active) return
+        setSemanticRanking({
+          status: 'fallback',
+          message: `Description ranking active · ${
+            error instanceof Error ? error.message : 'AI unavailable'
+          }`,
+          signature: semanticSignature,
+          scores: {}
+        })
+      })
+
+    return () => {
+      active = false
+    }
+  }, [loading, parsedSearch, q, semanticCandidates, semanticSignature])
+
+  const rankedMatches = useMemo(() => {
+    if (semanticRanking?.status !== 'ready' || semanticRanking.signature !== semanticSignature) {
+      return lexicalMatches
+    }
+    return applySemanticScores(lexicalMatches, semanticRanking.scores)
+  }, [lexicalMatches, semanticRanking, semanticSignature])
+
+  const rows: Array<{ item: MasterItem; match?: MasterSearchMatch }> = q
+    ? rankedMatches.slice(0, MAX_PICKER_RESULTS).map((match) => ({ item: match.item, match }))
+    : items.slice(0, MAX_PICKER_RESULTS).map((item) => ({ item }))
 
   const inspectAndPick = async (item: MasterItem): Promise<void> => {
     const year = project?.meta.sorYear
@@ -169,13 +261,27 @@ export default function MaterialPicker({
         </button>
       </div>
       {selectionHint && <div className="gw-picker-help">{selectionHint}</div>}
+      {q && !loading && !loadError ? (
+        <div className={`master-search-summary ${semanticRanking?.status ?? 'lexical'}`}>
+          <span>
+            {parsedSearch.exactConstraints.length > 0
+              ? `Exact ${parsedSearch.exactConstraints
+                  .map((value) => value.toUpperCase())
+                  .join(', ')}`
+              : 'Description relevance'}
+            {' · '}
+            {rankedMatches.length} match{rankedMatches.length === 1 ? '' : 'es'}
+          </span>
+          <small>{semanticRanking?.message ?? 'Exact and description ranking'}</small>
+        </div>
+      ) : null}
       <div className="gw-picker-list">
         {loading ? (
           <div className="latlng-display">Loading items…</div>
         ) : loadError ? (
           <div className="data-variant-error">Could not load SSR codes: {loadError}</div>
-        ) : filtered.length ? (
-          filtered.map((item) => (
+        ) : rows.length ? (
+          rows.map(({ item, match }) => (
             <button
               type="button"
               key={item.code}
@@ -186,6 +292,9 @@ export default function MaterialPicker({
             >
               <SsrCode code={item.code} description={item.description} />
               <small>{item.description.slice(0, 110)}</small>
+              {match && match.reasons.length > 0 ? (
+                <span className="item-search-reason">{match.reasons.join(' · ')}</span>
+              ) : null}
             </button>
           ))
         ) : (

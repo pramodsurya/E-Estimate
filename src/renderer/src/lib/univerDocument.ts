@@ -128,7 +128,9 @@ function estimatedCostDrawing(
     behindDoc: BooleanNumber.FALSE,
     title: 'Estimated cost',
     description: FRONT_COVER_COST_DESCRIPTION,
-    layoutType: PositionedObjectLayoutType.WRAP_NONE,
+    // WRAP_SQUARE remains freely movable, and unlike WRAP_NONE it is painted
+    // by Univer's document canvas as well as by the HTML/PDF renderer.
+    layoutType: PositionedObjectLayoutType.WRAP_SQUARE,
     wrapText: WrapTextType.BOTH_SIDES,
     allowTransform: true,
     distB: 0,
@@ -163,10 +165,6 @@ export function createFrontCoverDocumentData(
     tableLocation?.mandal?.trim() || meta.areaAllowance?.mandal?.trim() || '________________'
   const district =
     tableLocation?.district?.trim() || meta.areaAllowance?.district?.trim() || '________________'
-  const estimatedCost =
-    typeof meta.estimatedCost === 'number' && Number.isFinite(meta.estimatedCost)
-      ? meta.estimatedCost
-      : null
   const centre: IParagraphStyle = {
     horizontalAlign: HorizontalAlign.CENTER,
     lineSpacing: 1.15
@@ -249,10 +247,11 @@ export function createFrontCoverDocumentData(
 
   const documentId = `doc_${node.id}`
   const logoId = `telangana_emblem_${node.id}`
-  const costId = `${FRONT_COVER_COST_DRAWING_PREFIX}${node.id}`
-  let dataStream = '\b\b\r'
+  let dataStream = '\b\r'
   const textRuns: ITextRun[] = []
-  const paragraphs: IParagraph[] = [{ startIndex: 2, paragraphStyle: centre }]
+  const paragraphs: IParagraph[] = [
+    { startIndex: dataStream.length - 1, paragraphStyle: centre }
+  ]
 
   for (const paragraph of coverParagraphs) {
     const start = dataStream.length
@@ -296,18 +295,13 @@ export function createFrontCoverDocumentData(
     distR: 0,
     distT: 0
   }
-  const cost = estimatedCostDrawing(documentId, costId, estimatedCost)
-
   return {
     id: documentId,
     body: {
       dataStream,
       textRuns,
       paragraphs,
-      customBlocks: [
-        { startIndex: 0, blockId: logoId },
-        { startIndex: 1, blockId: costId }
-      ],
+      customBlocks: [{ startIndex: 0, blockId: logoId }],
       sectionBreaks: [{ startIndex: dataStream.length - 1 }]
     },
     documentStyle: {
@@ -317,8 +311,8 @@ export function createFrontCoverDocumentData(
       marginRight: MARGIN,
       marginLeft: MARGIN
     },
-    drawings: { [logoId]: logo, [costId]: cost },
-    drawingsOrder: [logoId, costId]
+    drawings: { [logoId]: logo },
+    drawingsOrder: [logoId]
   } as IDocumentData
 }
 
@@ -427,6 +421,9 @@ function setFrontCoverEstimatedCost(
           : {}),
         title: replacement.title,
         description: replacement.description,
+        layoutType: replacement.layoutType,
+        behindDoc: replacement.behindDoc,
+        wrapText: replacement.wrapText,
         allowTransform: true
       } as FrontCoverDrawing)
     : replacement

@@ -83,6 +83,30 @@ function recipe(overrides = {}) {
   assert.equal(prepared.multiRateClassification.sourceQuantity, 15.44)
 }
 
+// A legacy/offline source may not have the backend rate-structure flag yet.
+// Every published dual-basis hoist code must still adopt its capacity rate.
+{
+  const spec = buildDataVariantSpec({
+    code: 'IRR-GAW-2-11',
+    year: '2026-27',
+    baseRate: 102472.7,
+    rateValues: [
+      { label: 'Rate per tonne', value: 365451.9 },
+      { label: 'Rate per tonne capacity of hoist', value: 102472.7 }
+    ],
+    abstract: [
+      { label: 'Total cost for', basis: '2.804', unit: 'tonne', amount: '1024727.09' },
+      { label: '', basis: '10.00', unit: 't capacity', amount: '' }
+    ]
+  })
+  assert.equal(spec.classification, 'dual_measurement_basis')
+  assert.equal(spec.adoptedOptionKey, spec.options.find((option) => /capacity/i.test(option.label)).key)
+  const prepared = applyDataVariantToRecipe(recipe(), spec, undefined)
+  assert.equal(prepared.outputQuantity, 10)
+  assert.equal(prepared.unit, 't capacity')
+  assert.equal(prepared.publishedRate, 102472.7)
+}
+
 const dawStages = [
   ['Upto 6 m from surface', 'Beyond 6 m upto 12 m from surface', '28.59', '314.50'],
   ['For 6 m to 12 m from surface', 'Beyond 12 m upto 18 m from surface', '31.45', '346.00'],

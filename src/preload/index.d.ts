@@ -50,6 +50,8 @@ export interface EestimateApi {
   export: {
     /** Ask where to save, then write the base64 PDF there. */
     pdf: (data: string, name: string, defaultPath?: string) => Promise<SaveResult>
+    /** Same, for the workbook the comparative statement is also issued as. */
+    workbook: (data: string, name: string, defaultPath?: string) => Promise<SaveResult>
     reveal: (path: string) => Promise<void>
   }
   update: {
