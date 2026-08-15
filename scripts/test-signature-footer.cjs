@@ -5,6 +5,22 @@ const path = require('node:path')
 const ts = require('typescript')
 
 const root = path.resolve(__dirname, '..')
+
+// signatureFooter.ts imports its neighbours by relative path, and Node's CJS
+// resolver will not try a .ts extension unless one is registered. Without this
+// the module fails to load at './projectItems' before a single assertion runs.
+require.extensions['.ts'] = function compileTs(loadedModule, filename) {
+  const { outputText } = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
+    compilerOptions: {
+      esModuleInterop: true,
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022
+    },
+    fileName: filename
+  })
+  loadedModule._compile(outputText, filename)
+}
+
 const file = path.join(root, 'src/renderer/src/lib/signatureFooter.ts')
 const source = fs.readFileSync(file, 'utf8')
 const { outputText } = ts.transpileModule(source, {
@@ -32,6 +48,17 @@ const rows = [
   { id: 'two', designation: 'Executive Engineer', office: 'Circle Office' }
 ]
 const project = {
+  // Signatures now inherit down the tree, so resolution walks the ancestors of
+  // the scope it is asked about. A fixture with no root crashes that walk.
+  root: {
+    id: 'root',
+    kind: 'title',
+    name: 'Project',
+    children: [
+      { id: 'componentA', kind: 'component', name: 'Component A', children: [] },
+      { id: 'componentB', kind: 'component', name: 'Component B', children: [] }
+    ]
+  },
   signatureFooter: { enabled: true, placement: 'every_page', rows },
   signatureFooterOverrides: {
     componentA: {

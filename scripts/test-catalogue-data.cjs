@@ -6,7 +6,29 @@ const ts = require('typescript')
 
 const root = path.resolve(__dirname, '..')
 
+/**
+ * Resolve a relative import the way the module itself would see it.
+ *
+ * The loaded module's `require` used to hand every unmocked request to this
+ * file's own `require`, which resolves against scripts/. A relative import like
+ * './materialRates' therefore looked for scripts/materialRates and failed. It
+ * only stayed quiet while every relative import happened to be mocked.
+ */
+function resolveRelative(fromFile, request) {
+  const base = path.resolve(path.dirname(fromFile), request)
+  for (const candidate of [base, `${base}.ts`, `${base}.tsx`, path.join(base, 'index.ts')]) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate
+  }
+  return null
+}
+
+/** Keyed by file and mock set, so a diamond import is compiled once, not twice. */
+const tsModuleCache = new Map()
+
 function loadTsModule(filePath, mocks = {}) {
+  const cacheKey = `${filePath}::${Object.keys(mocks).sort().join(',')}`
+  const cached = tsModuleCache.get(cacheKey)
+  if (cached) return cached.exports
   const source = fs.readFileSync(filePath, 'utf8')
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: {
@@ -19,7 +41,22 @@ function loadTsModule(filePath, mocks = {}) {
   const loadedModule = new Module(filePath, module)
   loadedModule.filename = filePath
   loadedModule.paths = Module._nodeModulePaths(path.dirname(filePath))
-  loadedModule.require = (request) => request in mocks ? mocks[request] : require(request)
+  // Seed the cache before compiling: a cycle must see the half-built exports
+  // rather than compile the same file again forever.
+  tsModuleCache.set(cacheKey, loadedModule)
+  loadedModule.require = (request) => {
+    if (request in mocks) return mocks[request]
+    if (request.startsWith('.')) {
+      const resolved = resolveRelative(filePath, request)
+      // The Supabase client reads import.meta.env, which cannot be emitted as
+      // CommonJS - Node then detects ESM and refuses the module. Nothing under
+      // test wants a live client, so it is always the stub unless a caller
+      // mocked it with something richer above.
+      if (resolved && resolved.endsWith(`${path.sep}supabase.ts`)) return { supabase: {} }
+      if (resolved) return loadTsModule(resolved, mocks)
+    }
+    return require(request)
+  }
   loadedModule._compile(outputText, filePath)
   return loadedModule.exports
 }
@@ -174,7 +211,10 @@ async function main() {
     itemDescription: projectDataDefinition.description,
     projectDataId: projectDataDefinition.id
   }
-  const projectDataRecipe = projectData.projectDataRecipe(
+  // Awaited: the recipe became async when project material rate overrides were
+  // applied inside it. Without this every assertion below reads a property off
+  // a Promise and compares undefined.
+  const projectDataRecipe = await projectData.projectDataRecipe(
     projectDataDefinition,
     projectDataNode,
     '2025-26',
@@ -193,11 +233,13 @@ async function main() {
     projectDataDefinition.description
   )
   assert.equal(
-    projectData.projectDataRecipe(
-      { ...projectDataDefinition, seigniorage: { applicable: false } },
-      projectDataNode,
-      '2025-26',
-      'zone_3'
+    (
+      await projectData.projectDataRecipe(
+        { ...projectDataDefinition, seigniorage: { applicable: false } },
+        projectDataNode,
+        '2025-26',
+        'zone_3'
+      )
     ).seigniorageApplicability.applicable,
     false,
     'a user-disabled Project DATA must not enter the Seigniorage dashboard'
@@ -270,7 +312,7 @@ async function main() {
   assert.equal(resolvedSsrSections[0].lines[1].rate, 10)
   assert.equal(resolvedSsrSections[0].lines[1].amount, 10)
   assert.equal(projectData.projectDataRate(projectSsrDataDefinition), 115)
-  const projectSsrRecipe = projectData.projectDataRecipe(
+  const projectSsrRecipe = await projectData.projectDataRecipe(
     projectSsrDataDefinition,
     { ...projectDataNode, projectDataId: projectSsrDataDefinition.id, itemCode: projectSsrDataDefinition.code },
     '2025-26',
