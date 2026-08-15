@@ -4,6 +4,18 @@ import { autoUpdater } from 'electron-updater'
 import { readProject, writeProject } from './projectIo'
 import { addRecent, clearRecent, listRecent, removeRecent } from './recentStore'
 
+/** The most recent thing the updater reported, for a renderer that missed it. */
+export type UpdateState =
+  | { stage: 'idle' }
+  | { stage: 'checking' }
+  | { stage: 'available'; info: unknown }
+  | { stage: 'not-available' }
+  | { stage: 'downloading'; percent: number }
+  | { stage: 'downloaded'; info: unknown }
+  | { stage: 'error'; message: string }
+
+let lastUpdateState: UpdateState = { stage: 'idle' }
+
 const FILE_FILTERS = [{ name: 'E-Estimate Project', extensions: ['eestimate'] }]
 const PDF_FILTERS = [{ name: 'PDF Document', extensions: ['pdf'] }]
 const WORKBOOK_FILTERS = [{ name: 'Excel Workbook', extensions: ['xlsx'] }]
@@ -136,39 +148,48 @@ export function registerIpc(): void {
   })
 
   // --- Auto-update ---
-  // Forward autoUpdater events to the renderer so the UI can react.
+  // Forward autoUpdater events to the renderer so the UI can react, and keep the
+  // latest one.
+  //
+  // Forwarding alone loses the result. The check starts as soon as the app is
+  // ready, while the renderer only subscribes once React has mounted, so the
+  // single 'update-available' could be sent to a window that was not listening
+  // yet. Nothing downloads without the user pressing Download, and nothing asks
+  // again, so a missed event meant the app never offered the update at all.
+  const broadcast = (channel: string, payload?: unknown): void => {
+    for (const w of BrowserWindow.getAllWindows()) {
+      w.webContents.send(channel, payload)
+    }
+  }
   autoUpdater.on('checking-for-update', () => {
-    for (const w of BrowserWindow.getAllWindows()) {
-      w.webContents.send('update:checking-for-update')
-    }
+    lastUpdateState = { stage: 'checking' }
+    broadcast('update:checking-for-update')
   })
-  autoUpdater.on('update-available', (_info) => {
-    for (const w of BrowserWindow.getAllWindows()) {
-      w.webContents.send('update:available', _info)
-    }
+  autoUpdater.on('update-available', (info) => {
+    lastUpdateState = { stage: 'available', info }
+    broadcast('update:available', info)
   })
-  autoUpdater.on('update-not-available', (_info) => {
-    for (const w of BrowserWindow.getAllWindows()) {
-      w.webContents.send('update:not-available', _info)
-    }
+  autoUpdater.on('update-not-available', (info) => {
+    lastUpdateState = { stage: 'not-available' }
+    broadcast('update:not-available', info)
   })
   autoUpdater.on('download-progress', (progress) => {
-    for (const w of BrowserWindow.getAllWindows()) {
-      w.webContents.send('update:download-progress', progress)
-    }
+    lastUpdateState = { stage: 'downloading', percent: progress?.percent ?? 0 }
+    broadcast('update:download-progress', progress)
   })
-  autoUpdater.on('update-downloaded', (_info) => {
-    for (const w of BrowserWindow.getAllWindows()) {
-      w.webContents.send('update:downloaded', _info)
-    }
+  autoUpdater.on('update-downloaded', (info) => {
+    lastUpdateState = { stage: 'downloaded', info }
+    broadcast('update:downloaded', info)
   })
   autoUpdater.on('error', (err) => {
-    for (const w of BrowserWindow.getAllWindows()) {
-      w.webContents.send('update:error', err?.message ?? String(err))
-    }
+    const message = err?.message ?? String(err)
+    lastUpdateState = { stage: 'error', message }
+    broadcast('update:error', message)
   })
 
-  // Allow the renderer to trigger check / download / install.
+  // Allow the renderer to trigger check / download / install, and to ask what
+  // was found before it was listening.
+  ipcMain.handle('update:status', () => lastUpdateState)
   ipcMain.handle('update:check', () => autoUpdater.checkForUpdates())
   ipcMain.handle('update:download', () => autoUpdater.downloadUpdate())
   ipcMain.handle('update:install', () => {

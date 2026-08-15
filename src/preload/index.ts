@@ -37,6 +37,8 @@ const api = {
   },
   // ── Auto-update ──
   update: {
+    /** What the updater last reported, for a UI that mounted after the check. */
+    status: (): Promise<unknown> => ipcRenderer.invoke('update:status'),
     check: (): Promise<unknown> => ipcRenderer.invoke('update:check'),
     download: (): Promise<unknown> => ipcRenderer.invoke('update:download'),
     install: (): void => { ipcRenderer.invoke('update:install') },

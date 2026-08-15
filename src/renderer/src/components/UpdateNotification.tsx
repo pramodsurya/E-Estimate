@@ -29,10 +29,17 @@ export default function UpdateNotification(): JSX.Element | null {
     if (!api?.update) return
 
     const unsubs: (() => void)[] = []
+    // A live event is always newer than the catch-up answer below, whichever
+    // order they arrive in.
+    let sawLiveEvent = false
+    const applyLive = (next: UpdateStage): void => {
+      sawLiveEvent = true
+      setStage(next)
+    }
 
     unsubs.push(
       api.update.onChecking(() => {
-        setStage('checking')
+        applyLive('checking')
         setErrorMsg('')
       })
     )
@@ -41,37 +48,51 @@ export default function UpdateNotification(): JSX.Element | null {
       api.update.onAvailable((i: unknown) => {
         const u = i as UpdateInfo
         setInfo(u)
-        setStage('available')
+        applyLive('available')
         setDismissed(false)
       })
     )
 
     unsubs.push(
       api.update.onNotAvailable(() => {
-        setStage('not-available')
+        applyLive('not-available')
       })
     )
 
     unsubs.push(
       api.update.onDownloadProgress((p) => {
         setProgress(Math.round(p.percent))
-        setStage('downloading')
+        applyLive('downloading')
       })
     )
 
     unsubs.push(
       api.update.onDownloaded((i: unknown) => {
         setInfo(i as UpdateInfo)
-        setStage('downloaded')
+        applyLive('downloaded')
       })
     )
 
     unsubs.push(
       api.update.onError((msg: string) => {
         setErrorMsg(msg)
-        setStage('error')
+        applyLive('error')
       })
     )
+
+    // Catch up on anything decided before this component existed. The check
+    // runs in the main process at startup and nothing downloads by itself, so
+    // without this an update found a moment too early is never offered.
+    void api.update.status().then((value) => {
+      const state = value as
+        | { stage: UpdateStage; info?: UpdateInfo; percent?: number; message?: string }
+        | undefined
+      if (!state || state.stage === 'idle' || sawLiveEvent) return
+      if (state.info) setInfo(state.info)
+      if (state.percent !== undefined) setProgress(Math.round(state.percent))
+      if (state.message) setErrorMsg(state.message)
+      setStage(state.stage)
+    })
 
     return () => unsubs.forEach((u) => u())
   }, [])

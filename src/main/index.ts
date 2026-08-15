@@ -69,15 +69,23 @@ function createWindow(): BrowserWindow {
 app.whenReady().then(() => {
   registerIpc()
   registerPrintIpc()
-  createWindow()
+  const win = createWindow()
 
-  // ── Auto-updater: check for updates on startup ──
+  // ── Auto-updater: check for updates once the window can answer ──
   // In development, set the env ELECTRON_RENDERER_URL so we skip the check.
+  //
+  // Waits for the page to finish loading. Nothing downloads on its own, so the
+  // "Update Available" prompt is the only route to a new version; starting the
+  // check beside createWindow raced the renderer's subscription, and whenever
+  // the network answered first the prompt was never shown. The renderer also
+  // asks for the last state on mount, so neither side depends on the timing.
   if (!process.env['ELECTRON_RENDERER_URL']) {
     autoUpdater.autoDownload = false   // Let the user decide when to download
     autoUpdater.autoInstallOnAppQuit = false
-    autoUpdater.checkForUpdates().catch((err) => {
-      console.error('Auto-update check failed:', err)
+    win.webContents.once('did-finish-load', () => {
+      autoUpdater.checkForUpdates().catch((err) => {
+        console.error('Auto-update check failed:', err)
+      })
     })
   }
 

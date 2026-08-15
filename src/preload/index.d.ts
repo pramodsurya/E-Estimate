@@ -55,6 +55,7 @@ export interface EestimateApi {
     reveal: (path: string) => Promise<void>
   }
   update: {
+    status: () => Promise<unknown>
     check: () => Promise<unknown>
     download: () => Promise<unknown>
     install: () => void
