@@ -38,6 +38,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -54,6 +55,11 @@ DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
 RENDER_LONG_EDGE = 2000
 MAX_PAGES = 8
 TIMEOUT_SECONDS = 180
+# A free tier is shared capacity, so 503 is an ordinary weather condition
+# rather than a fault. Back off and come back instead of losing the circular.
+RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+RETRY_ATTEMPTS = 5
+RETRY_BASE_SECONDS = 8
 
 
 class VisionError(RuntimeError):
@@ -203,40 +209,62 @@ def _api_key() -> str:
     return key
 
 
+def _send(request: Request) -> dict[str, Any]:
+    """One call, retried while the far end is merely busy.
+
+    Only the statuses that mean "come back later" are retried. A 400 or a 403
+    is a fault in this request, and repeating it only spends the quota.
+    """
+    last: Exception | None = None
+    for attempt in range(1, RETRY_ATTEMPTS + 1):
+        try:
+            with urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except HTTPError as error:
+            detail = re.sub(r"\s+", " ", error.read().decode("utf-8", errors="replace")[:400])
+            last = VisionError(f"HTTP {error.code} from the model API: {detail.strip()}")
+            if error.code not in RETRY_STATUSES or attempt == RETRY_ATTEMPTS:
+                raise last from error
+            after = error.headers.get("retry-after") if error.headers else None
+            try:
+                delay = float(after) if after else RETRY_BASE_SECONDS * 2 ** (attempt - 1)
+            except ValueError:
+                delay = RETRY_BASE_SECONDS * 2 ** (attempt - 1)
+        except URLError as error:
+            last = VisionError(f"could not reach the model API: {error.reason}")
+            if attempt == RETRY_ATTEMPTS:
+                raise last from error
+            delay = RETRY_BASE_SECONDS * 2 ** (attempt - 1)
+        print(
+            f"    model busy, retrying in {delay:.0f}s ({attempt}/{RETRY_ATTEMPTS})",
+            file=sys.stderr,
+        )
+        time.sleep(delay)
+    raise last or VisionError("the model API could not be reached")
+
+
 def _post(url: str, payload: dict[str, Any]) -> dict[str, Any]:
-    request = Request(
-        url,
-        method="POST",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "content-type": "application/json",
-            "x-goog-api-key": _api_key(),
-        },
+    return _send(
+        Request(
+            url,
+            method="POST",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "content-type": "application/json",
+                "x-goog-api-key": _api_key(),
+            },
+        )
     )
-    try:
-        with urlopen(request, timeout=TIMEOUT_SECONDS) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except HTTPError as error:
-        detail = error.read().decode("utf-8", errors="replace")[:400].replace("\n", " ")
-        raise VisionError(f"HTTP {error.code} from the model API: {detail}") from error
-    except URLError as error:
-        raise VisionError(f"could not reach the model API: {error.reason}") from error
 
 
 def list_models() -> list[str]:
     """What this key can actually reach. Ids move; this is the ground truth."""
-    request = Request(
-        f"{API_ROOT}/models?pageSize=200",
-        headers={"x-goog-api-key": _api_key()},
+    body = _send(
+        Request(
+            f"{API_ROOT}/models?pageSize=200",
+            headers={"x-goog-api-key": _api_key()},
+        )
     )
-    try:
-        with urlopen(request, timeout=TIMEOUT_SECONDS) as response:
-            body = json.loads(response.read().decode("utf-8"))
-    except HTTPError as error:
-        detail = error.read().decode("utf-8", errors="replace")[:400]
-        raise VisionError(f"HTTP {error.code} listing models: {detail}") from error
-    except URLError as error:
-        raise VisionError(f"could not reach the model API: {error.reason}") from error
 
     names = []
     for model in body.get("models", []):
