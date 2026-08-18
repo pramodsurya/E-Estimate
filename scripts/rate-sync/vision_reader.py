@@ -44,9 +44,11 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 API_ROOT = "https://generativelanguage.googleapis.com/v1beta"
-# Overridable because Google's flash-tier ids move faster than this file does.
-# `--list-models` prints what the key can actually reach.
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+# Pinned to an explicit version rather than the `gemini-flash-latest` alias:
+# an alias would swap the model underneath a rate importer without anyone
+# deciding to. Overridable because these ids move; `--list-models` prints what
+# the key can actually reach.
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
 # The long edge to render at. Enough to resolve a comma in "58,000" on a
 # mediocre scan without paying for detail the model cannot use.
 RENDER_LONG_EDGE = 2000
