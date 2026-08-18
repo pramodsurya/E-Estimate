@@ -18,6 +18,7 @@ import json
 import os
 import re
 import sys
+import time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from html import unescape
@@ -43,6 +44,8 @@ OCR_VERSION = "poppler+tesseract-eng-psm6-or-4/v1"
 # The Monday after the workflow is first published. An anchor avoids a
 # month-boundary drift that a cron */14 expression would otherwise introduce.
 DEFAULT_FORTNIGHTLY_ANCHOR_DATE = "2026-08-17"
+# Seconds between circulars when working through a backlog.
+PACE_SECONDS = float(os.getenv("PRED_RATE_PACE_SECONDS", "6"))
 
 MONTHS = {
     "jan": 1,
@@ -589,7 +592,11 @@ def main() -> int:
         "failed": 0,
         "imported": 0,
     }
-    for circular in candidates:
+    for index, circular in enumerate(candidates):
+        if index:
+            # Space the calls out. A backfill is a burst, and a burst is what
+            # a per-minute limit exists to stop.
+            time.sleep(PACE_SECONDS)
         outcome = sync_circular(circular, supabase=supabase, dry_run=args.dry_run)
         summary[outcome] += 1
 

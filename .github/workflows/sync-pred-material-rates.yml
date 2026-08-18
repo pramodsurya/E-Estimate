@@ -17,6 +17,11 @@ on:
         required: false
         type: boolean
         default: false
+      model:
+        description: Model id to read with (blank uses the pinned default)
+        required: false
+        type: string
+        default: ''
       limit:
         description: Maximum circulars to process
         required: false
@@ -40,6 +45,7 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_MODEL: ${{ inputs.model }}
       INPUT_DRY_RUN: ${{ inputs.dry_run || 'false' }}
       INPUT_LIMIT: ${{ inputs.limit || '3' }}
       IS_SCHEDULED: ${{ github.event_name == 'schedule' }}

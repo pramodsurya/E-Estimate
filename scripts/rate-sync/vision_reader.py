@@ -49,7 +49,9 @@ API_ROOT = "https://generativelanguage.googleapis.com/v1beta"
 # an alias would swap the model underneath a rate importer without anyone
 # deciding to. Overridable because these ids move; `--list-models` prints what
 # the key can actually reach.
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
+# An unset workflow input arrives as "", not as absent, so fall through on
+# empty rather than handing the API a blank model id.
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "").strip() or "gemini-3.7-flash"
 # The long edge to render at. Enough to resolve a comma in "58,000" on a
 # mediocre scan without paying for detail the model cannot use.
 RENDER_LONG_EDGE = 2000
@@ -57,7 +59,12 @@ MAX_PAGES = 8
 TIMEOUT_SECONDS = 180
 # A free tier is shared capacity, so 503 is an ordinary weather condition
 # rather than a fault. Back off and come back instead of losing the circular.
-RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+#
+# 429 is deliberately absent. A 429 here is a spent daily allowance, and it
+# does not refill in sixty seconds -- but every retry against it spends
+# another unit of the quota that is already gone. Retrying a 429 once cost a
+# whole day's budget and read nothing.
+RETRY_STATUSES = frozenset({500, 502, 503, 504})
 RETRY_ATTEMPTS = 5
 RETRY_BASE_SECONDS = 8
 
@@ -222,7 +229,14 @@ def _send(request: Request) -> dict[str, Any]:
                 return json.loads(response.read().decode("utf-8"))
         except HTTPError as error:
             detail = re.sub(r"\s+", " ", error.read().decode("utf-8", errors="replace")[:400])
-            last = VisionError(f"HTTP {error.code} from the model API: {detail.strip()}")
+            message = detail.strip()
+            if error.code == 429:
+                message = (
+                    f"the free-tier quota for this model is spent -- {message}. "
+                    "Wait for the daily reset, or set GEMINI_MODEL to a model "
+                    "with a larger allowance."
+                )
+            last = VisionError(f"HTTP {error.code} from the model API: {message}")
             if error.code not in RETRY_STATUSES or attempt == RETRY_ATTEMPTS:
                 raise last from error
             after = error.headers.get("retry-after") if error.headers else None
