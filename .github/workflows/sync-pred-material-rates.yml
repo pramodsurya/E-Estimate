@@ -7,8 +7,13 @@ on:
     - cron: '40 20 * * 0'
   workflow_dispatch:
     inputs:
+      list_models:
+        description: Only report which models this API key can reach
+        required: false
+        type: boolean
+        default: false
       dry_run:
-        description: Download and OCR only; do not update Supabase
+        description: Read the circulars and print the rates; write nothing
         required: false
         type: boolean
         default: false
@@ -34,6 +39,7 @@ jobs:
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       INPUT_DRY_RUN: ${{ inputs.dry_run || 'false' }}
       INPUT_LIMIT: ${{ inputs.limit || '3' }}
       IS_SCHEDULED: ${{ github.event_name == 'schedule' }}
@@ -41,15 +47,20 @@ jobs:
       - name: Check out trusted repository code
         uses: actions/checkout@v4
 
-      - name: Install OCR tools
+      - name: Install the PDF renderer
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng
+          sudo apt-get install --yes --no-install-recommends poppler-utils
 
       - name: Verify parser behaviour
         run: python3 -m unittest scripts/rate-sync/test_pred_material_rate_sync.py
 
+      - name: Report reachable models
+        if: ${{ inputs.list_models }}
+        run: python3 scripts/rate-sync/vision_reader.py --list-models
+
       - name: Discover, extract and upload rates
+        if: ${{ !inputs.list_models }}
         run: |
           args=(--limit "$INPUT_LIMIT")
           if [[ "$IS_SCHEDULED" == "true" ]]; then

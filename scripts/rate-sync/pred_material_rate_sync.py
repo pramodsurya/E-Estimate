@@ -17,10 +17,7 @@ import hashlib
 import json
 import os
 import re
-import shutil
-import subprocess
 import sys
-import tempfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from html import unescape
@@ -29,6 +26,9 @@ from typing import Any, Iterable
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urljoin
 from urllib.request import Request, urlopen
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import vision_reader  # noqa: E402  (path is set immediately above)
 
 INDEX_URL = "https://www.pred.telangana.gov.in/steel_cement_rates.php"
 SOURCE_ORIGIN = "https://www.pred.telangana.gov.in/"
@@ -109,14 +109,6 @@ TAG = re.compile(r"<[^>]+>")
 # Four-digit identifiers such as IS 2062 occur in the description column. A
 # rate without a thousands separator is accepted only when the source follows
 # it with the usual /- or Rs marker.
-RATE_TOKEN = re.compile(
-    r"(?<!\d)(?:"
-    r"\d{1,3}(?:\s*,\s*\d{3})+"
-    r"|\d{4,6}(?=\s*(?:/-|/|rs\.?))"
-    r")(?!\d)",
-    re.IGNORECASE,
-)
-SOR_YEAR = re.compile(r"\b(20\d{2})\s*-\s*(\d{2})\b")
 
 
 def last_day_of_month(value: date) -> date:
@@ -223,151 +215,6 @@ def get_pdf(url: str) -> bytes:
     if not body.startswith(b"%PDF-"):
         raise SyncError("source link did not return a PDF")
     return body
-
-
-def ensure_command(command: str) -> None:
-    if shutil.which(command) is None:
-        raise SyncError(
-            f'"{command}" is required. Install poppler-utils and tesseract-ocr before running.'
-        )
-
-
-def run_command(args: list[str], *, cwd: Path) -> str:
-    completed = subprocess.run(
-        args,
-        cwd=cwd,
-        capture_output=True,
-        check=False,
-        text=True,
-        timeout=120,
-    )
-    if completed.returncode != 0:
-        detail = (completed.stderr or completed.stdout).strip()[:500]
-        raise SyncError(f'{" ".join(args[:2])} failed: {detail}')
-    return completed.stdout
-
-
-def normalized_ocr(value: str) -> str:
-    return re.sub(r"\s+", " ", value.lower()).strip()
-
-
-def recognized_anchor_count(text: str) -> int:
-    normal = normalized_ocr(text)
-    return sum(bool(re.search(spec.anchor, normal, re.IGNORECASE | re.DOTALL)) for spec in RATE_SPECS)
-
-
-def ocr_candidate_quality(text: str) -> tuple[int, int]:
-    """Prefer a layout mode that can actually yield the complete rate set."""
-    try:
-        extract_rates(text)
-        extracted = 1
-    except SyncError:
-        extracted = 0
-    return extracted, recognized_anchor_count(text)
-
-
-def is_complete_extraction(quality: tuple[int, int]) -> bool:
-    """Every material named, and a plausible rate read for each of them."""
-    return quality == (1, len(RATE_SPECS))
-
-
-def extract_text(pdf: bytes) -> str:
-    ensure_command("pdftotext")
-    ensure_command("pdftoppm")
-    ensure_command("tesseract")
-
-    with tempfile.TemporaryDirectory(prefix="pred-rate-sync-") as temporary:
-        directory = Path(temporary)
-        pdf_path = directory / "circular.pdf"
-        pdf_path.write_bytes(pdf)
-
-        # A text layer is worth trying but not worth trusting. Several
-        # circulars carry a damaged OCR layer of their own: July 2025 lost a
-        # vertical strip of the page ("Ordinary Portland Ce" for "Cement"),
-        # and August 2025 turned "Portland" into "Ponland". Both are long
-        # enough to look healthy by length alone, so the embedded text only
-        # wins outright when it reads every material and every rate; short of
-        # that it competes with the renders below rather than pre-empting them.
-        candidates: list[str] = []
-        embedded = run_command(["pdftotext", "-layout", str(pdf_path), "-"], cwd=directory)
-        if len(re.sub(r"\s+", "", embedded)) >= 150:
-            if is_complete_extraction(ocr_candidate_quality(embedded)):
-                return embedded
-            candidates.append(embedded)
-
-        # The currently published circulars are scans. Use two layout modes and
-        # select the one recognizing more of our exact source labels.
-        run_command(
-            ["pdftoppm", "-png", "-r", "300", str(pdf_path), str(directory / "page")],
-            cwd=directory,
-        )
-        pages = sorted(directory.glob("page-*.png"))
-        if not pages:
-            raise SyncError("Poppler rendered no pages")
-
-        for psm in ("6", "4"):
-            page_text = [
-                run_command(
-                    ["tesseract", str(page), "stdout", "-l", "eng", "--psm", psm],
-                    cwd=directory,
-                )
-                for page in pages
-            ]
-            candidates.append("\n".join(page_text))
-
-        return max(candidates, key=ocr_candidate_quality)
-
-
-def token_to_rate(token: str) -> int:
-    return int(re.sub(r"\D", "", token))
-
-
-def extract_rates(text: str) -> dict[str, int]:
-    normal = normalized_ocr(text)
-    matches: list[tuple[RateSpec, re.Match[str]]] = []
-    for spec in RATE_SPECS:
-        anchor_match = re.search(spec.anchor, normal, re.IGNORECASE | re.DOTALL)
-        if not anchor_match:
-            raise SyncError(f"OCR did not recognize {spec.material_code}'s source description")
-        matches.append((spec, anchor_match))
-
-    matches.sort(key=lambda item: item[1].start())
-    rates: dict[str, int] = {}
-    for index, (spec, anchor_match) in enumerate(matches):
-        next_anchor_start = (
-            matches[index + 1][1].start() if index + 1 < len(matches) else len(normal)
-        )
-        public_health_start = normal.find("public health items", anchor_match.end())
-        if public_health_start != -1:
-            next_anchor_start = min(next_anchor_start, public_health_start)
-        # Keep a bounded tail so a missing rate cannot leak into an unrelated
-        # row much later in a malformed document.
-        row_text = normal[anchor_match.end() : min(next_anchor_start, anchor_match.end() + 650)]
-        accepted = [
-            token_to_rate(token)
-            for token in RATE_TOKEN.findall(row_text)
-            if spec.minimum <= token_to_rate(token) <= spec.maximum
-        ]
-        if not accepted:
-            raise SyncError(
-                f"no plausible price found next to {spec.material_code}'s source description"
-            )
-        if len(set(accepted)) > 1:
-            raise SyncError(
-                f"ambiguous prices for {spec.material_code}: {sorted(set(accepted))}"
-            )
-        rates[spec.material_code] = accepted[0]
-
-    if set(rates) != {spec.material_code for spec in RATE_SPECS}:
-        raise SyncError("OCR did not produce exactly the expected material set")
-    return rates
-
-
-def source_sor_year(text: str) -> str | None:
-    match = SOR_YEAR.search(text)
-    if match:
-        return f"{match.group(1)}-{match.group(2)}"
-    return None
 
 
 class Supabase:
@@ -550,9 +397,10 @@ def sync_circular(
     try:
         pdf = get_pdf(circular.url)
         pdf_sha256 = hashlib.sha256(pdf).hexdigest()
-        text = extract_text(pdf)
-        rates = extract_rates(text)
-        sor_year = source_sor_year(text)
+        try:
+            rates, sor_year, text = vision_reader.extract_rates(pdf)
+        except vision_reader.VisionError as reason:
+            raise SyncError(str(reason)) from reason
 
         if dry_run:
             print(
