@@ -266,6 +266,11 @@ def ocr_candidate_quality(text: str) -> tuple[int, int]:
     return extracted, recognized_anchor_count(text)
 
 
+def is_complete_extraction(quality: tuple[int, int]) -> bool:
+    """Every material named, and a plausible rate read for each of them."""
+    return quality == (1, len(RATE_SPECS))
+
+
 def extract_text(pdf: bytes) -> str:
     ensure_command("pdftotext")
     ensure_command("pdftoppm")
@@ -276,9 +281,19 @@ def extract_text(pdf: bytes) -> str:
         pdf_path = directory / "circular.pdf"
         pdf_path.write_bytes(pdf)
 
-        text = run_command(["pdftotext", "-layout", str(pdf_path), "-"], cwd=directory)
-        if len(re.sub(r"\s+", "", text)) >= 150:
-            return text
+        # A text layer is worth trying but not worth trusting. Several
+        # circulars carry a damaged OCR layer of their own: July 2025 lost a
+        # vertical strip of the page ("Ordinary Portland Ce" for "Cement"),
+        # and August 2025 turned "Portland" into "Ponland". Both are long
+        # enough to look healthy by length alone, so the embedded text only
+        # wins outright when it reads every material and every rate; short of
+        # that it competes with the renders below rather than pre-empting them.
+        candidates: list[str] = []
+        embedded = run_command(["pdftotext", "-layout", str(pdf_path), "-"], cwd=directory)
+        if len(re.sub(r"\s+", "", embedded)) >= 150:
+            if is_complete_extraction(ocr_candidate_quality(embedded)):
+                return embedded
+            candidates.append(embedded)
 
         # The currently published circulars are scans. Use two layout modes and
         # select the one recognizing more of our exact source labels.
@@ -290,7 +305,6 @@ def extract_text(pdf: bytes) -> str:
         if not pages:
             raise SyncError("Poppler rendered no pages")
 
-        candidates: list[str] = []
         for psm in ("6", "4"):
             page_text = [
                 run_command(
@@ -532,6 +546,7 @@ def sync_circular(
         return "already_imported"
 
     pdf_sha256: str | None = None
+    text: str | None = None
     try:
         pdf = get_pdf(circular.url)
         pdf_sha256 = hashlib.sha256(pdf).hexdigest()
@@ -602,6 +617,10 @@ def sync_circular(
                     circular,
                     sha256=pdf_sha256,
                     status=status,
+                    # Keep whatever was read. Without it a quarantined document
+                    # has to be downloaded and re-OCR'd by hand before anyone
+                    # can see which word the extractor tripped over.
+                    ocr_text=text,
                     failure_reason=str(error),
                 )
             )
