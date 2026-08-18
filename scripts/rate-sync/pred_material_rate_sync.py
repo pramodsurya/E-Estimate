@@ -267,6 +267,26 @@ class Supabase:
         )
         return rows[0] if rows else None
 
+    def next_period_start(self, material_code: str, after: date) -> date | None:
+        """The start of the period that already supersedes this one, if any.
+
+        Matters only when backfilling. A circular imported in order is the
+        newest thing in the table and stays open; one imported out of order
+        has a successor already sitting above it, and left open it would
+        overlap every period after it.
+        """
+        rows = self.rest(
+            "material_rate_monthly",
+            query={
+                "material_code": f"eq.{material_code}",
+                "effective_from": f"gt.{after.isoformat()}",
+                "select": "effective_from",
+                "order": "effective_from.asc",
+                "limit": "1",
+            },
+        )
+        return date.fromisoformat(rows[0]["effective_from"]) if rows else None
+
     def existing_rate(self, material_code: str, before: date) -> int | None:
         rows = self.rest(
             "material_rate_monthly",
@@ -314,18 +334,24 @@ class Supabase:
         if not material_codes:
             return
         codes = ",".join(f'"{code}"' for code in material_codes)
-        self.rest(
-            "material_rate_monthly",
-            method="PATCH",
-            query={
-                "material_code": f"in.({codes})",
-                "effective_to": "is.null",
-                "effective_from": f"lt.{before.isoformat()}",
-            },
-            payload={"effective_to": (before - timedelta(days=1)).isoformat()},
-            prefer="return=minimal",
-            allowed_statuses=(200, 204),
-        )
+        ends = (before - timedelta(days=1)).isoformat()
+        # Two shapes of predecessor overlap the new period, and PostgREST
+        # cannot express the disjunction in one PATCH: the open-ended one that
+        # never got closed, and -- when backfilling -- a closed one whose end
+        # already reaches past the month being inserted.
+        for overlap in ("is.null", f"gte.{before.isoformat()}"):
+            self.rest(
+                "material_rate_monthly",
+                method="PATCH",
+                query={
+                    "material_code": f"in.({codes})",
+                    "effective_to": overlap,
+                    "effective_from": f"lt.{before.isoformat()}",
+                },
+                payload={"effective_to": ends},
+                prefer="return=minimal",
+                allowed_statuses=(200, 204),
+            )
 
     def write_rates(self, rows: list[dict[str, Any]]) -> None:
         self.rest(
@@ -425,17 +451,28 @@ def sync_circular(
         supabase.upload_pdf(storage_path, pdf)
 
         source = f"PRED steel/cement circular {circular.label}: {circular.url}"
+        # A month arriving in order is the newest and stays open; a backfilled
+        # one is bounded by whatever already supersedes it.
+        successor = {
+            code: supabase.next_period_start(code, circular.effective_from)
+            for code in sorted(rates)
+        }
         rate_rows = [
             {
                 "material_code": material_code,
                 "rate": rate,
-                # Left open. A circular stays in force until the next one
-                # supersedes it, and since May 2026 PRED publishes quarterly:
-                # closing at month end left two months of every quarter with no
-                # circular at all, and periodForDate in the app skips a period
-                # whose effective_to has passed, so those months silently
-                # reverted to the yearly schedule rate.
-                "effective_to": None,
+                # Open until something supersedes it, never closed at month
+                # end: since May 2026 PRED publishes quarterly, and closing at
+                # month end left two months of every quarter uncovered --
+                # periodForDate skips a period whose effective_to has passed,
+                # so those months silently fell back to the yearly SoR rate.
+                # A backfilled month is the exception: its successor already
+                # exists, so it closes the day before that one starts.
+                "effective_to": (
+                    (successor[material_code] - timedelta(days=1)).isoformat()
+                    if successor[material_code]
+                    else None
+                ),
                 "effective_from": circular.effective_from.isoformat(),
                 "sor_year": sor_year,
                 "source": source,

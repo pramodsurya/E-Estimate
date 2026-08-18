@@ -73,9 +73,16 @@ class RatePeriodTests(unittest.TestCase):
 
     def test_month_end_helper_is_no_longer_used_for_rate_rows(self) -> None:
         source = SCRIPT.read_text(encoding="utf-8")
-        rate_row_block = source.split("rate_rows = [", 1)[1].split("]", 1)[0]
-        self.assertIn('"effective_to": None', rate_row_block)
+        # Terminate on the dedented close of the list, not the first "]" --
+        # subscripts inside the block would cut it short.
+        rate_row_block = source.split("rate_rows = [", 1)[1].split("\n        ]", 1)[0]
+        # Never month end -- that is what left two months of every quarter
+        # falling back to the yearly rate.
         self.assertNotIn("last_day_of_month", rate_row_block)
+        # Open when nothing supersedes it; bounded by its successor when
+        # something does, which is the backfill case.
+        self.assertIn("else None", rate_row_block)
+        self.assertIn("successor[material_code]", rate_row_block)
 
 
 def reading(**overrides: object) -> dict:
