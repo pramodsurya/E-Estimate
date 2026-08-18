@@ -187,9 +187,17 @@ RESPONSE_SCHEMA: dict[str, Any] = {
 
 
 def _api_key() -> str:
-    key = os.getenv("GEMINI_API_KEY")
+    """The key, minus whatever whitespace came with it.
+
+    A key pasted into a web form usually arrives with a trailing newline, and
+    a newline in a header value is a request-splitting hazard rather than a
+    typo, so it is stripped here rather than trusted.
+    """
+    key = (os.getenv("GEMINI_API_KEY") or "").strip()
     if not key:
         raise VisionError("GEMINI_API_KEY is not set")
+    if not key.isprintable():
+        raise VisionError("GEMINI_API_KEY contains control characters")
     return key
 
 
@@ -198,7 +206,10 @@ def _post(url: str, payload: dict[str, Any]) -> dict[str, Any]:
         url,
         method="POST",
         data=json.dumps(payload).encode("utf-8"),
-        headers={"content-type": "application/json"},
+        headers={
+            "content-type": "application/json",
+            "x-goog-api-key": _api_key(),
+        },
     )
     try:
         with urlopen(request, timeout=TIMEOUT_SECONDS) as response:
@@ -212,9 +223,12 @@ def _post(url: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 def list_models() -> list[str]:
     """What this key can actually reach. Ids move; this is the ground truth."""
-    url = f"{API_ROOT}/models?key={_api_key()}&pageSize=200"
+    request = Request(
+        f"{API_ROOT}/models?pageSize=200",
+        headers={"x-goog-api-key": _api_key()},
+    )
     try:
-        with urlopen(url, timeout=TIMEOUT_SECONDS) as response:
+        with urlopen(request, timeout=TIMEOUT_SECONDS) as response:
             body = json.loads(response.read().decode("utf-8"))
     except HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")[:400]
@@ -245,7 +259,7 @@ def read_pages(pages: list[bytes], model: str | None = None) -> dict[str, Any]:
     parts.append({"text": INSTRUCTIONS})
 
     body = _post(
-        f"{API_ROOT}/models/{model}:generateContent?key={_api_key()}",
+        f"{API_ROOT}/models/{model}:generateContent",
         {
             "contents": [{"role": "user", "parts": parts}],
             "generationConfig": {
