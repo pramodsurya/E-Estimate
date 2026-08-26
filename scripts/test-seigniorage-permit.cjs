@@ -24,13 +24,22 @@ function loadTsModule(filePath, mocks = {}) {
   return loadedModule.exports
 }
 
+const seigniorageClassification = loadTsModule(
+  path.join(root, 'src/renderer/src/lib/seigniorageClassification.ts')
+)
+
 const {
   computeSeigniorageTable,
+  canonicalSeigniorageCode,
+  isNaturalFineAggregate,
+  matchMaterialToSeigniorage,
+  parseSeignioragePolicy,
   permitMultiplierFor,
   permitPercentFor,
   DEFAULT_PERMIT_MULTIPLIER
 } = loadTsModule(path.join(root, 'src/renderer/src/lib/seigniorage.ts'), {
   './supabase': { supabase: {} },
+  './seigniorageClassification': seigniorageClassification,
   './projectItems': {
     projectItemKey: (node) => node.itemCode ?? node.name,
     rateAnalysisOverrideForNode: () => undefined
@@ -130,6 +139,19 @@ assert.equal(permitMultiplierFor(null), 0.8)
 // The percentage shown in the detailed table and the printed statement.
 assert.equal(permitPercentFor('SEIG_BUILDING_STONE'), 80)
 assert.equal(permitPercentFor('SEIG_BLACK_GRANITE_BELOW'), 40)
+assert.equal(permitPercentFor('SEIG_ORDINARY_SAND'), 0)
+
+// Natural fine aggregate is always Ordinary Sand. Manufactured/specialty
+// sands remain outside that rule and keep their explicit mineral mapping.
+assert.equal(isNaturalFineAggregate('Fine aggregate (Un-Screened)'), true)
+assert.equal(isNaturalFineAggregate('Fine aggregate - Fine aggregate (Un-Screened)'), true)
+assert.equal(isNaturalFineAggregate('Sand for filling'), true)
+assert.equal(isNaturalFineAggregate('M-sand / manufactured sand'), false)
+assert.equal(isNaturalFineAggregate('Silica sand for filter media'), false)
+assert.equal(
+  canonicalSeigniorageCode('SEIG_SAND_OTHERS', 'Fine aggregate (Un-Screened)'),
+  'SEIG_ORDINARY_SAND'
+)
 
 // --- Permit fee flows through the calculation table -------------------------
 
@@ -138,6 +160,37 @@ const charges = [
   charge('SEIG_ORDINARY_SAND', 'Ordinary Sand', 40.5, 27),
   charge('SEIG_BLACK_GRANITE_BELOW', 'Black Granite - Below Gangsaw', 3588, 1252)
 ]
+
+const allSandCharges = [
+  charge('SEIG_SAND_OTHERS', 'Sand (Others)', 94, 141),
+  charge('SEIG_ORDINARY_SAND', 'Ordinary Sand', 40.5, 27)
+]
+assert.equal(
+  matchMaterialToSeigniorage(
+    'Fine aggregate (Un-Screened)',
+    'SEIG_SAND_OTHERS',
+    allSandCharges
+  )?.seig_code,
+  'SEIG_ORDINARY_SAND'
+)
+assert.equal(
+  matchMaterialToSeigniorage('M-sand', 'SEIG_SAND_OTHERS', allSandCharges)?.seig_code,
+  'SEIG_SAND_OTHERS'
+)
+
+const parsedStaleFineAggregatePolicy = parseSeignioragePolicy({
+  applicable: true,
+  rows: [{
+    seig_code: 'SEIG_SAND_OTHERS',
+    mode: 'FULL_ITEM_QUANTITY',
+    charge_unit: 'CUM',
+    material_label: 'Fine aggregate (Un-Screened)'
+  }]
+})
+assert.equal(
+  parsedStaleFineAggregatePolicy.rows[0].seig_code,
+  'SEIG_ORDINARY_SAND'
+)
 
 const stoneCalc = computeSeigniorageTable(
   project([item('i1', 'IRR-A-1', 100)]),
@@ -328,6 +381,47 @@ assert.equal(refreshedSandCalc.rows[0].charge?.seig_code, 'SEIG_ORDINARY_SAND')
 assert.equal(refreshedSandCalc.rows[0].seigRate, 40.5)
 assert.equal(refreshedSandCalc.rows[0].seigniorage, 405)
 assert.equal(refreshedSandCalc.rows[0].permit, 0)
+
+// Offline projects can contain a stale row policy even before the next Sync.
+// The frontend repairs that snapshot in memory, uses the Ordinary Sand rate,
+// and does not show or charge an 80% permit fee.
+const staleFineAggregateProject = project([item('fine-aggregate-stale', 'IRR-CCDW-2-6', 100)])
+staleFineAggregateProject.dashboardSnapshot = {
+  recipes: {
+    'fine-aggregate-stale': {
+      seigniorageApplicability: materialPolicy([{
+        seigCode: 'SEIG_SAND_OTHERS',
+        ratio: 0.35,
+        label: 'Fine aggregate (Un-Screened)',
+        key: 'SAND_FINE_AGGREGATE'
+      }])
+    }
+  }
+}
+const staleFineAggregateCalc = computeSeigniorageTable(
+  staleFineAggregateProject,
+  allSandCharges
+)
+assert.equal(staleFineAggregateCalc.rows.length, 1)
+assert.equal(staleFineAggregateCalc.rows[0].charge?.seig_code, 'SEIG_ORDINARY_SAND')
+assert.equal(staleFineAggregateCalc.rows[0].quantity, 35)
+assert.equal(staleFineAggregateCalc.rows[0].seigRate, 40.5)
+assert.equal(staleFineAggregateCalc.rows[0].seigniorage, 35 * 40.5)
+assert.equal(staleFineAggregateCalc.rows[0].permitPercent, 0)
+assert.equal(staleFineAggregateCalc.rows[0].permit, 0)
+
+const naturalFineAggregateMigration = fs.readFileSync(
+  path.join(
+    root,
+    'supabase/migrations/20260825223202_canonicalize_natural_fine_aggregate.sql'
+  ),
+  'utf8'
+)
+assert.match(naturalFineAggregateMigration, /G\.O\.Ms\.No\.21/)
+assert.match(naturalFineAggregateMigration, /update public\.material/i)
+assert.match(naturalFineAggregateMigration, /SAND_FINE_AGGREGATE/)
+assert.match(naturalFineAggregateMigration, /'seig_code', 'SEIG_ORDINARY_SAND'/)
+assert.match(naturalFineAggregateMigration, /SSR policy verification failed/)
 
 // A full-item earth quantity stored in CUM uses the M3 rate, while the MT
 // value remains only as the statutory reference rate.

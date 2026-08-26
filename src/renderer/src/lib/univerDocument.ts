@@ -23,13 +23,29 @@ import {
   type ITextStyle
 } from '@univerjs/core'
 import emblemTelanganaPng from '../assets/emblem-telangana.png?inline'
-import type { ProjectMeta, ProjectNode } from '../types/project'
+import type { Orientation, ProjectMeta, ProjectNode } from '../types/project'
 import { formatCompactIndianEstimate } from './estimateAmount'
 import { newId } from './tree'
 
 /** Roughly A4 at 96dpi, in Univer's pixel units. */
 const PAGE_WIDTH = 794
 const PAGE_HEIGHT = 1123
+
+/**
+ * The page a document is laid out on.
+ *
+ * Landscape is the same sheet turned: swapping the two numbers is all "wide
+ * page" means to Univer, and doing it here keeps the one definition of the page
+ * in one place.
+ */
+export function documentPageSize(orientation: Orientation = 'portrait'): {
+  width: number
+  height: number
+} {
+  return orientation === 'landscape'
+    ? { width: PAGE_HEIGHT, height: PAGE_WIDTH }
+    : { width: PAGE_WIDTH, height: PAGE_HEIGHT }
+}
 const MARGIN = 72
 const FRONT_COVER_COST_DRAWING_PREFIX = 'estimated_cost_'
 const FRONT_COVER_COST_DESCRIPTION = 'E-Estimate Dashboard cost widget'
@@ -569,7 +585,13 @@ function bodyFromPlainText(text: string): NonNullable<IDocumentData['body']> {
 export function createUniverDocumentData(
   node: ProjectNode,
   meta?: ProjectMeta,
-  tableLocation?: FrontCoverLocation
+  tableLocation?: FrontCoverLocation,
+  /**
+   * Resolved orientation for this item — `print.orientation`, falling back to
+   * the inherited setting. The caller resolves it because inheritance needs the
+   * project root, which this module deliberately does not know about.
+   */
+  orientation: Orientation = 'portrait'
 ): IDocumentData {
   const existing = isUniverDocumentData(node.documentData) ? node.documentData : undefined
   const isUninitializedBlankCover =
@@ -592,7 +614,7 @@ export function createUniverDocumentData(
     id: `doc_${node.id}`,
     body: bodyFromPlainText(node.document ?? ''),
     documentStyle: {
-      pageSize: { width: PAGE_WIDTH, height: PAGE_HEIGHT },
+      pageSize: documentPageSize(orientation),
       marginTop: MARGIN,
       marginBottom: MARGIN,
       marginRight: MARGIN,

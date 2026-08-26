@@ -179,6 +179,7 @@ export default function AddItemModal(): JSX.Element {
         ) : (
           <button
             className="btn"
+            data-tour="add-item-confirm"
             disabled={selectedCount === 0 || preparingVariants}
             onClick={() => void confirm()}
           >
@@ -292,7 +293,7 @@ function ProjectDataColumn({
                   <strong>{definition.code}</strong>
                   <span>{definition.description}</span>
                   <small>
-                    {definition.kind === 'ssr' ? 'SSR type' : 'SOR type'} · ₹ {rate.toLocaleString('en-IN')} / {definition.unit}
+                    {definition.kind === 'ssr' ? 'SSR type' : 'SOR type'} · ₹ {rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / {definition.unit}
                   </small>
                 </span>
               </button>
@@ -693,6 +694,7 @@ function Column({
       <div className="col-toolbar">
         <input
           className="text-input"
+          data-tour={side === 'SSR' ? 'add-item-search' : 'add-item-search-sor'}
           placeholder={`Search ${side}…`}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -730,7 +732,10 @@ function Column({
           </small>
         </div>
       ) : null}
-      <div className="col-list">
+      <div
+        className="col-list"
+        data-tour={side === 'SSR' ? 'add-item-results' : 'add-item-results-sor'}
+      >
         {categories.map((cat) => {
           const entry = cache[cat.key]
           const isOpen = !!expanded[cat.key]
@@ -801,6 +806,7 @@ function Column({
                           {it.unit && <span className="item-unit">{it.unit}</span>}
                           <button
                             className="item-add-btn"
+                            data-tour="add-item-plus"
                             title={added ? 'Remove' : 'Add'}
                             onClick={() => (added ? onRemove(key) : onAdd(it))}
                           >
@@ -840,7 +846,7 @@ function SelectedBar({
       {entries.length === 0 ? (
         <div className="selected-empty">No items selected yet — add from either side.</div>
       ) : (
-        <div className="selected-chips">
+        <div className="selected-chips" data-tour="add-item-selected">
           {entries.map(([k, m]) => (
             <span className="selected-chip" key={k} title={m.description}>
               <span className="sc-side">{m.side}</span>

@@ -102,7 +102,7 @@ export default function SignatureFooterCard({
     })
 
   return (
-    <section className={`signature-footer-card ${compact ? 'compact' : ''}`}>
+    <section className={`signature-footer-card ${compact ? 'compact' : ''}`} data-tour="signature-card">
       <div className="signature-card-heading">
         <div>
           <span className="signature-card-icon"><Signature size={15} /></span>
@@ -175,6 +175,7 @@ export default function SignatureFooterCard({
             <label>
               Placement
               <select
+                data-tour="signature-placement"
                 value={settings.placement}
                 onChange={(event) =>
                   save({
@@ -238,6 +239,7 @@ export default function SignatureFooterCard({
             ))}
             <button
               className="btn-mini signature-add-row"
+              data-tour="signature-add-row"
               onClick={() =>
                 save({
                   ...(settings ?? DEFAULT_SIGNATURE_FOOTER),

@@ -4,12 +4,14 @@ import type { ProjectNode } from '../../types/project'
 import { migrateBundData } from '../../lib/bund'
 import BundSetup from './BundSetup'
 import BundDashboard from './BundDashboard'
+import BundSimulationTab from './BundSimulationTab'
 import ZonedBundRepairDashboard from './ZonedBundRepairDashboard'
 
 /**
  * The "Detailed" view for a Bund component (opened from its tree row): the
- * setup wizard until configured, then the design dashboard. The component's own
- * node shows the normal Overview & print (ComponentDashboard) instead.
+ * setup wizard until configured, then the design dashboard or the stability
+ * simulation tab. The component's own node shows the normal Overview & print
+ * (ComponentDashboard) instead.
  */
 export default function BundDetail({ node }: { node: ProjectNode }): JSX.Element | null {
   const setBund = useStore((s) => s.setBund)
@@ -19,6 +21,7 @@ export default function BundDetail({ node }: { node: ProjectNode }): JSX.Element
     open: false,
     step: 1
   })
+  const [tab, setTab] = useState<'design' | 'simulation'>('design')
 
   if (!data) return null
 
@@ -35,20 +38,41 @@ export default function BundDetail({ node }: { node: ProjectNode }): JSX.Element
           onDone={(next) => {
             setBund(node.id, next)
             setEditingSetup({ open: false, step: 1 })
+            setTab('design')
           }}
         />
-      ) : data.embankmentType === 'zoned' ? (
-        <ZonedBundRepairDashboard
-          node={node}
-          data={data}
-          onEditSetup={(step) => setEditingSetup({ open: true, step })}
-        />
       ) : (
-        <BundDashboard
-          node={node}
-          data={data}
-          onEditSetup={(step) => setEditingSetup({ open: true, step })}
-        />
+        <>
+          <div className="bund-detail-tabs">
+            <button
+              className={`btn ghost${tab === 'design' ? ' active' : ''}`}
+              onClick={() => setTab('design')}
+            >
+              Design & estimate
+            </button>
+            <button
+              className={`btn ghost${tab === 'simulation' ? ' active' : ''}`}
+              onClick={() => setTab('simulation')}
+            >
+              Simulation
+            </button>
+          </div>
+          {tab === 'simulation' ? (
+            <BundSimulationTab node={node} data={data} />
+          ) : data.embankmentType === 'zoned' ? (
+            <ZonedBundRepairDashboard
+              node={node}
+              data={data}
+              onEditSetup={(step) => setEditingSetup({ open: true, step })}
+            />
+          ) : (
+            <BundDashboard
+              node={node}
+              data={data}
+              onEditSetup={(step) => setEditingSetup({ open: true, step })}
+            />
+          )}
+        </>
       )}
     </div>
   )

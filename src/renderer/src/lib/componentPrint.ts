@@ -9,7 +9,7 @@ import type {
   SignatureFooterSettings
 } from '../types/project'
 import type { RateAnalysisRecipe, RateAnalysisTextRun } from '../types/rateAnalysis'
-import { createUniverWorkbookData } from './univerSpreadsheet'
+import { createUniverWorkbookData, usedCellRange } from './univerSpreadsheet'
 import { buildPrintHtml, PAPER_MM, PX_PER_MM, type PdfOptions } from './printRender'
 import { resolveNodeSettings } from './nodeSettings'
 import { descriptionRunsForDisplay, plainTextRun } from './rateAnalysisVisibility'
@@ -181,6 +181,14 @@ function formatNumber(value: number | null, maximumFractionDigits = 2): string {
     : value.toLocaleString('en-IN', { maximumFractionDigits })
 }
 
+/** Money is always shown to exactly two decimals — never the locale's 3. */
+function formatMoney2(value: number): string {
+  return value.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })
+}
+
 function runHtml(run: RateAnalysisTextRun): string {
   let value = escapeHtml(run.text).replace(/\n/g, '<br>')
   if (run.bold) value = `<strong>${value}</strong>`
@@ -189,11 +197,65 @@ function runHtml(run: RateAnalysisTextRun): string {
   return value
 }
 
-function itemDescription(item: ProjectNode, recipe?: RateAnalysisRecipe): string {
-  const runs = recipe?.layout?.descriptionRuns?.length
+function itemDescriptionRuns(
+  item: ProjectNode,
+  recipe?: RateAnalysisRecipe
+): RateAnalysisTextRun[] {
+  return recipe?.layout?.descriptionRuns?.length
     ? descriptionRunsForDisplay(recipe.description, recipe.layout.descriptionRuns)
     : [plainTextRun(item.itemDescription || nodeDisplayName(item))]
-  return runs.map(runHtml).join('')
+}
+
+function itemDescription(item: ProjectNode, recipe?: RateAnalysisRecipe): string {
+  return itemDescriptionRuns(item, recipe).map(runHtml).join('')
+}
+
+function textStyleDiffers(left: RateAnalysisTextRun, right: RateAnalysisTextRun): boolean {
+  return (
+    Boolean(left.bold) !== Boolean(right.bold) ||
+    Boolean(left.italic) !== Boolean(right.italic) ||
+    Boolean(left.underline) !== Boolean(right.underline)
+  )
+}
+
+/**
+ * Abstract descriptions are prose, not a facsimile of the source document.
+ * Imported SSR runs can carry PDF line endings and occasionally lose the space
+ * where a bold clause meets ordinary text. Flatten those incidental breaks while
+ * retaining the emphasis, so the browser can fill each line to the column edge.
+ */
+function abstractItemDescription(item: ProjectNode, recipe?: RateAnalysisRecipe): string {
+  const runs = itemDescriptionRuns(item, recipe)
+  let html = ''
+  let pendingSpace = false
+  let previous: { run: RateAnalysisTextRun; text: string } | null = null
+
+  for (const run of runs) {
+    const normalized = run.text.replace(/\s+/g, ' ')
+    const hasLeadingSpace = /^\s/.test(normalized)
+    const hasTrailingSpace = /\s$/.test(normalized)
+    const text = normalized.trim()
+    if (!text) {
+      pendingSpace ||= normalized.length > 0
+      continue
+    }
+
+    const inferredMissingSpace = Boolean(
+      previous &&
+        !pendingSpace &&
+        !hasLeadingSpace &&
+        textStyleDiffers(previous.run, run) &&
+        /[A-Za-z0-9]$/.test(previous.text) &&
+        /^[A-Za-z0-9]/.test(text)
+    )
+    if (html && (pendingSpace || hasLeadingSpace || inferredMissingSpace)) html += ' '
+
+    html += runHtml({ ...run, text })
+    pendingSpace = hasTrailingSpace
+    previous = { run, text }
+  }
+
+  return html
 }
 
 /**
@@ -254,7 +316,11 @@ function itemPrintConfig(project: EestimateProject, item: ProjectNode): ItemRend
   const inherited = resolveNodeSettings(project.root, item.id)
   return {
     ...item.print,
-    range: item.print?.range ?? null,
+    // No explicit print area means "whatever is written on the sheet" — the
+    // meaning PrintConfig.range has always documented. Deriving it here keeps it
+    // a print-time decision: nothing is stored on the item, so an untouched sheet
+    // stays untouched and the user's own choice always wins when they make one.
+    range: item.print?.range ?? usedCellRange(item.spreadsheet),
     pageSize: item.print?.pageSize ?? inherited.pageSize ?? 'A4',
     orientation: item.print?.orientation ?? inherited.orientation ?? 'portrait',
     margins: item.print?.margins ?? inherited.margins ?? DEFAULT_MARGINS,
@@ -365,10 +431,10 @@ function abstractCss(fontScale: number): string {
     table{width:100%;border-collapse:collapse;table-layout:fixed}thead{display:table-header-group}th,td{border:1px solid #777;padding:5px 6px;vertical-align:top;white-space:normal}
     th{background:#eee;text-align:center;line-height:1.2;overflow-wrap:break-word}
     tr{break-inside:avoid;page-break-inside:avoid}.abstract-page-break{break-before:page;page-break-before:always}
-    .abstract-sl{text-align:center}.abstract-description{line-height:1.35;overflow-wrap:anywhere;word-break:normal}.abstract-description strong{display:inline-block;margin-bottom:2px}.abstract-unit{text-align:center;overflow-wrap:anywhere}.abstract-number{text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-    .abstract-subcomponent td{background:#edf5fa;border-top:2px solid #447a9c}.abstract-subcomponent .abstract-description strong{color:#174d6c}
+    .abstract-sl{text-align:center}.abstract-description{line-height:1.35;overflow-wrap:anywhere;word-break:normal}.abstract-description .abstract-item-heading{display:block;margin-bottom:2px}.abstract-description span strong{display:inline}.abstract-unit{text-align:center;overflow-wrap:anywhere}.abstract-number{text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+    .abstract-subcomponent td{background:#f5f6f5;border-top:2px solid #52665f}.abstract-subcomponent .abstract-description strong{color:#263a35}
     .abstract-total td{border-top:2px solid #111;background:#f3f6f8;font-size:${14 * fontScale}px;font-weight:700}.abstract-total td:first-child{text-align:right}
-    .abstract-total{break-before:avoid;page-break-before:avoid}
+    .abstract-total{break-before:avoid;page-break-before:avoid}.abstract-total .abstract-total-amount{white-space:nowrap;overflow-wrap:normal}
     td span{font-size:${9 * fontScale}px;color:#444}
     .abstract-density-compact header{padding-bottom:7px;margin-bottom:10px}.abstract-density-compact th,.abstract-density-compact td{padding-top:4px;padding-bottom:4px}
     .abstract-density-tight header{padding-bottom:6px;margin-bottom:9px}.abstract-density-tight th,.abstract-density-tight td{padding-top:3px;padding-bottom:3px}
@@ -483,11 +549,11 @@ async function abstractHtml(
   const itemRows: ComponentAbstractRow[] = items.map((item, index) => {
     const final = getItemFinal(input.project, item, input.rateOf(item), true)
     const heading = nodeDisplayName(item)
-    const description = itemDescription(item, input.recipes[item.id])
+    const description = abstractItemDescription(item, input.recipes[item.id])
     const repeatsHeading = itemHeadingRepeatsDescription(item, input.recipes[item.id])
     const descriptionCell = repeatsHeading
-      ? `<strong>${escapeHtml(heading)}</strong>`
-      : `<strong>${escapeHtml(heading)}</strong><br><span>${description}</span>`
+      ? `<strong class="abstract-item-heading">${escapeHtml(heading)}</strong>`
+      : `<strong class="abstract-item-heading">${escapeHtml(heading)}</strong><span>${description}</span>`
     return {
       html: `<tr><td class="abstract-sl">${index + 1}</td><td class="abstract-description">${descriptionCell}</td><td class="abstract-unit">${escapeHtml(item.unit ?? final.unit ?? '')}</td><td class="abstract-number">${formatNumber(final.qty, 3)}</td><td class="abstract-number">${formatNumber(final.rate)}</td><td class="abstract-number abstract-amount">${formatNumber(final.amount)}</td></tr>`,
       textLength: heading.length + (repeatsHeading ? 0 : description.replace(/<[^>]*>/g, '').length)
@@ -513,10 +579,10 @@ async function abstractHtml(
   const headerHtml =
     `<header><div><small>${escapeHtml(input.project.meta.name)}</small>` +
     `<h1>${escapeHtml(section.name)}</h1><b>${abstractLabel}</b></div>` +
-    `<div class="total">Rs. ${total.toLocaleString('en-IN')}</div></header>`
+    `<div class="total">Rs. ${formatMoney2(total)}</div></header>`
   const totalRowHtml =
-    `<tr class="abstract-total"><td colspan="5">${totalLabel}</td>` +
-    `<td class="abstract-number">Rs. ${total.toLocaleString('en-IN')}</td></tr>`
+    `<tr class="abstract-total"><td colspan="4">${totalLabel}</td>` +
+    `<td colspan="2" class="abstract-number abstract-total-amount">Rs.&nbsp;${formatMoney2(total)}</td></tr>`
 
   const [measured, measuredClosing] = await Promise.all([
     measureAbstractGeometry(css, headerHtml, detailRows, totalRowHtml),

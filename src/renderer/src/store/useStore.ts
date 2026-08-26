@@ -51,6 +51,12 @@ import {
 import { normalizeLeadPrintSettings as normalizeLeadPrintLayoutSettings } from '../lib/leadPrintLayout'
 import type { IDocumentData } from '@univerjs/core'
 import type { RateAnalysisRecipe } from '../types/rateAnalysis'
+import type {
+  BundSimulationCaseId,
+  BundSimulationData,
+  BundSimulationRun
+} from '../types/bundSimulation'
+import { BUND_SIMULATION_CASES } from '../types/bundSimulation'
 import type { RecentEntry } from '../../../preload/index.d'
 import {
   addChild,
@@ -85,6 +91,7 @@ import {
 } from '../lib/miSluiceNew'
 import { foldsIntoPreviousEntry, MAX_HISTORY, type HistoryRun } from './history'
 import { compactProjectForSave, expandLoadedProject } from '../lib/projectFile'
+import { mergeBundSimulationRuns } from '../lib/bundSimulation'
 
 const SSR_ITEM_TABLE = 'ssr_item'
 
@@ -499,6 +506,79 @@ export interface SeigniorageSelection {
   materialKey?: string | null
 }
 
+export interface BundSimulationActiveJob {
+  projectId: string
+  nodeId: string
+  groupId: string
+  caseId: BundSimulationCaseId
+  sectionId: string
+  chainage: number
+  startedAt: string
+  queuedJobs: Array<{ caseId: BundSimulationCaseId; subcase?: string }>
+  totalJobs: number
+  completedJobs: number
+  currentRunId: string | null
+  phase: BundSimulationJobPhase
+  message: string
+  cancelRequested: boolean
+}
+
+export type BundSimulationJobPhase =
+  | 'starting'
+  | 'preparing-model'
+  | 'seepage-stage-1'
+  | 'seepage-stage-2'
+  | 'slip-search'
+  | 'strength-reduction'
+  | 'finalizing'
+
+export interface BundSimulationProgressUpdate {
+  runId: string
+  phase: BundSimulationJobPhase
+  message: string
+  at: string
+}
+
+export interface BundSimulationNotice {
+  id: string
+  status: 'complete' | 'error' | 'cancelled'
+  message: string
+}
+
+export type AppNotificationStatus =
+  | 'running'
+  | 'cancelling'
+  | 'complete'
+  | 'error'
+  | 'cancelled'
+  | 'update-available'
+  | 'update-downloading'
+  | 'update-downloaded'
+  | 'update-error'
+
+/** Ephemeral notification-centre row. It is never written into a project file. */
+export interface AppNotification {
+  id: string
+  kind: 'simulation' | 'update'
+  status: AppNotificationStatus
+  title: string
+  message: string
+  createdAt: string
+  updatedAt: string
+  read: boolean
+  nodeId?: string
+  caseId?: BundSimulationCaseId
+  chainage?: number
+  progress?: number
+  version?: string
+  releaseDate?: string
+}
+
+type AppNotificationInput = Omit<
+  AppNotification,
+  'createdAt' | 'updatedAt' | 'read'
+>
+
 interface StoreState {
   view: AppView
   activity: ActivityView
@@ -522,6 +602,10 @@ interface StoreState {
   analysisSelection: AnalysisSelection | null
   leadSelection: LeadSelection | null
   seigniorageSelection: SeigniorageSelection | null
+  /** Ephemeral, application-level solver jobs; deliberately not project JSON. */
+  bundSimulationJobs: Record<string, BundSimulationActiveJob>
+  bundSimulationNotice: BundSimulationNotice | null
+  appNotifications: AppNotification[]
 
   // lifecycle
   loadRecent: () => Promise<void>
@@ -569,6 +653,33 @@ interface StoreState {
     sectionId: string
   ) => void
   setBund: (nodeId: string, data: BundData) => void
+  startBundSimulationJob: (job: BundSimulationActiveJob) => boolean
+  patchBundSimulationJob: (
+    nodeId: string,
+    patch: Partial<BundSimulationActiveJob>
+  ) => void
+  updateBundSimulationProgress: (progress: BundSimulationProgressUpdate) => void
+  cancelBundSimulationJob: (nodeId: string) => Promise<boolean>
+  finishBundSimulationJob: (
+    nodeId: string,
+    status: BundSimulationNotice['status'],
+    message: string
+  ) => void
+  dismissBundSimulationNotice: () => void
+  upsertAppNotification: (
+    notification: AppNotificationInput,
+    markUnread?: boolean
+  ) => void
+  markAllAppNotificationsRead: () => void
+  dismissAppNotification: (id: string) => void
+  clearFinishedAppNotifications: () => void
+  /** Merge results into the latest node, never a run-start data snapshot. */
+  appendBundSimulationRuns: (
+    projectId: string,
+    nodeId: string,
+    fallbackSimulation: BundSimulationData,
+    runs: BundSimulationRun[]
+  ) => boolean
   setBundMaterial: (nodeId: string, role: BundItemRole, item: MasterItem) => void
   setMiSluiceNew: (nodeId: string, data: MiSluiceNewData) => void
   setMiSluiceNewMaterial: (
@@ -711,6 +822,23 @@ export function persistProjectSession(path: string, session: ProjectSession): vo
   }
 }
 
+function upsertNotificationRow(
+  rows: AppNotification[],
+  notification: AppNotificationInput,
+  at: string,
+  markUnread: boolean
+): AppNotification[] {
+  const existing = rows.find((row) => row.id === notification.id)
+  const next: AppNotification = {
+    ...existing,
+    ...notification,
+    createdAt: existing?.createdAt ?? at,
+    updatedAt: at,
+    read: markUnread ? false : (existing?.read ?? false)
+  }
+  return [next, ...rows.filter((row) => row.id !== notification.id)].slice(0, 30)
+}
+
 export const useStore = create<StoreState>((set, get) => {
   /** What produced the newest history entry, and when. */
   let historyRun: HistoryRun | null = null
@@ -769,6 +897,18 @@ export const useStore = create<StoreState>((set, get) => {
     })
   }
 
+  function confirmProjectReplacementWhileSimulation(action: string): boolean {
+    const jobs = Object.values(get().bundSimulationJobs)
+    if (jobs.length === 0) return true
+    const confirmed = window.confirm(
+      `A bund simulation is still running. ${action} will cancel it and the unfinished ` +
+        'result will not be saved. Continue?'
+    )
+    if (!confirmed) return false
+    for (const job of jobs) void get().cancelBundSimulationJob(job.nodeId)
+    return true
+  }
+
   return {
     view: 'home',
     activity: 'explorer',
@@ -792,6 +932,9 @@ export const useStore = create<StoreState>((set, get) => {
     analysisSelection: null,
     leadSelection: null,
     seigniorageSelection: null,
+    bundSimulationJobs: {},
+    bundSimulationNotice: null,
+    appNotifications: [],
 
     loadRecent: async () => {
       try {
@@ -822,6 +965,7 @@ export const useStore = create<StoreState>((set, get) => {
     goHome: () => set({ view: 'home' }),
 
     startNewProject: () => {
+      if (!confirmProjectReplacementWhileSimulation('Starting a new project')) return
       const draft = createDraftProject()
       set({
         view: 'newproject',
@@ -870,6 +1014,7 @@ export const useStore = create<StoreState>((set, get) => {
     },
 
     openProjectFromDisk: async () => {
+      if (!confirmProjectReplacementWhileSimulation('Opening another project')) return
       const res = await window.api.project.open()
       if (res.canceled) return
       if (res.error || !res.data) return
@@ -896,6 +1041,7 @@ export const useStore = create<StoreState>((set, get) => {
     },
 
     openRecent: async (path) => {
+      if (!confirmProjectReplacementWhileSimulation('Opening another project')) return
       const res = await window.api.project.openPath(path)
       if (res.error || !res.data) {
         if (localStorage.getItem(LAST_PROJECT_KEY) === path) {
@@ -961,6 +1107,7 @@ export const useStore = create<StoreState>((set, get) => {
     },
 
     closeProject: () => {
+      if (!confirmProjectReplacementWhileSimulation('Closing this project')) return
       set({
         view: 'home',
         project: null,
@@ -1059,6 +1206,214 @@ export const useStore = create<StoreState>((set, get) => {
 
     setBund: (nodeId, data) => {
       mutate((root) => syncBundItems(patchNode(root, nodeId, { bund: data }), nodeId))
+    },
+
+    startBundSimulationJob: (job) => {
+      if (Object.keys(get().bundSimulationJobs).length > 0) return false
+      const now = new Date().toISOString()
+      set((state) => ({
+        bundSimulationJobs: { ...state.bundSimulationJobs, [job.nodeId]: job },
+        bundSimulationNotice: null,
+        appNotifications: upsertNotificationRow(
+          state.appNotifications,
+          {
+            id: `simulation:${job.groupId}`,
+            kind: 'simulation',
+            status: 'running',
+            title: `Running · ${BUND_SIMULATION_CASES[job.caseId].short}`,
+            message: job.message,
+            nodeId: job.nodeId,
+            caseId: job.caseId,
+            chainage: job.chainage
+          },
+          now,
+          true
+        )
+      }))
+      return true
+    },
+
+    patchBundSimulationJob: (nodeId, patch) => {
+      set((state) => {
+        const current = state.bundSimulationJobs[nodeId]
+        if (!current) return state
+        const next = { ...current, ...patch }
+        const now = new Date().toISOString()
+        return {
+          bundSimulationJobs: {
+            ...state.bundSimulationJobs,
+            [nodeId]: next
+          },
+          appNotifications: upsertNotificationRow(
+            state.appNotifications,
+            {
+              id: `simulation:${next.groupId}`,
+              kind: 'simulation',
+              status: next.cancelRequested ? 'cancelling' : 'running',
+              title: `${next.cancelRequested ? 'Cancelling' : 'Running'} · ${BUND_SIMULATION_CASES[next.caseId].short}`,
+              message: next.message,
+              nodeId: next.nodeId,
+              caseId: next.caseId,
+              chainage: next.chainage
+            },
+            now,
+            false
+          )
+        }
+      })
+    },
+
+    updateBundSimulationProgress: (progress) => {
+      set((state) => {
+        const match = Object.values(state.bundSimulationJobs).find(
+          (job) => job.currentRunId === progress.runId
+        )
+        if (!match) return state
+        const next = {
+          ...match,
+          phase: progress.phase,
+          message: progress.message
+        }
+        return {
+          bundSimulationJobs: {
+            ...state.bundSimulationJobs,
+            [match.nodeId]: next
+          },
+          appNotifications: upsertNotificationRow(
+            state.appNotifications,
+            {
+              id: `simulation:${next.groupId}`,
+              kind: 'simulation',
+              status: next.cancelRequested ? 'cancelling' : 'running',
+              title: `${next.cancelRequested ? 'Cancelling' : 'Running'} · ${BUND_SIMULATION_CASES[next.caseId].short}`,
+              message: next.message,
+              nodeId: next.nodeId,
+              caseId: next.caseId,
+              chainage: next.chainage
+            },
+            progress.at,
+            false
+          )
+        }
+      })
+    },
+
+    cancelBundSimulationJob: async (nodeId) => {
+      const job = get().bundSimulationJobs[nodeId]
+      if (!job) return false
+      get().patchBundSimulationJob(nodeId, {
+        cancelRequested: true,
+        message: 'Cancelling the analysis…'
+      })
+      if (!job.currentRunId) return true
+      return window.api.bund.cancel(job.currentRunId)
+    },
+
+    finishBundSimulationJob: (nodeId, status, message) => {
+      set((state) => {
+        const { [nodeId]: finished, ...remaining } = state.bundSimulationJobs
+        const now = new Date().toISOString()
+        const notification = finished
+          ? {
+              id: `simulation:${finished.groupId}`,
+              kind: 'simulation' as const,
+              status,
+              title:
+                status === 'complete'
+                  ? `Complete · ${BUND_SIMULATION_CASES[finished.caseId].short}`
+                  : status === 'cancelled'
+                    ? `Cancelled · ${BUND_SIMULATION_CASES[finished.caseId].short}`
+                    : `Failed · ${BUND_SIMULATION_CASES[finished.caseId].short}`,
+              message,
+              nodeId: finished.nodeId,
+              caseId: finished.caseId,
+              chainage: finished.chainage
+            }
+          : {
+              id: `simulation:${nodeId}:${Date.now()}`,
+              kind: 'simulation' as const,
+              status,
+              title:
+                status === 'complete'
+                  ? 'Simulation complete'
+                  : status === 'cancelled'
+                    ? 'Simulation cancelled'
+                    : 'Simulation failed',
+              message,
+              nodeId
+            }
+        return {
+          bundSimulationJobs: remaining,
+          bundSimulationNotice: {
+            id: `${Date.now()}-${nodeId}`,
+            status,
+            message
+          },
+          appNotifications: upsertNotificationRow(
+            state.appNotifications,
+            notification,
+            now,
+            true
+          )
+        }
+      })
+    },
+
+    dismissBundSimulationNotice: () => set({ bundSimulationNotice: null }),
+
+    upsertAppNotification: (notification, markUnread = false) => {
+      const now = new Date().toISOString()
+      set((state) => ({
+        appNotifications: upsertNotificationRow(
+          state.appNotifications,
+          notification,
+          now,
+          markUnread
+        )
+      }))
+    },
+
+    markAllAppNotificationsRead: () => {
+      set((state) => ({
+        appNotifications: state.appNotifications.map((notification) => ({
+          ...notification,
+          read: true
+        }))
+      }))
+    },
+
+    dismissAppNotification: (id) => {
+      set((state) => ({
+        appNotifications: state.appNotifications.filter(
+          (notification) => notification.id !== id
+        )
+      }))
+    },
+
+    clearFinishedAppNotifications: () => {
+      set((state) => ({
+        appNotifications: state.appNotifications.filter((notification) =>
+          ['running', 'cancelling', 'update-downloading'].includes(notification.status)
+        )
+      }))
+    },
+
+    appendBundSimulationRuns: (projectId, nodeId, fallbackSimulation, runs) => {
+      const project = get().project
+      if (!project || project.id !== projectId) return false
+      mutate((root) => {
+        const currentNode = findNode(root, nodeId)
+        if (!currentNode?.bund) return root
+        const currentSimulation = currentNode.bund.simulation
+        const simulation = mergeBundSimulationRuns(
+          currentSimulation,
+          fallbackSimulation,
+          runs
+        )
+        const bund = { ...currentNode.bund, simulation }
+        return syncBundItems(patchNode(root, nodeId, { bund }), nodeId)
+      })
+      return true
     },
 
     setMiSluiceNew: (nodeId, data) => {

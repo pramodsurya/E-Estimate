@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ArrowDownUp,
   ClipboardCopy,
   Mountain,
   Pencil,
@@ -202,6 +203,43 @@ const blankLevelRow = (offset: number): LevelRow => ({
   projected: null
 })
 
+const LEVEL_REARRANGE_TOLERANCE = 0.001
+
+type EffectiveLevelValues = Pick<LevelRow, 'pre' | 'stripped' | 'projected'>
+
+const levelAtLinearSegment = (
+  fromOffset: number,
+  fromLevel: number,
+  toOffset: number,
+  toLevel: number,
+  offset: number
+): number => {
+  if (Math.abs(toOffset - fromOffset) < 1e-9) return fromLevel
+  const ratio = (offset - fromOffset) / (toOffset - fromOffset)
+  return fromLevel + (toLevel - fromLevel) * ratio
+}
+
+const isOnLinearSegment = (
+  before: LevelRow,
+  candidate: LevelRow,
+  after: LevelRow,
+  key: 'pre' | 'stripped' | 'projected',
+  values: Map<LevelRow, EffectiveLevelValues>
+): boolean => {
+  const beforeLevel = values.get(before)?.[key]
+  const candidateLevel = values.get(candidate)?.[key]
+  const afterLevel = values.get(after)?.[key]
+  if (beforeLevel == null || candidateLevel == null || afterLevel == null) return false
+  const expected = levelAtLinearSegment(
+    before.offset,
+    beforeLevel,
+    after.offset,
+    afterLevel,
+    candidate.offset
+  )
+  return Math.abs(candidateLevel - expected) <= LEVEL_REARRANGE_TOLERANCE
+}
+
 interface DecimalInputProps {
   value: number | null
   onValueChange: (value: number | null) => void
@@ -299,6 +337,18 @@ function toLevelRows(section: BundSection, data: BundData): LevelRow[] {
   // showing their blank rows after that column has been cleared.
   const hasGeneratedDesignPoints = (section.designPointOffsets?.length ?? 0) >= 2
   const levelingLimits = hasGeneratedDesignPoints ? bundLevelingLimits(section, data) : null
+  const hiddenOffsets = new Set(
+    (section.hiddenLevelOffsets ?? []).map((offset) => Math.round(offset * 1000) / 1000)
+  )
+  const explicitOffsets = new Set(
+    [
+      ...section.pre,
+      ...(section.strippedOverrides ?? []),
+      ...(section.projectedOverrides ?? [])
+    ].map(
+      (point) => Math.round(point.offset * 1000) / 1000
+    )
+  )
   const offsets = [
     ...new Set(
       [
@@ -311,7 +361,9 @@ function toLevelRows(section: BundSection, data: BundData): LevelRow[] {
           : [])
       ].map((o) => Math.round(o * 1000) / 1000)
     )
-  ].sort((a, b) => a - b)
+  ]
+    .filter((offset) => !hiddenOffsets.has(offset) || explicitOffsets.has(offset))
+    .sort((a, b) => a - b)
 
   return offsets.map((offset) => ({
     offset,
@@ -1327,7 +1379,8 @@ export default function BundDashboard({
         groundLevel: null,
         upstreamGroundLevel: null,
         downstreamGroundLevel: null,
-        designPointOffsets: []
+        designPointOffsets: [],
+        hiddenLevelOffsets: []
       }
     )
   }
@@ -1336,7 +1389,124 @@ export default function BundDashboard({
   const clearProposedLevels = (): void => {
     applyLevels(
       levelRows.filter((row) => row.pre != null),
-      { projected: [], projectedOverrides: undefined, designPointOffsets: [] }
+      {
+        projected: [],
+        projectedOverrides: undefined,
+        designPointOffsets: [],
+        hiddenLevelOffsets: []
+      }
+    )
+  }
+
+  /**
+   * Sort the table from upstream to downstream and remove only points that do
+   * not change either the existing-ground or proposed profile. The displayed
+   * placeholders are used for derived values, so generated rows can be
+   * simplified just like typed rows. Toe and platform control rows are always
+   * retained.
+   */
+  const rearrangeLevelRows = (): void => {
+    if (!selected) return
+
+    let workingRows = [...levelRows].sort((a, b) => a.offset - b.offset)
+    const removedRows: LevelRow[] = []
+    const generatedOffsets = new Set(
+      sectionDesignOffsets(selected, data.design).map(
+        (offset) => Math.round(offset * 1000) / 1000
+      )
+    )
+    const protectedOffsets = new Set<number>()
+    const protectOffset = (offset: number | null | undefined): void => {
+      if (offset != null && Number.isFinite(offset)) {
+        protectedOffsets.add(Math.round(offset * 1000) / 1000)
+      }
+    }
+    const designOffsets = sectionDesignOffsets(selected, data.design)
+    if (designOffsets.length > 0) {
+      protectOffset(Math.min(...designOffsets))
+      protectOffset(Math.max(...designOffsets))
+    }
+    if (selectedLevelingLimits) {
+      protectOffset(selectedLevelingLimits.startOffset)
+      protectOffset(selectedLevelingLimits.endOffset)
+    }
+
+    let removedOne = true
+    while (removedOne && workingRows.length >= 3) {
+      removedOne = false
+      const existingProfile = workingRows
+        .filter((row) => row.pre != null)
+        .map((row) => ({ offset: row.offset, rl: row.pre as number }))
+      const effectiveValues = new Map<LevelRow, EffectiveLevelValues>()
+
+      for (const row of workingRows) {
+        const pre =
+          row.pre ??
+          (existingProfile.length >= 2 ? existLevelAt(existingProfile, row.offset) : null)
+        const projected =
+          row.projected ??
+          (selectedLevelingLimits &&
+          row.offset < selectedLevelingLimits.usToeOffset - 1e-9
+            ? selectedLevelingLimits.usToeLevel
+            : selectedLevelingLimits &&
+                row.offset > selectedLevelingLimits.dsToeOffset + 1e-9
+              ? selectedLevelingLimits.dsToeLevel
+              : designSurfaceAt(row.offset, data.design))
+        const stripped =
+          row.stripped ??
+          (pre != null
+            ? automaticStrippedLevelAt(pre, projected, data.design)
+            : null)
+        effectiveValues.set(row, { pre, stripped, projected })
+      }
+
+      for (let index = 1; index < workingRows.length - 1; index += 1) {
+        const candidate = workingRows[index]
+        const roundedOffset = Math.round(candidate.offset * 1000) / 1000
+        if (protectedOffsets.has(roundedOffset)) continue
+
+        const before = workingRows[index - 1]
+        const after = workingRows[index + 1]
+        const redundant =
+          isOnLinearSegment(before, candidate, after, 'pre', effectiveValues) &&
+          isOnLinearSegment(before, candidate, after, 'projected', effectiveValues) &&
+          isOnLinearSegment(before, candidate, after, 'stripped', effectiveValues)
+        if (!redundant) continue
+
+        removedRows.push(candidate)
+        workingRows = [...workingRows.slice(0, index), ...workingRows.slice(index + 1)]
+        removedOne = true
+        break
+      }
+    }
+
+    const hiddenOffsets = new Set(
+      (selected.hiddenLevelOffsets ?? []).map(
+        (offset) => Math.round(offset * 1000) / 1000
+      )
+    )
+    for (const row of removedRows) {
+      if (generatedOffsets.has(Math.round(row.offset * 1000) / 1000)) {
+        hiddenOffsets.add(Math.round(row.offset * 1000) / 1000)
+      }
+    }
+
+    applyLevels(workingRows, {
+      hiddenLevelOffsets: [...hiddenOffsets].sort((a, b) => a - b)
+    })
+
+    if (removedRows.length === 0) {
+      setDesignMessage('Points were already arranged. No redundant points were removed.')
+      return
+    }
+
+    const removedDisplayOffsets = removedRows
+      .map((row) => qty3.format(row.offset - toeOrigin))
+      .join(', ')
+    setDesignMessage(
+      `Points rearranged. Removed ${removedRows.length} redundant point${
+        removedRows.length === 1 ? '' : 's'
+      } at ${removedDisplayOffsets} m.`
     )
   }
 
@@ -1400,7 +1570,8 @@ export default function BundDashboard({
 
     applyLevels(merged, {
       projected: null,
-      designPointOffsets: designPoints.map((point) => point.offset)
+      designPointOffsets: designPoints.map((point) => point.offset),
+      hiddenLevelOffsets: []
     })
     setDesignMessage(
       `${designPoints.length} design points populated for the selected chainage.`
@@ -2469,6 +2640,14 @@ export default function BundDashboard({
                   <div className="bund-level-actions">
                     <button className="btn ghost" onClick={addLevelRow}>
                       <Plus size={13} /> Add a point
+                    </button>
+                    <button
+                      className="btn ghost"
+                      title="Sort points and remove redundant points that do not change either profile"
+                      disabled={levelRows.length < 3}
+                      onClick={rearrangeLevelRows}
+                    >
+                      <ArrowDownUp size={13} /> Rearrange points
                     </button>
                     <button
                       className="btn ghost"

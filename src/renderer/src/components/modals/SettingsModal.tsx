@@ -3,9 +3,9 @@ import { Trash2 } from 'lucide-react'
 import Modal from './Modal'
 import { useStore } from '../../store/useStore'
 import { findNode } from '../../lib/tree'
-import { SETTINGS_DEFAULTS as DEFAULTS } from '../../lib/nodeSettings'
+import { SETTINGS_DEFAULTS as DEFAULTS, resolveNodeSettings } from '../../lib/nodeSettings'
 import { isRenamable, kindLabel } from '../nodeVisual'
-import type { ItemEditorType, NodeSettings } from '../../types/project'
+import type { ItemEditorType, NodeSettings, Orientation } from '../../types/project'
 
 export default function SettingsModal(): JSX.Element {
   const nodeId = useStore((s) => s.settings.nodeId)
@@ -14,6 +14,7 @@ export default function SettingsModal(): JSX.Element {
   const renameNode = useStore((s) => s.renameNode)
   const updateNodeSettings = useStore((s) => s.updateNodeSettings)
   const setItemEditorType = useStore((s) => s.setItemEditorType)
+  const setNodePrint = useStore((s) => s.setNodePrint)
   const deleteNode = useStore((s) => s.deleteNode)
 
   const node = project && nodeId ? findNode(project.root, nodeId) : null
@@ -23,6 +24,17 @@ export default function SettingsModal(): JSX.Element {
     node?.itemEditorType ?? 'spreadsheet'
   )
   const [confirmDelete, setConfirmDelete] = useState(false)
+  /**
+   * Orientation for an item is the *same field* Print Layout edits —
+   * `print.orientation` — read through the same fallback chain. Two doors into
+   * one setting, so neither can drift from the other. Seeded here rather than in
+   * `cfg`, which is the container-level NodeSettings and a different thing.
+   */
+  const [itemOrientation, setItemOrientation] = useState<Orientation>(
+    node?.print?.orientation ??
+      (project && node ? resolveNodeSettings(project.root, node.id).orientation : undefined) ??
+      'portrait'
+  )
   const [cfg, setCfg] = useState<Required<NodeSettings>>({
     ...DEFAULTS,
     ...(node?.settings ?? {}),
@@ -45,6 +57,9 @@ export default function SettingsModal(): JSX.Element {
     if (isItem) {
       if (itemEditorType !== (node.itemEditorType ?? 'spreadsheet')) {
         setItemEditorType(node.id, itemEditorType)
+      }
+      if (itemOrientation !== node.print?.orientation) {
+        setNodePrint(node.id, { ...node.print, orientation: itemOrientation })
       }
     } else {
       updateNodeSettings(node.id, cfg)
@@ -76,7 +91,9 @@ export default function SettingsModal(): JSX.Element {
         <button className="btn ghost" onClick={close}>
           Cancel
         </button>
-        <button className="btn" onClick={save}>Save</button>
+        <button className="btn" data-tour="settings-save" onClick={save}>
+          Save
+        </button>
       </div>
     </>
   )
@@ -111,6 +128,7 @@ export default function SettingsModal(): JSX.Element {
           <div className="field">
             <label className="field-label">Editor Type</label>
             <select
+              data-tour="settings-editor-type"
               className="select-input"
               value={itemEditorType}
               onChange={(event) => setEditorType(event.target.value as ItemEditorType)}
@@ -122,6 +140,24 @@ export default function SettingsModal(): JSX.Element {
           <div className="settings-note">
             New items use Spreadsheet by default. Univer workbook content is stored in the project
             file.
+          </div>
+
+          <div className="field">
+            <label className="field-label">Orientation</label>
+            <select
+              data-tour="settings-orientation"
+              className="select-input"
+              value={itemOrientation}
+              onChange={(event) => setItemOrientation(event.target.value as Orientation)}
+            >
+              <option value="portrait">Portrait</option>
+              <option value="landscape">Landscape</option>
+            </select>
+          </div>
+          <div className="settings-note">
+            The same setting as Orientation in this item’s Print Layout — change it in either place
+            and both show the change. Portrait suits a narrow measurement table; landscape suits a
+            wide one, and applies to this item alone.
           </div>
         </>
       ) : (
@@ -156,6 +192,7 @@ export default function SettingsModal(): JSX.Element {
             <div className="field">
               <label className="field-label">Default Orientation</label>
               <select
+                data-tour="settings-orientation"
                 className="select-input"
                 value={cfg.orientation}
                 onChange={(e) =>

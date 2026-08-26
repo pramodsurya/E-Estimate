@@ -186,14 +186,16 @@ export function seigniorageHtml(input: ProjectPrintInput): string | null {
         <td class="num">${row.smft != null ? rupees(row.smft) : '-'}</td>
         <td class="num">${
           row.permit != null
-            ? `${rupees(row.permit)}<span class="pct">@ ${row.permitPercent}%</span>`
+            ? `${rupees(row.permit)}<span class="pct">${
+                row.permitPercent === 0 ? 'Exempt' : `@ ${row.permitPercent}%`
+              }</span>`
             : '-'
         }</td>
       </tr>`
     )
     .join('')
 
-  const permitNote = `Permit fee is charged at 80% of the seigniorage fee for minor minerals and 40% for Colour and Black Granite, per ${escapeHtml(
+  const permitNote = `Permit fee is charged at 80% of the seigniorage fee for minor minerals and 40% for Colour and Black Granite; Ordinary Sand is exempt, per ${escapeHtml(
     PERMIT_GO_REFERENCE
   )}.`
 

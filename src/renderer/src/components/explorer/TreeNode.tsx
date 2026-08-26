@@ -70,6 +70,16 @@ const TreeNode = memo(function TreeNode({
     <>
       <div
         className={`tree-row ${selected ? 'selected' : ''} ${dropEdge ? `drop-${dropEdge}` : ''}`}
+        // Lets the tutorial point at "the component" or "the item" without
+        // knowing what the user called it — names here are entirely theirs.
+        data-tour={`tree-${node.kind}`}
+        // A rate code is stable where a name is not, so a tutorial can point at
+        // one specific item it asked the reader to add.
+        data-tour-code={node.itemCode || undefined}
+        // Front Page and Introduction are the two pinned pages every project
+        // carries, and the tutorial names them by template rather than by title
+        // — the reader is free to rename either.
+        data-tour-page={node.pageTemplate || undefined}
         style={{ paddingLeft: 6 + depth * 12 }}
         draggable={draggable}
         onDragStart={(event) => {
@@ -142,6 +152,7 @@ const TreeNode = memo(function TreeNode({
             )}
             <button
               className="node-iconbtn"
+              data-tour="tree-settings"
               title="Settings"
               onClick={(e) => {
                 e.stopPropagation()

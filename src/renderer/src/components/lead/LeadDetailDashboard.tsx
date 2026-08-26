@@ -1561,7 +1561,7 @@ export default function LeadDetailDashboard(): JSX.Element {
           </h1>
         </div>
         <div className="dash-actions">
-          <button className="btn ghost" onClick={closeLeadMaterial}>
+          <button className="btn ghost" data-tour="lead-back" onClick={closeLeadMaterial}>
             Back
           </button>
           <button
@@ -1681,7 +1681,6 @@ export default function LeadDetailDashboard(): JSX.Element {
               <button
                 className="btn ghost"
                 type="button"
-                disabled={pointPicking}
                 onClick={() => {
                   setPointDialogOpen(false)
                   setPointPicking(false)
@@ -1696,7 +1695,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                 Disposal routes run from the work location to the selected approved dump area.
               </div>
             )}
-            <fieldset className="lead-point-form" disabled={pointPicking}>
+            <fieldset className="lead-point-form">
               <div className="lead-form-grid">
               {!disposalLead && (
                 <label className="span-2">
@@ -1778,30 +1777,19 @@ export default function LeadDetailDashboard(): JSX.Element {
               </label>
               </div>
             </fieldset>
-            <div className={`lead-point-picker-shell ${pointPicking ? 'picking' : ''}`}>
+            <div className="lead-point-picker-shell">
               <div className="lead-point-picker-heading">
                 <span>
-                  {pointPicking
-                    ? 'Click the required position on the map'
-                    : pointLocationPicked
-                      ? 'Location confirmed'
-                      : 'Location is required'}
+                  {pointLocationPicked
+                    ? 'Location confirmed'
+                    : 'Click the map to set the location'}
                 </span>
-                {pointPicking && (
-                  <button
-                    className="btn ghost"
-                    type="button"
-                    onClick={() => setPointPicking(false)}
-                  >
-                    Cancel picking
-                  </button>
-                )}
               </div>
               <PointPickerMap
                 site={site}
                 points={materialMapPoints}
                 value={mapCoordinateFromDraft(sourceDraft)}
-                active={pointPicking}
+                active
                 onReady={() => {
                   window.setTimeout(
                     () => pointCodeRef.current?.focus({ preventScroll: true }),
@@ -1820,17 +1808,6 @@ export default function LeadDetailDashboard(): JSX.Element {
                 }}
               />
             </div>
-            <button
-              className="btn ghost lead-point-map-picker"
-              type="button"
-              disabled={pointPicking}
-              onClick={() => {
-                setPointPicking(true)
-                setError('')
-              }}
-            >
-              <MapPin size={15} /> {pointLocationPicked ? 'Change map location' : 'Pick location on the map'}
-            </button>
             {error && <div className="rate-warning">{error}</div>}
             <div className="lead-split-actions">
               <button
@@ -1846,6 +1823,7 @@ export default function LeadDetailDashboard(): JSX.Element {
               </button>
               <button
                 className="btn"
+                data-tour="lead-point-create"
                 type="button"
                 onClick={addSource}
                 disabled={
@@ -1952,6 +1930,10 @@ export default function LeadDetailDashboard(): JSX.Element {
             <div className="lead-map-heading-actions">
               <button
                 className="btn"
+                // The button that *opens* the point dialog. The one that saves
+                // carries `lead-point-create` and lives inside the dialog — the
+                // tutorial rings this one first, then that one.
+                data-tour="lead-point-open"
                 type="button"
                 onClick={() => {
                   setSourceDraft(blankSourceDraft(points, materialName, disposalLead))
@@ -2196,6 +2178,7 @@ export default function LeadDetailDashboard(): JSX.Element {
               Variant name
               <input
                 ref={variantNameRef}
+                data-tour="variant-name"
                 className="text-input"
                 autoFocus
                 placeholder="Optional when start/end points are selected"
@@ -2260,7 +2243,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                 </select>
               </label>
             )}
-            <label className="span-2">
+            <label className="span-2" data-tour="variant-start">
               Starting
               <select
                 className="select-input"
@@ -2383,7 +2366,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                 ))
               )}
             </div>
-            <label className="span-2">
+            <label className="span-2" data-tour="variant-end">
               Ending
               <select
                 className="select-input"
@@ -2870,6 +2853,7 @@ export default function LeadDetailDashboard(): JSX.Element {
               className="btn"
               type="button"
               disabled={busy === 'save-variant'}
+              data-tour="variant-save"
               onClick={() => void saveVariant()}
             >
               {editingVariantId ? <Check size={15} /> : <Plus size={15} />}
@@ -3466,6 +3450,7 @@ function VariantRoutePreviewMap({
           </div>
         )}
         <MapContainer
+          data-tour="variant-map"
           center={center}
           zoom={site || stops.length ? 10 : 7}
           scrollWheelZoom

@@ -149,9 +149,10 @@ async function resolveFigureUrls(sheets: DataSheet[]): Promise<Record<string, st
 }
 
 /**
- * Print overrides layered on top of the application stylesheet. They only undo
- * on-screen chrome (window sizing, shadows, the app's own @media print
- * blanking) so the sheet itself prints exactly as it is shown.
+ * Print overrides layered on top of the application stylesheet. Besides
+ * removing the on-screen chrome, this gives printed DATA sheets a deliberately
+ * low-coverage palette. Colour remains as a small accent, while dark text,
+ * rules and weight carry every distinction on a monochrome printer.
  */
 function printOverrides(zoom: number): string {
   return `
@@ -162,16 +163,69 @@ function printOverrides(zoom: number): string {
     html,body{margin:0;padding:0;height:auto;min-height:0;overflow:visible;background:#fff;color:#111}
     /* The app hides everything but the active overlay while printing itself. */
     @media print{body,body *{visibility:visible!important}}
-    .data-print-flow{zoom:${zoom}}
+    .data-print-flow{zoom:${zoom};color:#181a19}
     .data-print-code{break-inside:auto;page-break-inside:auto}
-    .data-print-code+.data-print-code{margin-top:26px;padding-top:24px;border-top:2px solid #b8cad7}
-    .rate-sheet{width:100%;min-width:0;max-width:none;margin:0;padding:0;border-radius:0;background:transparent;box-shadow:none}
+    .data-print-code+.data-print-code{margin-top:26px;padding-top:24px;border-top:2px solid #66736e}
+    .rate-sheet{
+      --reconstruction-ink:#181a19;
+      --reconstruction-navy:#263a35;
+      --reconstruction-teal:#355f57;
+      --reconstruction-sky:#f3f5f4;
+      --reconstruction-mint:#f7f8f7;
+      --reconstruction-amber:#faf8f1;
+      --reconstruction-lilac:#f7f6f8;
+      --reconstruction-line:#8b9590;
+      width:100%;min-width:0;max-width:none;margin:0;padding:0;border-radius:0;
+      background:#fff;color:#181a19;box-shadow:none
+    }
+    /* Large solid bands cost toner and can swallow reversed white type. Pale
+       headers keep the hierarchy through borders and weight in colour or mono. */
+    .sor-data-title,.rate-sheet-heading{
+      background:#eef1ef!important;color:#151716!important;
+      border:1px solid #66736e;border-bottom:2px solid #355f57
+    }
+    .sor-data-table th,.rate-table thead th{
+      background:#f0f2f1!important;color:#151716!important;
+      border-color:#737d78!important;border-top-width:1.5px!important;
+      border-bottom-width:1.5px!important
+    }
+    .rate-section-title,.rate-section-materials .rate-section-title,
+    .rate-section-labour .rate-section-title,.rate-abstract>.rate-section-title{
+      color:#263a35!important
+    }
+    .rate-table tbody tr:nth-child(even):not(.rate-total-row) td{background:#fbfbfb}
+    .rate-section-materials .rate-total-row td,
+    .rate-section-machinery .rate-total-row td,
+    .rate-section-labour .rate-total-row td{background:#f5f6f5}
+    .rate-total-row td{border-top:1.5px solid #66736e}
+    .stored-abstract-row:nth-child(even){background:#fafafa}
+    .stored-abstract-row.total-row,.stored-abstract-row.rate-row{background:#f1f3f2}
+    .stored-abstract-row.rate-row{border-top:1.5px solid #66736e;border-bottom:1.5px solid #66736e}
+    .labour-component{background:#faf8f1;border-left-color:#7a6b43}
+    .published-rate-blocks,.published-rate-blocks-head,
+    .percent-variant-data,.percent-variant-head,
+    .optional-addition-data,.optional-addition-head,
+    .optional-addition-lead-title,.optional-addition-lead-total,
+    .dual-measurement-result-title,.dual-measurement-row.is-rate,
+    .lead-rate-extension,.lead-rate-extension>.rate-section-title,
+    .lead-rate-head,.lead-rate-deduction,.lead-rate-calc,
+    .lead-rate-summary.final{background:#f4f6f5!important;color:#202321!important}
+    .optional-addition-table th,.optional-addition-total td,
+    .optional-addition-rate-summary .is-adopted,
+    .optional-addition-rate-summary .is-addition{background:#f7f8f7!important;color:#202321!important}
+    .published-rate-block.is-adopted,.dual-measurement-row.is-rate.is-adopted{
+      border-color:#52665f;box-shadow:inset 3px 0 0 #52665f
+    }
+    .lead-rate-warning{background:#faf8f1;color:#574821}
+    .sor-published-reference{background:#faf8f1;border-color:#a89a73}
+    .sor-published-reference small,.sor-published-reference strong,
+    .sor-published-reference span{color:#4d432b}
     .sor-print-flow-table{padding-bottom:0}
     .sor-print-flow-table .sor-data-title{margin-top:0}
     .sor-print-flow-table .sor-data-table thead{display:table-header-group}
     .sor-print-flow-table .sor-data-table tr{break-inside:avoid;page-break-inside:avoid}
     .sor-print-rate{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
-    .sor-print-rate small{color:#526a78;font-size:10px;font-weight:500;line-height:1.35}
+    .sor-print-rate small{color:#555;font-size:10px;font-weight:500;line-height:1.35}
     .rate-sheet .rate-section,.rate-sheet .rate-abstract{break-inside:auto;page-break-inside:auto}
     .rate-sheet .rate-section-title,.rate-sheet .rate-document-header,.rate-sheet .rate-sheet-heading{break-after:avoid;page-break-after:avoid}
     .sor-sheet-audit{display:none!important}

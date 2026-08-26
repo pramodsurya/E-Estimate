@@ -95,7 +95,7 @@ export default function SorDataTableBrowser({
   }, [catalogueSearch, catalogues])
 
   return (
-    <section className="sor-data-table-browser">
+    <section className="sor-data-table-browser" data-tour="sor-catalogue">
       <aside className="sor-data-table-nav">
         <div className="sor-data-table-nav-heading">
           <Database size={17} />

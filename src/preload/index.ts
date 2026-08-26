@@ -24,6 +24,15 @@ const api = {
     list: () => ipcRenderer.invoke('recent:list'),
     clear: () => ipcRenderer.invoke('recent:clear')
   },
+  bund: {
+    simulate: (request: unknown) => ipcRenderer.invoke('bund:simulate', { request }),
+    cancel: (runId: string) => ipcRenderer.invoke('bund:cancel', runId),
+    onProgress: (cb: (progress: unknown) => void): (() => void) => {
+      const listener = (_e: unknown, progress: unknown): void => cb(progress)
+      ipcRenderer.on('bund:simulation-progress', listener)
+      return () => ipcRenderer.removeListener('bund:simulation-progress', listener)
+    }
+  },
   print: {
     toPdf: (html: string, options: unknown) =>
       ipcRenderer.invoke('print:to-pdf', { html, options })

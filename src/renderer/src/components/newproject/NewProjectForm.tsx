@@ -217,6 +217,7 @@ export function ProjectDetailsForm({
               Name of Project<span className="required-mark">*</span>
             </label>
             <input
+              data-tour="np-name"
               className="text-input"
               placeholder="e.g. Repairs to Sluice at Kakarvani Tank"
               value={name}
@@ -229,6 +230,7 @@ export function ProjectDetailsForm({
               SOR / SSR Year<span className="required-mark">*</span>
             </label>
             <select
+              data-tour="np-year"
               className="select-input"
               value={sorYear}
               onChange={(event) => setSorYear(event.target.value)}
@@ -247,6 +249,7 @@ export function ProjectDetailsForm({
             <div className="field project-zone-field">
               <label className="field-label">Zone</label>
               <select
+                data-tour="np-zone"
                 className="select-input"
                 value={sorZone}
                 onChange={(event) => setSorZone(event.target.value as typeof sorZone)}
@@ -295,7 +298,9 @@ export function ProjectDetailsForm({
             <MapPin size={14} /> Go
           </button>
         </div>
-        <LocationMap value={location} onPick={pick} recenterToken={recenterToken} />
+        <div data-tour="np-map">
+          <LocationMap value={location} onPick={pick} recenterToken={recenterToken} />
+        </div>
         <div className="latlng-display">
           {location
             ? `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}${
@@ -305,7 +310,7 @@ export function ProjectDetailsForm({
         </div>
       </div>
 
-      <div className="form-section area-allowance-section">
+      <div className="form-section area-allowance-section" data-tour="np-allowance">
         <h2>Area Allowance</h2>
         <div className="allowance-mode-control" role="group" aria-label="Area allowance classification mode">
           <button
@@ -378,7 +383,7 @@ export function ProjectDetailsForm({
       </div>
 
       <div className="form-create-bar">
-        <button className="btn lg" disabled={!valid} onClick={submit}>
+        <button className="btn lg" data-tour="np-create" disabled={!valid} onClick={submit}>
           <Check size={16} /> {mode === 'edit' ? 'Save Project Changes' : 'Create Project'}
         </button>
       </div>

@@ -1,5 +1,10 @@
 import type { EestimateProject } from '../renderer/src/types/project'
 import type { PdfOptions } from '../renderer/src/lib/printRender'
+import type {
+  BundSimulationProgress,
+  BundSimulationRequest,
+  BundSimulationResponse
+} from '../main/bundSimulation'
 
 export interface PrintPdfResult {
   ok: boolean
@@ -43,6 +48,14 @@ export interface EestimateApi {
   recent: {
     list: () => Promise<RecentEntry[]>
     clear: () => Promise<RecentEntry[]>
+  }
+  bund: {
+    /** Run one headless XSLOPE stability case for a bund section. */
+    simulate: (request: BundSimulationRequest) => Promise<BundSimulationResponse>
+    /** Cancel an active sidecar run by its unique run id. */
+    cancel: (runId: string) => Promise<boolean>
+    /** Main-process phase updates survive Simulation-tab navigation. */
+    onProgress: (cb: (progress: BundSimulationProgress) => void) => () => void
   }
   print: {
     toPdf: (html: string, options: PdfOptions) => Promise<PrintPdfResult>

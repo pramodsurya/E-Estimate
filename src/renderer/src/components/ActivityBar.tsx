@@ -18,6 +18,7 @@ export default function ActivityBar(): JSX.Element {
         <button
           key={key}
           className={`ab-btn ${activity === key ? 'active' : ''}`}
+          data-tour={`activity-${key}`}
           title={title}
           onClick={() => setActivity(key)}
         >

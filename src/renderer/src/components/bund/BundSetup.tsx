@@ -92,6 +92,7 @@ export default function BundSetup({
   const [step, setStep] = useState<Step>(initialStep ?? 1)
   const [draft, setDraft] = useState<BundData>(data)
   const [manualBreak, setManualBreak] = useState('')
+  const [mapAction, setMapAction] = useState<'draw' | 'mark'>('draw')
 
   const drawnLength = useMemo(() => polylineLengthM(draft.alignment), [draft.alignment])
   const effectiveLength =
@@ -103,6 +104,8 @@ export default function BundSetup({
 
   const unit = draft.chainageUnit
   const unitLabel = chainageUnitLabel(unit)
+  const activeMapAction =
+    draft.sectionMode === 'discontinuous' && draft.alignment.length >= 2 ? mapAction : 'draw'
 
   const patch = (partial: Partial<BundData>): void => setDraft((d) => ({ ...d, ...partial }))
 
@@ -441,28 +444,40 @@ export default function BundSetup({
           </div>
           {draft.source === 'map' && (
             <div className="gw-setup-aside">
+              {draft.sectionMode === 'discontinuous' && draft.alignment.length >= 2 && (
+                <div className="map-tools">
+                  <button
+                    className={`btn${mapAction === 'draw' ? '' : ' ghost'}`}
+                    aria-pressed={mapAction === 'draw'}
+                    onClick={() => setMapAction('draw')}
+                  >
+                    Draw alignment
+                  </button>
+                  <button
+                    className={`btn${mapAction === 'mark' ? '' : ' ghost'}`}
+                    aria-pressed={mapAction === 'mark'}
+                    onClick={() => setMapAction('mark')}
+                  >
+                    Place sections
+                  </button>
+                </div>
+              )}
+              {draft.sectionMode === 'discontinuous' && (
+                <div className="settings-note">
+                  {activeMapAction === 'mark'
+                    ? 'Click the drawn line to place a section at that chainage.'
+                    : 'Click the map to add points along the bund alignment.'}
+                </div>
+              )}
               <AlignmentMap
                 points={draft.alignment}
-                mode="draw"
+                mode={activeMapAction}
                 totalLengthM={effectiveLength}
                 onAddPoint={(p) => setDraft((d) => ({ ...d, alignment: [...d.alignment, p] }))}
+                onPlaceBreak={(ch) => addBreak(toDisplayChainage(ch, unit))}
+                ticks={activeMapAction === 'mark' ? draft.breaks : []}
                 fallbackCenter={node.location ?? null}
               />
-              {draft.sectionMode === 'discontinuous' && (
-                <>
-                  <div className="settings-note">
-                    Click the drawn line to place a section at that chainage.
-                  </div>
-                  <AlignmentMap
-                    points={draft.alignment}
-                    mode="mark"
-                    totalLengthM={effectiveLength}
-                    onPlaceBreak={(ch) => addBreak(toDisplayChainage(ch, unit))}
-                    ticks={draft.breaks}
-                    fallbackCenter={node.location ?? null}
-                  />
-                </>
-              )}
             </div>
           )}
         </div>

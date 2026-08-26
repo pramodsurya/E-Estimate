@@ -26,7 +26,7 @@ export default function ExplorerPanel(): JSX.Element | null {
         </div>
       </div>
       <div className="panel-body">
-        <div className="tree">
+        <div className="tree explorer-tree">
           <TreeNode node={project.root} depth={0} />
         </div>
       </div>

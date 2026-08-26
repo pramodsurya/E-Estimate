@@ -20,6 +20,11 @@ assert.match(
   /sectionHeading:\s*textValue\(row\.section_heading\)\.trim\(\)\s*\|\|\s*undefined/,
   'SSR recipe loading must preserve the published section heading'
 )
+assert.match(
+  rateAnalysisSource,
+  /seig_code:\s*canonicalSeigniorageCode\(/,
+  'SSR recipe loading must canonicalize stale fine-aggregate seigniorage codes'
+)
 const rateTableSource = fs.readFileSync(
   path.join(root, 'src/renderer/src/components/rateanalysis/RateAnalysisTable.tsx'),
   'utf8'
@@ -129,6 +134,7 @@ const {
     },
     './projectItems': { projectItemKey: () => 'test' },
     './rateAnalysisVisibility': { parseRateAnalysisVisibility: () => ({}) },
+    './seigniorageClassification': { canonicalSeigniorageCode: (code) => code },
     './sorCatalogue': {
       SOR_CATALOGUE_CATEGORY: 'sor_catalogue',
       fetchSorCataloguePrice: async () => [],

@@ -38,6 +38,7 @@ export default function SideBar(): JSX.Element {
             </button>
             <button
               type="button"
+              data-tour="data-section-catalogue"
               className={`data-sidebar-link ${dataDashboardSection === 'catalogue' ? 'active' : ''}`}
               onClick={() => setDataDashboardSection('catalogue')}
             >
@@ -45,6 +46,7 @@ export default function SideBar(): JSX.Element {
             </button>
             <button
               type="button"
+              data-tour="data-section-rates"
               className={`data-sidebar-link ${dataDashboardSection === 'rates' ? 'active' : ''}`}
               onClick={() => setDataDashboardSection('rates')}
             >

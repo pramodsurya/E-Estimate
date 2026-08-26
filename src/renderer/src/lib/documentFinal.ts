@@ -106,12 +106,48 @@ export function resolvePrintArea(
   data: IDocumentData | undefined,
   area: DocumentPrintArea | undefined
 ): DocumentPrintArea | null {
-  if (!area) return null
   const count = data?.body?.paragraphs?.length ?? 0
   if (count === 0) return null
+  // No area chosen: fall back to everything actually written. Same idea as a
+  // sheet's used range — the trailing empty paragraphs left behind by pressing
+  // Enter are not content, and printing them adds blank space or a blank page.
+  if (!area) return usedParagraphRange(data)
   const start = Math.max(0, Math.min(area.startParagraph, count - 1))
   const end = Math.max(start, Math.min(area.endParagraph, count - 1))
   return { startParagraph: start, endParagraph: end }
+}
+
+/**
+ * The first and last paragraph holding anything other than whitespace.
+ *
+ * Returns null for a document that is empty, or one whose paragraphs are all
+ * blank — which callers read as "no opinion", printing the document whole rather
+ * than nothing at all. Erring towards printing too much is recoverable; printing
+ * nothing looks like the feature is broken.
+ */
+export function usedParagraphRange(
+  data: IDocumentData | undefined
+): DocumentPrintArea | null {
+  const paragraphs = data?.body?.paragraphs
+  const stream = data?.body?.dataStream
+  if (!paragraphs?.length || typeof stream !== 'string') return null
+
+  let first = -1
+  let last = -1
+  let from = 0
+  paragraphs.forEach((paragraph, index) => {
+    const to = paragraph.startIndex
+    // Univer's dataStream carries control characters for paragraph and section
+    // breaks; they are structure, not text, so they must not count as content.
+    const text = stream.slice(from, to).replace(/[\r\n\v\f\u0008\u001a\u001c-\u001f]/g, '')
+    from = to + 1
+    if (text.trim().length === 0) return
+    if (first < 0) first = index
+    last = index
+  })
+
+  if (first < 0) return null
+  return { startParagraph: first, endParagraph: last }
 }
 
 /** True when the paragraph at `index` falls inside the print area. */

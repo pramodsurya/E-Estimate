@@ -23,8 +23,9 @@ export default function DataPanel(): JSX.Element | null {
 
   return (
     <>
-      <div className="data-tabs" role="tablist" aria-label="Project data">
+      <div className="data-tabs" data-tour="sidebar-data-panel" role="tablist" aria-label="Project data">
         <button
+          data-tour="panel-tab-seigniorage"
           className={tab === 'seigniorage' ? 'active' : ''}
           onClick={() => {
             setTab('seigniorage')
@@ -36,6 +37,7 @@ export default function DataPanel(): JSX.Element | null {
           Seigniorage
         </button>
         <button
+          data-tour="panel-tab-lead"
           className={tab === 'lead' ? 'active' : ''}
           onClick={() => setTab('lead')}
           title="Lead"
@@ -43,7 +45,11 @@ export default function DataPanel(): JSX.Element | null {
           <Timer size={13} />
           Lead
         </button>
-        <button className={tab === 'data' ? 'active' : ''} onClick={() => setTab('data')}>
+        <button
+          data-tour="panel-tab-data"
+          className={tab === 'data' ? 'active' : ''}
+          onClick={() => setTab('data')}
+        >
           <Database size={13} />
           Data
         </button>
@@ -64,6 +70,7 @@ export default function DataPanel(): JSX.Element | null {
               return (
                 <div key={group.key} className="data-group">
                   <div
+                    data-tour="data-item-row"
                     className={`data-item-row ${selected ? 'selected' : ''}`}
                     onClick={() => openRateAnalysis(group.key, group.usages[0].node.id)}
                     title={group.description}

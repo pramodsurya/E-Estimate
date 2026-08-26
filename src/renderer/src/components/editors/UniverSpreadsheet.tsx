@@ -14,6 +14,13 @@ import drawingEnUS from '@univerjs/preset-sheets-drawing/locales/en-US'
 import { BarChart3, Hash, Printer, Table2, Crop, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
+  SPECIMEN_SHEET_RANGE,
+  SPECIMEN_SHEET_ROWS,
+  TUTORIAL_SEED_SHEET,
+  TUTORIAL_SELECT_RANGE,
+  type TutorialRangeRequest
+} from '../../tutorial/events'
+import {
   createUniverWorkbookData,
   isUniverWorkbookData
 } from '../../lib/univerSpreadsheet'
@@ -135,6 +142,8 @@ function removeExistingChartFloatDoms(ws: unknown): number {
 export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.Element {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const apiRef = useRef<UniverSheetsApi | null>(null)
+  /** True once the tutorial's specimen has been written into this sheet. */
+  const seededRef = useRef(false)
   const workbookRef = useRef<FWorkbook | null>(null)
   const setNodeSpreadsheet = useStore((state) => state.setNodeSpreadsheet)
   const setNodePrint = useStore((state) => state.setNodePrint)
@@ -198,6 +207,7 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
   const clearPrintArea = (): void => {
     setNodePrint(node.id, { ...node.print, range: null })
   }
+
 
   /* ---------------- Fix Final Number ---------------- */
 
@@ -639,6 +649,147 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hostReady, node.id, setNodeSpreadsheet])
 
+  /* ---------------- Tutorial specimen ---------------- */
+  /**
+   * The tutorial asks for a worked example when it reaches the measurement-sheet
+   * step. Only an empty sheet is ever written to — anything already in here is
+   * the user's, and quietly replacing real measurements would be far worse than
+   * a slightly emptier lesson.
+   *
+   * The request can arrive before Univer has finished booting, so it retries for
+   * a few seconds and then gives up quietly; a missing specimen is a small loss,
+   * an exception thrown at a first-time user is not.
+   */
+  useEffect(() => {
+    let cancelled = false
+
+    const sheetIsEmpty = (): boolean => {
+      const snapshot = workbookRef.current?.save()
+      const sheets = (snapshot?.sheets ?? {}) as Record<
+        string,
+        { cellData?: Record<string, unknown> }
+      >
+      return Object.values(sheets).every(
+        (sheet) => Object.keys(sheet?.cellData ?? {}).length === 0
+      )
+    }
+
+    const write = (): boolean => {
+      const api = apiRef.current
+      if (!api || !workbookRef.current) return false
+      if (!sheetIsEmpty()) return true // nothing to do, but the request is answered
+
+      const sheet = api.getActiveWorkbook()?.getActiveSheet() as unknown as
+        | { getRange?: (a1: string) => { setValues?: (values: unknown[][]) => void } | null }
+        | null
+        | undefined
+      const range = sheet?.getRange?.(SPECIMEN_SHEET_RANGE)
+      if (!range?.setValues) return false
+      range.setValues(SPECIMEN_SHEET_ROWS as unknown[][])
+      seededRef.current = true
+      return true
+    }
+
+    const onSeed = (): void => {
+      let attempts = 0
+      const attempt = (): void => {
+        if (cancelled) return
+        let done = false
+        try {
+          done = write()
+        } catch (seedError) {
+          console.error('[UniverSpreadsheet] tutorial specimen failed', seedError)
+          return
+        }
+        if (done) return
+        attempts += 1
+        if (attempts < 20) window.setTimeout(attempt, 250)
+      }
+      attempt()
+    }
+
+    /**
+     * Move the sheet's own selection onto a cell the tutorial is describing.
+     *
+     * Univer renders cells to canvas, so an overlay ring cannot sit on one. Its
+     * selection box can, and it follows scrolling and zoom for free — and it has
+     * the side benefit that Fix Final № and Set Print Area both read exactly this
+     * selection, so what the reader sees highlighted is what those buttons act on.
+     *
+     * The facade method for setting a selection differs between Univer versions,
+     * so rather than trust one name this tries the plausible ones and *verifies*
+     * against getActiveRange() afterwards. If none of them worked, nothing is
+     * highlighted and the card's text still names the cell.
+     */
+    const selectRange = (request: TutorialRangeRequest): boolean => {
+      // Only ever inside the specimen. If the reader typed their own figures,
+      // moving their selection would be interference, not teaching.
+      if (!seededRef.current) return true
+      const api = apiRef.current
+      const workbook = api?.getActiveWorkbook()
+      if (!workbook) return false
+      const sheet = workbook.getActiveSheet() as unknown as
+        | { getRange?: (a1: string) => unknown; setActiveRange?: (range: unknown) => void }
+        | null
+        | undefined
+      const range = sheet?.getRange?.(request.a1)
+      if (!range) return false
+
+      const attempts: Array<() => void> = [
+        () => (range as { activate?: () => void }).activate?.(),
+        () => sheet?.setActiveRange?.(range),
+        () => (workbook as unknown as { setActiveRange?: (r: unknown) => void }).setActiveRange?.(range)
+      ]
+
+      for (const attempt of attempts) {
+        try {
+          attempt()
+        } catch {
+          continue
+        }
+        const now = readActiveRange()
+        if (
+          now &&
+          now.startRow === request.startRow &&
+          now.startColumn === request.startColumn &&
+          now.endRow === request.endRow &&
+          now.endColumn === request.endColumn
+        ) {
+          return true
+        }
+      }
+      return false
+    }
+
+    const onSelect = (event: Event): void => {
+      const request = (event as CustomEvent<TutorialRangeRequest>).detail
+      if (!request) return
+      let attempts = 0
+      const attempt = (): void => {
+        if (cancelled) return
+        let done = false
+        try {
+          done = selectRange(request)
+        } catch (selectError) {
+          console.error('[UniverSpreadsheet] tutorial selection failed', selectError)
+          return
+        }
+        if (done) return
+        attempts += 1
+        if (attempts < 20) window.setTimeout(attempt, 250)
+      }
+      attempt()
+    }
+
+    window.addEventListener(TUTORIAL_SEED_SHEET, onSeed)
+    window.addEventListener(TUTORIAL_SELECT_RANGE, onSelect)
+    return () => {
+      cancelled = true
+      window.removeEventListener(TUTORIAL_SEED_SHEET, onSeed)
+      window.removeEventListener(TUTORIAL_SELECT_RANGE, onSelect)
+    }
+  }, [])
+
   return (
     <div className="editor-page">
       <div className="editor-toolbar">
@@ -650,7 +801,11 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
 
         <div className="et-print-actions">
           {node.finalCell ? (
-            <span className="et-final" title={`Final number cell ${cellToA1(node.finalCell.row, node.finalCell.column)}`}>
+            <span
+              className="et-final"
+              data-tour="sheet-final-set"
+              title={`Final number cell ${cellToA1(node.finalCell.row, node.finalCell.column)}`}
+            >
               Final: {finalCellValue ?? '—'}
               {node.unit ? ` ${node.unit}` : ''}
               <button className="et-final-x" title="Clear final number" onClick={clearFinalNumber}>
@@ -660,6 +815,7 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
           ) : null}
           <button
             className="btn-mini"
+            data-tour="sheet-fix-final"
             title="Mark the selected cell as this item's final total number"
             onClick={fixFinalNumber}
           >
@@ -678,6 +834,7 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
           ) : null}
           <button
             className="btn-mini"
+            data-tour="sheet-set-print-area"
             title="Set the selected cell range as the print area"
             onClick={setPrintArea}
           >
@@ -685,7 +842,12 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
             Set Print Area
           </button>
           {printRange ? (
-            <button className="btn-mini ghost" title="Clear print area" onClick={clearPrintArea}>
+            <button
+              className="btn-mini ghost"
+              data-tour="sheet-print-area-set"
+              title="Clear print area"
+              onClick={clearPrintArea}
+            >
               <X size={13} />
               Clear
             </button>
@@ -703,7 +865,7 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
       </div>
 
       <div className="univer-editor-shell">
-        <div ref={containerRef} className="univer-editor-host" />
+        <div ref={containerRef} className="univer-editor-host" data-tour="sheet-grid" />
         {loading && !error ? (
           <div className="univer-editor-loading">
             <strong>Loading spreadsheet...</strong>

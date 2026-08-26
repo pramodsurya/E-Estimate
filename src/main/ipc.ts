@@ -3,6 +3,11 @@ import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { readProject, writeProject } from './projectIo'
 import { addRecent, clearRecent, listRecent, removeRecent } from './recentStore'
+import {
+  cancelBundSimulation,
+  runBundSimulation,
+  type BundSimulationRequest
+} from './bundSimulation'
 
 /** The most recent thing the updater reported, for a renderer that missed it. */
 export type UpdateState =
@@ -146,6 +151,15 @@ export function registerIpc(): void {
     clearRecent()
     return listRecent()
   })
+
+  // --- Bund stability simulation ---
+  // The main process owns the child so navigation cannot cancel or orphan it.
+  ipcMain.handle('bund:simulate', (e, payload: { request: BundSimulationRequest }) =>
+    runBundSimulation(payload.request, (progress) => {
+      if (!e.sender.isDestroyed()) e.sender.send('bund:simulation-progress', progress)
+    })
+  )
+  ipcMain.handle('bund:cancel', (_e, runId: string) => cancelBundSimulation(runId))
 
   // --- Auto-update ---
   // Forward autoUpdater events to the renderer so the UI can react, and keep the

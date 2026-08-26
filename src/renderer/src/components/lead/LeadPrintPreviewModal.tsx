@@ -182,10 +182,12 @@ const km = new Intl.NumberFormat('en-IN', {
 })
 
 const PAGE_LABELS: Record<LeadPrintPageKey, string> = {
-  chart: `Lead Print 1 - ${LEAD_PRINT_PAGE_LABELS.chart}`,
-  calculation: `Lead Print 2 - ${LEAD_PRINT_PAGE_LABELS.calculation}`,
-  map: `Lead Print 3 - ${LEAD_PRINT_PAGE_LABELS.map}`
+  chart: 'Lead statement',
+  calculation: 'Lead statement',
+  map: `Route map - ${LEAD_PRINT_PAGE_LABELS.map}`
 }
+
+const PRINT_SETTINGS_PAGES: LeadPrintPageKey[] = ['chart', 'map']
 
 export default function LeadPrintPreviewModal({
   year,
@@ -341,7 +343,7 @@ export default function LeadPrintPreviewModal({
         <div className="lead-print-scroll">
           {!layoutEditing && <>
           <article
-            className={`lead-print-page ${layout.pages.chart.orientation}`}
+            className={`lead-print-page lead-print-flow-page ${layout.pages.chart.orientation}`}
             style={printPageStyle(layout, 'chart', signatureFooter)}
           >
             <header className="lead-print-page-header">
@@ -349,7 +351,6 @@ export default function LeadPrintPreviewModal({
                 <h1>Lead/Lift/Loading & Unloading Charges {year}</h1>
                 <p>{zoneLabel(zone)} SOR rates used by the applied Lead variants in this project.</p>
               </div>
-              <strong>E-Estimate</strong>
             </header>
 
             {usedCodes.length === 0 && appliedPipeLeads.length === 0 ? (
@@ -370,36 +371,25 @@ export default function LeadPrintPreviewModal({
               ))
             )}
             {appliedPipeLeads.length > 0 && <PipeLeadSourceTable rows={appliedPipeLeads} />}
-            {signatureFooter?.enabled && signatureFooter.placement === 'every_page' && (
-              <SignatureFooterPrint settings={signatureFooter} />
-            )}
-          </article>
-
-          <article
-            className={`lead-print-page ${layout.pages.calculation.orientation}`}
-            style={printPageStyle(layout, 'calculation', signatureFooter)}
-          >
-            <header className="lead-print-section-header">
-              <h2>Applied Variant Rate Calculations</h2>
-              <p>
-                Only applied Lead variants are included. Common Lead uses {zoneLabel(zone)} SOR;
-                RCC pipes use the statewide Public Health Table 6/7 rate.
-              </p>
-            </header>
-            {applied.length === 0 ? (
-              <div className="lead-print-empty">Apply a Lead variant to an item to show calculations.</div>
-            ) : (
-              <div className="lead-print-calculation-grid">
-                {applied.map((row) => (
-                  <AppliedCalculationBlock
-                    key={row.application.id}
-                    row={row}
-                    zone={zone}
-                    routeLabel={routeLabelForVariant(row.variant, assignments, points, site)}
-                  />
-                ))}
-              </div>
-            )}
+            <section className="lead-print-calculation-section">
+              <header className="lead-print-section-header">
+                <h2>Lead Rate Details</h2>
+              </header>
+              {applied.length === 0 ? (
+                <div className="lead-print-empty">Apply a Lead entry to an item to show calculations.</div>
+              ) : (
+                <div className="lead-print-calculation-grid">
+                  {applied.map((row) => (
+                    <AppliedCalculationBlock
+                      key={row.application.id}
+                      row={row}
+                      zone={zone}
+                      routeLabel={routeLabelForVariant(row.variant, assignments, points, site)}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
             {signatureFooter?.enabled && signatureFooter.placement === 'every_page' && (
               <SignatureFooterPrint settings={signatureFooter} />
             )}
@@ -495,7 +485,7 @@ function PrintSettingsPanel({
         ))}
       </div>
       <div className="lead-print-page-options">
-        {(Object.keys(PAGE_LABELS) as LeadPrintPageKey[]).map((page) => (
+        {PRINT_SETTINGS_PAGES.map((page) => (
           <div className="lead-print-page-option" key={page}>
             <span>{PAGE_LABELS[page]}</span>
             <div className="lead-segmented">
@@ -651,7 +641,7 @@ function AppliedCalculationBlock({
     <section className="lead-print-calc-block">
       <div className="lead-print-calc-heading">
         <div>
-          <strong>{variant.materialName} - {variantDisplayName(variant)}</strong>
+          <strong>{calculationHeading(variant)}</strong>
           <span>{routeLabel}</span>
         </div>
         <b>
@@ -1468,7 +1458,16 @@ function chargeCodeForDescription(chargeCode: AppliedChargeCode): string {
 }
 
 function variantDisplayName(variant: LeadVariant): string {
-  return variant.variantName || `${variant.materialName} variant`
+  return variant.variantName || variant.materialName || 'Lead entry'
+}
+
+function calculationHeading(variant: LeadVariant): string {
+  const materialName = variant.materialName.trim()
+  const entryName = variantDisplayName(variant).trim()
+  if (!entryName || entryName.toLowerCase() === materialName.toLowerCase()) {
+    return materialName || 'Lead entry'
+  }
+  return `${materialName} - ${entryName}`
 }
 
 function handlingLabel(mode: LeadVariant['handlingMode']): string {

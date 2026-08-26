@@ -485,7 +485,7 @@ export default function SorCatalogueColumn({
                           <b>
                             {match.rate === null
                               ? match.rate_text || 'Reference'
-                              : `₹ ${match.rate.toLocaleString('en-IN')}`}
+                              : `₹ ${match.rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                             <small>/ {match.unit || 'unit'}</small>
                           </b>
                           <ChevronRight size={14} />
@@ -638,7 +638,7 @@ export default function SorCatalogueColumn({
                     <strong>{match.item_name}</strong>
                     <small>{match.unit || 'Unit not printed'}</small>
                   </span>
-                  <b>{match.rate === null ? match.rate_text || 'Reference rate' : `₹ ${match.rate.toLocaleString('en-IN')}`}</b>
+                  <b>{match.rate === null ? match.rate_text || 'Reference rate' : `₹ ${match.rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</b>
                   <ChevronRight size={14} />
                 </button>
               ))}

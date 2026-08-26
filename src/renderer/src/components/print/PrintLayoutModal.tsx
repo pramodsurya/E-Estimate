@@ -343,7 +343,7 @@ export default function PrintLayoutModal({
                     ))}
                   </select>
                 </label>
-                <label className="pl-field">
+                <label className="pl-field" data-tour="print-orientation">
                   <span>Orientation</span>
                   <select
                     value={cfg.orientation}

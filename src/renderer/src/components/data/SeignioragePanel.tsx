@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CircleDot, Gem, Search } from 'lucide-react'
+import { CircleDot, Gem, RefreshCw, Search } from 'lucide-react'
 import {
   computeSeigniorageTable,
   type SeigniorageCharge,
@@ -7,7 +7,10 @@ import {
 } from '../../lib/seigniorage'
 import type { SeigniorageApplicabilityPolicy } from '../../types/rateAnalysis'
 import { useStore } from '../../store/useStore'
-import { dashboardContextMatches } from '../../lib/dashboardSync'
+import {
+  dashboardContextMatches,
+  syncSeigniorageDashboardSnapshot
+} from '../../lib/dashboardSync'
 
 const money = new Intl.NumberFormat('en-IN', {
   minimumFractionDigits: 2,
@@ -25,8 +28,11 @@ interface SeigniorageMaterialGroup {
 export default function SeignioragePanel(): JSX.Element {
   const selection = useStore((state) => state.seigniorageSelection)
   const openSeigniorage = useStore((state) => state.openSeigniorage)
+  const setDashboardSnapshot = useStore((state) => state.setDashboardSnapshot)
   const project = useStore((state) => state.project)
   const [query, setQuery] = useState('')
+  const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState('')
   const snapshotValid = project
     ? dashboardContextMatches(project.dashboardSnapshot, project)
     : false
@@ -52,11 +58,38 @@ export default function SeignioragePanel(): JSX.Element {
     )
   }, [materialGroups, query])
 
+  const syncDashboard = async (): Promise<void> => {
+    if (syncing || !project) return
+    setSyncing(true)
+    setSyncError('')
+    try {
+      const next = await syncSeigniorageDashboardSnapshot(project)
+      if (useStore.getState().project?.id === project.id) setDashboardSnapshot(next)
+    } catch (reason: unknown) {
+      setSyncError(reason instanceof Error ? reason.message : 'Unable to sync Seigniorage materials.')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   return (
     <div className="seig-panel">
       <div className="lead-abstract-title">
         <strong>Seigniorage</strong>
-        <span>{materialGroups.length}</span>
+        <div className="lead-abstract-title-actions">
+          <span>{materialGroups.length}</span>
+          <button
+            type="button"
+            className="panel-iconbtn panel-sync-btn"
+            disabled={syncing}
+            onClick={() => void syncDashboard()}
+            title={syncError || 'Sync Seigniorage materials'}
+            aria-label="Sync Seigniorage materials"
+            aria-busy={syncing}
+          >
+            <RefreshCw className={syncing ? 'spin' : undefined} size={14} />
+          </button>
+        </div>
       </div>
 
       <label className="seig-search">

@@ -457,7 +457,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
   return (
     <div className={`rate-dashboard ${printView ? 'dashboard-print-view' : ''}`}>
       <div className="rate-toolbar">
-        <button className="btn ghost" onClick={closeRateAnalysis}>
+        <button className="btn ghost" data-tour="rate-back" onClick={closeRateAnalysis}>
           <ArrowLeft size={15} /> Back
         </button>
         <div className="rate-toolbar-title">
@@ -499,7 +499,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
             {printView ? 'Dashboard View' : 'View Print View'}
           </button>
           {!editing ? (
-            <button className="btn" onClick={startEdit} disabled={!current}>
+            <button className="btn" data-tour="rate-edit" onClick={startEdit} disabled={!current}>
               <Pencil size={14} /> Edit
             </button>
           ) : (
@@ -519,7 +519,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
                   <Calculator size={14} /> Recalculate
                 </button>
               )}
-              <button className="btn" onClick={applyFixed}>
+              <button className="btn" data-tour="rate-save" onClick={applyFixed}>
                 <Save size={14} /> Save
               </button>
             </>

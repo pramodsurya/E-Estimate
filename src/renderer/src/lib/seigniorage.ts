@@ -8,6 +8,16 @@ import type {
 } from '../types/rateAnalysis'
 import { projectItemKey, rateAnalysisOverrideForNode } from './projectItems'
 import { readFinalValueFromSnapshot } from './finalNumber'
+import {
+  canonicalSeigniorageCode,
+  isNaturalFineAggregate,
+  ORDINARY_SAND_SEIGNIORAGE_CODE
+} from './seigniorageClassification'
+export {
+  canonicalSeigniorageCode,
+  isNaturalFineAggregate,
+  ORDINARY_SAND_SEIGNIORAGE_CODE
+} from './seigniorageClassification'
 
 export interface SeigniorageCharge {
   seig_code: string
@@ -213,6 +223,8 @@ function buildPolicyRow(
 ): SeigniorageMaterialPolicy {
   const qtyUnit = textValue(row.charge_unit, '') || textValue(row.quantity_unit, '') || textValue(row.recipe_material_unit, '')
   const matDesc = textValue(row.material_desc, '') || textValue(row.recipe_material_desc, '')
+  const materialLabel = textValue(row.material_label, '')
+  const rawSeigCode = typeof row.seig_code === 'string' ? row.seig_code : null
   const quantityBasis =
     row.quantity_basis === 'ITEM_QTY' ||
     row.quantity_basis === 'ITEM_QTY_X_RATIO' ||
@@ -221,13 +233,13 @@ function buildPolicyRow(
       : null
   return {
     material_key: textValue(row.material_key),
-    material_label: textValue(row.material_label, ''),
+    material_label: materialLabel,
     material_desc: matDesc,
     recipe_material_desc: matDesc,
     recipe_material_unit: textValue(row.recipe_material_unit),
     recipe_material_qty: Number.isFinite(recipeMaterialQty) ? recipeMaterialQty : null,
     quantity_ratio: Number.isFinite(quantityRatio) ? quantityRatio : null,
-    seig_code: typeof row.seig_code === 'string' ? row.seig_code : null,
+    seig_code: canonicalSeigniorageCode(rawSeigCode, matDesc || materialLabel),
     charge_unit: qtyUnit || null,
     quantity_unit: qtyUnit || undefined,
     conversion_factor: numberOrNull(row.conversion_factor),
@@ -268,7 +280,7 @@ export const GO_PERMIT_MULTIPLIERS: Record<string, number> = {
   SEIG_ORDINARY_SAND: 0
 }
 
-export const PERMIT_GO_REFERENCE = 'G.O. dt. 31.03.2022, w.e.f. 01.04.2022'
+export const PERMIT_GO_REFERENCE = 'G.O.Ms.No.21, dt. 31.03.2022, w.e.f. 01.04.2022'
 
 /** Permit multiplier for a mineral, straight from the GO. */
 export function permitMultiplierFor(seigCode: string | null): number {
@@ -377,6 +389,15 @@ export function matchMaterialToSeigniorage(
 ): SeigniorageCharge | null {
   const desc = materialDesc.toLowerCase().trim()
   const code = materialCode.toLowerCase().trim()
+
+  // Description wins over a stale resource/policy code. Older saved projects
+  // can still carry SEIG_SAND_OTHERS for Fine aggregate (Un-Screened).
+  if (isNaturalFineAggregate(materialDesc)) {
+    const ordinarySand = charges.find(
+      (charge) => charge.seig_code === ORDINARY_SAND_SEIGNIORAGE_CODE
+    )
+    if (ordinarySand) return ordinarySand
+  }
 
   if (code) {
     const byCode = charges.find((c) => c.seig_code.toLowerCase() === code)
@@ -695,6 +716,9 @@ export function computeSeigniorageTable(
     const compiledRecipe = project.dashboardSnapshot?.recipes?.[item.id]
     const recipe = savedRecipe ?? compiledRecipe
     const addonDataRecipe = recipe?.dataVariant?.additionAnalysis ? recipe : compiledRecipe ?? recipe
+    const naturalSandRecipeDescription = recipe?.sections
+      ?.find((section) => section.key === ('materials' as RateAnalysisSectionKey))
+      ?.lines.find((line) => isNaturalFineAggregate(line.description))?.description
     // Supabase is the policy authority. Saved/compiled recipes may contain a
     // snapshot from an older policy version, so use that only as an offline
     // fallback when the live SSR policy is unavailable.
@@ -716,7 +740,20 @@ export function computeSeigniorageTable(
     const policies = [...basePolicies, ...addonPolicies]
     if (policies?.length) {
       for (const configuredPolicy of policies) {
-        const policy = addonPolicyFromData(addonDataRecipe, configuredPolicy)
+        const adjustedPolicy = addonPolicyFromData(addonDataRecipe, configuredPolicy)
+        const policyDescription =
+          adjustedPolicy.material_desc ||
+          adjustedPolicy.recipe_material_desc ||
+          adjustedPolicy.material_label ||
+          ''
+        const effectiveCode = canonicalSeigniorageCode(
+          adjustedPolicy.seig_code,
+          policyDescription
+        )
+        const policy =
+          effectiveCode === adjustedPolicy.seig_code
+            ? adjustedPolicy
+            : { ...adjustedPolicy, seig_code: effectiveCode }
         const charge = policy.seig_code
           ? charges.find((c) => c.seig_code === policy.seig_code) ?? null
           : policy.status === 'PROJECT_DATA_MANUAL_SELECTION_REQUIRED'
@@ -783,7 +820,11 @@ export function computeSeigniorageTable(
 
     // 1. DB-sourced seigniorage applicability.
     if (dbSeig && dbSeig.seig_code) {
-      charge = charges.find((c) => c.seig_code === dbSeig.seig_code) ?? null
+      const effectiveCode = canonicalSeigniorageCode(
+        dbSeig.seig_code,
+        naturalSandRecipeDescription
+      )
+      charge = charges.find((c) => c.seig_code === effectiveCode) ?? null
       if (charge) autoMatched = true
     }
 
@@ -794,7 +835,11 @@ export function computeSeigniorageTable(
         charge = null
         autoMatched = false
       } else {
-        charge = charges.find((c) => c.seig_code === override.seigCode) ?? charge
+        const effectiveCode = canonicalSeigniorageCode(
+          override.seigCode,
+          naturalSandRecipeDescription
+        )
+        charge = charges.find((c) => c.seig_code === effectiveCode) ?? charge
       }
       if (override.rate != null) {
         // Use manual rate even if charge also matched.
@@ -819,7 +864,14 @@ export function computeSeigniorageTable(
     // Determine effective rate.
     let seigRate: number | null = null
     // DB-sourced rate override takes highest priority.
-    if (dbSeig?.rate_override != null) {
+    const canonicalDbCode = canonicalSeigniorageCode(
+      dbSeig?.seig_code,
+      naturalSandRecipeDescription
+    )
+    const repairedLegacySandCode = Boolean(
+      dbSeig?.seig_code && canonicalDbCode !== dbSeig.seig_code
+    )
+    if (dbSeig?.rate_override != null && !repairedLegacySandCode) {
       seigRate = dbSeig.rate_override
     }
     // Project-level override.

@@ -98,7 +98,6 @@ export function SeignioragePrintPages({
               <h1>Seigniorage Statement</h1>
               <p>Project: {projectName}{pages.length > 1 ? ` — Page ${pi + 1} of ${pages.length}` : ''}</p>
             </div>
-            <strong>E-Estimate</strong>
           </header>
           {page.isFirst && (
             <div className="seig-print-summary">
@@ -145,7 +144,7 @@ export function SeignioragePrintPages({
                       <td className="sp-seig">{r.seigniorage != null ? `Rs. ${money.format(r.seigniorage)}` : '-'}</td>
                       <td className="sp-dmft">{r.dmft != null ? `Rs. ${money.format(r.dmft)}` : '-'}</td>
                       <td className="sp-smft">{r.smft != null ? `Rs. ${money.format(r.smft)}` : '-'}</td>
-                      <td className="sp-permit">{r.permit != null ? <>Rs. {money.format(r.permit)}<span className="sp-permit-pct">@ {r.permitPercent}%</span></> : '-'}</td>
+                      <td className="sp-permit">{r.permit != null ? <>Rs. {money.format(r.permit)}<span className="sp-permit-pct">{r.permitPercent === 0 ? 'Exempt' : `@ ${r.permitPercent}%`}</span></> : '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -223,7 +222,6 @@ export default function SeignioragePrintPreviewModal({ calc, projectName, printS
                   <h1>Seigniorage Statement</h1>
                   <p>Project: {projectName}{pages.length > 1 ? ` — Page ${pi + 1} of ${pages.length}` : ''}</p>
                 </div>
-                <strong>E-Estimate</strong>
               </header>
               {page.isFirst && (
                 <div className="seig-print-summary">
@@ -270,7 +268,7 @@ export default function SeignioragePrintPreviewModal({ calc, projectName, printS
                           <td className="sp-seig">{r.seigniorage != null ? `Rs. ${money.format(r.seigniorage)}` : '-'}</td>
                           <td className="sp-dmft">{r.dmft != null ? `Rs. ${money.format(r.dmft)}` : '-'}</td>
                           <td className="sp-smft">{r.smft != null ? `Rs. ${money.format(r.smft)}` : '-'}</td>
-                          <td className="sp-permit">{r.permit != null ? <>Rs. {money.format(r.permit)}<span className="sp-permit-pct">@ {r.permitPercent}%</span></> : '-'}</td>
+                          <td className="sp-permit">{r.permit != null ? <>Rs. {money.format(r.permit)}<span className="sp-permit-pct">{r.permitPercent === 0 ? 'Exempt' : `@ ${r.permitPercent}%`}</span></> : '-'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -325,7 +323,7 @@ function TotRow({ label, seig, dmft, smft, permit }: { label: string; seig?: num
 }
 
 /** The permit fee basis, fixed by the G.O. and shown on the total row. */
-const PERMIT_BASIS_NOTE = `Permit fee (80% of seigniorage; 40% for Colour and Black Granite) — ${PERMIT_GO_REFERENCE}`
+const PERMIT_BASIS_NOTE = `Permit fee (80% of seigniorage; 40% for Colour and Black Granite; Ordinary Sand exempt) — ${PERMIT_GO_REFERENCE}`
 function SettingsPanel({ layout, onChange }: { layout: Required<SeignioragePrintSettings>; onChange: (p: Partial<SeignioragePrintSettings>) => void }) {
   return (
     <div className="seig-print-settings">

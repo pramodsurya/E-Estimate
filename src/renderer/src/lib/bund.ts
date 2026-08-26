@@ -4750,6 +4750,9 @@ export function materializeSections(data: BundData, previous: BundSection[]): Bu
           downstreamGroundLevel: source.downstreamGroundLevel ?? null,
           designPointOffsets: source.designPointOffsets
             ? [...source.designPointOffsets]
+            : undefined,
+          hiddenLevelOffsets: source.hiddenLevelOffsets
+            ? [...source.hiddenLevelOffsets]
             : undefined
         }
       : createSection(chainage)
@@ -4768,7 +4771,8 @@ export function copySectionGeometry(target: BundSection, source: BundSection): B
     projectedOverrides: source.projectedOverrides?.map((p) => ({ ...p })),
     upstreamGroundLevel: source.upstreamGroundLevel ?? null,
     downstreamGroundLevel: source.downstreamGroundLevel ?? null,
-    designPointOffsets: source.designPointOffsets ? [...source.designPointOffsets] : undefined
+    designPointOffsets: source.designPointOffsets ? [...source.designPointOffsets] : undefined,
+    hiddenLevelOffsets: source.hiddenLevelOffsets ? [...source.hiddenLevelOffsets] : undefined
   }
 }
 

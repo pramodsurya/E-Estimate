@@ -92,6 +92,7 @@ export default function AddStructureModal(): JSX.Element | null {
             </label>
             <input
               id="structure-name"
+              data-tour="add-structure-name"
               ref={nameRef}
               className="text-input"
               value={name}

@@ -297,10 +297,19 @@ assert.ok(
     /\.ga-sheet-probe:not\(\.ga-sheet-row-probe\) \.ga-sheet-schedule \{[\s\S]*?flex: 1 1 auto/.test(abstractCss),
   'Continuation rows must remain compact while probes still measure each page capacity'
 )
-// Printed in black and white, colour alone cannot carry a distinction.
+// Printed in black and white, colour alone cannot carry a distinction and no
+// important figure may depend on white type surviving a toner-heavy fill.
 assert.ok(
-  /\.ga-sheet-total strong \{[\s\S]*?color: #fff/.test(abstractCss),
-  'The sanctioned figure must be reversed white, not a tint that greys out in mono'
+  /\.ga-sheet-table th \{[\s\S]*?background: var\(--ga-fill\)[\s\S]*?color: var\(--ga-ink\)/.test(abstractCss) &&
+    /\.ga-sheet-total \{[\s\S]*?border: 1\.5pt solid var\(--ga-accent\)[\s\S]*?background: var\(--ga-fill\)[\s\S]*?color: var\(--ga-ink\)/.test(abstractCss) &&
+    /\.ga-sheet-total strong \{[\s\S]*?color: var\(--ga-ink\)/.test(abstractCss),
+  'The General Abstract must use pale fills, dark type and ruled emphasis for low-ink mono printing'
+)
+assert.ok(
+  /Large solid bands cost toner/.test(dataSheetPrint) &&
+    /\.sor-data-title,\.rate-sheet-heading\{[\s\S]*?background:#eef1ef!important;color:#151716!important/.test(dataSheetPrint) &&
+    /\.sor-data-table th,\.rate-table thead th\{[\s\S]*?background:#f0f2f1!important;color:#151716!important/.test(dataSheetPrint),
+  'Printed DATA sheets must replace dark reversed bands with pale headers and dark text'
 )
 assert.ok(
   !/fitToOnePage|SMALLEST_ABSTRACT_ZOOM|\.ga-sheet-frame\{zoom:/.test(exportLib),
@@ -430,6 +439,21 @@ assert.ok(
 assert.ok(
   /enforceComponentMinimumFontSize\(\s*`<!doctype html>/.test(componentPrint),
   'The measured markup must be font-clamped exactly as the printed markup is'
+)
+assert.ok(
+  /function abstractItemDescription\(/.test(componentPrint) &&
+    /run\.text\.replace\(\/\\s\+\/g, ' '\)/.test(componentPrint) &&
+    /\.abstract-description \.abstract-item-heading\{display:block/.test(componentPrint) &&
+    /\.abstract-description span strong\{display:inline\}/.test(componentPrint),
+  'Abstract prose must flatten imported line endings while allowing emphasized clauses to wrap inline'
+)
+assert.ok(
+  /<td colspan="4">\$\{totalLabel\}<\/td>/.test(componentPrint) &&
+    /colspan="2" class="abstract-number abstract-total-amount"/.test(componentPrint) &&
+    /\.abstract-total \.abstract-total-amount\{white-space:nowrap;overflow-wrap:normal\}/.test(
+      componentPrint
+    ),
+  'The component total must use the spare rate-column width and remain one compact line'
 )
 assert.ok(
   /overflow:hidden/.test(measuredDocument) &&

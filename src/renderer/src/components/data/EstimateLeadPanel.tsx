@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { CircleDot, Route } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { CircleDot, RefreshCw, Route } from 'lucide-react'
 import {
   canonicalLeadMaterialRef,
   isDisposalLeadMaterial,
@@ -8,7 +8,10 @@ import {
   type LeadMaterialRef
 } from '../../lib/leadApplicability'
 import { conveyanceClassLabel } from '../../lib/lead'
-import { dashboardContextMatches } from '../../lib/dashboardSync'
+import {
+  dashboardContextMatches,
+  syncLeadDashboardSnapshot
+} from '../../lib/dashboardSync'
 import { projectItemGroups, type ProjectItemGroup } from '../../lib/projectItems'
 import { pipeLeadMaterialName } from '../../lib/pipeLead'
 import { useStore } from '../../store/useStore'
@@ -39,7 +42,10 @@ const money = new Intl.NumberFormat('en-IN', {
 export default function EstimateLeadPanel(): JSX.Element {
   const project = useStore((state) => state.project)
   const openLeadMaterial = useStore((state) => state.openLeadMaterial)
+  const setDashboardSnapshot = useStore((state) => state.setDashboardSnapshot)
   const selection = useStore((state) => state.leadSelection)
+  const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState('')
 
   const groups = useMemo(
     () => (project ? projectItemGroups(project.root) : []),
@@ -79,11 +85,38 @@ export default function EstimateLeadPanel(): JSX.Element {
 
   if (!project) return <div className="panel-reserved">Open a project before creating Lead.</div>
 
+  const syncDashboard = async (): Promise<void> => {
+    if (syncing) return
+    setSyncing(true)
+    setSyncError('')
+    try {
+      const next = await syncLeadDashboardSnapshot(project)
+      if (useStore.getState().project?.id === project.id) setDashboardSnapshot(next)
+    } catch (reason: unknown) {
+      setSyncError(reason instanceof Error ? reason.message : 'Unable to sync Lead materials.')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   return (
     <div className="lead-abstract-panel">
       <div className="lead-abstract-title">
         <strong>Materials</strong>
-        <span>{items.length}</span>
+        <div className="lead-abstract-title-actions">
+          <span>{items.length}</span>
+          <button
+            type="button"
+            className="panel-iconbtn panel-sync-btn"
+            disabled={syncing}
+            onClick={() => void syncDashboard()}
+            title={syncError || 'Sync Lead materials'}
+            aria-label="Sync Lead materials"
+            aria-busy={syncing}
+          >
+            <RefreshCw className={syncing ? 'spin' : undefined} size={14} />
+          </button>
+        </div>
       </div>
       {items.length === 0 ? (
         <div className="lead-panel-empty">
@@ -100,6 +133,9 @@ export default function EstimateLeadPanel(): JSX.Element {
             return (
               <button
                 className={`lead-abstract-row ${selected ? 'selected' : ''}`}
+                // Lower-cased so a tutorial can ask for "sand" without knowing
+                // how the compiled list happened to capitalise it.
+                data-tour-material={item.name.trim().toLowerCase()}
                 key={item.key}
                 onClick={() =>
                   openLeadMaterial({

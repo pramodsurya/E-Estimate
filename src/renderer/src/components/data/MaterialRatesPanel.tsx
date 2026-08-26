@@ -249,7 +249,7 @@ export default function MaterialRatesPanel(): JSX.Element | null {
   const savedCount = Object.keys(saved).length
 
   return (
-    <section className="material-rates-panel">
+    <section className="material-rates-panel" data-tour="material-rates">
       <div className="material-rates-intro">
         <div>
           <strong>Cement / Steel rates</strong>
@@ -296,7 +296,7 @@ export default function MaterialRatesPanel(): JSX.Element | null {
             onChange={(event) => setStagedAsOf(event.target.value)}
           />
         </label>
-        <label>
+        <label data-tour="material-circular">
           Adopt a month
           <select
             value=""
@@ -470,7 +470,7 @@ export default function MaterialRatesPanel(): JSX.Element | null {
           <button className="btn ghost" onClick={discard} disabled={!dirty}>
             <Undo2 size={14} /> Discard changes
           </button>
-          <button className="btn" onClick={apply} disabled={!dirty}>
+          <button className="btn" data-tour="material-apply" onClick={apply} disabled={!dirty}>
             <Check size={14} /> Apply
           </button>
         </span>

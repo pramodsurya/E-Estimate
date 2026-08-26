@@ -1,8 +1,12 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, dialog, shell } from 'electron'
 import { join } from 'path'
 import { autoUpdater } from 'electron-updater'
 import { registerIpc } from './ipc'
 import { registerPrintIpc } from './print'
+import {
+  cancelAllBundSimulations,
+  hasActiveBundSimulations
+} from './bundSimulation'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -25,7 +29,34 @@ function createWindow(): BrowserWindow {
   })
 
   mainWindow = win
+  let allowCloseWithSimulation = false
+  let closePromptOpen = false
   win.on('ready-to-show', () => win.show())
+  win.on('close', (event) => {
+    if (allowCloseWithSimulation || !hasActiveBundSimulations()) return
+    event.preventDefault()
+    if (closePromptOpen) return
+    closePromptOpen = true
+    void dialog
+      .showMessageBox(win, {
+        type: 'warning',
+        title: 'Simulation still running',
+        message: 'A bund simulation is still running.',
+        detail:
+          'Closing now will cancel the analysis and its unfinished result will not be saved.',
+        buttons: ['Keep application open', 'Cancel simulation and close'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true
+      })
+      .then(({ response }) => {
+        closePromptOpen = false
+        if (response !== 1 || win.isDestroyed()) return
+        cancelAllBundSimulations()
+        allowCloseWithSimulation = true
+        win.close()
+      })
+  })
   win.on('closed', () => {
     mainWindow = null
   })

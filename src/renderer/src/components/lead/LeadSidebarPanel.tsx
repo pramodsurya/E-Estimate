@@ -134,6 +134,7 @@ export default function LeadSidebarPanel(): JSX.Element {
             <button
               type="button"
               className="lead-sidebar-row"
+              data-tour-material={material.name.trim().toLowerCase()}
               key={material.key}
               onClick={() =>
                 openLeadMaterial({

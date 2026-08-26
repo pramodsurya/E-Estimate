@@ -23,6 +23,51 @@ require.extensions['.ts'] = function compileTs(m, filename) {
 
 const bund = require(path.join(root, 'src/renderer/src/lib/bund.ts'))
 const figures = require(path.join(root, 'src/renderer/src/lib/bundFigures.ts'))
+const sectionLayout = require(path.join(root, 'src/renderer/src/lib/sectionPrintLayout.ts'))
+
+assert.deepEqual(
+  sectionLayout.chooseSectionItemLayout({
+    itemCount: 6,
+    leftUsedRows: 5,
+    rightUsedRows: 9,
+    sideColumns: 2,
+    fullColumns: 3
+  }),
+  { placement: 'left', columns: 2, rows: 3, spareRows: 4 },
+  'six cards use a 2 × 3 grid when the left section budget can hold them'
+)
+assert.deepEqual(
+  sectionLayout.chooseSectionItemLayout({
+    itemCount: 6,
+    leftUsedRows: 8,
+    rightUsedRows: 7,
+    sideColumns: 2,
+    fullColumns: 3
+  }),
+  { placement: 'full', columns: 3, rows: 2, spareRows: 1 },
+  'six cards use a full-width 3 × 2 grid when neither side has enough budget'
+)
+assert.deepEqual(
+  sectionLayout.chooseSectionItemLayout({
+    itemCount: 6,
+    leftUsedRows: 10,
+    rightUsedRows: 4,
+    sideColumns: 2,
+    fullColumns: 3
+  }),
+  { placement: 'right', columns: 2, rows: 3, spareRows: 6 },
+  'the same section intelligence can select the right budget independently'
+)
+assert.deepEqual(
+  sectionLayout.fitSectionNumber(100),
+  { text: '100.00', decimals: 2, compact: false },
+  'whole levels use the normal two-decimal section budget'
+)
+assert.deepEqual(
+  sectionLayout.fitSectionNumber(98.286),
+  { text: '98.286', decimals: 3, compact: true },
+  'a meaningful third decimal is retained and marked for compact type'
+)
 
 const flatPre = [
   { offset: -40, rl: 95 },
@@ -190,30 +235,49 @@ const htmlOf = (bundData) => {
 }
 
 const zonedHtml = htmlOf(loaded)
-assert.ok(zonedHtml.includes('<h3>Cross-sections</h3>'), 'the cross-sections block prints')
+// A new bund prints no per-section diagrams — its shape lives in the
+// arrangement drawing — whatever its zoning.
 assert.ok(
-  /<pattern id="bph0"/.test(zonedHtml),
+  !zonedHtml.includes('<h3>Cross-sections</h3>'),
+  'a new bund prints no section diagrams'
+)
+
+// --- a zoned repair still draws every section -------------------------------
+// bundDetailPages renders the whole document; the cross-section drawings are
+// inside it, so checking the document is checking what actually prints.
+const repairLoaded = { ...loaded, mode: 'restoration' }
+const sectionsHtml = htmlOf(repairLoaded)
+assert.ok(sectionsHtml.includes('<h3>Cross-sections</h3>'), 'the cross-sections block prints')
+assert.ok(
+  /<pattern id="bph0"/.test(sectionsHtml),
   'the printed cross-section defines the hearting hatch'
 )
 assert.ok(
-  zonedHtml.includes('url(#bph0)'),
+  sectionsHtml.includes('url(#bph0)'),
   'the printed cross-section actually fills the hearting zone'
 )
-assert.ok(zonedHtml.includes('>Hearting'), 'the printed cross-section carries a hearting key')
-assert.ok(zonedHtml.includes('— hearting</td>'), 'the per-section areas split out the hearting')
-assert.ok(zonedHtml.includes('— casing</td>'), 'the per-section areas split out the casing')
+assert.ok(sectionsHtml.includes('>Hearting'), 'the printed cross-section carries a hearting key')
 assert.ok(!/NaN|Infinity/.test(zonedHtml), 'no NaN or Infinity anywhere in the printed pages')
+assert.ok(
+  !sectionsHtml.includes('RL (Hearting)') &&
+    sectionsHtml.includes('<th>RL</th><th>Calculation</th><th class="bp-qty-head">Quantity</th>'),
+  'both section tables use the compact RL heading and protect the complete Quantity label'
+)
+assert.ok(
+  !sectionsHtml.includes('>100.000</td>') && sectionsHtml.includes('>100.00</td>'),
+  'section levels drop redundant third zeroes in the generated table'
+)
 
 // --- a drawing and the dimensions read off it are one exhibit ---------------
 // `table{break-inside:auto}` is right for the schedules, which have to be free
 // to cross sheets. A three-row parameter table is not a schedule: left to flow
 // it sheds its last row onto the next page, alone.
 assert.ok(
-  /,\.bp-keep\{break-inside:avoid;page-break-inside:avoid\}/.test(zonedHtml) &&
-    /\.bp-keep table\{break-inside:avoid;page-break-inside:avoid\}/.test(zonedHtml),
+  /,\.bp-keep\{break-inside:avoid;page-break-inside:avoid\}/.test(sectionsHtml) &&
+    /\.bp-keep table\{break-inside:avoid;page-break-inside:avoid\}/.test(sectionsHtml),
   'a kept-together exhibit and its parameter table must both resist splitting'
 )
-for (const block of zonedHtml.match(/<div class="bp-keep">[\s\S]*?<\/table><\/div>/g) ?? []) {
+for (const block of sectionsHtml.match(/<div class="bp-keep">[\s\S]*?<\/table><\/div>/g) ?? []) {
   assert.ok(
     /class="bp-fig"/.test(block) && /<table class="bp-t"/.test(block),
     'a kept-together block must pair a figure with the table that dimensions it'
@@ -227,10 +291,16 @@ assert.ok(
   repairHtml.includes('url(#bph0)'),
   'a zoned repair prints its hearting on the cross-sections as well'
 )
-assert.ok(repairHtml.includes('— hearting</td>'), 'a zoned repair splits its section areas too')
+assert.ok(
+  repairHtml.includes('<span>Hearting</span>') &&
+    repairHtml.includes('<span>Casing</span>') &&
+    repairHtml.includes('bp-sec-summary-repair') &&
+    repairHtml.includes('bp-sec-summary-in-column'),
+  'a zoned repair keeps hearting and casing in the compact section summary'
+)
 
 // A homogeneous bund has no core, so nothing extra is drawn or tabulated.
-const homogeneousHtml = htmlOf({ ...loaded, embankmentType: 'homogeneous' })
+const homogeneousHtml = htmlOf({ ...repairLoaded, embankmentType: 'homogeneous' })
 assert.ok(
   !homogeneousHtml.includes('url(#bph0)'),
   'a homogeneous bund prints no hearting hatch'
@@ -238,6 +308,10 @@ assert.ok(
 assert.ok(
   !homogeneousHtml.includes('— hearting</td>'),
   'a homogeneous bund prints no hearting area row'
+)
+assert.ok(
+  homogeneousHtml.includes('bp-sec-summary-in-column'),
+  'a homogeneous summary uses the spare chart-column budget'
 )
 
 // --- the arrangement drawing: impervious bunds only, always, up front ------
@@ -266,6 +340,23 @@ assert.ok(
 assert.ok(
   !zonedHtml.includes('Hearting zone with its cut-off trench'),
   'the standalone hearting zone figure is gone'
+)
+
+// --- the statement of quantities closes with the work's average ground level
+const glData = {
+  ...loaded,
+  sections: [
+    { ...mkSection('a', 0), groundLevel: 95 },
+    { ...mkSection('b', 30), groundLevel: 97 }
+  ]
+}
+assert.ok(
+  />Avg GL</.test(htmlOf(glData)) && /96\.00 m/.test(htmlOf(glData)),
+  'the statement closes with an Avg GL row averaging the surveyed sections'
+)
+assert.ok(
+  !zonedHtml.includes('>Avg GL<'),
+  'no Avg GL row until the sections carry ground levels'
 )
 
 console.log('OK — all bund figure checks passed')

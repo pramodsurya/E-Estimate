@@ -1,24 +1,39 @@
 import { useEffect, useState } from 'react'
 import {
+  Activity,
+  Bell,
   ChevronRight,
+  CircleCheck,
   Copy,
+  Download,
+  LoaderCircle,
   Minus,
   Redo2,
+  RefreshCw,
   Search,
   Square,
+  Trash2,
+  TriangleAlert,
   Undo2,
   X
 } from 'lucide-react'
-import { useStore, useSelectedNode } from '../store/useStore'
+import {
+  useStore,
+  useSelectedNode,
+  type AppNotification
+} from '../store/useStore'
 import { isComponentLike } from '../lib/tree'
 import { isRenamable } from './nodeVisual'
+import EstimateMark from './tutorial/EstimateMark'
+import HelpMenu from './tutorial/HelpMenu'
 
-type MenuName = 'file' | 'component' | null
+type MenuName = 'file' | 'component' | 'help' | null
 
 export default function TitleBar(): JSX.Element {
   const [menu, setMenu] = useState<MenuName>(null)
   const [recentOpen, setRecentOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [maximized, setMaximized] = useState(false)
 
   const view = useStore((s) => s.view)
@@ -28,6 +43,8 @@ export default function TitleBar(): JSX.Element {
   const globalSearch = useStore((s) => s.globalSearch)
   const canUndo = useStore((s) => s.past.length > 0)
   const canRedo = useStore((s) => s.future.length > 0)
+  const notifications = useStore((s) => s.appNotifications)
+  const markNotificationsRead = useStore((s) => s.markAllAppNotificationsRead)
   const selected = useSelectedNode()
 
   const s = useStore.getState()
@@ -37,11 +54,21 @@ export default function TitleBar(): JSX.Element {
     return window.api.window.onMaximizedChanged(setMaximized)
   }, [])
 
+  const unreadCount = notifications.filter((notification) => !notification.read).length
+  const hasActiveNotification = notifications.some((notification) =>
+    ['running', 'cancelling', 'update-downloading'].includes(notification.status)
+  )
+
+  useEffect(() => {
+    if (notificationsOpen && unreadCount > 0) markNotificationsRead()
+  }, [markNotificationsRead, notificationsOpen, unreadCount])
+
   const hasProject = !!project
   const close = (): void => {
     setMenu(null)
     setRecentOpen(false)
     setExportOpen(false)
+    setNotificationsOpen(false)
   }
 
   const fileItems = (): JSX.Element => (
@@ -74,6 +101,7 @@ export default function TitleBar(): JSX.Element {
       <MenuItem label="Save" shortcut="Ctrl+S" disabled={!hasProject} onClick={() => act(() => void useStore.getState().saveProject())} />
       <MenuItem label="Save As…" disabled={!hasProject} onClick={() => act(() => void useStore.getState().saveProjectAs())} />
       <div
+        data-tour="menu-export"
         className={`menu-dd-item ${hasProject ? '' : 'disabled'}`}
         onMouseEnter={() => hasProject && setExportOpen(true)}
         onMouseLeave={() => setExportOpen(false)}
@@ -85,6 +113,7 @@ export default function TitleBar(): JSX.Element {
           <div className="menu-dropdown" style={{ top: -4, left: '100%' }}>
             <MenuItem
               label="PDF"
+              tour="menu-export-pdf"
               onClick={() => act(() => useStore.getState().openExportPdf())}
             />
           </div>
@@ -129,25 +158,53 @@ export default function TitleBar(): JSX.Element {
 
   return (
     <div className="titlebar" onClick={close}>
-      {menu && <div className="menu-backdrop" onClick={close} />}
+      {(menu || notificationsOpen) && <div className="menu-backdrop" onClick={close} />}
       <div className="titlebar-left" onClick={(e) => e.stopPropagation()}>
         <div className="tb-brand">
-          <span className="logo-cube" />
+          <EstimateMark size={16} />
           E-Estimate
         </div>
 
         <div className="tb-menu">
-          <button className={`tb-menu-btn ${menu === 'file' ? 'open' : ''}`} onClick={() => setMenu(menu === 'file' ? null : 'file')}>
+          <button
+            data-tour="menu-file"
+            className={`tb-menu-btn ${menu === 'file' ? 'open' : ''}`}
+            onClick={() => {
+              setNotificationsOpen(false)
+              setMenu(menu === 'file' ? null : 'file')
+            }}
+          >
             File
           </button>
           {menu === 'file' && fileItems()}
         </div>
 
         <div className="tb-menu">
-          <button className={`tb-menu-btn ${menu === 'component' ? 'open' : ''}`} onClick={() => setMenu(menu === 'component' ? null : 'component')}>
+          <button
+            className={`tb-menu-btn ${menu === 'component' ? 'open' : ''}`}
+            onClick={() => {
+              setNotificationsOpen(false)
+              setMenu(menu === 'component' ? null : 'component')
+            }}
+          >
             Component
           </button>
           {menu === 'component' && componentMenu()}
+        </div>
+
+        {/* Help is where the tutorial lives once the first run is behind you. */}
+        <div className="tb-menu">
+          <button
+            data-tour="menu-help"
+            className={`tb-menu-btn ${menu === 'help' ? 'open' : ''}`}
+            onClick={() => {
+              setNotificationsOpen(false)
+              setMenu(menu === 'help' ? null : 'help')
+            }}
+          >
+            Help
+          </button>
+          {menu === 'help' && <HelpMenu onPick={close} />}
         </div>
 
         <button className="tb-iconbtn" title="Undo" disabled={!canUndo} onClick={() => s.undo()}>
@@ -180,6 +237,33 @@ export default function TitleBar(): JSX.Element {
             {view === 'newproject' ? ' (new)' : ''}
           </span>
         )}
+        <div className="tb-notification-wrap">
+          <button
+            type="button"
+            className={`tb-notification-button ${notificationsOpen ? 'open' : ''} ${
+              hasActiveNotification ? 'has-active' : ''
+            }`}
+            title="Notifications"
+            aria-label={
+              unreadCount > 0
+                ? `Notifications, ${unreadCount} unread`
+                : 'Notifications'
+            }
+            aria-expanded={notificationsOpen}
+            onClick={() => {
+              setMenu(null)
+              setNotificationsOpen((open) => !open)
+            }}
+          >
+            <Bell size={16} />
+            {unreadCount > 0 && (
+              <span className="tb-notification-badge">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+          {notificationsOpen && <NotificationPanel />}
+        </div>
         <div className="window-controls">
           <button className="wc-btn" title="Minimize" onClick={() => window.api.window.minimize()}>
             <Minus size={15} />
@@ -196,21 +280,231 @@ export default function TitleBar(): JSX.Element {
   )
 }
 
+function NotificationPanel(): JSX.Element {
+  const notifications = useStore((state) => state.appNotifications)
+  const jobs = useStore((state) => state.bundSimulationJobs)
+  const cancelJob = useStore((state) => state.cancelBundSimulationJob)
+  const dismiss = useStore((state) => state.dismissAppNotification)
+  const clearFinished = useStore((state) => state.clearFinishedAppNotifications)
+  const [now, setNow] = useState(Date.now())
+
+  const hasTimedActivity = notifications.some((notification) =>
+    ['running', 'cancelling'].includes(notification.status)
+  )
+  const canClear = notifications.some(
+    (notification) =>
+      !['running', 'cancelling', 'update-downloading'].includes(notification.status)
+  )
+
+  useEffect(() => {
+    if (!hasTimedActivity) return
+    const handle = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(handle)
+  }, [hasTimedActivity])
+
+  const handleCancel = (notification: AppNotification): void => {
+    if (!notification.nodeId) return
+    if (
+      window.confirm(
+        `Cancel ${notification.title.replace(/^Running · /, '')}? ` +
+          'Its unfinished numerical result will not be available.'
+      )
+    ) {
+      void cancelJob(notification.nodeId)
+    }
+  }
+
+  return (
+    <aside
+      className="tb-notification-panel"
+      aria-label="Notification centre"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <header className="tb-notification-header">
+        <div>
+          <strong>Notifications</strong>
+          <small>Simulations and application updates</small>
+        </div>
+        {canClear && (
+          <button type="button" className="tb-notification-text-button" onClick={clearFinished}>
+            Clear finished
+          </button>
+        )}
+      </header>
+
+      <div className="tb-notification-list" role="list" aria-live="polite">
+        {notifications.length === 0 && (
+          <div className="tb-notification-empty">
+            <Bell size={22} />
+            <strong>No notifications</strong>
+            <span>Running simulations and available updates will appear here.</span>
+          </div>
+        )}
+
+        {notifications.map((notification) => {
+          const active = ['running', 'cancelling', 'update-downloading'].includes(
+            notification.status
+          )
+          const job = notification.nodeId ? jobs[notification.nodeId] : undefined
+          const startedAt = job?.startedAt ?? notification.createdAt
+          const elapsed =
+            notification.kind === 'simulation' && active
+              ? formatElapsed(now - new Date(startedAt).getTime())
+              : null
+
+          return (
+            <article
+              key={notification.id}
+              className={`tb-notification-row is-${notification.status}`}
+              role="listitem"
+            >
+              <NotificationIcon notification={notification} />
+              <div className="tb-notification-copy">
+                <div className="tb-notification-row-heading">
+                  <strong>{notification.title}</strong>
+                  {!active && (
+                    <button
+                      type="button"
+                      className="tb-notification-dismiss"
+                      title="Dismiss notification"
+                      onClick={() => dismiss(notification.id)}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                <span>{notification.message}</span>
+                <small>
+                  {notification.kind === 'simulation' && notification.chainage !== undefined
+                    ? `Ch. ${notification.chainage} m${elapsed ? ` · elapsed ${elapsed}` : ''}`
+                    : notification.releaseDate
+                      ? new Date(notification.releaseDate).toLocaleDateString()
+                      : formatNotificationTime(notification.updatedAt)}
+                </small>
+
+                {notification.status === 'update-downloading' && (
+                  <div className="tb-notification-progress" aria-label={`${notification.progress ?? 0}% downloaded`}>
+                    <span style={{ width: `${notification.progress ?? 0}%` }} />
+                  </div>
+                )}
+
+                <div className="tb-notification-actions">
+                  {notification.status === 'running' && (
+                    <button type="button" className="btn ghost" onClick={() => handleCancel(notification)}>
+                      Cancel simulation
+                    </button>
+                  )}
+                  {notification.status === 'cancelling' && (
+                    <span className="tb-notification-muted">Waiting for the solver to stop…</span>
+                  )}
+                  {notification.status === 'update-available' && (
+                    <button type="button" className="btn primary" onClick={() => void window.api.update.download()}>
+                      <Download size={14} /> Download update
+                    </button>
+                  )}
+                  {notification.status === 'update-downloaded' && (
+                    <button type="button" className="btn primary" onClick={() => window.api.update.install()}>
+                      Restart &amp; install
+                    </button>
+                  )}
+                  {notification.status === 'update-error' && (
+                    <button type="button" className="btn ghost" onClick={() => void window.api.update.check()}>
+                      <RefreshCw size={14} /> Check again
+                    </button>
+                  )}
+                </div>
+              </div>
+            </article>
+          )
+        })}
+      </div>
+
+      <footer className="tb-notification-footer">
+        <button type="button" onClick={() => void window.api.update.check()}>
+          <RefreshCw size={13} /> Check for application updates
+        </button>
+        {canClear && (
+          <button type="button" title="Clear finished notifications" onClick={clearFinished}>
+            <Trash2 size={13} />
+          </button>
+        )}
+      </footer>
+    </aside>
+  )
+}
+
+function NotificationIcon({ notification }: { notification: AppNotification }): JSX.Element {
+  if (['running', 'cancelling', 'update-downloading'].includes(notification.status)) {
+    return (
+      <span className="tb-notification-status is-progress" aria-hidden="true">
+        <LoaderCircle size={17} />
+      </span>
+    )
+  }
+  if (['complete', 'update-downloaded'].includes(notification.status)) {
+    return (
+      <span className="tb-notification-status is-success" aria-hidden="true">
+        <CircleCheck size={17} />
+      </span>
+    )
+  }
+  if (['error', 'cancelled', 'update-error'].includes(notification.status)) {
+    return (
+      <span className="tb-notification-status is-error" aria-hidden="true">
+        <TriangleAlert size={17} />
+      </span>
+    )
+  }
+  if (notification.kind === 'update') {
+    return (
+      <span className="tb-notification-status is-update" aria-hidden="true">
+        <Download size={17} />
+      </span>
+    )
+  }
+  return (
+    <span className="tb-notification-status" aria-hidden="true">
+      <Activity size={17} />
+    </span>
+  )
+}
+
+function formatElapsed(milliseconds: number): string {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`
+}
+
+function formatNotificationTime(value: string): string {
+  const time = new Date(value)
+  if (Number.isNaN(time.getTime())) return ''
+  return time.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
 function MenuItem({
   label,
   shortcut,
   disabled,
   soon,
+  tour,
   onClick
 }: {
   label: string
   shortcut?: string
   disabled?: boolean
   soon?: boolean
+  /** Optional tutorial anchor — menu labels are not unique across menus. */
+  tour?: string
   onClick: () => void
 }): JSX.Element {
   return (
-    <button className="menu-dd-item" disabled={disabled} onClick={onClick}>
+    <button className="menu-dd-item" data-tour={tour} disabled={disabled} onClick={onClick}>
       <span>
         {label}
         {soon && <span className="badge-soon">soon</span>}

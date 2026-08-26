@@ -33,10 +33,12 @@ import {
   heartingTrenchRows,
   heartingRows,
   isZonedBund,
+  isZonedRepair,
   chuteDrainExcavationQuantity,
   chuteDrainProtectionMeasurement,
   clearancePerimeterRows,
   clearanceTotal,
+  existLevelAt,
   steepestSection,
   formatChainage,
   formationRows,
@@ -54,11 +56,12 @@ import {
   rowsTotal,
   sectionAreas,
   strippingRows,
-  zonedRepairAreas,
   toeDrainDepthAt,
   toeExcavationRows,
   turfingRows,
+  upstreamToeOffset,
   usesFreeBoardDesign,
+  zonedRepairAreas,
   type BundQtyRow
 } from './bund'
 import {
@@ -70,6 +73,11 @@ import {
   rockToeFigure,
   usToeFigure
 } from './bundFigures'
+import {
+  chooseSectionItemLayout,
+  fitSectionNumber,
+  type SectionLayoutDecision
+} from './sectionPrintLayout'
 import { findNode } from './tree'
 
 function escapeHtml(value: string): string {
@@ -224,11 +232,33 @@ function findBandRef(data: BundData, code: string): TemplateMaterialRef | null {
   return null
 }
 
+/** Soil classes actually carrying quantity on this work, in printed order. */
+function excavationClassesInUse(sources: ExcavationSource[], data: BundData): string[] {
+  return SOIL_ORDER.filter((_, index) =>
+    sources.some((source) => bandsFor(data, source.role)[index].pct > 0)
+  )
+}
+
+/**
+ * Landscape earns its width only when every soil class is billed: four
+ * percentage/qty column pairs do not fit portrait. Fewer classes print in
+ * portrait, flowing with the rest of the narrative.
+ */
+export function excavationNeedsLandscape(data: BundData): boolean {
+  return excavationClassesInUse(excavationSources(data), data).length >= SOIL_ORDER.length
+}
+
 function excavationBlocks(root: ProjectNode, data: BundData): string[] {
   const sources = excavationSources(data)
   if (!sources.length) return []
 
-  const classTotals = [0, 0, 0, 0]
+  // Unused classes take their whole Percentage/Qty pair out of the table, so
+  // the sheet stays as narrow as the work actually is.
+  const classesInUse = excavationClassesInUse(sources, data)
+  const classIndex = (index: number) =>
+    classesInUse.findIndex((label) => label === SOIL_ORDER[index])
+
+  const classTotals = SOIL_ORDER.map(() => 0)
   let grand = 0
   const body = sources
     .map((source) => {
@@ -237,8 +267,14 @@ function excavationBlocks(root: ProjectNode, data: BundData): string[] {
         .map((band, index) => {
           const quantity = (source.quantity * band.pct) / 100
           classTotals[index] += quantity
-          return `<td class="n">${band.pct ? `${band.pct}%` : '—'}</td><td class="n">${f2(quantity)}</td>`
+          return { band, quantity, at: classIndex(index) }
         })
+        .filter(({ at }) => at >= 0)
+        .sort((a, b) => a.at - b.at)
+        .map(
+          ({ band, quantity }) =>
+            `<td class="n">${band.pct ? `${band.pct}%` : '—'}</td><td class="n">${f2(quantity)}</td>`
+        )
         .join('')
       return `<tr><td class="l">${escapeHtml(source.label)}</td><td class="n">${f2(source.quantity)}</td>${cells}</tr>`
     })
@@ -246,11 +282,16 @@ function excavationBlocks(root: ProjectNode, data: BundData): string[] {
 
   const head =
     `<tr><th class="l">Excavated at</th><th>Qty</th>` +
-    SOIL_ORDER.map((label) => `<th>Percentage</th><th>${escapeHtml(label)}</th>`).join('') +
+    classesInUse.map((label) => `<th>Percentage</th><th>${escapeHtml(label)}</th>`).join('') +
     `</tr>`
   const totals =
     `<tr class="tot"><td class="l">Total</td><td class="n">${f2(grand)}</td>` +
-    classTotals.map((quantity) => `<td></td><td class="n">${f2(quantity)}</td>`).join('') +
+    classesInUse
+      .map((label) => {
+        const index = SOIL_ORDER.indexOf(label)
+        return `<td></td><td class="n">${f2(classTotals[index])}</td>`
+      })
+      .join('') +
     `</tr>`
 
   // Which cuts bill on which code family. The dashboard decides: stripping can
@@ -275,15 +316,16 @@ function excavationBlocks(root: ProjectNode, data: BundData): string[] {
 
   const columns = families
     .map((family) => {
+      // A basis with no cuts on it does not print at all — an empty family
+      // says nothing the estimate needs.
       const mine = sources.filter((source) => family.roles.includes(source.role))
-      const list = mine.length
-        ? `<ul class="bp-fam-list">${mine
-            .map(
-              (source) =>
-                `<li>${escapeHtml(source.label)}<span>${f2(source.quantity)}</span></li>`
-            )
-            .join('')}</ul>`
-        : `<p class="bp-fam-none">Nothing on this basis.</p>`
+      if (!mine.length) return ''
+      const list = `<ul class="bp-fam-list">${mine
+        .map(
+          (source) =>
+            `<li>${escapeHtml(source.label)}<span>${f2(source.quantity)}</span></li>`
+        )
+        .join('')}</ul>`
 
       // The codes this family bills to, one per soil class, with the class
       // total gathered across every cut assigned here. A class carrying no
@@ -967,17 +1009,25 @@ function sectionSvg(data: BundData, section: BundSection, index: number): string
   const dataMaxRl = Math.max(...all.map((p) => p.rl))
   if (maxX - minX <= 0 || dataMaxRl - dataMinRl <= 0) return ''
 
-  // Horizontal extent always governs on a bund, so the vertical is exaggerated
-  // to a bounded factor rather than left to letterbox the drawing.
-  const xScale = (width - padL - padR) / (maxX - minX)
+  // Printed chainage is local to the first point in the measured width. In
+  // particular, never expose the centre-line offsets (which made the old
+  // chart and table start at values such as -16.50).
+  const displayOrigin = Math.min(upstreamToeOffset(section, data), minX)
+  const displayMaxX = maxX - displayOrigin
+
+  // Keep one drawing unit equal in both directions. The earlier print view
+  // deliberately exaggerated the vertical, which made the proposed and
+  // existing lines look steeper than the section they represent.
   const availH = height - padT - padB
   const trueSpan = dataMaxRl - dataMinRl
-  const span = Math.min(trueSpan * 1.15, availH / Math.min(xScale * 2.5, availH / trueSpan))
-  const minRl = dataMinRl - (span - trueSpan) / 2
-  const maxRl = minRl + span
-  const yScale = availH / span
-  const X = (x: number): number => padL + (x - minX) * xScale
-  const Y = (rl: number): number => padT + (maxRl - rl) * yScale
+  const unitScale = Math.min((width - padL - padR) / displayMaxX, availH / trueSpan)
+  const plotWidth = displayMaxX * unitScale
+  const plotHeight = trueSpan * unitScale
+  const plotTop = padT + Math.max(0, (availH - plotHeight) / 2)
+  const plotBottom = plotTop + plotHeight
+  const plotRight = padL + plotWidth
+  const X = (x: number): number => padL + (x - displayOrigin) * unitScale
+  const Y = (rl: number): number => plotTop + (dataMaxRl - rl) * unitScale
 
   const path = (points: { offset: number; rl: number }[]): string =>
     points
@@ -1017,18 +1067,18 @@ function sectionSvg(data: BundData, section: BundSection, index: number): string
     `</defs>`
 
   const grid =
-    niceTicks(minRl, maxRl, 4)
+    niceTicks(dataMinRl, dataMaxRl, 4)
       .map(
         (rl) =>
-          `<line x1="${padL}" y1="${Y(rl).toFixed(1)}" x2="${(width - padR).toFixed(1)}" y2="${Y(rl).toFixed(1)}" stroke="#e0e5ea" stroke-width="0.6"/>` +
+          `<line x1="${padL}" y1="${Y(rl).toFixed(1)}" x2="${plotRight.toFixed(1)}" y2="${Y(rl).toFixed(1)}" stroke="#e0e5ea" stroke-width="0.6"/>` +
           `<text x="${padL - 4}" y="${(Y(rl) + 3).toFixed(1)}" text-anchor="end" fill="#8a9aa5" font-size="8" font-family="Arial">${rl.toFixed(1)}</text>`
       )
       .join('') +
-    niceTicks(minX, maxX, 5)
+    niceTicks(0, displayMaxX, 5)
       .map(
         (x) =>
-          `<line x1="${X(x).toFixed(1)}" y1="${padT}" x2="${X(x).toFixed(1)}" y2="${(height - padB).toFixed(1)}" stroke="#e0e5ea" stroke-width="0.6"/>` +
-          `<text x="${X(x).toFixed(1)}" y="${(height - padB + 11).toFixed(1)}" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">${x.toFixed(0)}</text>`
+          `<line x1="${(padL + x * unitScale).toFixed(1)}" y1="${plotTop.toFixed(1)}" x2="${(padL + x * unitScale).toFixed(1)}" y2="${plotBottom.toFixed(1)}" stroke="#e0e5ea" stroke-width="0.6"/>` +
+          `<text x="${(padL + x * unitScale).toFixed(1)}" y="${(plotBottom + 11).toFixed(1)}" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">${x.toFixed(0)}</text>`
       )
       .join('')
 
@@ -1083,7 +1133,7 @@ function sectionSvg(data: BundData, section: BundSection, index: number): string
     `<path d="${path(leveling.proposed)}" fill="none" stroke="#2b6fa8" stroke-width="1.7"/>` +
     heartingOutline +
     key +
-    `<text x="${padL}" y="${height - 4}" fill="#9aa8b2" font-size="8" font-family="Arial">Distance from U/S toe (m)</text>` +
+    `<text x="${padL}" y="${height - 4}" fill="#9aa8b2" font-size="8" font-family="Arial">Ch from start (m)</text>` +
     `</svg>`
   )
 }
@@ -1106,69 +1156,328 @@ function levelsLayout(rowCount: number): { scale: number; columns: number } {
   return { scale: 0.78, columns: 3 }
 }
 
-function levelsTable(section: BundSection): string {
-  const points = section.pre.slice().sort((a, b) => a.offset - b.offset)
-  if (!points.length) return ''
-  const { scale, columns } = levelsLayout(points.length)
-  const perColumn = Math.ceil(points.length / columns)
-
-  const chunk = (slice: typeof points): string =>
-    `<table class="bp-t bp-levels" style="font-size:${(scale * 100).toFixed(0)}%">` +
-    `<thead><tr><th>Distance</th><th>Existing GL</th></tr></thead><tbody>` +
-    slice
-      .map(
-        (point) =>
-          `<tr><td class="n">${f2(point.offset)}</td><td class="n">${f3(point.rl)}</td></tr>`
-      )
-      .join('') +
-    `</tbody></table>`
-
-  if (columns === 1) return chunk(points)
-  const parts: string[] = []
-  for (let i = 0; i < columns; i += 1) {
-    parts.push(chunk(points.slice(i * perColumn, (i + 1) * perColumn)))
-  }
-  return `<div class="bp-levels-cols">${parts.join('')}</div>`
+function signedTrapeziumQuantity(
+  width: number,
+  firstDepth: number,
+  secondDepth: number
+): number {
+  if (width <= 1e-9) return 0
+  // A negative depth is excavation/stripping. Keep its sign in the printed
+  // quantity; intersection stations split a change from fill to cut so this
+  // signed trapezium is exact for every interval.
+  return (width * (firstDepth + secondDepth)) / 2
 }
 
-function sectionsBlocks(data: BundData): string[] {
+/** Compact numbers used only inside the calculation column. */
+function calculationNumber(value: number): string {
+  if (Math.abs(value) < 0.0005) return '0'
+  return value.toFixed(3).replace(/\.?(0+)$/, '')
+}
+
+/** A level normally uses two decimals; a meaningful third digit earns smaller type. */
+function sectionLevelCell(value: number): string {
+  const fitted = fitSectionNumber(value)
+  return `<td class="n${fitted.compact ? ' bp-num-tight' : ''}">${fitted.text}</td>`
+}
+
+function levelsTable(data: BundData, section: BundSection, fontScale: number): string {
+  const leveling = bundLevelingGeometry(data, section)
+  if (!leveling) return ''
+
+  const hiddenOffsets = new Set(
+    (section.hiddenLevelOffsets ?? []).map((offset) => Math.round(offset * 1000) / 1000)
+  )
+  const rawOffsets = [
+    ...leveling.existing.map((point) => point.offset),
+    ...leveling.proposed.map((point) => point.offset),
+    ...leveling.formation.flatMap((band) => [band.fromOffset, band.toOffset]),
+    ...leveling.stripping.flatMap((band) => [band.fromOffset, band.toOffset])
+  ]
+  const offsets = [...new Set(rawOffsets.map((offset) => Math.round(offset * 1000) / 1000))]
+    .filter((offset) => !hiddenOffsets.has(offset))
+    .sort((a, b) => a - b)
+  if (offsets.length < 2) return ''
+
+  const origin = Math.min(upstreamToeOffset(section, data), offsets[0])
+  const stations = offsets.map((offset) => ({
+    offset,
+    ch: Math.round((offset - origin) * 1000) / 1000,
+    el: existLevelAt(leveling.existing, offset),
+    rl: existLevelAt(leveling.proposed, offset)
+  }))
+  const { scale } = levelsLayout(stations.length)
+  let total = 0
+
+  const body = stations
+    .map((station, index) => {
+      if (index === 0) {
+        return (
+          `<tr><td class="n">${f2(station.ch)}</td>` +
+          sectionLevelCell(station.el) +
+          sectionLevelCell(station.rl) +
+          `<td class="bp-calc">Start point</td><td class="n">—</td></tr>`
+        )
+      }
+
+      const previous = stations[index - 1]
+      const width = station.ch - previous.ch
+      const firstDepth = previous.rl - previous.el
+      const secondDepth = station.rl - station.el
+      const exactQuantity = signedTrapeziumQuantity(width, firstDepth, secondDepth)
+      const quantity = Math.round(exactQuantity * 1000) / 1000
+      total += exactQuantity
+      const calculation =
+        `${calculationNumber(width)} × [` +
+        `(${calculationNumber(previous.rl)} - ${calculationNumber(previous.el)}) + ` +
+        `(${calculationNumber(station.rl)} - ${calculationNumber(station.el)})] ÷ 2`
+      return (
+        `<tr><td class="n">${f2(station.ch)}</td>` +
+        sectionLevelCell(station.el) +
+        sectionLevelCell(station.rl) +
+        `<td class="bp-calc">${calculation}</td>` +
+        `<td class="n">${f3(quantity)}</td></tr>`
+      )
+    })
+    .join('')
+
+  return (
+    `<table class="bp-t bp-levels bp-calc-levels" style="font-size:${(14 * fontScale * scale).toFixed(1)}px">` +
+    `<colgroup><col class="bp-col-ch"><col class="bp-col-level"><col class="bp-col-level">` +
+    `<col class="bp-col-calc"><col class="bp-col-qty"></colgroup>` +
+    `<thead><tr><th>Ch</th><th>EL</th><th>RL</th><th>Calculation</th><th class="bp-qty-head">Quantity</th></tr></thead>` +
+    `<tbody>${body}` +
+    `<tr class="tot"><td colspan="4" class="l">Total Formation Quantity</td>` +
+    `<td class="n">${f3(Math.round(total * 1000) / 1000)} m²</td></tr>` +
+    `</tbody></table>`
+  )
+}
+
+interface PrintableBand {
+  fromOffset: number
+  toOffset: number
+  upperFromRl: number
+  upperToRl: number
+  lowerFromRl: number
+  lowerToRl: number
+}
+
+function bandDepthAt(bands: PrintableBand[], offset: number): number {
+  const band = bands.find(
+    (candidate) =>
+      offset >= candidate.fromOffset - 1e-9 && offset <= candidate.toOffset + 1e-9
+  )
+  if (!band) return 0
+  const width = band.toOffset - band.fromOffset
+  const t = width <= 1e-9 ? 0 : (offset - band.fromOffset) / width
+  const upper = band.upperFromRl + (band.upperToRl - band.upperFromRl) * t
+  const lower = band.lowerFromRl + (band.lowerToRl - band.lowerFromRl) * t
+  return Math.max(0, upper - lower)
+}
+
+function zonedRepairHeartingStations(
+  data: BundData,
+  section: BundSection
+): Array<{ offset: number; ch: number; el: number; rl: number; depth: number }> {
+  const hearting = heartingRepairProfile(data, section)
+  const heartingBase = heartingBaseProfile(data, section)
+  const heartingBands = heartingRepairBands(data, section)
+  if (hearting.length < 4 || heartingBase.length < 2) return []
+  const leftContact = hearting[0]
+  const rightContact = hearting.at(-1)!
+  const hiddenOffsets = new Set(
+    (section.hiddenLevelOffsets ?? []).map((offset) => Math.round(offset * 1000) / 1000)
+  )
+  const requiredOffsets = new Set([
+    Math.round(leftContact.offset * 1000) / 1000,
+    Math.round(rightContact.offset * 1000) / 1000,
+    ...hearting.map((point) => Math.round(point.offset * 1000) / 1000),
+    ...heartingBase.map((point) => Math.round(point.offset * 1000) / 1000)
+  ])
+  const rawOffsets = [
+    ...hearting.flatMap((point) => [point.offset]),
+    ...heartingBase.flatMap((point) => [point.offset]),
+    ...heartingBands.flatMap((band) => [band.fromOffset, band.toOffset])
+  ]
+  const offsets = [...new Set(rawOffsets.map((offset) => Math.round(offset * 1000) / 1000))]
+    .filter(
+      (offset) =>
+        offset >= leftContact.offset - 1e-9 &&
+        offset <= rightContact.offset + 1e-9 &&
+        (!hiddenOffsets.has(offset) || requiredOffsets.has(offset))
+    )
+    .sort((a, b) => a - b)
+  if (offsets.length < 2) return []
+
+  const origin = Math.min(upstreamToeOffset(section, data), offsets[0])
+  return offsets.map((offset) => ({
+    offset,
+    ch: Math.round((offset - origin) * 1000) / 1000,
+    el: existLevelAt(heartingBase, offset),
+    rl: existLevelAt(hearting, offset),
+    depth: bandDepthAt(heartingBands, offset)
+  }))
+}
+
+function zonedRepairHeartingTable(
+  data: BundData,
+  section: BundSection,
+  fontScale: number
+): string {
+  const stations = zonedRepairHeartingStations(data, section)
+  if (stations.length < 2) return ''
+  const { scale } = levelsLayout(stations.length)
+  let total = 0
+  const body = stations
+    .map((station, index) => {
+      if (index === 0) {
+        return (
+          `<tr><td class="n">${f2(station.ch)}</td>` +
+          sectionLevelCell(station.el) +
+          sectionLevelCell(station.rl) +
+          `<td class="bp-calc">Start point</td><td class="n">—</td></tr>`
+        )
+      }
+      const previous = stations[index - 1]
+      const width = station.ch - previous.ch
+      const exactQuantity = signedTrapeziumQuantity(width, previous.depth, station.depth)
+      total += exactQuantity
+      return (
+        `<tr><td class="n">${f2(station.ch)}</td>` +
+        sectionLevelCell(station.el) +
+        sectionLevelCell(station.rl) +
+        `<td class="bp-calc">${calculationNumber(width)} × [` +
+        `${calculationNumber(previous.depth)} + ${calculationNumber(station.depth)}] ÷ 2</td>` +
+        `<td class="n">${f3(Math.round(exactQuantity * 1000) / 1000)}</td></tr>`
+      )
+    })
+    .join('')
+  return (
+    `<table class="bp-t bp-levels bp-calc-levels bp-hearting-levels" style="font-size:${(
+      14 * fontScale * scale
+    ).toFixed(1)}px">` +
+    `<caption class="bp-table-title">Hearting quantity</caption>` +
+    `<colgroup><col class="bp-col-ch"><col class="bp-col-level"><col class="bp-col-heart-level">` +
+    `<col class="bp-col-calc"><col class="bp-col-qty"></colgroup>` +
+    `<thead><tr><th>Ch</th><th>EL</th><th>RL</th><th>Calculation</th><th class="bp-qty-head">Quantity</th></tr></thead>` +
+    `<tbody>${body}` +
+    `<tr class="tot"><td colspan="4" class="l">Total Hearting Quantity</td>` +
+    `<td class="n">${f3(Math.round(total * 1000) / 1000)} m²</td></tr>` +
+    `</tbody></table>`
+  )
+}
+
+function formationStationCount(data: BundData, section: BundSection): number {
+  const leveling = bundLevelingGeometry(data, section)
+  if (!leveling) return 0
+  const hiddenOffsets = new Set(
+    (section.hiddenLevelOffsets ?? []).map((offset) => Math.round(offset * 1000) / 1000)
+  )
+  const rawOffsets = [
+    ...leveling.existing.map((point) => point.offset),
+    ...leveling.proposed.map((point) => point.offset),
+    ...leveling.formation.flatMap((band) => [band.fromOffset, band.toOffset]),
+    ...leveling.stripping.flatMap((band) => [band.fromOffset, band.toOffset])
+  ]
+  const offsets = new Set(rawOffsets.map((offset) => Math.round(offset * 1000) / 1000))
+  return [...offsets].filter((offset) => !hiddenOffsets.has(offset)).length
+}
+
+/**
+ * Put the summary in the column that has the shorter exhibit budget. The
+ * chart costs roughly five table rows; this keeps homogeneous summaries under
+ * the chart, while a zoned repair with a shorter formation table can use the
+ * otherwise empty space below that table.
+ */
+function sectionSummaryLayout(data: BundData, section: BundSection): SectionLayoutDecision {
+  const repair = isZonedRepair(data)
+  const chartBudget = 5
+  const heartingBudget = repair
+    ? zonedRepairHeartingStations(data, section).length
+    : 0
+  const leftBudget = chartBudget + heartingBudget
+  const rightBudget = formationStationCount(data, section)
+  return chooseSectionItemLayout({
+    itemCount: repair ? 6 : 4,
+    leftUsedRows: leftBudget,
+    rightUsedRows: rightBudget,
+    sideColumns: 2,
+    fullColumns: repair ? 3 : 4,
+    allowSidePlacement: !isZonedBund(data) || repair
+  })
+}
+
+function sectionSummary(
+  data: BundData,
+  section: BundSection,
+  layout: SectionLayoutDecision
+): string {
+  const areas = sectionAreas(data, section)
+  const split = isZonedBund(data) ? zonedRepairAreas(data, section) : null
+  const trenchArea = heartingTrenchEnabled(data) ? heartingTrenchArea(data) : 0
+  const repairSummary = split && isZonedRepair(data)
+  const summaryClass =
+    (repairSummary ? ' bp-sec-summary-repair' : '') +
+    (layout.placement !== 'full' ? ' bp-sec-summary-in-column' : '')
+  return (
+    `<div class="bp-sec-summary${summaryClass}" style="grid-template-columns:repeat(${layout.columns},minmax(0,1fr))">` +
+    `<div><span>Perimeter</span><b>${f3(areas.clearanceWidth)} m</b></div>` +
+    `<div><span>Slope - U/S</span><b>${f3(areas.usFace)} m</b></div>` +
+    `<div><span>Slope - D/S</span><b>${f3(areas.dsFace)} m</b></div>` +
+    `<div><span>Stripping Area</span><b>${f3(areas.stripping)} m²</b></div>` +
+    (repairSummary
+      ? `<div><span>Casing</span><b>${f3(split.casing)} m²</b></div>` +
+        `<div><span>Hearting</span><b>${f3(split.hearting)} m²</b></div>`
+      : '') +
+    `</div>` +
+    (!repairSummary && split
+      ? `<table class="bp-t bp-sec-zone-table"><tbody>` +
+        `<tr><td class="l">— casing</td><td class="n">${f3(split.casing)}</td><td class="u">m²</td>` +
+        `<td class="l">— hearting</td><td class="n">${f3(split.hearting)}</td><td class="u">m²</td>` +
+        (trenchArea > 0
+          ? `<td class="l">— hearting trench</td><td class="n">${f3(trenchArea)}</td><td class="u">m²</td>`
+          : '') +
+        `</tr></tbody></table>`
+      : '')
+  )
+}
+
+function sectionsBlocks(data: BundData, fontScale: number): string[] {
   const sections = orderedSections(data)
+  // A new bund is drawn once in its arrangement figure; per-section diagrams
+  // belong to repairs, where existing ground actually varies along the work.
+  if (data.mode === 'new') return []
   if (!sections.length) return []
+  const zoned = isZonedBund(data)
+  const zonedRepair = isZonedRepair(data)
 
   const rows: string[] = sections
     .map((section, index) => {
-      const areas = sectionAreas(data, section)
-      // On a zoned bund the formation area is the two billed zones added
-      // together, so the section is not measurable from this table without
-      // seeing how it splits at this chainage.
-      const split = isZonedBund(data) ? zonedRepairAreas(data, section) : null
-      const trenchArea = heartingTrenchEnabled(data) ? heartingTrenchArea(data) : 0
+      const figure = `<div class="bp-sec-fig">${sectionSvg(data, section, index)}</div>`
+      const layout = sectionSummaryLayout(data, section)
+      const summary = sectionSummary(data, section, layout)
+      const left = zonedRepair
+        ? `<div class="bp-sec-left">${figure}${zonedRepairHeartingTable(
+            data,
+            section,
+            fontScale
+          )}${layout.placement === 'left' ? summary : ''}</div>`
+        : `<div class="bp-sec-left">${figure}${layout.placement === 'left' ? summary : ''}</div>`
+      const table = levelsTable(data, section, fontScale)
       return (
         `<div class="bp-sec">` +
         `<div class="bp-sec-h">Ch ${escapeHtml(formatChainage(section.chainage, data.chainageUnit))}</div>` +
         `<div class="bp-sec-body">` +
-        `<div class="bp-sec-fig">${sectionSvg(data, section, index)}</div>` +
-        levelsTable(section) +
-        `<table class="bp-t bp-areas"><tbody>` +
-        `<tr><td class="l">Perimeter</td><td class="n">${f3(areas.clearanceWidth)}</td><td class="u">m</td></tr>` +
-        `<tr><td class="l">Stripping area</td><td class="n">${f3(areas.stripping)}</td><td class="u">m²</td></tr>` +
-        `<tr><td class="l">Formation area</td><td class="n">${f3(areas.formation)}</td><td class="u">m²</td></tr>` +
-        (split
-          ? `<tr><td class="l">— casing</td><td class="n">${f3(split.casing)}</td><td class="u">m²</td></tr>` +
-            `<tr><td class="l">— hearting</td><td class="n">${f3(split.hearting)}</td><td class="u">m²</td></tr>` +
-            (trenchArea > 0
-              ? `<tr><td class="l">— hearting trench</td><td class="n">${f3(trenchArea)}</td><td class="u">m²</td></tr>`
-              : '')
-          : '') +
-        `<tr><td class="l">U/S slope length</td><td class="n">${f3(areas.usFace)}</td><td class="u">m</td></tr>` +
-        `<tr><td class="l">D/S slope length</td><td class="n">${f3(areas.dsFace)}</td><td class="u">m</td></tr>` +
-        `</tbody></table></div></div>`
+        left +
+        `<div class="bp-sec-right">${table}${layout.placement === 'right' ? summary : ''}</div>` +
+        `</div>` +
+        (layout.placement === 'full' ? summary : '') +
+        `</div>`
       )
     })
 
 
-  // One flex container, not one block per section: the sections tile across the
-  // measure and wrap, so a sheet carries as many as fit rather than one per row.
+  // Keep each calculation exhibit together so its chart, table, and summary
+  // remain one readable block on the printed sheet.
   return [`<h3>Cross-sections</h3>`, `<div class="bp-secs">${rows.join('')}</div>`]
 }
 
@@ -1268,6 +1577,16 @@ function statementBlocks(data: BundData): string[] {
     totals.map((total) => `<td></td><td></td><td class="n q">${f2(total)}</td>`).join('') +
     `</tr>`
 
+  // The work's average ground level, read off the surveyed sections, closes
+  // the statement the way the total closes its quantities.
+  const levels = orderedSections(data)
+    .map((section) => section.groundLevel)
+    .filter((level): level is number => level != null)
+  const avgGlRow = levels.length
+    ? `<tr><td class="l" colspan="${1 + groups.length * 3}">Avg GL</td>` +
+      `<td class="n q">${f2(levels.reduce((sum, level) => sum + level, 0) / levels.length)} m</td></tr>`
+    : ''
+
   // One table. `thead` repeats on every sheet it spans and rows never split, so
   // it fills each page and continues rather than being cut into fixed chunks.
   return [
@@ -1275,7 +1594,7 @@ function statementBlocks(data: BundData): string[] {
     `<p class="bp-note">Columns 1 and 2 of each group are the values measured at the two bounding ` +
       `sections. Quantity = (value 1 + value 2) / 2 × Length.</p>`,
     `<table class="bp-t bp-stmt"><thead>${head1}${head2}</thead>` +
-      `<tbody>${body.join('')}${totalRow}</tbody></table>`
+      `<tbody>${body.join('')}${totalRow}${avgGlRow}</tbody></table>`
   ]
 }
 
@@ -1300,7 +1619,7 @@ export interface BundPrintPage {
 }
 
 /** Narrow margins: these sheets are wide and margin-hungry. */
-export const BUND_PRINT_MARGINS = { top: 10, bottom: 10, left: 10, right: 10 }
+export const BUND_PRINT_MARGINS = { top: 10, bottom: 10, left: 10, right: 2 }
 
 function styles(fontScale: number, orientation: BundPageOrientation): string {
   const base = 13 * fontScale
@@ -1353,26 +1672,44 @@ function styles(fontScale: number, orientation: BundPageOrientation): string {
     .bp-fam-h span{display:block;color:#8a9aa5;font-size:${base * 0.85}px}
     .bp-fam-list{margin:0 0 5px;padding-left:14px}
     .bp-fam-list li span{float:right;font-weight:600}
-    .bp-fam-none{margin:0;color:#8a9aa5;font-style:italic}
     .bp-xcode{margin:0 0 5px}
     .bp-xcode-h{font-family:Arial;display:flex;align-items:baseline;gap:8px}
     .bp-xcode-h b{color:#14364b}
     .bp-xcode-q{margin-left:auto;font-weight:700;color:#10303f}
     .bp-xcode .bp-desc{margin:2px 0 0;font-size:${base * 0.88}px}
 
-    /* Sections tile across the measure rather than one per row, so a sheet
-       carries as many as fit instead of a fixed two. */
+    /* Each section is one full-width exhibit; its body is split into the
+       chart on the left and the calculation table on the right. */
     .bp-secs{display:flex;flex-wrap:wrap;gap:4mm}
-    .bp-sec{flex:1 1 ${orientation === 'landscape' ? 130 : 84}mm;min-width:${orientation === 'landscape' ? 130 : 84}mm;
-            border-top:1px solid #ccd;padding-top:3px}
+    .bp-sec{flex:1 1 100%;min-width:0;border-top:1px solid #ccd;padding-top:3px}
     .bp-sec-h{font-family:Arial;font-weight:700;color:#14364b;margin:0 0 2px}
-    .bp-sec-body{display:flex;gap:3mm;align-items:flex-start}
-    .bp-sec-fig{flex:1 1 auto;min-width:0}
+    .bp-sec-body{display:grid;grid-template-columns:minmax(0,50%) minmax(0,50%);gap:0;align-items:start}
+    .bp-sec-left{min-width:0}
+    .bp-sec-right{min-width:0}
+    .bp-sec-fig{min-width:0;padding-right:2mm}
     /* Without min-width:0 the SVG's intrinsic width becomes the section's
        min-content width, and a section can no longer share a row. */
     .bp-sec-fig .bp-fig{max-width:none;min-width:0;width:100%}
-    .bp-levels{min-width:34mm}
+    .bp-levels{min-width:0;width:100%;margin:0;padding-left:2mm}
+    .bp-table-title{caption-side:top;text-align:left;font-family:Arial,sans-serif;font-size:${base * 0.78}px;font-weight:700;color:#14364b;padding:0 0 2px}
+    .bp-calc-levels{table-layout:fixed}
+    .bp-calc-levels th,.bp-calc-levels td{padding:2px 3px;vertical-align:top;overflow-wrap:anywhere}
+    .bp-calc-levels th{white-space:nowrap}
+    .bp-calc-levels .n{white-space:nowrap}
+    .bp-calc-levels .bp-col-ch{width:12%}
+    .bp-calc-levels .bp-col-level,.bp-hearting-levels .bp-col-heart-level{width:15%}
+    .bp-calc-levels .bp-col-calc{width:38%}
+    .bp-calc-levels .bp-col-qty{width:20%}
+    .bp-calc-levels .bp-qty-head{font-size:.9em;padding-left:1px;padding-right:1px;overflow-wrap:normal}
+    .bp-calc-levels .bp-num-tight{font-size:.88em;letter-spacing:-.01em}
+    .bp-calc{font-family:Arial,sans-serif;font-size:${base * 0.68}px;line-height:1.15;text-align:left!important;white-space:normal;overflow-wrap:anywhere;color:#354b59}
     .bp-levels-cols{display:flex;gap:2mm;align-items:flex-start}
+    .bp-sec-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:2mm;margin-top:2mm;border-top:1px solid #ccd;padding-top:2mm}
+    .bp-sec-summary-in-column{padding-right:2mm}
+    .bp-sec-summary>div{display:flex;justify-content:space-between;gap:2mm;padding:2px 5px;background:#f4f7f9;border:1px solid #d2d9de}
+    .bp-sec-summary span{font-family:Arial,sans-serif;color:#496170;font-size:${base * 0.78}px}
+    .bp-sec-summary b{font-variant-numeric:tabular-nums;color:#14364b;white-space:nowrap}
+    .bp-sec-zone-table{margin:2mm 0 0;width:auto;font-size:${base * 0.82}px}
     .bp-stmt{width:100%;font-size:${base * 0.85}px}
   `
 }
@@ -1416,9 +1753,11 @@ function document(
 /**
  * The bund's detailed estimate, one document per orientation.
  *
- * A print request carries a single page size, so the two landscape schedules
- * are separate documents from the portrait narrative; within each, content
- * simply flows.
+ * A print request carries a single page size, so landscape schedules are
+ * separate documents from the portrait narrative; within each, content simply
+ * flows. The excavation sheet only takes its own landscape document when every
+ * soil class is billed — four Percentage/Qty column pairs need the width.
+ * Otherwise it prints portrait, leading the component details.
  */
 export function bundDetailPages(
   project: EestimateProject,
@@ -1442,12 +1781,21 @@ export function bundDetailPages(
     })
   }
 
-  add('landscape', 'Earth Work Excavation', excavationBlocks(project.root, data))
-  add('portrait', 'Component Details', [
+  const excavation = excavationBlocks(project.root, data)
+  const componentDetails = [
     ...phreaticBlocks(data),
     ...componentDetailsBlocks(project.root, data)
-  ])
-  add('portrait', 'Cross-sections', sectionsBlocks(data))
+  ]
+  if (excavationNeedsLandscape(data)) {
+    add('landscape', 'Earth Work Excavation', excavation)
+    add('portrait', 'Component Details', componentDetails)
+  } else {
+    add('portrait', 'Earth Work Excavation & Component Details', [
+      ...excavation,
+      ...componentDetails
+    ])
+  }
+  add('portrait', 'Cross-sections', sectionsBlocks(data, fontScale))
   add('landscape', 'Statement of Quantities', statementBlocks(data))
 
   return pages

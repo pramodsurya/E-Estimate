@@ -7,6 +7,7 @@ import {
   type IWorksheetData
 } from '@univerjs/core'
 import type {
+  CellRange,
   LegacySpreadsheetDocument,
   ProjectNode,
   SpreadsheetCell,
@@ -188,4 +189,75 @@ function parseCellRef(ref: string): [row: number, column: number] | null {
   }
 
   return [Number(match[2]) - 1, column - 1]
+}
+
+/**
+ * The block every written cell on a sheet falls inside — the print area to use
+ * when the item does not name one.
+ *
+ * `PrintConfig.range` has always documented "unset means the whole used range";
+ * this is what computes that range. It takes the smallest and largest row and
+ * column holding anything — a value or a formula — so a sheet's working columns
+ * off to the right are included if they were written to, and trailing blank rows
+ * are not.
+ *
+ * Blank-but-styled cells deliberately do not count. A stray border or fill would
+ * otherwise drag the printed area out across empty space, which is the sort of
+ * thing nobody notices until it reaches paper.
+ *
+ * Returns null when the sheet is empty, which callers should read as "no opinion"
+ * and fall back to whatever they did before.
+ */
+export function usedCellRange(spreadsheet: SpreadsheetDocument | undefined): CellRange | null {
+  if (!spreadsheet) return null
+
+  const raw = spreadsheet as unknown as {
+    sheets?: Record<string, { cellData?: Record<string, Record<string, CellLike>> }>
+    cells?: Record<string, CellLike>
+  }
+
+  let startRow = Number.POSITIVE_INFINITY
+  let startColumn = Number.POSITIVE_INFINITY
+  let endRow = -1
+  let endColumn = -1
+
+  const note = (row: number, column: number): void => {
+    if (!Number.isFinite(row) || !Number.isFinite(column)) return
+    if (row < startRow) startRow = row
+    if (column < startColumn) startColumn = column
+    if (row > endRow) endRow = row
+    if (column > endColumn) endColumn = column
+  }
+
+  if (raw.sheets) {
+    // One sheet per item, so every sheet in the snapshot belongs to this item;
+    // walking them all cannot pick the wrong one.
+    for (const sheet of Object.values(raw.sheets)) {
+      for (const [rowKey, row] of Object.entries(sheet?.cellData ?? {})) {
+        for (const [columnKey, cell] of Object.entries(row ?? {})) {
+          if (!cellHasContent(cell)) continue
+          note(Number(rowKey), Number(columnKey))
+        }
+      }
+    }
+  } else if (raw.cells) {
+    // Legacy shape: a flat map keyed by A1 reference.
+    for (const [ref, cell] of Object.entries(raw.cells)) {
+      if (!cellHasContent(cell)) continue
+      const parsed = parseCellRef(ref)
+      if (parsed) note(parsed[0], parsed[1])
+    }
+  }
+
+  if (endRow < 0 || endColumn < 0) return null
+  return { startRow, startColumn, endRow, endColumn }
+}
+
+type CellLike = { v?: unknown; f?: unknown } | null | undefined
+
+function cellHasContent(cell: CellLike): boolean {
+  if (!cell) return false
+  const hasValue = cell.v !== undefined && cell.v !== null && String(cell.v).trim() !== ''
+  const hasFormula = cell.f !== undefined && cell.f !== null && String(cell.f).trim() !== ''
+  return hasValue || hasFormula
 }

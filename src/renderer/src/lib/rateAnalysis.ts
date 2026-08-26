@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { applyDataVariantToRecipe, buildDataVariantSpec } from './dataVariants'
 import { projectItemKey } from './projectItems'
 import { parseRateAnalysisVisibility } from './rateAnalysisVisibility'
+import { canonicalSeigniorageCode } from './seigniorageClassification'
 import {
   SOR_CATALOGUE_CATEGORY,
   fetchSorCataloguePrice,
@@ -2546,6 +2547,7 @@ function buildSeigRow(
 ): SeigniorageMaterialPolicy {
   const qtyUnit = textValue(row.charge_unit, '') || textValue(row.quantity_unit, '') || textValue(row.recipe_material_unit, '')
   const matDesc = textValue(row.material_desc, '') || textValue(row.recipe_material_desc, '')
+  const materialLabel = textValue(row.material_label, '')
   const materialKey = textValue(row.material_key)
   const quantityBasis = textValue(row.quantity_basis)
   const normalizedQuantityBasis =
@@ -2556,13 +2558,16 @@ function buildSeigRow(
       : null
   return {
     material_key: materialKey || undefined,
-    material_label: textValue(row.material_label, ''),
+    material_label: materialLabel,
     material_desc: matDesc,
     recipe_material_desc: matDesc,
     recipe_material_unit: textValue(row.recipe_material_unit),
     recipe_material_qty: Number.isFinite(recipeMaterialQty) ? recipeMaterialQty : null,
     quantity_ratio: Number.isFinite(quantityRatio) ? quantityRatio : null,
-    seig_code: typeof row.seig_code === 'string' ? row.seig_code : null,
+    seig_code: canonicalSeigniorageCode(
+      typeof row.seig_code === 'string' ? row.seig_code : null,
+      matDesc || materialLabel
+    ),
     charge_unit: qtyUnit || null,
     quantity_unit: qtyUnit || undefined,
     conversion_factor: numberOrNull(row.conversion_factor),

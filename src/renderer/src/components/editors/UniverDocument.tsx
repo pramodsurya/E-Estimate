@@ -29,6 +29,7 @@ import {
 } from 'react'
 import { useStore } from '../../store/useStore'
 import { createUniverDocumentData, documentPlainText } from '../../lib/univerDocument'
+import { resolveNodeSettings } from '../../lib/nodeSettings'
 import { resolveVillageLocation } from '../../lib/masterData'
 import { createDocumentFinal, resolveDocumentFinal } from '../../lib/documentFinal'
 import { findNode } from '../../lib/tree'
@@ -73,6 +74,20 @@ const UniverDocument = forwardRef<UniverDocumentHandle, UniverDocumentProps>(
   const setNodeDocumentData = useStore((state) => state.setNodeDocumentData)
   const setNodeDocumentFinal = useStore((state) => state.setNodeDocumentFinal)
   const setNodeDocumentPrintArea = useStore((state) => state.setNodeDocumentPrintArea)
+  /**
+   * The item's own orientation, resolved the same way the print path resolves it.
+   * A document has to be *built* on the right page — unlike a sheet, there is no
+   * separate paper step — so this feeds the layout, and a change to it re-lays the
+   * document out below.
+   */
+  const orientation = useStore((state) => {
+    const root = state.project?.root
+    return (
+      node.print?.orientation ??
+      (root ? resolveNodeSettings(root, node.id).orientation : undefined) ??
+      'portrait'
+    )
+  })
   const [notice, setNotice] = useState<string | null>(null)
   const [printAreaOpen, setPrintAreaOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -234,7 +249,7 @@ const UniverDocument = forwardRef<UniverDocumentHandle, UniverDocumentProps>(
           }
         }
 
-        const initial = createUniverDocumentData(node, projectMeta, tableLocation)
+        const initial = createUniverDocumentData(node, projectMeta, tableLocation, orientation)
         const shouldPersistInitialCover =
           node.pageTemplate === 'front' && !node.frontCoverInitialized
         lastSerialized = JSON.stringify(initial)
@@ -472,7 +487,9 @@ const UniverDocument = forwardRef<UniverDocumentHandle, UniverDocumentProps>(
       univerRef.current = null
       disposeUniver(instance)
     }
-  }, [node.id, allowImages, preview, hostReady, setNodeDocumentData])
+    // `orientation` is a dependency on purpose: turning the page is a layout
+    // change Univer cannot apply to a live document, so the editor rebuilds.
+  }, [node.id, allowImages, preview, hostReady, orientation, setNodeDocumentData])
 
   /** The estimator's current text selection, read straight from Univer. */
   const readSelection = (): { startOffset: number; endOffset: number } | null => {

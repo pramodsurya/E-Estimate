@@ -321,7 +321,9 @@ function SeigniorageTableRow({ row, slNo }: { row: SeigniorageItemRow; slNo: num
         {row.permit != null ? (
           <>
             Rs. {money.format(row.permit)}
-            <small className="scol-permit-pct">@ {row.permitPercent}%</small>
+            <small className="scol-permit-pct">
+              {row.permitPercent === 0 ? 'Exempt' : `@ ${row.permitPercent}%`}
+            </small>
           </>
         ) : (
           '-'

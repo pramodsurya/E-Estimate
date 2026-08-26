@@ -6,6 +6,7 @@ import SideBar from './components/SideBar'
 import WorkArea from './components/WorkArea'
 import UpdateNotification from './components/UpdateNotification'
 import ErrorBoundary from './components/ErrorBoundary'
+import TutorialOverlay from './components/tutorial/TutorialOverlay'
 
 const AddItemModal = lazy(() => import('./components/modals/AddItemModal'))
 const AddPageModal = lazy(() => import('./components/modals/AddPageModal'))
@@ -66,6 +67,14 @@ export default function App(): JSX.Element {
     void restoreLastSession()
   }, [loadRecent, restoreLastSession])
 
+  useEffect(
+    () =>
+      window.api.bund.onProgress((progress) => {
+        useStore.getState().updateBundSimulationProgress(progress)
+      }),
+    []
+  )
+
   useEffect(() => {
     if (!filePath) return
     persistProjectSession(filePath, {
@@ -123,7 +132,12 @@ export default function App(): JSX.Element {
         </Suspense>
       </ErrorBoundary>
 
-      {/* Auto-update toast notification */}
+      {/* The guided tour. Renders nothing until someone asks for it. */}
+      <ErrorBoundary label="the tutorial">
+        <TutorialOverlay />
+      </ErrorBoundary>
+
+      {/* Headless updater bridge; visible status and actions live in the bell. */}
       <UpdateNotification />
     </div>
   )

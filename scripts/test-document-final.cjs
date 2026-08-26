@@ -144,10 +144,18 @@ assert.deepEqual(resolvePrintArea(sample, { startParagraph: 2, endParagraph: 0 }
   startParagraph: 2,
   endParagraph: 2
 })
-assert.equal(resolvePrintArea(sample, undefined), null)
+assert.deepEqual(resolvePrintArea(sample, undefined), {
+  startParagraph: 0,
+  endParagraph: 2
+})
+assert.deepEqual(resolvePrintArea(doc(['', 'Written content', '', '']), undefined), {
+  startParagraph: 1,
+  endParagraph: 1
+})
+assert.equal(resolvePrintArea(doc(['', '   ']), undefined), null)
 assert.equal(resolvePrintArea(doc([]), { startParagraph: 0, endParagraph: 1 }), null)
 
-// No print area means every paragraph prints.
+// A null resolved area means every paragraph prints.
 assert.equal(paragraphInPrintArea(0, null), true)
 assert.equal(paragraphInPrintArea(99, undefined), true)
 const area = { startParagraph: 1, endParagraph: 2 }

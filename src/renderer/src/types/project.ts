@@ -720,6 +720,8 @@ export interface BundSection {
   downstreamGroundLevel?: number | null
   /** Offsets inserted by the seven-point design button; manual points are kept separately. */
   designPointOffsets?: number[]
+  /** Generated level rows hidden by the user's Rearrange points action. */
+  hiddenLevelOffsets?: number[]
 }
 
 /** One generated item, keyed by the (role, code) it aggregates. */
@@ -995,6 +997,11 @@ export interface BundData {
   sections: BundSection[]
   /** Generated items, one per distinct (role, code) actually in use. */
   materialItems: BundMaterialItem[]
+  /**
+   * Stability & seepage simulation inputs and results (XSLOPE bridge). Purely
+   * a verification record: nothing here feeds back into quantities.
+   */
+  simulation?: import('./bundSimulation').BundSimulationData
 }
 
 /**

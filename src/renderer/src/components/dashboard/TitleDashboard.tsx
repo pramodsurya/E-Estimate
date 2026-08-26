@@ -195,7 +195,7 @@ export default function TitleDashboard(): JSX.Element | null {
           >
             <RefreshCw size={15} /> {loading ? 'Syncing…' : 'Sync'}
           </button>
-          <button className="btn ghost" onClick={() => setEditingProject(true)}>
+          <button className="btn ghost" data-tour="edit-project" onClick={() => setEditingProject(true)}>
             <Pencil size={15} /> Edit Project
           </button>
           <button className="btn ghost" onClick={() => openAddPage(root.id)}>
@@ -500,7 +500,7 @@ export default function TitleDashboard(): JSX.Element | null {
                 <ListPlus size={18} /> Miscellaneous
               </h2>
             </div>
-            <button className="btn ghost" onClick={() => setMiscOpen(true)}>
+            <button className="btn ghost" data-tour="add-misc" onClick={() => setMiscOpen(true)}>
               <Plus size={14} /> Add Item
             </button>
           </div>
@@ -595,6 +595,7 @@ export default function TitleDashboard(): JSX.Element | null {
               </button>
               <button
                 className="btn"
+                data-tour="misc-add"
                 disabled={
                   !miscName.trim() || !Number.isFinite(Number(miscCost)) || Number(miscCost) < 0
                 }
@@ -609,6 +610,7 @@ export default function TitleDashboard(): JSX.Element | null {
             <label className="field-label">Item name</label>
             <input
               className="text-input"
+              data-tour="misc-name"
               autoFocus
               value={miscName}
               onChange={(event) => setMiscName(event.target.value)}
@@ -619,6 +621,7 @@ export default function TitleDashboard(): JSX.Element | null {
             <label className="field-label">Cost (₹)</label>
             <input
               className="text-input"
+              data-tour="misc-amount"
               type="number"
               min="0"
               step="0.01"
