@@ -9,13 +9,14 @@
 #   3. Writes the public key into src-tauri/tauri.conf.json.
 #   4. Bumps package.json + tauri.conf.json + Cargo.toml to the same version.
 #   5. Pre-flights the analysis-engine Python deps.
-#   6. Commits the version bump, tags it, pushes, creates the GitHub release.
-#   7. Builds the Python analysis engine + the Tauri installer (signed).
-#   8. Verifies the bund-analysis.exe sidecar was bundled.
+#   6. Builds the Python analysis engine + the signed Tauri installer.
+#   7. Verifies the bund-analysis.exe sidecar was bundled (simulation tab).
+#   8. Commits the version bump, tags it, pushes, creates the GitHub release.
 #   9. Uploads installer + signature + latest.json for auto-update.
 #
-# Requires: GitHub CLI (`gh`) logged in with push access to pramodsurya/E-Estimate,
-# and a Python that can build the bund-analysis sidecar (see step 5).
+# Build runs before tagging so a failed build never leaves a broken release.
+# Requires: GitHub CLI (`gh`) logged in with push access, and a Python that can
+# build the bund-analysis sidecar (see step 5).
 
 param(
     [string]$bumpType = "patch"
@@ -46,10 +47,7 @@ if (-not (Test-Path -LiteralPath $keyFile) -or -not (Test-Path -LiteralPath $pub
     Write-Host "[OK] Using existing keys in $HOME\.tauri" -ForegroundColor Green
 }
 
-# The private key is never committed; it is mounted for the build AND mirrored to
-# the repo secrets so the CI release job reproduces the exact same signature key.
 $privateKeyContent = (Get-Content -LiteralPath $keyFile -Raw).Trim()
-$null = New-Item -ItemType Directory -Path (Split-Path $keyFile) -Force
 $env:TAURI_SIGNING_PRIVATE_KEY = $privateKeyContent
 $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
 $env:TAURI_SIGNING_PRIVATE_KEY_PATH = $keyFile
@@ -68,8 +66,7 @@ try { $env:GH_TOKEN = & $gh auth token 2>$null } catch { }
 if (-not $env:GH_TOKEN) { Write-Host "ERROR: run 'gh auth login' first" -ForegroundColor Red; exit 1 }
 Write-Host "[OK] GitHub authenticated" -ForegroundColor Green
 
-# Keep CI reproducible: mirror the signing key to the repo secrets (idempotent).
-# No password is set because the generated key is unencrypted.
+# Mirror the signing key to repo secrets so future CI releases reproduce it.
 & $gh secret set TAURI_SIGNING_PRIVATE_KEY --repo $repoSlug --body $privateKeyContent
 Write-Host "[OK] TAURI_SIGNING_PRIVATE_KEY secret updated" -ForegroundColor Green
 
@@ -119,7 +116,7 @@ $python = if ($env:EESTIMATE_PYTHON) { $env:EESTIMATE_PYTHON } else { 'python' }
 if ($LASTEXITCODE -ne 0) {
     Write-Host @"
 
-ERROR: The analysis-engine build Python is missing solver deps. Install them first:
+ERROR: The analysis-engine build Python is missing solver deps. Install them:
 
   python -m pip install -r analysis/requirements-packaging.txt
 
@@ -131,7 +128,34 @@ ERROR: The analysis-engine build Python is missing solver deps. Install them fir
 Write-Host "[OK] Analysis-engine Python deps present" -ForegroundColor Green
 
 # ----------------------------------------------------------------------------
-# 6. Commit version bump, tag, push, ensure release
+# 6. Build the analysis engine + signed Tauri installer
+# ----------------------------------------------------------------------------
+Write-Host ""
+Write-Host "Building analysis engine + Tauri bundle (10-60+ min)..." -ForegroundColor Cyan
+npm run publish:win
+if ($LASTEXITCODE -ne 0) { Write-Host "ERROR: build failed — no tag/release created" -ForegroundColor Red; exit 1 }
+
+# ----------------------------------------------------------------------------
+# 7. Verify the analysis engine sidecar exists (simulation tab depends on it)
+# ----------------------------------------------------------------------------
+$engine = Join-Path $root "vendor\bund-analysis\bund-analysis.exe"
+if (-not (Test-Path -LiteralPath $engine)) {
+    Write-Host "ERROR: bund-analysis.exe not produced — the simulation tab would ship broken." -ForegroundColor Red
+    exit 1
+}
+Write-Host "[OK] Analysis engine present: $engine" -ForegroundColor Green
+
+$nsisDir = Join-Path $root "src-tauri\target\release\bundle\nsis"
+$installer = Get-ChildItem $nsisDir -Filter "*-setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $installer) { Write-Host "ERROR: NSIS installer not found under $nsisDir" -ForegroundColor Red; exit 1 }
+$sigFile = "$($installer.FullName).sig"
+if (-not (Test-Path -LiteralPath $sigFile)) {
+    Write-Host "ERROR: installer signature not produced (createUpdaterArtifacts / signing key?)" -ForegroundColor Red; exit 1
+}
+Write-Host "[OK] Built signed installer: $($installer.Name)" -ForegroundColor Green
+
+# ----------------------------------------------------------------------------
+# 8. Commit version bump, tag, push, ensure release
 # ----------------------------------------------------------------------------
 git config user.name "github-actions[bot]"
 git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -149,33 +173,6 @@ if ($LASTEXITCODE -ne 0) {
     & $gh release create $tagName --repo $repoSlug --target master --title $tagName --notes "Automated release $tagName" *> $null
 }
 Write-Host "[OK] Release $tagName ready" -ForegroundColor Green
-
-# ----------------------------------------------------------------------------
-# 7. Build the analysis engine + signed Tauri installer
-# ----------------------------------------------------------------------------
-Write-Host ""
-Write-Host "Building analysis engine + Tauri bundle (10-60+ min)..." -ForegroundColor Cyan
-npm run publish:win
-if ($LASTEXITCODE -ne 0) { Write-Host "ERROR: build failed" -ForegroundColor Red; exit 1 }
-
-# ----------------------------------------------------------------------------
-# 8. Verify the analysis engine sidecar exists (simulation tab depends on it)
-# ----------------------------------------------------------------------------
-$engine = Join-Path $root "vendor\bund-analysis\bund-analysis.exe"
-if (-not (Test-Path -LiteralPath $engine)) {
-    Write-Host "ERROR: bund-analysis.exe was not produced — the simulation tab ships broken." -ForegroundColor Red
-    exit 1
-}
-Write-Host "[OK] Analysis engine present: $engine" -ForegroundColor Green
-
-$nsisDir = Join-Path $root "src-tauri\target\release\bundle\nsis"
-$installer = Get-ChildItem $nsisDir -Filter "*-setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $installer) { Write-Host "ERROR: NSIS installer not found under $nsisDir" -ForegroundColor Red; exit 1 }
-$sigFile = "$($installer.FullName).sig"
-if (-not (Test-Path -LiteralPath $sigFile)) {
-    Write-Host "ERROR: installer signature not produced (createUpdaterArtifacts / signing key?)" -ForegroundColor Red; exit 1
-}
-Write-Host "[OK] Built signed installer: $($installer.Name)" -ForegroundColor Green
 
 # ----------------------------------------------------------------------------
 # 9. Upload installer + signature + latest.json (auto-update)
