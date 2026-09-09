@@ -1,4 +1,4 @@
-[workspace]
+﻿[workspace]
 members = [".", "estimate-core"]
 resolver = "2"
 
@@ -38,8 +38,8 @@ comemo = "0.5"
 time = { version = "0.3", features = ["formatting"] }
 once_cell = "1"
 
-# First Typst/krilla debug build is 30â€“90 min. Incremental after that only if
-# artifacts stay on local disk â€” `npm run dev` sets CARGO_TARGET_DIR under
+# First Typst/krilla debug build is 30Ã¢â‚¬â€œ90 min. Incremental after that only if
+# artifacts stay on local disk Ã¢â‚¬â€ `npm run dev` sets CARGO_TARGET_DIR under
 # %LOCALAPPDATA%\e-estimate\cargo-target so OneDrive cannot wipe `target/`.
 # Do not `cargo clean`. Print Studio compiles Typst in this binary on purpose.
 [profile.dev]
@@ -52,4 +52,5 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
 
