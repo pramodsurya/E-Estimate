@@ -1,7 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
-import { Crop } from 'lucide-react'
+import { AlertTriangle, Crop } from 'lucide-react'
 import Modal from '../modals/Modal'
-import { documentParagraphs, resolvePrintArea } from '../../lib/documentFinal'
+import {
+  documentParagraphs,
+  finalNumberParagraphIndex,
+  resolvePrintArea
+} from '../../lib/documentFinal'
 import type { DocumentPrintArea, ProjectNode } from '../../types/project'
 
 /**
@@ -27,6 +31,12 @@ export default function DocumentPrintAreaModal({
 
   const low = Math.min(start, end)
   const high = Math.max(start, end)
+
+  const finalPIndex = useMemo(
+    () => finalNumberParagraphIndex(node.documentData, node.documentFinal),
+    [node.documentData, node.documentFinal]
+  )
+  const finalExcluded = finalPIndex !== null && (finalPIndex < low || finalPIndex > high)
 
   const beginDrag = (index: number): void => {
     dragging.current = true
@@ -58,7 +68,14 @@ export default function DocumentPrintAreaModal({
           </button>
           <button
             className="btn"
+            disabled={finalExcluded}
+            title={
+              finalExcluded
+                ? `Selected range must include the fixed final number on line ${finalPIndex + 1}`
+                : undefined
+            }
             onClick={() => {
+              if (finalExcluded) return
               onApply({ startParagraph: low, endParagraph: high })
               onClose()
             }}
@@ -72,6 +89,23 @@ export default function DocumentPrintAreaModal({
         Drag down the document to select the vertical range to print. Only the Y axis is
         selectable — every line inside the band prints in full.
       </p>
+
+      {finalExcluded && finalPIndex !== null && (
+        <div
+          style={{
+            color: 'var(--danger, #e53e3e)',
+            fontWeight: 600,
+            fontSize: '13px',
+            marginBottom: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}
+        >
+          <AlertTriangle size={15} />
+          The print area must include the fixed final number on line {finalPIndex + 1}.
+        </div>
+      )}
 
       {paragraphs.length === 0 ? (
         <div className="empty-project-card">This document has no content yet.</div>
@@ -87,6 +121,7 @@ export default function DocumentPrintAreaModal({
         >
           {paragraphs.map((paragraph) => {
             const inside = paragraph.index >= low && paragraph.index <= high
+            const isFinal = paragraph.index === finalPIndex
             return (
               <div
                 key={paragraph.index}
@@ -98,6 +133,21 @@ export default function DocumentPrintAreaModal({
                 <span className="doc-area-text">
                   {paragraph.text.trim() || <em>(blank line)</em>}
                 </span>
+                {isFinal && (
+                  <span
+                    style={{
+                      marginLeft: 'auto',
+                      fontSize: '11px',
+                      background: 'var(--accent, #3182ce)',
+                      color: '#fff',
+                      borderRadius: '4px',
+                      padding: '1px 6px',
+                      flexShrink: 0
+                    }}
+                  >
+                    Fixed Final № ({node.documentFinal?.capturedValue})
+                  </span>
+                )}
               </div>
             )
           })}
@@ -111,3 +161,4 @@ export default function DocumentPrintAreaModal({
     </Modal>
   )
 }
+

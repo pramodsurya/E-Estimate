@@ -123,11 +123,222 @@ export function descriptionRunsForDisplay(
 ): RateAnalysisTextRun[] {
   if (!runs?.length) return [plainTextRun(description)]
   const reconstructed = runs.map((run) => run.text).join('')
-  return reconstructed === description ? runs : [plainTextRun(description)]
+  if (reconstructed === description) return runs
+  if (reconstructed.replace(/\r\n/g, '\n').trim() === description.replace(/\r\n/g, '\n').trim()) {
+    return runs
+  }
+  return [plainTextRun(description)]
 }
 
 export function plainTextRun(text: string): RateAnalysisTextRun {
   return { text, bold: false, italic: false, underline: false }
+}
+
+/**
+ * Converts rich text runs to WhatsApp-style markup string:
+ * *bold*, _italic_, *_bold-italic_*, <u>underline</u>
+ */
+export function runsToWhatsApp(runs: RateAnalysisTextRun[]): string {
+  if (!runs?.length) return ''
+  return runs
+    .map((run) => {
+      const t = run.text
+      if (run.bold && run.italic) return `*_${t}_*`
+      if (run.bold) return `*${t}*`
+      if (run.italic) return `_${t}_`
+      if (run.underline) return `<u>${t}</u>`
+      return t
+    })
+    .join('')
+}
+
+/**
+ * Parses WhatsApp-style markup (*bold*, _italic_, *_bold-italic_*, <u>underline</u>)
+ * into RateAnalysisTextRun[] array.
+ */
+export function whatsAppToRuns(text: string): RateAnalysisTextRun[] {
+  if (!text) return [plainTextRun('')]
+  const runs: RateAnalysisTextRun[] = []
+  const regex = /(\*_([^*_\n]+?)_\*|_\*([^*_\n]+?)\*_|\*([^*\n]+?)\*|_([^_\n]+?)_|<u>([\s\S]+?)<\/u>)/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      runs.push(plainTextRun(text.slice(lastIndex, match.index)))
+    }
+    if (match[2] || match[3]) {
+      runs.push({ text: match[2] || match[3], bold: true, italic: true, underline: false })
+    } else if (match[4]) {
+      runs.push({ text: match[4], bold: true, italic: false, underline: false })
+    } else if (match[5]) {
+      runs.push({ text: match[5], bold: false, italic: true, underline: false })
+    } else if (match[6]) {
+      runs.push({ text: match[6], bold: false, italic: false, underline: true })
+    }
+    lastIndex = regex.lastIndex
+  }
+
+  if (lastIndex < text.length) {
+    runs.push(plainTextRun(text.slice(lastIndex)))
+  }
+
+  return runs.length ? runs : [plainTextRun(text)]
+}
+
+export function runsToHtml(runs: RateAnalysisTextRun[]): string {
+  if (!runs?.length) return ''
+  return runs
+    .map((run) => {
+      let text = escapeHtml(run.text).replace(/\n/g, '<br>')
+      if (run.underline) text = `<u>${text}</u>`
+      if (run.italic) text = `<em>${text}</em>`
+      if (run.bold) text = `<strong>${text}</strong>`
+      return text
+    })
+    .join('')
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+export function htmlToDescriptionRuns(html: string): RateAnalysisTextRun[] {
+  if (typeof DOMParser !== 'undefined') {
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html')
+    const root = doc.body.firstElementChild || doc.body
+    const runs: RateAnalysisTextRun[] = []
+
+    function walk(node: Node, bold: boolean, italic: boolean, underline: boolean): void {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent || ''
+        if (text) {
+          runs.push({
+            text,
+            bold: Boolean(bold),
+            italic: Boolean(italic),
+            underline: Boolean(underline)
+          })
+        }
+        return
+      }
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement
+        const tag = el.tagName.toLowerCase()
+
+        if (tag === 'br') {
+          runs.push({ text: '\n', bold: false, italic: false, underline: false })
+          return
+        }
+
+        const isBold =
+          bold ||
+          tag === 'strong' ||
+          tag === 'b' ||
+          el.style.fontWeight === 'bold' ||
+          parseInt(el.style.fontWeight, 10) >= 600
+        const isItalic =
+          italic ||
+          tag === 'em' ||
+          tag === 'i' ||
+          el.style.fontStyle === 'italic'
+        const isUnderline =
+          underline ||
+          tag === 'u' ||
+          el.style.textDecoration.includes('underline')
+
+        for (let i = 0; i < node.childNodes.length; i++) {
+          walk(node.childNodes[i], isBold, isItalic, isUnderline)
+        }
+
+        if (tag === 'p' || tag === 'div') {
+          if (el.nextSibling) {
+            runs.push({ text: '\n', bold: false, italic: false, underline: false })
+          }
+        }
+      }
+    }
+
+    for (let i = 0; i < root.childNodes.length; i++) {
+      walk(root.childNodes[i], false, false, false)
+    }
+
+    // Merge adjacent runs with identical styling
+    const merged: RateAnalysisTextRun[] = []
+    for (const r of runs) {
+      const last = merged[merged.length - 1]
+      if (
+        last &&
+        Boolean(last.bold) === Boolean(r.bold) &&
+        Boolean(last.italic) === Boolean(r.italic) &&
+        Boolean(last.underline) === Boolean(r.underline)
+      ) {
+        last.text += r.text
+      } else {
+        merged.push({ ...r })
+      }
+    }
+
+    return merged.length ? merged : [plainTextRun(root.textContent || '')]
+  }
+
+  // Regex fallback for headless node environments
+  const runs: RateAnalysisTextRun[] = []
+  const tokens = html.split(/(<br\s*\/?>|<\/?[a-z0-9]+[^>]*>)/gi)
+  let bold = false
+  let italic = false
+  let underline = false
+
+  for (const token of tokens) {
+    if (!token) continue
+    const lower = token.toLowerCase()
+    if (/^<br\s*\/?>$/i.test(lower)) {
+      runs.push({ text: '\n', bold: false, italic: false, underline: false })
+    } else if (/^<(strong|b)>/i.test(lower)) {
+      bold = true
+    } else if (/^<\/(strong|b)>/i.test(lower)) {
+      bold = false
+    } else if (/^<(em|i)>/i.test(lower)) {
+      italic = true
+    } else if (/^<\/(em|i)>/i.test(lower)) {
+      italic = false
+    } else if (/^<u>/i.test(lower)) {
+      underline = true
+    } else if (/^<\/u>/i.test(lower)) {
+      underline = false
+    } else if (!token.startsWith('<')) {
+      const decoded = token
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#039;/g, "'")
+      runs.push({ text: decoded, bold, italic, underline })
+    }
+  }
+
+  const merged: RateAnalysisTextRun[] = []
+  for (const r of runs) {
+    const last = merged[merged.length - 1]
+    if (
+      last &&
+      Boolean(last.bold) === Boolean(r.bold) &&
+      Boolean(last.italic) === Boolean(r.italic) &&
+      Boolean(last.underline) === Boolean(r.underline)
+    ) {
+      last.text += r.text
+    } else {
+      merged.push({ ...r })
+    }
+  }
+
+  return merged.length ? merged : [plainTextRun(html.replace(/<[^>]+>/g, ''))]
 }
 
 function defaultSection(section: RateAnalysisSectionKey) {

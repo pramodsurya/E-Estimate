@@ -22,7 +22,13 @@ export default function MapLayers({
   const toposheetQualityBias = printQuality ? 4 : 0
   if (!showControl) {
     if (selected === 'map') {
-      return <TileLayer attribution={OSM_ATTRIBUTION} url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      return (
+        <TileLayer
+          attribution={OSM_ATTRIBUTION}
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          detectRetina={printQuality}
+        />
+      )
     }
     if (selected === 'satellite') {
       return (
@@ -30,6 +36,7 @@ export default function MapLayers({
           attribution={SATELLITE_ATTRIBUTION}
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           maxZoom={19}
+          detectRetina={printQuality}
         />
       )
     }
@@ -40,6 +47,7 @@ export default function MapLayers({
             attribution={SATELLITE_ATTRIBUTION}
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             maxZoom={19}
+            detectRetina={printQuality}
           />
           <KmzTransparentToposheetLayer qualityBias={toposheetQualityBias} />
         </LayerGroup>

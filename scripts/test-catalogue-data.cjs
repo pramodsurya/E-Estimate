@@ -410,6 +410,43 @@ async function main() {
   assert.equal(customCompiled.rates[projectDataNode.id], 1350)
   assert.equal(customCompiled.recipes[projectDataNode.id].itemCode, 'DATA-SOR-001')
 
+  const repeatedSource = { ...source, id: 'second-usage' }
+  let fetchCount = 0
+  dashboardFetch = async () => {
+    fetchCount += 1
+    return numericRecipe
+  }
+  const repeated = await dashboardSync.fetchDashboardItemData(project, [source, repeatedSource])
+  assert.equal(fetchCount, 1, 'equivalent usages must fetch their source only once')
+  assert.deepEqual(repeated.rates, { [source.id]: 2846, [repeatedSource.id]: 2846 })
+  assert.deepEqual(await dashboardSync.fetchDashboardItemData(project, []), { rates: {}, recipes: {} })
+  assert.equal(fetchCount, 1, 'empty input must not fetch a source')
+
+  dashboardFetch = async () => { throw new Error('Source unavailable') }
+  await assert.rejects(
+    dashboardSync.fetchDashboardItemData(project, [source, repeatedSource]),
+    { message: `Could not prepare 1 source DATA entry for SOR 2025-26. ${source.itemCode}: Source unavailable` },
+    'the same failure across usages must be reported once'
+  )
+  const failingSources = Array.from({ length: 6 }, (_, index) => ({
+    ...source, id: `failure-${index}`, itemCode: `CODE-${index}`
+  }))
+  await assert.rejects(
+    dashboardSync.fetchDashboardItemData(project, failingSources),
+    { message: 'Could not prepare 6 source DATA entries for SOR 2025-26. CODE-0: Source unavailable; CODE-1: Source unavailable; CODE-2: Source unavailable; CODE-3: Source unavailable; and 2 more' }
+  )
+  await assert.rejects(
+    dashboardSync.fetchDashboardItemData(project, [projectDataNode]),
+    /The linked project DATA definition no longer exists/
+  )
+  const unbacked = catalogueNode({ id: 'unbacked', itemSource: 'OTHERS' })
+  assert.deepEqual(
+    await dashboardSync.fetchDashboardItemData(project, [unbacked]),
+    { rates: {}, recipes: {} },
+    'a failed custom source without a saved recipe remains an empty result'
+  )
+  dashboardFetch = async () => numericRecipe
+
   project.dashboardSnapshot = {
     syncedAt: '2026-07-01T00:00:00.000Z',
     dataSyncedAt: '2026-07-01T00:00:00.000Z',

@@ -194,13 +194,6 @@ const RULES: Record<string, Record<string, StepAdvance>> = {
     // Three rows, counted — the sanction chain the copy describes.
     'sign-two-more': state('signatureRowsAtLeastThree', 'Waiting on three signatory rows.'),
     'sync-again': CLICK,
-    'project-print-view': CLICK,
-    'all-of-it': ACK,
-    'file-export': CLICK,
-    'hover-export': shown('[data-tour="menu-export-pdf"]'),
-    'export-pdf': shown('.export-shell'),
-    rendering: shown('.export-result'),
-    saved: closed('.export-shell'),
     'edit-project': shown('[data-tour="np-year"]'),
     'pick-year': INPUT
   }

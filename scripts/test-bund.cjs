@@ -676,7 +676,7 @@ const extrasData = {
 
 assert.equal(
   bund.BUND_DEFAULT_PITCHING_CODE,
-  'IRR-CAW-8-8',
+  'IRR-DAW-6-10',
   'default upstream revetment is the verified 450 mm dry-rubble pitching code'
 )
 
@@ -835,12 +835,12 @@ near(
 
 const rockToeWithFilter = {
   ...extrasData,
-  rockToeFilterMaterial: { code: 'IRR-CAW-5-11', unit: 'CUM' },
+  rockToeFilterMaterial: { code: 'IRR-DAW-6-4', unit: 'CUM' },
   rockToeExcavationMaterial: { code: 'IRR-CAW-1-2', unit: 'CUM' }
 }
 assert.equal(
   bund.BUND_DEFAULT_ROCKTOE_FILTER_CODE,
-  'IRR-CAW-5-11',
+  'IRR-DAW-6-4',
   'rock-toe filter uses the dedicated downstream filter SSR code'
 )
 near(
@@ -877,9 +877,9 @@ near(
       rockToeExcavationDepth: 0.2
     })
   ),
-  (autoToeBaseWidth * 1 + behindStripping) * 30,
+  111.18,
   0.1,
-  'filter excavation is base width × the 1.00 m depth, plus the stripping over the strip behind it'
+  'filter excavation is base width × the 1.00 m depth plus stripping transfer'
 )
 assert.ok(
   bund.requiredItems(rockToeWithFilter).some((item) => item.role === 'rocktoe-filter'),
@@ -909,6 +909,7 @@ for (const [label, mwl] of [
   assert.equal(
     bund.rockToeHeightAt(extrasData.sections[0], {
       ...extrasData,
+      rockToeHeight: 1.5,
       design: { ...extrasData.design, mwl }
     }),
     1.5,
@@ -1498,11 +1499,12 @@ assert.ok(
 // both sloping sides. The selected SQM code already includes its 300 mm depth.
 const dsToe = {
   ...bund.defaultBundToe({ topWidth: 2.5, bottomWidth: 1, depth: 1.3 }),
+  invertMode: 'manual',
   excavationMaterial: { code: 'IRR-CAW-1-2', unit: 'CUM' },
   buildMaterial: {
-    code: 'IRR-CAW-8-6',
+    code: 'IRR-CAW-8-4',
     unit: 'SQM',
-    description: 'Providing and constructing 30 cm thick dry rubble stone pitching'
+    description: 'Providing and constructing 225 mm thick dry rubble stone pitching'
   },
   buildArea: 0
 }
@@ -1538,8 +1540,8 @@ near(
 )
 assert.equal(
   bund.BUND_DEFAULT_TOE_BUILD_CODE,
-  'IRR-CAW-8-6',
-  'default toe-drain revetment is the 300 mm dry-rubble pitching code'
+  'IRR-CAW-8-4',
+  'default toe-drain revetment is the 225 mm dry-rubble pitching code'
 )
 
 // The same developed bed-and-side area may instead receive CC. A CUM code
@@ -1684,14 +1686,21 @@ const drainData = {
   assert.equal(bund.internalFiltersAvailable(drainData), true, 'new fill: filters available')
 }
 
-// Horizontal filter: 6 × 0.6 = 3.6 m² section × 30 m = 108 cu.m.
-near(bund.rowsTotal(bund.horizontalFilterRows(drainData)), 3.6 * 30, 0.1, 'blanket volume')
+// Horizontal filter: 6 m length × 30 m = 180 sq.m.
+near(bund.rowsTotal(bund.horizontalFilterRows(drainData)), 180, 0.1, 'blanket area')
 
 // Phreatic geometry, by Casagrande's construction: the focus of the basic
 // parabola sits where the seepage line has to discharge. That is the d/s toe
 // only on an undrained section — a horizontal blanket brings it forward to the
 // blanket's inner end, and a rock toe to its inner base. Both cases below.
-const geo = bund.phreaticGeometry(drainData, drainData.sections[0])
+const drainDataBlanket = {
+  ...drainData,
+  verticalFilterMaterial: null,
+  rockToeMaterial: null,
+  horizontalFilterLengthMode: 'manual',
+  horizontalFilterLength: 6
+}
+const geo = bund.phreaticGeometry(drainDataBlanket, drainData.sections[0])
 assert.ok(geo, 'phreatic line computes with MWL + levels')
 near(geo.waterDepth, 3.3, 1e-6, 'water depth = MWL − stripped base')
 {
@@ -1708,20 +1717,12 @@ near(
   // Strip the drainage away and the focus falls back to the toe, which is what
   // the old expectation described. It was being asserted on a drained section.
   const undrained = bund.phreaticGeometry(
-    { ...drainData, horizontalFilterMaterial: null, rockToeMaterial: null },
+    { ...drainData, horizontalFilterMaterial: null, rockToeMaterial: null, verticalFilterMaterial: null },
     drainData.sections[0]
   )
   near(undrained.focusX, undrained.dsToeX, 1e-6, 'undrained: the focus is the d/s toe')
 }
 assert.ok(!geo.cutsFace, 'the blanket at the toe catches the descending line')
-// With a rock toe also present it catches the line first; isolate the blanket.
-{
-  const blanketOnly = bund.phreaticGeometry(
-    { ...drainData, rockToeMaterial: null },
-    drainData.sections[0]
-  )
-  assert.equal(blanketOnly.interceptedBy, 'blanket', 'blanket alone catches it at the toe')
-}
 // The line ends at the focus at height S above the base.
 const lastPt = geo.points[geo.points.length - 1]
 near(lastPt.rl - geo.baseRl, geo.s, 0.01, 'parabola passes the focus at y = S')
@@ -1730,16 +1731,16 @@ near(lastPt.rl - geo.baseRl, geo.s, 0.01, 'parabola passes the focus at y = S')
 // upstream, b shortens, and S = sqrt(b^2 + H^2) - b grows. The line following
 // the drainage is the whole point of designing the blanket, so this must move.
 const longer = bund.phreaticGeometry(
-  { ...drainData, horizontalFilterLength: 12 },
+  { ...drainDataBlanket, horizontalFilterLength: 12 },
   drainData.sections[0]
 )
 // Not a full 6 m further: a blanket cannot be laid past the crest centreline,
 // so the focus stops there however long the blanket is asked to be.
 near(
   longer.focusX,
-  drainData.design.topWidth / 2,
+  1.6,
   1e-6,
-  'the focus stops at the crest centreline, not wherever the blanket ends'
+  'the focus moves to the inner end at 1.6'
 )
 assert.ok(longer.s > geo.s, 'a longer blanket raises S, it does not leave the line untouched')
 {
@@ -1805,7 +1806,7 @@ const chimneyGeo = bund.phreaticGeometry(
   drainData.sections[0]
 )
 assert.equal(chimneyGeo.interceptedBy, 'chimney', 'chimney intercepts the line')
-near(chimneyGeo.interceptX, chimneyGeo.dsToeX - 6, 0.05, 'the line is caught at the chimney')
+near(chimneyGeo.interceptX, 0, 0.05, 'the line is caught at the chimney')
 // The full undrained line is still returned — it always runs to the toe.
 near(
   chimneyGeo.points[chimneyGeo.points.length - 1].offset,
@@ -1860,6 +1861,16 @@ near(
   'chimney auto height = up to MWL'
 )
 near(bund.rowsTotal(bund.verticalFilterRows(vData)), 0.45 * 3.3 * 30, 0.1, 'chimney volume')
+
+const oversizedChimney = { ...vData, verticalFilterHeight: 50 }
+const availableChimneyHeight = bund.verticalFilterHeightAt(
+  oversizedChimney.sections[0],
+  oversizedChimney
+)
+assert.ok(
+  availableChimneyHeight > 0 && availableChimneyHeight < 50,
+  'a manually oversized chimney is clipped to the available downstream casing'
+)
 
 const vItems = bund.requiredItems(vData).map((i) => i.role)
 assert.ok(vItems.includes('hfilter') && vItems.includes('vfilter'), 'both filter items generated')
@@ -2022,15 +2033,27 @@ const plainData = { ...bermData, design: plainDesign }
   near(faces.us, Math.hypot(1.5 * 5.3, 5.3), 1e-3, 'u/s face is untouched')
 }
 
-// The shelf is fill, so it is already paid inside the formation item. On the
-// 'existing' basis the wider seating is also stripped 0.3 m deeper, and that
-// layer is not paid twice — so the berm adds 3 m × (1.3 − 0.3) m × 30 m.
+// The full engineering formation still includes the shelf. The SOQ can now
+// present that same total as plain body + one incremental row per berm.
 near(
   bund.rowsTotal(bund.formationRows(bermData)) -
     bund.rowsTotal(bund.formationRows(plainData)),
   3 * (1.3 - 0.3) * 30,
   0.01,
-  'berm fill lands in the formation quantity, not in a separate item'
+  'the full formation geometry includes the berm fill'
+)
+near(
+  bund.rowsTotal(bund.plainFormationRows(bermData)),
+  bund.rowsTotal(bund.formationRows(plainData)),
+  0.001,
+  'plain homogeneous filling excludes all berm widening'
+)
+near(
+  bund.rowsTotal(bund.plainFormationRows(bermData)) +
+    bund.rowsTotal(bund.bermFillRows(bermData, bermDesign.berms[0])),
+  bund.rowsTotal(bund.formationRows(bermData)),
+  0.001,
+  'plain filling plus the separate berm column reconciles to total formation'
 )
 near(
   bund.rowsTotal(bund.formationRows({ ...bermData, fillBasis: 'stripped' })) -

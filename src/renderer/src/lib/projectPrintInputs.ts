@@ -1,6 +1,6 @@
 /**
  * The figures the Project Dashboard shows, derived once from the synced
- * snapshot. The dashboard, its View Print View and the PDF export all read from
+ * snapshot. The dashboard and Typst document adapters both read from
  * here, so an exported estimate can never disagree with the screen.
  */
 

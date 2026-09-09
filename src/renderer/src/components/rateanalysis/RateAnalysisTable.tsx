@@ -1,19 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
-  calculateBaseRateAnalysis,
-  calculateOptionalAddition,
-  calculateRateAnalysis,
   type CalculatedOptionalAddition,
   invalidateRateAnalysisCalculation,
-  labourRowsForDisplay,
   updateRateAnalysisLine
 } from '../../lib/rateAnalysis'
-import { addonLeadRuleForVariant, parseLeadInfo } from '../../lib/leadApplicability'
 import {
-  defaultRateAnalysisLayout,
   descriptionRunsForDisplay,
-  plainTextRun
+  htmlToDescriptionRuns,
+  plainTextRun,
+  runsToHtml,
+  runsToWhatsApp,
+  whatsAppToRuns
 } from '../../lib/rateAnalysisVisibility'
+import {
+  abstractSectionKey,
+  buildDataPresentation,
+  normalizeLabourRows,
+  normalizeStoredRows,
+  numericText
+} from '../../lib/dataPresentation'
 import { supabase } from '../../lib/supabase'
 import { pipeLeadCatalogueLabel } from '../../lib/pipeLead'
 import { lineIdentity } from '../../lib/recipeMerge'
@@ -183,52 +188,31 @@ export default function RateAnalysisTable({
     )
   }
 
-  const summary = calculateBaseRateAnalysis(recipe)
-  const adoptedSummary = calculateRateAnalysis(recipe)
-  const calculatedAddon = calculateOptionalAddition(recipe)
-  const selectedAddonId = recipe.dataVariant?.addonId
-  const parsedLeadInfo = parseLeadInfo(recipe.leadApplicability)
-  const addonLeadApplications = selectedAddonId
-    ? leadApplications.filter((application) => {
-        if (application.addonId) return application.addonId === selectedAddonId
-        const variant = leadVariants.find((candidate) => candidate.id === application.variantId)
-        return variant
-          ? addonLeadRuleForVariant(parsedLeadInfo, variant)?.addonId === selectedAddonId
-          : false
-      })
-    : []
-  const addonLeadIds = new Set(addonLeadApplications.map((application) => application.id))
-  const regularLeadApplications = leadApplications.filter(
-    (application) => !application.addonId && !addonLeadIds.has(application.id)
-  )
-  const addonLeadTotal = addonLeadApplications.reduce(
-    (total, application) => total + application.grossAmount,
-    0
-  )
-  const layout = recipe.layout ?? defaultRateAnalysisLayout(recipe.description)
+  const presentation = buildDataPresentation(recipe, leadApplications, leadVariants)
+  const {
+    summary, adoptedSummary, calculatedAddon, addonLeadApplications, regularLeadApplications,
+    addonLeadTotal, layout, labourRows, abstractRows, publishedAbstractRows,
+    affectedAbstractSections, hasUserLineChanges, dualMeasurement
+  } = presentation
   const recalculated = Boolean(recipe.recalculation)
-  const labourRows = labourRowsForDisplay(recipe)
-  const abstractRows = recipe.recalculation?.abstract ?? recipe.storedValues?.abstract ?? []
-  const publishedAbstractRows = recipe.storedValues?.abstract ?? []
-  const affectedAbstractSections = new Set(recipe.recalculation?.affectedSections ?? [])
   const formulaRefs = buildFormulaRefs(recipe)
-  const hasUserLineChanges = recipe.sections.some((section) =>
-    section.lines.some((line) => line.userAdded || (line.editedFields?.length ?? 0) > 0)
-  )
-  const dualMeasurement =
-    recipe.multiRateClassification?.kind === 'dual_measurement_basis' &&
-    (recipe.publishedRateBlocks?.length ?? 0) > 1
 
   const updateHeader = (
     field: 'description' | 'unit' | 'outputQuantity' | 'overheadPercent',
-    value: string | number
+    value: string | number,
+    runs?: RateAnalysisTextRun[]
   ): void => {
     if (field === 'description' && typeof value === 'string') {
+      const nextRuns =
+        runs ??
+        (layout.descriptionRuns
+          ? descriptionRunsForDisplay(value, layout.descriptionRuns)
+          : [plainTextRun(value)])
       onChange(
         invalidateRateAnalysisCalculation({
           ...recipe,
           description: value,
-          layout: { ...layout, descriptionRuns: [plainTextRun(value)] }
+          layout: { ...layout, descriptionRuns: nextRuns }
         })
       )
       return
@@ -340,10 +324,11 @@ export default function RateAnalysisTable({
       ) : null}
       {layout.descriptionVisible &&
         (editing ? (
-          <textarea
-            className="rate-description-input"
-            value={recipe.description}
-            onChange={(event) => updateHeader('description', event.target.value)}
+          <DescriptionRichEditor
+            runs={descriptionRunsForDisplay(recipe.description, layout.descriptionRuns)}
+            onChange={(nextDescription, nextRuns) => {
+              updateHeader('description', nextDescription, nextRuns)
+            }}
           />
         ) : (
           <div className="rate-description">
@@ -1088,12 +1073,17 @@ function SorDataSheet({
   const catalogueSource = recipe.sorCatalogueSource
   const outputQuantity = recipe.outputQuantity || 1
 
-  const updateDescription = (description: string): void => {
+  const updateDescription = (description: string, runs?: RateAnalysisTextRun[]): void => {
+    const nextRuns =
+      runs ??
+      (recipe.layout?.descriptionRuns
+        ? descriptionRunsForDisplay(description, recipe.layout.descriptionRuns)
+        : [plainTextRun(description)])
     onChange({
       ...recipe,
       description,
       layout: recipe.layout
-        ? { ...recipe.layout, descriptionRuns: [plainTextRun(description)] }
+        ? { ...recipe.layout, descriptionRuns: nextRuns }
         : recipe.layout,
       sections: recipe.sections.map((section) => ({
         ...section,
@@ -1160,12 +1150,14 @@ function SorDataSheet({
           <tr>
             <td>
               {editing ? (
-                <textarea
-                  value={recipe.description}
-                  onChange={(event) => updateDescription(event.target.value)}
+                <DescriptionRichEditor
+                  runs={descriptionRunsForDisplay(recipe.description, recipe.layout?.descriptionRuns)}
+                  onChange={(nextText, nextRuns) => updateDescription(nextText, nextRuns)}
                 />
               ) : (
-                recipe.description
+                <RichText
+                  runs={descriptionRunsForDisplay(recipe.description, recipe.layout?.descriptionRuns)}
+                />
               )}
             </td>
             <td>
@@ -1520,6 +1512,216 @@ function RichText({ runs }: { runs: RateAnalysisTextRun[] }): JSX.Element {
         return <span key={`${index}-${run.text.slice(0, 12)}`}>{content}</span>
       })}
     </>
+  )
+}
+
+function DescriptionRichEditor({
+  runs,
+  onChange
+}: {
+  runs: RateAnalysisTextRun[]
+  onChange: (description: string, runs: RateAnalysisTextRun[]) => void
+}): JSX.Element {
+  // Markup mode is default as requested by user
+  const [mode, setMode] = useState<'markup' | 'visual'>('markup')
+  const [markupText, setMarkupText] = useState(() => runsToWhatsApp(runs))
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const visualEditorRef = useRef<HTMLDivElement>(null)
+  const isInternalRef = useRef(false)
+
+  // Keep markupText in sync if runs change externally
+  useEffect(() => {
+    if (!isInternalRef.current) {
+      setMarkupText(runsToWhatsApp(runs))
+      if (visualEditorRef.current) {
+        visualEditorRef.current.innerHTML = runsToHtml(runs)
+      }
+    }
+    isInternalRef.current = false
+  }, [runs])
+
+  const handleMarkupChange = (text: string): void => {
+    isInternalRef.current = true
+    setMarkupText(text)
+    const nextRuns = whatsAppToRuns(text)
+    const plainText = nextRuns.map((r) => r.text).join('')
+    onChange(plainText, nextRuns)
+  }
+
+  const wrapMarkupSelection = (prefix: string, suffix: string): void => {
+    const ta = textareaRef.current
+    if (!ta) return
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
+    const sel = ta.value.slice(start, end)
+    if (!sel) return
+    const isWrapped =
+      sel.startsWith(prefix) &&
+      sel.endsWith(suffix) &&
+      sel.length >= prefix.length + suffix.length
+    const nextText = isWrapped
+      ? ta.value.slice(0, start) + sel.slice(prefix.length, -suffix.length) + ta.value.slice(end)
+      : ta.value.slice(0, start) + prefix + sel + suffix + ta.value.slice(end)
+    const nextSelStart = start
+    const nextSelEnd = isWrapped ? end - prefix.length - suffix.length : end + prefix.length + suffix.length
+
+    handleMarkupChange(nextText)
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus()
+        textareaRef.current.setSelectionRange(nextSelStart, nextSelEnd)
+      }
+    }, 0)
+  }
+
+  const handleVisualInput = (): void => {
+    if (!visualEditorRef.current) return
+    isInternalRef.current = true
+    const nextRuns = htmlToDescriptionRuns(visualEditorRef.current.innerHTML)
+    const plainText = nextRuns.map((r) => r.text).join('')
+    setMarkupText(runsToWhatsApp(nextRuns))
+    onChange(plainText, nextRuns)
+  }
+
+  const applyVisualFormat = (command: 'bold' | 'italic' | 'underline'): void => {
+    if (visualEditorRef.current) {
+      visualEditorRef.current.focus()
+    }
+    document.execCommand(command, false)
+    handleVisualInput()
+  }
+
+  const handleFormatClick = (type: 'bold' | 'italic' | 'underline'): void => {
+    if (mode === 'markup') {
+      if (type === 'bold') wrapMarkupSelection('*', '*')
+      else if (type === 'italic') wrapMarkupSelection('_', '_')
+      else if (type === 'underline') wrapMarkupSelection('<u>', '</u>')
+    } else {
+      applyVisualFormat(type)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault()
+        wrapMarkupSelection('*', '*')
+      } else if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault()
+        wrapMarkupSelection('_', '_')
+      } else if (e.key === 'u' || e.key === 'U') {
+        e.preventDefault()
+        wrapMarkupSelection('<u>', '</u>')
+      }
+    }
+  }
+
+  const switchMode = (newMode: 'markup' | 'visual'): void => {
+    if (newMode === mode) return
+    if (newMode === 'visual') {
+      const currentRuns = whatsAppToRuns(markupText)
+      setMode('visual')
+      setTimeout(() => {
+        if (visualEditorRef.current) {
+          visualEditorRef.current.innerHTML = runsToHtml(currentRuns)
+          visualEditorRef.current.focus()
+        }
+      }, 0)
+    } else {
+      if (visualEditorRef.current) {
+        const currentRuns = htmlToDescriptionRuns(visualEditorRef.current.innerHTML)
+        setMarkupText(runsToWhatsApp(currentRuns))
+      }
+      setMode('markup')
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus()
+        }
+      }, 0)
+    }
+  }
+
+  return (
+    <div className="rate-description-editor-container">
+      <div className="rate-description-toolbar">
+        <button
+          type="button"
+          className="rate-toolbar-format-btn"
+          onMouseDown={(e) => {
+            e.preventDefault()
+            handleFormatClick('bold')
+          }}
+          title="Bold (*text* or Ctrl+B)"
+        >
+          <strong>B</strong>
+        </button>
+        <button
+          type="button"
+          className="rate-toolbar-format-btn"
+          onMouseDown={(e) => {
+            e.preventDefault()
+            handleFormatClick('italic')
+          }}
+          title="Italic (_text_ or Ctrl+I)"
+        >
+          <em>I</em>
+        </button>
+        <button
+          type="button"
+          className="rate-toolbar-format-btn"
+          onMouseDown={(e) => {
+            e.preventDefault()
+            handleFormatClick('underline')
+          }}
+          title="Underline (<u>text</u> or Ctrl+U)"
+        >
+          <u>U</u>
+        </button>
+        <span className="rate-description-toolbar-hint">
+          {mode === 'markup'
+            ? 'Type *bold* or _italic_ directly, or highlight & press Ctrl+B'
+            : 'Visual live preview mode'}
+        </span>
+        <div style={{ flex: 1 }} />
+        <div className="rate-description-mode-toggle">
+          <button
+            type="button"
+            className={`rate-mode-btn ${mode === 'markup' ? 'active' : ''}`}
+            onClick={() => switchMode('markup')}
+            title="Edit WhatsApp-style markup (*bold*, _italic_)"
+          >
+            Markup (*bold*)
+          </button>
+          <button
+            type="button"
+            className={`rate-mode-btn ${mode === 'visual' ? 'active' : ''}`}
+            onClick={() => switchMode('visual')}
+            title="WYSIWYG live visual preview"
+          >
+            Visual Preview
+          </button>
+        </div>
+      </div>
+      {mode === 'markup' ? (
+        <textarea
+          ref={textareaRef}
+          className="rate-description-input rate-description-editable"
+          value={markupText}
+          onChange={(e) => handleMarkupChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Use *bold*, _italic_, *_both_*, or select text & click B / I..."
+        />
+      ) : (
+        <div
+          ref={visualEditorRef}
+          className="rate-description-input rate-description-editable"
+          contentEditable
+          suppressContentEditableWarning
+          onInput={handleVisualInput}
+          onBlur={handleVisualInput}
+        />
+      )}
+    </div>
   )
 }
 
@@ -1960,174 +2162,6 @@ function RowEditControls({
       </button>
     </div>
   )
-}
-
-interface NormalizedStoredRow {
-  label: string
-  basis: string
-  qualifier: string
-  amount: string
-}
-
-function normalizeLabourRows(
-  rows: RateAnalysisStoredRow[]
-): Array<{
-  label: string
-  percent: string
-  qualifier: string
-  amount: string
-  kind: 'allowance' | 'total' | 'component' | 'final'
-}> {
-  const result: Array<{
-    label: string
-    percent: string
-    qualifier: string
-    amount: string
-    kind: 'allowance' | 'total' | 'component' | 'final'
-  }> = []
-
-  for (const source of rows) {
-    const label = source.label.trim()
-    const value = source.value.trim()
-    const percent = uniqueText(source.percent, source.unit)
-
-    if (!label && !value && percent && result.length) {
-      result[result.length - 1].percent = uniqueText(result[result.length - 1].percent, percent)
-      continue
-    }
-    if (!label && (!value || /^Rs:?$/i.test(value))) continue
-
-    if (/^Add towards highly skilled labour charges/i.test(label)) {
-      result.push({
-        label,
-        percent,
-        qualifier: value && !numberText(value) ? value : '',
-        amount: source.amount || (numberText(value) ? value : ''),
-        kind: 'allowance'
-      })
-      continue
-    }
-
-    if (/^Total (?:Cost of Labour|Labour Cost including Area Allowance)$/i.test(label)) {
-      result.push({
-        label,
-        percent,
-        qualifier: value && !numberText(value) ? value : '',
-        amount: source.amount || (numberText(value) ? value : ''),
-        kind: 'total'
-      })
-      continue
-    }
-
-    const isFinal = /including contractor's/i.test(label)
-    result.push({
-      label: isFinal && /contractor's$/i.test(label) ? `${label} profit)` : label,
-      percent,
-      qualifier: value && !numberText(value) ? value : '',
-      amount: source.amount || (numberText(value) ? value : ''),
-      kind: isFinal ? 'final' : 'component'
-    })
-  }
-
-  return result
-}
-
-function normalizeStoredRows(rows: RateAnalysisStoredRow[]): NormalizedStoredRow[] {
-  const normalized: NormalizedStoredRow[] = []
-
-  for (const row of rows) {
-    const current = normalizeStoredRow(row)
-    if (current.basis === current.qualifier) current.basis = ''
-    if (!current.label && /^rate per\b/i.test(current.basis)) {
-      current.label = uniqueText(current.basis, current.qualifier)
-      current.basis = ''
-      current.qualifier = ''
-    }
-    const previous = normalized.at(-1)
-    if (
-      previous &&
-      /^F\.\s|contractor.*(?:profit|overhead)/i.test(previous.label) &&
-      /^\([A-F](?:\+[A-F])+\)$/i.test(current.label)
-    ) {
-      previous.label = uniqueText(previous.label, current.label)
-      previous.basis = uniqueText(previous.basis, current.basis)
-      previous.qualifier = uniqueText(previous.qualifier, current.qualifier)
-      if (previous.basis === previous.qualifier) previous.basis = ''
-      if (!previous.amount) previous.amount = current.amount
-      continue
-    }
-    if (!current.label && normalized.length) {
-      const preceding = normalized[normalized.length - 1]
-      if (/^F\.\s|^Total cost for/i.test(preceding.label)) {
-        preceding.basis = uniqueText(preceding.basis, current.basis)
-        preceding.qualifier = uniqueText(preceding.qualifier, current.qualifier)
-        if (preceding.basis === preceding.qualifier) preceding.qualifier = ''
-        if (!preceding.amount) preceding.amount = current.amount
-        continue
-      }
-    }
-    if (/^te per\b/i.test(current.label)) current.label = `Ra${current.label}`
-    if (/^vertical lift gates/i.test(current.label) && current.basis) {
-      current.label = `${current.label} ${current.basis}`
-      current.basis = ''
-    }
-    normalized.push(current)
-  }
-
-  return normalized
-}
-
-function normalizeStoredRow(row: RateAnalysisStoredRow): {
-  label: string
-  basis: string
-  qualifier: string
-  amount: string
-} {
-  let label = row.label.trim()
-  let qualifier = uniqueText(row.percent, row.unit)
-  const brokenSuffix = row.unit.match(/^(.*?)(-?\d+(?:\.\d+)?%)$/)
-  if (brokenSuffix && label && !/^(Rs:|Total)$/i.test(row.unit)) {
-    const suffix = brokenSuffix[1].trim()
-    if (suffix && /[A-Za-z)]/.test(suffix)) label = `${label} ${suffix}`.replace(/\s+/g, ' ')
-    qualifier = brokenSuffix[2]
-  }
-  if (/^Rs:$/i.test(row.unit)) qualifier = ''
-  return {
-    label,
-    basis: row.basis,
-    qualifier,
-    amount: row.amount || row.value
-  }
-}
-
-function numberText(value: string): boolean {
-  return /^-?\d+(?:\.\d+)?$/.test(value.trim())
-}
-
-function numericText(value: string): number | null {
-  const normalized = value.replaceAll(',', '').trim()
-  if (!normalized) return null
-  const parsed = Number(normalized)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
-function abstractSectionKey(label: string): RateAnalysisSectionKey | null {
-  const text = label.trim().toLowerCase()
-  if (/^a\s*[.)]?\s*(cost of )?materials?\b/.test(text)) return 'materials'
-  if (/^b\s*[.)]?\s*(hire charges? of |cost of )?(machinery|plant)\b/.test(text)) {
-    return 'machinery'
-  }
-  if (/^c\s*[.)]?\s*(cost of )?labou?r\b/.test(text)) return 'labour'
-  return null
-}
-
-function uniqueText(...values: string[]): string {
-  const out: string[] = []
-  for (const raw of values) {
-    const value = raw.trim()
-    if (value && !out.includes(value)) out.push(value)
-  }
-  return out.join(' ')
 }
 
 function newRateLine(sectionKey: RateAnalysisSectionKey, index: number): RateAnalysisLine {

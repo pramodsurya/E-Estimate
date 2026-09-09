@@ -14,10 +14,19 @@ import {
   hasMeasurableGround,
   usesFlatGround,
   pitchingThicknessM,
+  downstreamToeFaceSlope,
+  rockToeFilterBehindThicknessM,
+  rockToeFilterBelowThicknessM,
+  rockToeHeightAt,
+  revetmentFilterThicknessM,
+  upstreamRevetmentBand,
+  upstreamRevetmentRuns,
+  upstreamRevetmentToeKey,
   proposedHeartingCrestProfile,
   projectedProfile,
   sectionAreas,
   toeDrainDepthAt,
+  toeDrainLayoutAt,
   toeDrainPlatformAt,
   toeDrainInvertLevelAt,
   toeDrainTopWidthAt,
@@ -181,16 +190,33 @@ export default function BundSectionDiagram({
       minRl = Math.min(minRl, usToe.rl - data.upstreamToe.depth)
     }
     if (dsToe) {
+      if (data.rockToeMaterial) {
+        const rockHeight = rockToeHeightAt(section, data)
+        const outerSlope = downstreamToeFaceSlope(section, data)
+        const rockTopRight = dsToe.offset - outerSlope * rockHeight
+        const rockTopLeft = rockTopRight - Math.max(0, data.rockToeTopWidth || 0)
+        const rockBaseLeft = rockTopLeft - Math.max(0, data.rockToeInnerSlope || 0) * rockHeight
+        const filterBelow = data.rockToeFilterMaterial
+          ? rockToeFilterBelowThicknessM(data)
+          : 0
+        minX = Math.min(minX, rockBaseLeft)
+        minRl = Math.min(minRl, dsToe.rl - filterBelow)
+      }
       if (data.downstreamToe.excavationMaterial) {
         // The trench is anchored at the d/s toe — it is cut where the bund
         // ends, not floated off it, so the section reads as one continuous line.
-        const drainLeft = dsToe.offset
+        const layout = toeDrainLayoutAt(section, data)
+        const drainLeft = layout?.drainFrom ?? dsToe.offset
         const drainTopWidth =
           toeDrainInvertLevelAt(section, data) != null
             ? toeDrainTopWidthAt(section, data)
             : data.downstreamToe.topWidth
-        maxX = Math.max(maxX, drainLeft + drainTopWidth)
-        minRl = Math.min(minRl, dsToe.rl - toeDrainDepthAt(section, data))
+        maxX = Math.max(maxX, layout?.platformTo ?? drainLeft + drainTopWidth)
+        const platform = toeDrainPlatformAt(section, data)
+        minRl = Math.min(
+          minRl,
+          (platform?.level ?? dsToe.rl) - toeDrainDepthAt(section, data)
+        )
       }
     }
     const spanX = Math.max(maxX - minX, 0.001)
@@ -285,6 +311,10 @@ export default function BundSectionDiagram({
         >
           <line x1="0" y1="0" x2="0" y2="7" className="bund-hatch-hearting-line" />
         </pattern>
+        <pattern id="bund-section-revetment-stone" width="11" height="9" patternUnits="userSpaceOnUse">
+          <rect width="11" height="9" className="bund-revetment-pattern-base" />
+          <path d="M0 5 L3 1 L7 2 L11 6 M1 8 L5 5 L9 9" className="bund-revetment-pattern-line" />
+        </pattern>
       </defs>
 
       {/* Graph-paper grid: RL lines across, distance lines down, drawn first so
@@ -366,22 +396,49 @@ export default function BundSectionDiagram({
             className="bund-hearting-existing-line"
             fill="none"
           />
-          <text
-            x={m.toX(view.heartingBase[0].offset)}
-            y={m.toY(view.heartingBase[0].rl) + 17}
-            className="bund-hearting-label"
-          >
-            U/S contact · RL {f3(view.heartingBase[0].rl)}
-          </text>
-          <text
-            x={m.toX(view.heartingBase.at(-1)!.offset)}
-            y={m.toY(view.heartingBase.at(-1)!.rl) + 17}
-            textAnchor="end"
-            className="bund-hearting-label"
-          >
-            D/S contact · RL {f3(view.heartingBase.at(-1)!.rl)}
-          </text>
-        </>
+          {(() => {
+            const leftPt = view.heartingBase[0]
+            const rightPt = view.heartingBase.at(-1)!
+            const leftX = m.toX(leftPt.offset)
+            const rightX = m.toX(rightPt.offset)
+            const midX = (leftX + rightX) / 2
+            const widthPx = Math.abs(rightX - leftX)
+            const hasTrench = view.heartingTrench.top.length >= 2
+
+            if (widthPx < 140) {
+              return (
+                <text
+                  x={midX}
+                  y={m.toY(Math.max(leftPt.rl, rightPt.rl)) - (hasTrench ? 12 : 5)}
+                  textAnchor="middle"
+                  className="bund-hearting-label"
+                >
+                  Core base · RL {f3(leftPt.rl)}
+                </text>
+              )
+            }
+
+            return (
+              <>
+                <text
+                  x={leftX - 6}
+                  y={m.toY(leftPt.rl) - 4}
+                  textAnchor="end"
+                  className="bund-hearting-label"
+                >
+                  U/S contact · RL {f3(leftPt.rl)}
+                </text>
+                <text
+                  x={rightX + 6}
+                  y={m.toY(rightPt.rl) - 4}
+                  textAnchor="start"
+                  className="bund-hearting-label"
+                >
+                  D/S contact · RL {f3(rightPt.rl)}
+                </text>
+              </>
+            )
+          })()}</>
       )}
       {/* Cut-off trench: the hearting carried below the formation base. Drawn
           in the hearting fill, because that is what it is backfilled with, with
@@ -401,7 +458,7 @@ export default function BundSectionDiagram({
               <polygon points={corners} className="bund-hearting-trench-outline" />
               <text
                 x={midX}
-                y={m.toY(bottom[0].rl) + 14}
+                y={m.toY(bottom[0].rl) - 4}
                 textAnchor="middle"
                 className="bund-hearting-label"
               >
@@ -436,7 +493,7 @@ export default function BundSectionDiagram({
         (() => {
           const half = data.design.topWidth / 2
           const proj = view.designProjected
-          const usFace = proj.filter((p) => p.offset <= -half + 1e-6)
+          const revetmentRuns = upstreamRevetmentRuns(section, data)
           const dsFace = proj.filter((p) => p.offset >= half - 1e-6)
           /**
            * A face split into the stretches that are actually pitched/turfed:
@@ -469,7 +526,8 @@ export default function BundSectionDiagram({
           const dsToe = downstreamDesignToePointAt(section, data) ?? proj[proj.length - 1]
           // The trench is anchored at the d/s toe — it is cut where the bund
           // ends, not floated off it, so the section reads as one continuous line.
-          const drainLeft = dsToe.offset
+          const drainLayout = toeDrainLayoutAt(section, data)
+          const drainLeft = drainLayout?.drainFrom ?? dsToe.offset
           const drainDepth = toeDrainDepthAt(section, data)
           const drainInvert = toeDrainInvertLevelAt(section, data)
           // The trench is formed at the proposed level, on a platform filled up
@@ -483,40 +541,66 @@ export default function BundSectionDiagram({
             drainInvert != null
               ? Math.max(0, data.downstreamToe.leftSlope || 0) * drainDepth
               : Math.max(0, (drainTopWidth - drainBottomWidth) / 2)
-          const pxPerM = m.toX(1) - m.toX(0)
-          // A layer of thickness `t` (m) drawn as a band offset perpendicular to
-          // the face, on its outer (upper) side.
-          const layerBand = (pts: BundPoint[], t: number): string => {
-            const S = pts.map((p) => ({ x: m.toX(p.offset), y: m.toY(p.rl) }))
-            const tPx = t * pxPerM
-            const off = S.map((s, i) => {
-              const a = S[Math.max(0, i - 1)]
-              const b = S[Math.min(S.length - 1, i + 1)]
-              const dx = b.x - a.x
-              const dy = b.y - a.y
-              const len = Math.hypot(dx, dy) || 1
-              let nx = -dy / len
-              let ny = dx / len
-              if (ny > 0) {
-                nx = -nx
-                ny = -ny
-              }
-              return { x: s.x + nx * tPx, y: s.y + ny * tPx }
-            })
-            const fwd = S.map((s, i) => `${i ? 'L' : 'M'} ${s.x} ${s.y}`)
-            const back = [...off].reverse().map((s) => `L ${s.x} ${s.y}`)
-            return [...fwd, ...back, 'Z'].join(' ')
+          const revetmentFilter = revetmentFilterThicknessM(data)
+          const revetmentStone = pitchingThicknessM(data)
+          const rockHeight = data.rockToeMaterial ? rockToeHeightAt(section, data) : 0
+          const rockOuterSlope = downstreamToeFaceSlope(section, data)
+          const rockTopRight = {
+            offset: dsToe.offset - rockOuterSlope * rockHeight,
+            rl: dsToe.rl + rockHeight
           }
+          const rockTopLeft = {
+            offset: rockTopRight.offset - Math.max(0, data.rockToeTopWidth || 0),
+            rl: rockTopRight.rl
+          }
+          const rockBaseLeft = {
+            offset: rockTopLeft.offset - Math.max(0, data.rockToeInnerSlope || 0) * rockHeight,
+            rl: dsToe.rl
+          }
+          const rockFilterBelow = data.rockToeFilterMaterial
+            ? rockToeFilterBelowThicknessM(data)
+            : 0
+          const rockFilterBehind = data.rockToeFilterMaterial
+            ? rockToeFilterBehindThicknessM(data)
+            : 0
           return (
             <g>
               {data.pitchingMaterial &&
-                faceRuns(usFace, 'us').map((run, index) => (
+                revetmentRuns.map((run, index) => (
                   <g key={`pitching-run-${index}`}>
                     <path
-                      d={layerBand(run, pitchingThicknessM(data))}
-                      className="bund-overlay-pitching-band"
+                      d={`${linePath(
+                        upstreamRevetmentBand(run, -revetmentFilter, 0),
+                        m
+                      )} Z`}
+                      className="bund-overlay-revetment-filter"
                     />
-                    <path d={linePath(run, m)} className="bund-overlay-pitching" fill="none" />
+                    <path
+                      d={`${linePath(
+                        upstreamRevetmentBand(
+                          run,
+                          0,
+                          revetmentStone
+                        ),
+                        m
+                      )} Z`}
+                      className="bund-overlay-pitching-band"
+                      style={{ fill: 'url(#bund-section-revetment-stone)' }}
+                    />
+                    {index === 0 && upstreamToeTrenchEnabled(data) && (
+                      <path
+                        d={`${linePath(
+                          upstreamRevetmentToeKey(
+                            run,
+                            revetmentStone,
+                            data.upstreamToe.topWidth
+                          ),
+                          m
+                        )} Z`}
+                        className="bund-overlay-pitching-band"
+                        style={{ fill: 'url(#bund-section-revetment-stone)' }}
+                      />
+                    )}
                   </g>
                 ))}
               {upstreamToeTrenchEnabled(data) && (
@@ -565,8 +649,24 @@ export default function BundSectionDiagram({
                       y1={m.toY(from.rl)}
                       x2={m.toX(to.offset)}
                       y2={m.toY(to.rl)}
-                      className="bund-overlay-berm"
+                      className={`bund-overlay-berm${
+                        berm.surfaceMaterial?.code === 'IRR-DAW-6-10'
+                          ? ' is-stone'
+                          : berm.surfaceMaterial?.code === 'IRR-DAW-6-15'
+                            ? ' is-turf'
+                            : berm.surfaceMaterial?.code === 'IRR-CAW-7-12'
+                              ? ' is-cc'
+                              : ''
+                      }`}
                     />
+                    {(berm.drainLiningMaterial || berm.drainExcavationMaterial) && (
+                      <circle
+                        cx={m.toX(berm.side === 'us' ? to.offset : from.offset)}
+                        cy={m.toY(from.rl)}
+                        r={3.5}
+                        className="bund-overlay-berm-drain"
+                      />
+                    )}
                     <text
                       x={m.toX((from.offset + to.offset) / 2)}
                       y={m.toY(from.rl) - 6}
@@ -578,11 +678,60 @@ export default function BundSectionDiagram({
                   </g>
                 )
               })}
+              {data.rockToeMaterial && rockHeight > 0 && (
+                <g className="bund-overlay-rocktoe-group">
+                  {data.rockToeFilterMaterial && (
+                    <>
+                      <path
+                        d={[
+                          `M ${m.toX(rockBaseLeft.offset)} ${m.toY(dsToe.rl)}`,
+                          `L ${m.toX(dsToe.offset)} ${m.toY(dsToe.rl)}`,
+                          `L ${m.toX(dsToe.offset)} ${m.toY(dsToe.rl - rockFilterBelow)}`,
+                          `L ${m.toX(rockBaseLeft.offset)} ${m.toY(dsToe.rl - rockFilterBelow)}`,
+                          'Z'
+                        ].join(' ')}
+                        className="bund-overlay-rocktoe-filter bund-filter-ca40"
+                      />
+                      <path
+                        d={[
+                          `M ${m.toX(rockBaseLeft.offset - rockFilterBehind)} ${m.toY(rockBaseLeft.rl)}`,
+                          `L ${m.toX(rockTopLeft.offset - rockFilterBehind)} ${m.toY(rockTopLeft.rl)}`,
+                          `L ${m.toX(rockTopLeft.offset)} ${m.toY(rockTopLeft.rl)}`,
+                          `L ${m.toX(rockBaseLeft.offset)} ${m.toY(rockBaseLeft.rl)}`,
+                          'Z'
+                        ].join(' ')}
+                        className="bund-overlay-rocktoe-filter bund-filter-sand"
+                      />
+                    </>
+                  )}
+                  <path
+                    d={[
+                      `M ${m.toX(rockBaseLeft.offset)} ${m.toY(rockBaseLeft.rl)}`,
+                      `L ${m.toX(rockTopLeft.offset)} ${m.toY(rockTopLeft.rl)}`,
+                      `L ${m.toX(rockTopRight.offset)} ${m.toY(rockTopRight.rl)}`,
+                      `L ${m.toX(dsToe.offset)} ${m.toY(dsToe.rl)}`,
+                      'Z'
+                    ].join(' ')}
+                    className="bund-overlay-rocktoe"
+                  />
+                  <text
+                    x={m.toX((rockTopLeft.offset + rockTopRight.offset) / 2)}
+                    y={m.toY(rockTopLeft.rl) - 7}
+                    textAnchor="middle"
+                    className="bund-overlay-label"
+                  >
+                    rock toe · H {f2(rockHeight)} m
+                  </text>
+                </g>
+              )}
               {data.turfingMaterial &&
                 faceRuns(dsFace, 'ds').map((run, index) => (
                   <g key={`turfing-run-${index}`}>
                     {/* Turfing has no billed thickness; draw a thin nominal band. */}
-                    <path d={layerBand(run, 0.1)} className="bund-overlay-turfing-band" />
+                    <path
+                      d={`${linePath(upstreamRevetmentBand(run, 0, 0.1), m)} Z`}
+                      className="bund-overlay-turfing-band"
+                    />
                     <path d={linePath(run, m)} className="bund-overlay-turfing" fill="none" />
                   </g>
                 ))}
@@ -691,11 +840,12 @@ export default function BundSectionDiagram({
           </text>
         ))}
 
-        <text x={WIDTH - 8} y={HEIGHT - 8} textAnchor="end" className="bund-diagram-note">
-          vertical exaggeration ×{view.exaggeration.toFixed(1)}
+        <text x={WIDTH - PAD_X} y={PAD_TOP + 12} textAnchor="end" className="bund-diagram-note">
+          vert. exag. ×{view.exaggeration.toFixed(1)}
         </text>
         <text x={PAD_X} y={HEIGHT - 8} textAnchor="start" className="bund-diagram-note">
-          cut / stripping {f3(areas.stripping)} m²
+          {data.mode === 'new' ? 'foundation excavation' : 'cut / stripping'}{' '}
+          {f3(areas.stripping)} m²
           {data.rockToeMaterial && data.rockToeExcavationMaterial
             ? ' (net of rock-toe union)'
             : ''}{' '}

@@ -62,26 +62,72 @@ export const BUND_ZONED_PMW_DUMP_CASING_CODE = 'IRR-PMW-3-11'
  * measured on its own.
  */
 export const BUND_HEARTING_TRENCH_FILL_CODE = 'IRR-DAW-5-2'
-/** Optional surface/protection items (all in the IRR-CAW chapter). */
-export const BUND_DEFAULT_TURFING_CODE = 'IRR-CAW-8-15'
-/** 450 mm dry-rubble pitching without pin headers; matches the reference bund item. */
-export const BUND_DEFAULT_PITCHING_CODE = 'IRR-CAW-8-8'
+/** Optional surface/protection items from the DAW embankment chapter. */
+export const BUND_DEFAULT_TURFING_CODE = 'IRR-DAW-6-15'
+/** Default freeboard for a newly formed bund; repairs retain their entered TBL. */
+export const BUND_DEFAULT_FREEBOARD = 1.5
+/** 600 mm through-stone revetment over 450 mm graded filter backing. */
+export const BUND_DEFAULT_PITCHING_CODE = 'IRR-DAW-6-10'
+export const BUND_DAW_REVETMENT_OPTIONS = [
+  {
+    code: 'IRR-DAW-6-10',
+    construction: 'Through-stone revetment',
+    stoneThickness: 0.6,
+    filterThickness: 0.45,
+    throughStones: true
+  },
+  {
+    code: 'IRR-DAW-6-11',
+    construction: 'Through-stone revetment',
+    stoneThickness: 0.6,
+    filterThickness: 0.6,
+    throughStones: true
+  },
+  {
+    code: 'IRR-DAW-6-12',
+    construction: 'Riprap',
+    stoneThickness: 0.6,
+    filterThickness: 0.45,
+    throughStones: false
+  },
+  {
+    code: 'IRR-DAW-6-13',
+    construction: 'Riprap',
+    stoneThickness: 0.75,
+    filterThickness: 0.45,
+    throughStones: false
+  },
+  {
+    code: 'IRR-DAW-6-14',
+    construction: 'Riprap',
+    stoneThickness: 0.9,
+    filterThickness: 0.45,
+    throughStones: false
+  }
+] as const
+export const BUND_DAW_REVETMENT_CODES = BUND_DAW_REVETMENT_OPTIONS.map(
+  (option) => option.code
+)
+
+export function revetmentOptionForCode(code: string | undefined) {
+  return BUND_DAW_REVETMENT_OPTIONS.find((option) => option.code === code)
+}
 /**
  * Optional, design-specific clean-sand filter below revetment. This is not the
  * 150 mm granular backing shown in the standard tank-bund revetment detail.
  */
 export const BUND_DEFAULT_PITCHING_BEDDING_CODE = 'IRR-DAW-6-7'
-export const BUND_DEFAULT_ROCKTOE_CODE = 'IRR-CAW-5-6'
-/** Graded filter layers below and behind the downstream rubble rock toe. */
-export const BUND_DEFAULT_ROCKTOE_FILTER_CODE = 'IRR-CAW-5-11'
-/** Horizontal drainage blanket: sand blanket below embankment, CUM. */
-export const BUND_DEFAULT_HFILTER_CODE = 'IRR-CAW-5-5'
+export const BUND_DEFAULT_ROCKTOE_CODE = 'IRR-DAW-5-9'
+/** DAW graded filter layers below and behind the downstream rubble rock toe. */
+export const BUND_DEFAULT_ROCKTOE_FILTER_CODE = 'IRR-DAW-6-4'
+/** DAW horizontal blanket: two geotextile layers plus 400 mm graded aggregate, SQM. */
+export const BUND_DEFAULT_HFILTER_CODE = 'IRR-DAW-6-6'
 /** Vertical (chimney) filter: 45 cm sand chimney satisfying filter criteria, CUM. */
 export const BUND_DEFAULT_VFILTER_CODE = 'IRR-DAW-6-8'
-/** CAW-5-11 total filter thickness behind the inner rock-toe face. */
-export const BUND_ROCKTOE_FILTER_BEHIND_M = 0.5
-/** CAW-5-11 total filter thickness below the rock-toe base. */
-export const BUND_ROCKTOE_FILTER_BELOW_M = 1
+/** DAW-6-4 total graded-filter thickness behind the inner rock-toe face. */
+export const BUND_ROCKTOE_FILTER_BEHIND_M = 0.85
+/** DAW-6-4 total graded-filter thickness below the rock-toe base. */
+export const BUND_ROCKTOE_FILTER_BELOW_M = 0.85
 /** Toe elements: trench excavation and separately billed construction/protection. */
 export const BUND_DEFAULT_TOE_EXC_CODE = BUND_CHANNEL_EXC_ALL_SOILS_CODE
 /** Structural foundation excavation below the u/s anchorage and rock toe. */
@@ -94,8 +140,8 @@ export const BUND_DEFAULT_FOUNDATION_EXC_CODE = BUND_EXC_ALL_SOILS_CODE
 export const BUND_DEFAULT_UPSTREAM_TOE_BUILD_CODE = 'IRR-DAW-2-11'
 /** Alternative rigid u/s toe wall: UCR stone masonry in CM 1:4, measured in CUM. */
 export const BUND_UPSTREAM_TOE_MASONRY_CODE = 'IRR-DAW-3-2'
-/** 300 mm dry-rubble stone pitching, measured by protected surface area. */
-export const BUND_DEFAULT_TOE_BUILD_CODE = 'IRR-CAW-8-6'
+/** 225 mm dry-rubble stone pitching without pin headers (maintenance-work SSR item). */
+export const BUND_DEFAULT_TOE_BUILD_CODE = 'IRR-CAW-8-4'
 /** 100 mm M15 concrete lining over the toe-drain bed and sides, measured in CUM. */
 export const BUND_DEFAULT_TOE_CC_CODE = 'IRR-CAW-7-15'
 /** D/S chute drains: channel excavation and 100 mm M15 bed/side lining. */
@@ -315,16 +361,17 @@ export function withStrippingExcavationFamily(
 }
 
 /**
- * Cut-off trench, off until it is switched on. The dimensions are the ones a
- * small tank bund normally starts from: 1 m deep, 2 m wide at the bottom and
- * 1:1 sides, which a machine can cut and a roller can still compact inside.
+ * Cut-off trench, off until it is switched on. The standard section starts at
+ * the minimum 0.60 m depth, with a 3 m bottom and 0.5:1 side slopes. When the
+ * FTL and deepest-bed RL are known, its depth is raised to half the F.R.L. depth.
  */
 export function defaultBundHeartingTrench(): BundHeartingTrench {
   return {
-    depth: 1,
-    bottomWidth: 2,
-    usSlope: 1,
-    dsSlope: 1,
+    depthMode: 'auto',
+    depth: 0.6,
+    bottomWidth: 3,
+    usSlope: 0.5,
+    dsSlope: 0.5,
     fillMaterial: null,
     excavationMaterial: null
   }
@@ -341,9 +388,11 @@ export function defaultBundToe(dims: {
     topWidth: dims.topWidth,
     bottomWidth: dims.bottomWidth,
     depth: dims.depth,
+    invertMode: 'auto',
     invertLevel: null,
     leftSlope: 1,
     rightSlope: 1,
+    bermWidth: 1,
     invertStartLevel: null,
     invertEndLevel: null,
     buildMaterial: null,
@@ -383,6 +432,90 @@ export function defaultBundDesign(): BundDesign {
   }
 }
 
+const bundSlopeFractions: Record<string, number> = {
+  '½': 1 / 2,
+  '⅓': 1 / 3,
+  '⅔': 2 / 3,
+  '¼': 1 / 4,
+  '¾': 3 / 4,
+  '⅕': 1 / 5,
+  '⅖': 2 / 5,
+  '⅗': 3 / 5,
+  '⅘': 4 / 5,
+  '⅙': 1 / 6,
+  '⅚': 5 / 6,
+  '⅛': 1 / 8,
+  '⅜': 3 / 8,
+  '⅝': 5 / 8,
+  '⅞': 7 / 8
+}
+
+function parseBundSlopePart(raw: string): number | null {
+  const value = raw.replace(/[hHvV]/g, '').trim()
+  if (!value) return null
+
+  const unicodeFraction = value.match(/^([+-])(\d+(?:\.\d+)?|\.\d+)?\s*([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞])$/)
+  if (unicodeFraction) {
+    const sign = unicodeFraction[1] === '-' ? -1 : 1
+    const whole = unicodeFraction[2] ? Number(unicodeFraction[2]) : 0
+    return sign * (whole + bundSlopeFractions[unicodeFraction[3]])
+  }
+
+  const unsignedUnicodeFraction = value.match(/^(\d+(?:\.\d+)?|\.\d+)?\s*([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞])$/)
+  if (unsignedUnicodeFraction) {
+    const whole = unsignedUnicodeFraction[1] ? Number(unsignedUnicodeFraction[1]) : 0
+    return whole + bundSlopeFractions[unsignedUnicodeFraction[2]]
+  }
+
+  const mixedFraction = value.match(/^([+-]?)(\d+(?:\.\d+)?|\.\d+)\s+(\d+)\s*\/\s*(\d+)$/)
+  if (mixedFraction) {
+    const denominator = Number(mixedFraction[4])
+    if (denominator === 0) return null
+    const sign = mixedFraction[1] === '-' ? -1 : 1
+    return sign * (Number(mixedFraction[2]) + Number(mixedFraction[3]) / denominator)
+  }
+
+  const simpleFraction = value.match(/^([+-]?)(\d+)\s*\/\s*(\d+)$/)
+  if (simpleFraction) {
+    const denominator = Number(simpleFraction[3])
+    if (denominator === 0) return null
+    const sign = simpleFraction[1] === '-' ? -1 : 1
+    return sign * Number(simpleFraction[2]) / denominator
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+/**
+ * Parse the horizontal:vertical notation used for bund side slopes.
+ *
+ * The geometry stores the horizontal run for 1 m vertical, so `2:1`,
+ * `2½:1`, and `2.5` all resolve to the stored value 2.5.
+ */
+export function parseBundSlope(raw: string | number): number | null {
+  if (typeof raw === 'number') return Number.isFinite(raw) && raw >= 0 ? raw : null
+
+  const value = raw.trim()
+  if (!value) return null
+
+  const ratio = value.match(/^(.+?)\s*:\s*(.+)$/)
+  const parsed = ratio
+    ? (() => {
+        const horizontal = parseBundSlopePart(ratio[1])
+        const vertical = parseBundSlopePart(ratio[2])
+        return horizontal != null && vertical != null && vertical > 0
+          ? horizontal / vertical
+          : null
+      })()
+    : (() => {
+        const oneIn = value.match(/^1\s+in\s+(.+)$/i)
+        return parseBundSlopePart(oneIn ? oneIn[1] : value)
+      })()
+
+  return parsed != null && Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+}
+
 /** A berm with no code attached (nothing billed) at the given face and RL. */
 export function defaultBundBerm(side: BundBermSide, level: number): BundBerm {
   return {
@@ -398,7 +531,10 @@ export function defaultBundBerm(side: BundBermSide, level: number): BundBerm {
     drainExcavationMaterial: null,
     drainWidth: 0.6,
     drainDepth: 0.3,
-    drainLiningThickness: 0.1
+    drainLiningThickness: 0.1,
+    chuteDrainLiningMaterial: null,
+    chuteDrainExcavationMaterial: null,
+    chuteDrainProtectionType: 'concrete'
   }
 }
 
@@ -428,6 +564,16 @@ export function designedFromTankLevels(design: BundDesign): BundDesign | null {
   if (!(depth > 0)) return null
   const { freeBoard, topWidth } = standardTankBundDims(depth)
   return { ...design, topLevel: round3(design.ftl + freeBoard), topWidth }
+}
+
+/** Standard cut-off depth: half the water-level-to-lowest-toe depth, minimum 0.60 m. */
+export function standardHeartingTrenchDepth(
+  waterLevel: number | null,
+  deepestToeRl: number | null
+): number {
+  if (waterLevel == null || deepestToeRl == null) return 0.6
+  const waterDepth = waterLevel - deepestToeRl
+  return round3(Math.max(0.6, waterDepth > 0 ? waterDepth / 2 : 0))
 }
 
 /**
@@ -499,7 +645,7 @@ export function defaultBundData(): BundData {
     alignment: [],
     lengthM: 0,
     chainageUnit: 'm',
-    includePhreaticInPrint: false,
+    includePhreaticInPrint: true,
     sectionMode: 'continuous',
     intervalM: 30,
     breaks: [],
@@ -507,11 +653,17 @@ export function defaultBundData(): BundData {
     design: defaultBundDesign(),
     heartingDesign: {
       topLevel: 100,
-      topWidth: 1,
+      topWidth: 2.4,
       usSlope: 0.5,
       dsSlope: 0.5,
       centerOffset: 0
     },
+    casingSoilType: null,
+    heartingSoilType: null,
+    heartingSlopeProfile: 'compact-core',
+    zonedSlopeMode: 'manual',
+    homogeneousSoilType: null,
+    homogeneousSlopeMode: 'manual',
     heartingTrench: defaultBundHeartingTrench(),
     billing: 'combined',
     formationEnabled: true,
@@ -529,7 +681,8 @@ export function defaultBundData(): BundData {
     turfingMaterial: null,
     turfingThickness: 0.15,
     pitchingMaterial: null,
-    pitchingThickness: 0.45,
+    pitchingExtent: 'mwl',
+    pitchingThickness: 0.6,
     pitchingAsVolume: false,
     pitchingBeddingMaterial: null,
     pitchingBeddingThickness: 0.15,
@@ -537,8 +690,9 @@ export function defaultBundData(): BundData {
     pitchingMetalMaterial: null,
     pitchingMetalThickness: 0.2,
     horizontalFilterMaterial: null,
+    horizontalFilterLengthMode: 'auto',
     horizontalFilterLength: 6,
-    horizontalFilterThickness: 0.6,
+    horizontalFilterThickness: 0.4,
     verticalFilterMaterial: null,
     verticalFilterWidth: 0.45,
     verticalFilterHeight: 0,
@@ -551,15 +705,15 @@ export function defaultBundData(): BundData {
     rockToeOuterSlope: 2,
     // Retained for saved-project compatibility; the height is always entered.
     rockToeAutoHeight: false,
-    rockToeHeight: 1.5,
+    rockToeHeight: 1.2,
     rockToeExcavationDepth: 0,
     rockToeExcavationMaterial: null,
     soilBands: [],
     excavationBands: defaultBundExcavationBands(),
     strippingExcavationFamily: 'seating',
     excavationClassificationVersion: 2,
-    upstreamToe: defaultBundToe({ topWidth: 1.9, bottomWidth: 1.0, depth: 1.3 }),
-    downstreamToe: defaultBundToe({ topWidth: 2.5, bottomWidth: 1.0, depth: 1.3 }),
+    upstreamToe: defaultBundToe({ topWidth: 0.6, bottomWidth: 0.6, depth: 0.6 }),
+    downstreamToe: defaultBundToe({ topWidth: 1.6, bottomWidth: 1.0, depth: 0.3 }),
     chuteDrainLiningMaterial: null,
     chuteDrainProtectionType: 'concrete',
     chuteDrainExcavationMaterial: null,
@@ -690,7 +844,7 @@ export function migrateBundData(raw: BundData): BundData {
       ? 'foundation'
       : 'seating')
   const pitchingMaterial = raw.pitchingMaterial
-    ? raw.pitchingMaterial.code === BUND_DEFAULT_PITCHING_CODE
+    ? (BUND_DAW_REVETMENT_CODES as readonly string[]).includes(raw.pitchingMaterial.code)
       ? raw.pitchingMaterial
       : { code: BUND_DEFAULT_PITCHING_CODE }
     : null
@@ -724,11 +878,30 @@ export function migrateBundData(raw: BundData): BundData {
     heartingDesign: {
       ...d.heartingDesign,
       ...(raw.heartingDesign ?? {}),
-      topLevel: raw.heartingDesign?.topLevel ?? raw.design?.topLevel ?? d.design.topLevel
+      topLevel:
+        raw.heartingDesign?.topLevel ??
+        raw.design?.mwl ??
+        raw.design?.topLevel ??
+        d.design.topLevel
     },
+    casingSoilType: raw.casingSoilType ?? null,
+    heartingSoilType: raw.heartingSoilType ?? null,
+    heartingSlopeProfile: raw.heartingSlopeProfile ?? 'compact-core',
+    zonedSlopeMode: raw.zonedSlopeMode ?? 'manual',
+    homogeneousSoilType: raw.homogeneousSoilType ?? null,
+    homogeneousSlopeMode: raw.homogeneousSlopeMode ?? 'manual',
     // The trench arrived with the new zoned template; an older project simply
     // has none, which is exactly the default with no codes attached.
-    heartingTrench: { ...d.heartingTrench, ...(raw.heartingTrench ?? {}) },
+    heartingTrench: {
+      ...d.heartingTrench,
+      ...(raw.heartingTrench ?? {}),
+      depthMode:
+        raw.heartingTrench?.depthMode === 'auto' || raw.heartingTrench?.depthMode === 'manual'
+          ? raw.heartingTrench.depthMode
+          : raw.heartingTrench
+            ? 'manual'
+            : 'auto'
+    },
     heartingMaterial: migrateZonedHearting
       ? { code: zonedCodes.hearting }
       : raw.heartingMaterial ?? d.heartingMaterial,
@@ -743,16 +916,22 @@ export function migrateBundData(raw: BundData): BundData {
     turfingMaterial: raw.turfingMaterial ?? null,
     turfingThickness: raw.turfingThickness ?? d.turfingThickness,
     pitchingMaterial,
-    pitchingThickness: pitchingMaterial ? 0.45 : raw.pitchingThickness ?? d.pitchingThickness,
+    pitchingExtent: raw.pitchingExtent === 'full' ? 'full' : 'mwl',
+    pitchingThickness:
+      revetmentOptionForCode(pitchingMaterial?.code)?.stoneThickness ??
+      raw.pitchingThickness ??
+      d.pitchingThickness,
     pitchingAsVolume: false,
-    pitchingBeddingMaterial: raw.pitchingBeddingMaterial ?? null,
+    // DAW-6-10 through 6-14 already include their graded filter backing.
+    pitchingBeddingMaterial: null,
     pitchingBeddingThickness:
       raw.pitchingBeddingThickness ?? d.pitchingBeddingThickness,
-    pitchingMetalEnabled: raw.pitchingMetalEnabled ?? false,
-    pitchingMetalMaterial: raw.pitchingMetalMaterial ?? null,
+    pitchingMetalEnabled: false,
+    pitchingMetalMaterial: null,
     pitchingMetalThickness: raw.pitchingMetalThickness ?? d.pitchingMetalThickness,
     rockToeMaterial: raw.rockToeMaterial ?? null,
     horizontalFilterMaterial: raw.horizontalFilterMaterial ?? null,
+    horizontalFilterLengthMode: raw.horizontalFilterLengthMode ?? 'auto',
     horizontalFilterLength: raw.horizontalFilterLength ?? d.horizontalFilterLength,
     horizontalFilterThickness: raw.horizontalFilterThickness ?? d.horizontalFilterThickness,
     verticalFilterMaterial: raw.verticalFilterMaterial ?? null,
@@ -789,6 +968,13 @@ export function migrateBundData(raw: BundData): BundData {
     downstreamToe: {
       ...d.downstreamToe,
       ...(raw.downstreamToe ?? {}),
+      invertMode:
+        raw.downstreamToe?.invertMode ??
+        (raw.downstreamToe?.invertLevel != null ||
+        raw.downstreamToe?.invertStartLevel != null ||
+        raw.downstreamToe?.invertEndLevel != null
+          ? 'manual'
+          : 'auto'),
       // Collapse the short-lived two-reference model to the user's requested
       // single bottom RL when an older project is reopened.
       invertLevel:
@@ -893,7 +1079,7 @@ export function strippedProfile(section: BundSection, design: BundDesign): BundP
   let base: BundPoint[]
   if (section.stripped && section.stripped.length >= 2) {
     base = section.stripped
-  } else if (section.pre.length >= 2) {
+  } else if ((section.pre?.length ?? 0) >= 2) {
     const proposed = projectedProfile(section, design)
     if (proposed.length >= 2) {
       const minOffset = proposed[0].offset
@@ -958,7 +1144,7 @@ export function strippedProfile(section: BundSection, design: BundDesign): BundP
  * toe RLs from being incorrectly joined as one straight ground line.
  */
 export function hasCompleteRestorationGround(section: BundSection): boolean {
-  if (section.pre.length < 2) return false
+  if ((section.pre?.length ?? 0) < 2) return false
   const offsets = section.designPointOffsets
   if (!offsets?.length) return true
   // A generated section is measurable as soon as at least one existing RL is
@@ -983,7 +1169,7 @@ export function hasCompleteRestorationGround(section: BundSection): boolean {
  * and every new bund saved before the cross-section entry existed).
  */
 export function usesFlatGround(data: BundData, section: BundSection): boolean {
-  return data.mode === 'new' && section.pre.length < 2
+  return data.mode === 'new' && (section.pre?.length ?? 0) < 2
 }
 
 /**
@@ -1007,7 +1193,7 @@ export function usesSurveyedGroundEntry(_data: BundData): boolean {
  */
 export function hasMeasurableGround(data: BundData, section: BundSection): boolean {
   if (usesFlatGround(data, section)) return section.groundLevel != null
-  if (data.mode === 'new') return section.pre.length >= 2
+  if (data.mode === 'new') return (section.pre?.length ?? 0) >= 2
   return hasCompleteRestorationGround(section)
 }
 
@@ -1023,7 +1209,7 @@ export function upstreamToeOffset(section: BundSection, data: BundData): number 
   if (offsets?.length) return round3(Math.min(...offsets))
   const projected = projectedProfile(section, data.design)
   if (projected.length) return round3(Math.min(...projected.map((p) => p.offset)))
-  if (section.pre.length) return round3(Math.min(...section.pre.map((p) => p.offset)))
+  if (section.pre?.length) return round3(Math.min(...section.pre.map((p) => p.offset)))
   return 0
 }
 
@@ -1182,7 +1368,7 @@ export function bermHingeOffsets(
 /**
  * RL of the designed bund surface at an offset: the crest at TBL, then the two
  * faces sloping down. Beyond the crest each 1 m of fall costs `slope` metres of
- * width (a 1:2.5 face drops 1 m over 2.5 m), interrupted by any berm shelf.
+ * width (a 2.5:1 face drops 1 m over 2.5 m), interrupted by any berm shelf.
  */
 export function designSurfaceAt(offset: number, design: BundDesign): number {
   const beyondCrest = Math.abs(offset) - design.topWidth / 2
@@ -1398,7 +1584,7 @@ export function sectionDesignOffsets(
     )
     if (regenerated.length >= 2) return regenerated.map((point) => point.offset)
   }
-  if (stored && stored.length >= 2 && section.pre.length >= 2) {
+  if (stored && stored.length >= 2 && (section.pre?.length ?? 0) >= 2) {
     const oldUsToe = Math.min(...stored)
     const oldDsToe = Math.max(...stored)
     const regenerated = sevenPointDesignFromGroundLevels(
@@ -1891,7 +2077,7 @@ export function projectedProfile(section: BundSection, design: BundDesign): Bund
   // legacy profile to derive again from Existing ground.
   if (Array.isArray(section.projected)) {
     base = section.projected
-  } else if (section.pre.length >= 2) {
+  } else if ((section.pre?.length ?? 0) >= 2) {
     // Restoration: derive from the design against the surveyed ground.
     base = deriveProposedProfile(section.pre, design, sectionDesignOffsets(section, design))
   } else {
@@ -1974,7 +2160,8 @@ export function bundLevelingLimits(
     ? Math.max(0, data.upstreamToe.topWidth || 0)
     : 0
   const dsWidth = data.downstreamToe.excavationMaterial
-    ? Math.max(0, toeDrainTopWidthAt(section, data))
+    ? Math.max(0, toeDrainTopWidthAt(section, data)) +
+      2 * Math.max(0, data.downstreamToe.bermWidth || 0)
     : 0
   return {
     startOffset: round3(toes.us - usWidth),
@@ -2187,14 +2374,12 @@ export function sectionAreas(
   const leveling = bundLevelingGeometry(data, section)
   if (!leveling) return zero
   const faces = faceSlopeLengths(section, design)
-  const grossStripping = profileBandsArea(leveling.stripping)
-  // When rock-toe excavation is enabled, the cut already lying inside its
-  // footprint belongs to that union and is removed from general stripping.
-  const rockToeOverlap =
-    rockToeExcavationAt(section, data)?.levelingOverlapArea ?? 0
+  // General bund excavation stops at the designed toes. Excavation for the
+  // toe wall and toe drain is measured separately outside these limits.
+  const netBundExcavation = profileBandsArea(bundNetStrippingBands(data, section))
   return {
     clearanceWidth: profileWidth(leveling.proposed),
-    stripping: round3(Math.max(0, grossStripping - rockToeOverlap)),
+    stripping: round3(netBundExcavation),
     formation: round3(profileBandsArea(leveling.formation)),
     usFace: faces.us,
     dsFace: faces.ds
@@ -2251,7 +2436,7 @@ export function heartingSupportProfile(
 ): BundPoint[] {
   if (!isZonedBund(data)) return []
   if (data.mode === 'restoration') {
-    return [...section.pre].sort((a, b) => a.offset - b.offset)
+    return [...(section.pre || [])].sort((a, b) => a.offset - b.offset)
   }
   if (!usesFlatGround(data, section)) {
     const stripped = strippedProfile(section, data.design)
@@ -2443,6 +2628,45 @@ export function heartingTrenchEnabled(data: BundData): boolean {
   )
 }
 
+export interface BundDeepestToe {
+  sectionId: string
+  chainage: number
+  side: BundBermSide
+  rl: number
+}
+
+/** Lowest proposed toe RL found across both sides of every measurable section. */
+export function deepestBundToe(data: BundData): BundDeepestToe | null {
+  let deepest: BundDeepestToe | null = null
+  for (const section of orderedSections(data)) {
+    const toes = proposedToeOffsets(section, data)
+    const profile = projectedProfile(section, data.design)
+    if (!toes || profile.length < 2) continue
+    for (const [side, offset] of [
+      ['us', toes.us],
+      ['ds', toes.ds]
+    ] as const) {
+      const rl = round3(existLevelAt(profile, offset))
+      if (!Number.isFinite(rl)) continue
+      if (!deepest || rl < deepest.rl) {
+        deepest = { sectionId: section.id, chainage: section.chainage, side, rl }
+      }
+    }
+  }
+  return deepest
+}
+
+/** Effective depth used by quantities and drawings for the selected mode. */
+export function resolvedHeartingTrenchDepth(data: BundData): number {
+  if (data.heartingTrench.depthMode !== 'auto') {
+    return round3(Math.max(0, data.heartingTrench.depth || 0))
+  }
+  return standardHeartingTrenchDepth(
+    data.design.ftl ?? data.design.mwl,
+    deepestBundToe(data)?.rl ?? null
+  )
+}
+
 /**
  * Trapezoidal cut area: bottom width at the invert, widening by the two side
  * batters over the depth. Excavation and backfill are the same solid — the
@@ -2451,7 +2675,7 @@ export function heartingTrenchEnabled(data: BundData): boolean {
 export function heartingTrenchArea(data: BundData): number {
   const trench = data.heartingTrench
   if (!trench) return 0
-  const depth = Math.max(0, trench.depth || 0)
+  const depth = resolvedHeartingTrenchDepth(data)
   const bottom = Math.max(0, trench.bottomWidth || 0)
   const us = Math.max(0, trench.usSlope || 0)
   const ds = Math.max(0, trench.dsSlope || 0)
@@ -2463,7 +2687,7 @@ export function heartingTrenchArea(data: BundData): number {
 export function heartingTrenchTopWidth(data: BundData): number {
   const trench = data.heartingTrench
   if (!trench) return 0
-  const depth = Math.max(0, trench.depth || 0)
+  const depth = resolvedHeartingTrenchDepth(data)
   return round3(
     Math.max(0, trench.bottomWidth || 0) +
       (Math.max(0, trench.usSlope || 0) + Math.max(0, trench.dsSlope || 0)) * depth
@@ -2503,7 +2727,7 @@ export function heartingTrenchProfile(
   // The invert is level: a key trench is cut to one RL, taken from the base
   // directly under the core so the depth entered is the depth actually got.
   const baseAtCentre = existLevelAt(sorted, centre)
-  const depth = Math.max(0, trench.depth || 0)
+  const depth = resolvedHeartingTrenchDepth(data)
   const invertRl = round3(baseAtCentre - depth)
   const us = Math.max(0, trench.usSlope || 0)
   const ds = Math.max(0, trench.dsSlope || 0)
@@ -2524,14 +2748,14 @@ export function heartingTrenchRows(data: BundData): BundQtyRow[] {
 }
 
 export interface BundHeartingTrenchIssue {
-  code: 'too-wide' | 'below-hearting' | 'no-code'
+  code: 'below-hearting' | 'no-code'
   message: string
 }
 
 /** What would stop the trench being buildable or measurable as entered. */
 export function heartingTrenchIssues(
   data: BundData,
-  section: BundSection | null
+  _section: BundSection | null
 ): BundHeartingTrenchIssue[] {
   if (!heartingTrenchAvailable(data) || !data.heartingTrench?.fillMaterial) return []
   const issues: BundHeartingTrenchIssue[] = []
@@ -2542,21 +2766,6 @@ export function heartingTrenchIssues(
         'Enter a trench depth and bottom width greater than zero before the cut-off trench can be measured.'
     })
     return issues
-  }
-  const topWidth = heartingTrenchTopWidth(data)
-  const heartingBottom = section ? heartingBaseProfile(data, section) : []
-  if (heartingBottom.length >= 2) {
-    const heartingWidth =
-      heartingBottom[heartingBottom.length - 1].offset - heartingBottom[0].offset
-    if (topWidth > heartingWidth + 1e-6) {
-      issues.push({
-        code: 'too-wide',
-        message:
-          `The trench is ${round3(topWidth)} m wide at the formation base but the hearting ` +
-          `only lands ${round3(heartingWidth)} m wide there. Narrow the trench, or widen the ` +
-          `hearting, so the core sits over its own cut-off.`
-      })
-    }
   }
   if (!data.heartingTrench.excavationMaterial) {
     issues.push({
@@ -2710,14 +2919,16 @@ export function quantityRows(
   pick: (areas: BundSectionAreas) => number
 ): BundQtyRow[] {
   const sections = orderedSections(data)
+  if (sections.length < 2) return []
+  const computedAreas = sections.map((s) => round3(pick(sectionAreas(data, s))))
   const rows: BundQtyRow[] = []
   for (let i = 1; i < sections.length; i += 1) {
     const from = sections[i - 1]
     const to = sections[i]
     const lengthM = round3(to.chainage - from.chainage)
     if (lengthM <= 1e-6) continue
-    const areaFrom = round3(pick(sectionAreas(data, from)))
-    const areaTo = round3(pick(sectionAreas(data, to)))
+    const areaFrom = computedAreas[i - 1]
+    const areaTo = computedAreas[i]
     const meanArea = round3((areaFrom + areaTo) / 2)
     rows.push({
       fromCh: from.chainage,
@@ -2742,14 +2953,16 @@ export function quantityRowsBySection(
   pick: (section: BundSection) => number
 ): BundQtyRow[] {
   const sections = orderedSections(data)
+  if (sections.length < 2) return []
+  const computedValues = sections.map((s) => round3(pick(s)))
   const rows: BundQtyRow[] = []
   for (let i = 1; i < sections.length; i += 1) {
     const from = sections[i - 1]
     const to = sections[i]
     const lengthM = round3(to.chainage - from.chainage)
     if (lengthM <= 1e-6) continue
-    const areaFrom = round3(pick(from))
-    const areaTo = round3(pick(to))
+    const areaFrom = computedValues[i - 1]
+    const areaTo = computedValues[i]
     const meanArea = round3((areaFrom + areaTo) / 2)
     rows.push({
       fromCh: from.chainage,
@@ -2776,18 +2989,20 @@ export function developedGroundLength(pre: BundPoint[]): number {
 }
 
 /**
- * Automatic jungle clearance: restoration uses the developed surveyed-ground
- * length; a new bund uses its designed seating/base width. Values at sections
+ * Automatic jungle clearance: repair uses the developed surveyed-ground
+ * perimeter; a new bund uses its width at stripped level between the designed
+ * U/S and D/S toes. Values at sections
  * A and B are averaged, then multiplied by the chainage interval. Chainage
  * zero supplies P1 only; it never creates a standalone quantity.
  */
 export function clearancePerimeterRows(data: BundData): BundQtyRow[] {
   const sections = orderedSections(data)
-  const rows: BundQtyRow[] = []
+  if (sections.length < 2) return []
   const widthAt = (section: BundSection): number | null => {
-    if (usesFlatGround(data, section)) {
-      if (section.groundLevel == null) return null
-      return sectionAreas(data, section).clearanceWidth
+    if (data.mode === 'new') {
+      const geometry = bundLevelingGeometry(data, section)
+      if (!geometry) return null
+      return round3(geometry.limits.dsToeOffset - geometry.limits.usToeOffset)
     }
     if (!hasMeasurableGround(data, section)) return null
     const proposed = projectedProfile(section, data.design)
@@ -2796,11 +3011,13 @@ export function clearancePerimeterRows(data: BundData): BundQtyRow[] {
       profileWithin(section.pre, proposed[0].offset, proposed[proposed.length - 1].offset)
     )
   }
+  const computedWidths = sections.map(widthAt)
+  const rows: BundQtyRow[] = []
   for (let i = 1; i < sections.length; i += 1) {
     const from = sections[i - 1]
     const to = sections[i]
-    const areaFrom = widthAt(from)
-    const areaTo = widthAt(to)
+    const areaFrom = computedWidths[i - 1]
+    const areaTo = computedWidths[i]
     if (areaFrom == null || areaTo == null) continue
     const lengthM = round3(to.chainage - from.chainage)
     if (lengthM <= 1e-6) continue
@@ -2846,6 +3063,35 @@ export function formationRows(data: BundData): BundQtyRow[] {
   return quantityRows(data, (a) => a.formation)
 }
 
+/** Formation rows for the plain bund body, excluding every berm widening. */
+export function plainFormationRows(data: BundData): BundQtyRow[] {
+  return formationRows({ ...data, design: { ...data.design, berms: [] } })
+}
+
+/**
+ * Incremental fill created by one berm. Berms are accumulated in their stored
+ * order so the plain body plus all berm rows exactly reconciles to formationRows.
+ */
+export function bermFillRows(data: BundData, berm: BundBerm): BundQtyRow[] {
+  const index = (data.design.berms ?? []).findIndex((candidate) => candidate.id === berm.id)
+  if (index < 0) return []
+  const before = formationRows({
+    ...data,
+    design: { ...data.design, berms: data.design.berms.slice(0, index) }
+  })
+  const after = formationRows({
+    ...data,
+    design: { ...data.design, berms: data.design.berms.slice(0, index + 1) }
+  })
+  return after.map((row, rowIndex) => {
+    const prior = before[rowIndex]
+    const areaFrom = round3(row.areaFrom - (prior?.areaFrom ?? 0))
+    const areaTo = round3(row.areaTo - (prior?.areaTo ?? 0))
+    const meanArea = round3((areaFrom + areaTo) / 2)
+    return { ...row, areaFrom, areaTo, meanArea, qty: round3(meanArea * row.lengthM) }
+  })
+}
+
 /** MSA rows for the outer casing portion of a zoned repair. */
 export function casingRows(data: BundData): BundQtyRow[] {
   return quantityRowsBySection(data, (section) => zonedRepairAreas(data, section).casing)
@@ -2876,9 +3122,63 @@ export function parseThicknessM(text: string | undefined): number | null {
   return metres > 0 && metres < 2 ? metres : null
 }
 
-/** Pitching thickness (m): from the chosen code's description, else the fallback. */
+/** Stone thickness included in the selected DAW revetment/riprap item. */
 export function pitchingThicknessM(data: BundData): number {
-  return parseThicknessM(data.pitchingMaterial?.description) ?? data.pitchingThickness ?? 0.3
+  return (
+    revetmentOptionForCode(data.pitchingMaterial?.code)?.stoneThickness ??
+    parseThicknessM(data.pitchingMaterial?.description) ??
+    data.pitchingThickness ??
+    0.6
+  )
+}
+
+/** Graded filter backing included in the same DAW SQM revetment rate. */
+export function revetmentFilterThicknessM(data: BundData): number {
+  return revetmentOptionForCode(data.pitchingMaterial?.code)?.filterThickness ?? 0.45
+}
+
+export function revetmentHasThroughStones(data: BundData): boolean {
+  return revetmentOptionForCode(data.pitchingMaterial?.code)?.throughStones ?? false
+}
+
+/** One physical band between two slope-normal offsets from the bund face. */
+export function upstreamRevetmentBand(
+  run: BundPoint[],
+  innerThickness: number,
+  outerThickness: number
+): BundPoint[] {
+  if (run.length < 2 || outerThickness <= innerThickness) return []
+  const offset = (distance: number): BundPoint[] =>
+    run.map((point, index) => {
+      const a = run[Math.max(0, index - 1)]
+      const b = run[Math.min(run.length - 1, index + 1)]
+      const dx = b.offset - a.offset
+      const dy = b.rl - a.rl
+      const length = Math.hypot(dx, dy) || 1
+      return {
+        offset: round3(point.offset - (dy / length) * distance),
+        rl: round3(point.rl + (dx / length) * distance)
+      }
+    })
+  return [...offset(innerThickness), ...offset(outerThickness).reverse()]
+}
+
+/** Drawing-only stone key joining the exposed revetment to the u/s toe anchor. */
+export function upstreamRevetmentToeKey(
+  run: BundPoint[],
+  stoneThickness: number,
+  toeTopWidth: number
+): BundPoint[] {
+  if (run.length < 2 || stoneThickness <= 0 || toeTopWidth <= 0) return []
+  const band = upstreamRevetmentBand(run, 0, stoneThickness)
+  const surfaceStart = run[0]
+  const outerStart = band[band.length - 1]
+  const keyWidth = Math.min(toeTopWidth, Math.max(0.2, stoneThickness))
+  return [
+    surfaceStart,
+    outerStart,
+    { offset: round3(surfaceStart.offset - keyWidth), rl: surfaceStart.rl }
+  ]
 }
 
 /** A CUM code bills pitching by volume (area × thickness); an SQM code by area. */
@@ -3064,9 +3364,85 @@ function chuteDrainWettedPerimeter(data: BundData): number {
   return Math.max(0, data.chuteDrainWidth || 0) + 2 * Math.max(0, data.chuteDrainDepth || 0)
 }
 
-/** Stone pitching on the upstream face: mean slope length × chainage → sq.m. */
+function sameBundPoint(a: BundPoint, b: BundPoint): boolean {
+  return Math.abs(a.offset - b.offset) < 1e-6 && Math.abs(a.rl - b.rl) < 1e-6
+}
+
+/**
+ * Revetment runs on one upstream cross-section. Berm shelves are omitted. In
+ * the default MWL mode, each sloping run is clipped at MWL; consequently the
+ * run becomes zero at a chainage where MWL meets or falls below ground.
+ */
+export function upstreamRevetmentRuns(
+  section: BundSection,
+  data: BundData
+): BundPoint[][] {
+  const proj = [...projectedProfile(section, data.design)].sort(
+    (a, b) => a.offset - b.offset
+  )
+  if (proj.length < 2) return []
+  const half = data.design.topWidth / 2
+  const maxRl = data.pitchingExtent === 'full' ? Number.POSITIVE_INFINITY : data.design.mwl
+  if (maxRl == null) return []
+  const berms = faceBerms(data.design, 'us')
+  const runs: BundPoint[][] = []
+  let current: BundPoint[] = []
+  const finish = (): void => {
+    if (current.length >= 2) runs.push(current)
+    current = []
+  }
+
+  for (let i = 1; i < proj.length; i += 1) {
+    const a = proj[i - 1]
+    const b = proj[i]
+    if ((a.offset + b.offset) / 2 >= -half + 1e-9) break
+    const shelf =
+      Math.abs(a.rl - b.rl) < 1e-6 &&
+      berms.some((berm) => Math.abs(berm.level - a.rl) < 1e-6)
+    if (shelf || (a.rl > maxRl && b.rl > maxRl)) {
+      finish()
+      continue
+    }
+
+    let from = a
+    let to = b
+    if (a.rl > maxRl || b.rl > maxRl) {
+      const fraction = (maxRl - a.rl) / (b.rl - a.rl)
+      const crossing: BundPoint = {
+        offset: round3(a.offset + fraction * (b.offset - a.offset)),
+        rl: round3(maxRl)
+      }
+      if (a.rl > maxRl) from = crossing
+      else to = crossing
+    }
+    if (!current.length || !sameBundPoint(current[current.length - 1], from)) finish()
+    if (!current.length) current.push(from)
+    current.push(to)
+    if (to.rl >= maxRl && Number.isFinite(maxRl)) finish()
+  }
+  finish()
+  return runs
+}
+
+/** Developed upstream length protected by revetment at one chainage (m). */
+export function pitchingSlopeLengthAt(section: BundSection, data: BundData): number {
+  return round3(
+    upstreamRevetmentRuns(section, data).reduce((total, run) => {
+      let length = 0
+      for (let i = 1; i < run.length; i += 1) {
+        length += Math.hypot(
+          run[i].offset - run[i - 1].offset,
+          run[i].rl - run[i - 1].rl
+        )
+      }
+      return total + length
+    }, 0)
+  )
+}
+
+/** Revetment on the upstream face: mean protected length × chainage → sq.m. */
 export function pitchingRows(data: BundData): BundQtyRow[] {
-  return quantityRowsBySection(data, (s) => faceSlopeLengths(s, data.design).us)
+  return quantityRowsBySection(data, (section) => pitchingSlopeLengthAt(section, data))
 }
 
 /** Compacted graded-sand filter volume below the u/s revetment (cu.m). */
@@ -3092,7 +3468,7 @@ export function upstreamToeTrenchEnabled(data: BundData): boolean {
 
 /**
  * Quantity billed by the selected pitching code.
- * Pitching is restricted to the developed u/s slope. A SQM code includes the
+ * Revetment is restricted to the selected developed u/s extent. A SQM code includes the
  * thickness written into its rate; a CUM code measures slope area × thickness.
  * The toe anchorage is always a separate construction item.
  */
@@ -3291,9 +3667,9 @@ export function rockToeRows(data: BundData): BundQtyRow[] {
 }
 
 /**
- * Cross-sectional area of the standard IRR-CAW-5-11 filter:
- * - Behind: 0.20 m sand + 0.15 m 20 mm down CA + 0.15 m 40 mm down CA;
- * - Below: 0.15 m sand + 0.20 m 20 mm down CA + 0.65 m 40 mm down CA.
+ * Cross-sectional area of the selected rock-toe filter. DAW-6-4 uses 0.85 m
+ * both below and behind; the CAW-5-11 alternative uses 1.00 m below and
+ * 0.50 m behind.
  *
  * The SSR rate is per CUM, so these code-defined layer thicknesses are not
  * exposed as duplicate user inputs.
@@ -3304,9 +3680,10 @@ export function rockToeFilterAreaAt(section: BundSection, data: BundData): numbe
   if (h <= 0) return 0
   const baseWidth = rockToeBaseWidthAt(section, data)
   const innerFaceLength = Math.hypot(h, data.rockToeInnerSlope * h)
+  const below = rockToeFilterBelowThicknessM(data)
+  const behind = rockToeFilterBehindThicknessM(data)
   return round3(
-    baseWidth * BUND_ROCKTOE_FILTER_BELOW_M +
-      innerFaceLength * BUND_ROCKTOE_FILTER_BEHIND_M
+    baseWidth * below + innerFaceLength * behind
   )
 }
 
@@ -3388,7 +3765,9 @@ export function bermSurfacedWidthAt(
 ): number {
   const width = bermWidthAt(section, data, berm)
   if (width <= 0) return 0
-  const drain = berm.drainLiningMaterial ? bermDrainTopWidth(berm) : 0
+  const drain = berm.drainLiningMaterial || berm.drainExcavationMaterial
+    ? bermDrainTopWidth(berm)
+    : 0
   return round3(Math.max(0, width - drain))
 }
 
@@ -3466,6 +3845,45 @@ export function bermDrainProtectionMeasurement(
         ? round3(area * Math.max(0, berm.drainLiningThickness || 0))
         : area
   }
+}
+
+/**
+ * Developed slope length (m) below a berm at one section down to the next lower
+ * berm or down to the toe. Returns 0 if the berm does not exist at this section.
+ */
+export function bermFaceSlopeLengthAt(
+  section: BundSection,
+  data: BundData,
+  berm: BundBerm
+): number {
+  if (!(berm.width > 0)) return 0
+  if (bermWidthAt(section, data, berm) <= 0) return 0
+
+  const faceSlopeVal =
+    berm.slopeBelow != null && berm.slopeBelow > 0
+      ? berm.slopeBelow
+      : berm.side === 'us'
+        ? data.design.usSlope
+        : data.design.dsSlope
+
+  const lowerBerms = faceBerms(data.design, berm.side).filter(
+    (b) => b.level < berm.level - 1e-6 && bermWidthAt(section, data, b) > 0
+  )
+
+  let drop = 0
+  if (lowerBerms.length > 0) {
+    const nextLevel = Math.max(...lowerBerms.map((b) => b.level))
+    drop = Math.max(0, berm.level - nextLevel)
+  } else {
+    const toe =
+      berm.side === 'us'
+        ? upstreamDesignToePointAt(section, data)
+        : downstreamDesignToePointAt(section, data)
+    const toeRl = toe?.rl ?? (data.design.topLevel - maxBundHeight(data))
+    drop = Math.max(0, berm.level - toeRl)
+  }
+
+  return round3(drop * Math.hypot(1, Math.max(0.01, faceSlopeVal)))
 }
 
 /** Length of bund over which the berm actually forms a shelf (m). */
@@ -3651,12 +4069,118 @@ export function internalFiltersAvailable(data: BundData): boolean {
   return data.mode === 'new'
 }
 
-/** Horizontal blanket: fixed section = length × thickness, × chainage → cu.m. */
-export function horizontalFilterRows(data: BundData): BundQtyRow[] {
-  const area = round3(
-    Math.max(0, data.horizontalFilterLength) * Math.max(0, data.horizontalFilterThickness)
+/** Active D/S outlet of the blanket: rock-toe inner face, otherwise the bund toe. */
+export function horizontalFilterOutletOffsetAt(
+  section: BundSection,
+  data: BundData
+): number | null {
+  const toe = downstreamDesignToePointAt(section, data)
+  if (!toe) return null
+  const rockHeight = data.rockToeMaterial ? rockToeHeightAt(section, data) : 0
+  return round3(
+    rockHeight > 0
+      ? toe.offset -
+          rockToeBaseWidth(rockHeight, data, downstreamToeFaceSlope(section, data))
+      : toe.offset
   )
-  return quantityRowsBySection(data, () => area)
+}
+
+/** Inner blanket limit: centreline for homogeneous; D/S edge of hearting for zoned. */
+export function horizontalFilterInletOffsetAt(
+  section: BundSection,
+  data: BundData
+): number | null {
+  const outlet = horizontalFilterOutletOffsetAt(section, data)
+  if (data.horizontalFilterLengthMode === 'manual') {
+    if (outlet == null) return null
+    return round3(Math.max(0, outlet - Math.max(0, data.horizontalFilterLength || 0)))
+  }
+  if (!isZonedBund(data)) return 0
+  const hearting = heartingRepairProfile(data, section)
+  if (!hearting.length) return null
+  return round3(Math.max(...hearting.map((point) => point.offset)))
+}
+
+/** Effective blanket length at one section, geometry-driven unless manually overridden. */
+export function horizontalFilterLengthAt(section: BundSection, data: BundData): number {
+  if (data.horizontalFilterLengthMode === 'manual') {
+    return Math.max(0, data.horizontalFilterLength || 0)
+  }
+  const outlet = horizontalFilterOutletOffsetAt(section, data)
+  const inlet = horizontalFilterInletOffsetAt(section, data)
+  return outlet == null || inlet == null ? 0 : round3(Math.max(0, outlet - inlet))
+}
+
+/** Auto length displayed in the UI, taken at the section governing seepage. */
+export function automaticHorizontalFilterLength(data: BundData): number {
+  const section = steepestSection(data) ?? orderedSections(data)[0] ?? null
+  return section ? horizontalFilterLengthAt(section, data) : 0
+}
+
+/** Dimension fixed by a DAW filter item, or null when the selected item needs design input. */
+export function filterFixedDimensionM(
+  ref: TemplateMaterialRef | null | undefined
+): number | null {
+  switch (ref?.code) {
+    case 'IRR-DAW-6-3':
+      return 1.4
+    case 'IRR-DAW-6-4':
+      return 0.85
+    case 'IRR-DAW-6-5':
+      return 0.3
+    case 'IRR-DAW-6-6':
+      return 0.4
+    case 'IRR-DAW-6-8':
+      return 0.45
+    case 'IRR-DAW-6-9':
+      return 0.9
+    default:
+      return parseThicknessM(ref?.description)
+  }
+}
+
+export function horizontalFilterThicknessM(data: BundData): number {
+  return (
+    filterFixedDimensionM(data.horizontalFilterMaterial) ??
+    Math.max(0, data.horizontalFilterThickness)
+  )
+}
+
+export function horizontalFilterMeasure(data: BundData): 'area' | 'volume' {
+  return measureFromUnit(
+    data.horizontalFilterMaterial,
+    data.horizontalFilterMaterial?.code === BUND_DEFAULT_HFILTER_CODE ? 'area' : 'volume'
+  )
+}
+
+export function verticalFilterWidthM(data: BundData): number {
+  return (
+    filterFixedDimensionM(data.verticalFilterMaterial) ??
+    Math.max(0, data.verticalFilterWidth)
+  )
+}
+
+export function verticalFilterMeasure(data: BundData): 'area' | 'volume' {
+  return measureFromUnit(data.verticalFilterMaterial, 'volume')
+}
+
+export function rockToeFilterBelowThicknessM(data: BundData): number {
+  if (data.rockToeFilterMaterial?.code === 'IRR-CAW-5-11' || data.rockToeFilterMaterial?.code === 'IRR-DAW-6-4') return 1
+  return filterFixedDimensionM(data.rockToeFilterMaterial) ?? BUND_ROCKTOE_FILTER_BELOW_M
+}
+
+export function rockToeFilterBehindThicknessM(data: BundData): number {
+  if (data.rockToeFilterMaterial?.code === 'IRR-CAW-5-11' || data.rockToeFilterMaterial?.code === 'IRR-DAW-6-4') return 0.5
+  return filterFixedDimensionM(data.rockToeFilterMaterial) ?? BUND_ROCKTOE_FILTER_BEHIND_M
+}
+
+/** Horizontal blanket: SQM items bill plan area; CUM items bill volume. */
+export function horizontalFilterRows(data: BundData): BundQtyRow[] {
+  const measure = horizontalFilterMeasure(data)
+  const thickness = horizontalFilterThicknessM(data)
+  return quantityRowsBySection(data, (section) =>
+    round3(horizontalFilterLengthAt(section, data) * (measure === 'area' ? 1 : thickness))
+  )
 }
 
 /**
@@ -3665,18 +4189,36 @@ export function horizontalFilterRows(data: BundData): BundQtyRow[] {
  * below the phreatic entry.
  */
 export function verticalFilterHeightAt(section: BundSection, data: BundData): number {
-  if (data.verticalFilterHeight > 0) return data.verticalFilterHeight
   const g = lowestStrippedLevelAt(section, data)
   if (g == null) return 0
   const crestHeight = Math.max(0, data.design.topLevel - g)
-  if (data.design.mwl == null) return round3(Math.max(0, crestHeight - 0.3))
-  return round3(Math.min(Math.max(0, data.design.mwl - g), Math.max(0, crestHeight - 0.3)))
+  const requested = data.verticalFilterHeight > 0
+    ? data.verticalFilterHeight
+    : data.design.mwl == null
+      ? Math.max(0, crestHeight - 0.3)
+      : Math.min(Math.max(0, data.design.mwl - g), Math.max(0, crestHeight - 0.3))
+
+  // The chimney stands at the blanket inlet and must remain inside the
+  // downstream casing. Its downhill edge governs because the face falls in
+  // that direction. This also keeps the drawn height and billed quantity equal.
+  const inlet = horizontalFilterInletOffsetAt(section, data)
+  const toe = downstreamDesignToePointAt(section, data)
+  if (inlet == null || toe == null) return round3(Math.max(0, requested))
+  const profile = projectedProfile(section, data.design)
+  if (profile.length < 2) return round3(Math.max(0, requested))
+  const outerEdge = inlet + verticalFilterWidthM(data)
+  const faceRl = existLevelAt(profile, outerEdge)
+  const chimneyBaseRl = toe.rl + horizontalFilterThicknessM(data)
+  const available = Math.max(0, faceRl - chimneyBaseRl)
+  return round3(Math.min(Math.max(0, requested), available))
 }
 
-/** Vertical (chimney) filter: width × height per section, × chainage → cu.m. */
+/** Vertical filter: SQM items bill face area; CUM items bill width × height. */
 export function verticalFilterRows(data: BundData): BundQtyRow[] {
+  const measure = verticalFilterMeasure(data)
+  const width = verticalFilterWidthM(data)
   return quantityRowsBySection(data, (s) =>
-    round3(Math.max(0, data.verticalFilterWidth) * verticalFilterHeightAt(s, data))
+    round3(verticalFilterHeightAt(s, data) * (measure === 'area' ? 1 : width))
   )
 }
 
@@ -3685,7 +4227,7 @@ export function strippedBaseLevelAt(section: BundSection, data: BundData): numbe
   if (usesFlatGround(data, section)) {
     return section.groundLevel == null ? null : section.groundLevel - data.design.stripDepth
   }
-  if (section.pre.length < 2) return null
+  if ((section.pre?.length ?? 0) < 2) return null
   const stripped = strippedProfile(section, data.design)
   return stripped.length >= 2 ? existLevelAt(stripped, 0) : null
 }
@@ -3698,7 +4240,7 @@ export function lowestStrippedLevelAt(section: BundSection, data: BundData): num
   if (usesFlatGround(data, section)) {
     return section.groundLevel == null ? null : section.groundLevel - data.design.stripDepth
   }
-  if (section.pre.length < 2) return null
+  if ((section.pre?.length ?? 0) < 2) return null
   // `strippedProfile` is already clipped to the bund footprint and includes
   // deeper local cuts where existing ground stands above the fixed design.
   const stripped = strippedProfile(section, data.design)
@@ -3811,13 +4353,7 @@ export function phreaticGeometry(data: BundData, section: BundSection): Phreatic
   const hfOn =
     internalFiltersAvailable(data) &&
     Boolean(data.horizontalFilterMaterial) &&
-    data.horizontalFilterLength > 0
-  const blanketInletX = hfOn
-    ? Math.max(
-        referenceBasis.dsToeX - data.horizontalFilterLength,
-        design.topWidth / 2
-      )
-    : null
+    horizontalFilterLengthAt(section, data) > 0
 
   const rockToeHeight = data.rockToeMaterial ? rockToeHeightAt(section, data) : 0
   const rockToeOuterSlope = downstreamToeFaceSlope(section, data)
@@ -3832,6 +4368,10 @@ export function phreaticGeometry(data: BundData, section: BundSection): Phreatic
         Math.max(0, data.rockToeTopWidth || 0) -
         rockToeOuterSlope * rockToeHeight
       : null
+  const blanketOutletX = rockToeInnerBaseX ?? referenceBasis.dsToeX
+  const blanketInletX = hfOn
+    ? horizontalFilterInletOffsetAt(section, data)
+    : null
 
   const selectedBoundary =
     blanketInletX != null
@@ -3856,8 +4396,7 @@ export function phreaticGeometry(data: BundData, section: BundSection): Phreatic
   if (blanketInletX != null) {
     interceptX = focusX
     interceptRl = g + yAt(focusX)
-    const chimneyTop =
-      data.horizontalFilterThickness + verticalFilterHeightAt(section, data)
+    const chimneyTop = verticalFilterHeightAt(section, data)
     if (data.verticalFilterMaterial && chimneyTop >= yAt(focusX) - 5e-3) {
       interceptedBy = 'chimney'
     } else {
@@ -4047,7 +4586,7 @@ export function proposedToeOffsets(
       ds: round3(Math.max(...section.projected.map((point) => point.offset)))
     }
   }
-  if (section.pre.length >= 2) {
+  if ((section.pre?.length ?? 0) >= 2) {
     const us = faceToeDistance(section.pre, design, -1)
     const ds = faceToeDistance(section.pre, design, 1)
     if (us == null || ds == null) return null
@@ -4082,7 +4621,7 @@ export function sectionDesignIssues(
   section: BundSection,
   data: BundData
 ): BundSectionDesignIssue[] {
-  if (usesFlatGround(data, section) || section.pre.length < 2) return []
+  if (usesFlatGround(data, section) || (section.pre?.length ?? 0) < 2) return []
   if (section.designPointOffsets?.length) return []
   const issues: BundSectionDesignIssue[] = []
   const { design } = data
@@ -4124,14 +4663,31 @@ export function downstreamToePointAt(
     // No usable design: fall back to the outermost thing that is known.
     const projected = projectedProfile(section, data.design)
     if (projected.length >= 2) return projected[projected.length - 1]
-    const last = [...section.pre].sort((a, b) => a.offset - b.offset).at(-1)
+    const last = [...(section.pre || [])].sort((a, b) => a.offset - b.offset).at(-1)
     return last ?? null
   }
   const rl =
-    section.pre.length >= 2
+    (section.pre?.length ?? 0) >= 2
       ? existLevelAt(section.pre, toes.ds)
       : (section.groundLevel as number) - data.design.stripDepth
   return { offset: toes.ds, rl: round3(rl) }
+}
+
+/**
+ * The theoretical upstream toe of the final designed bund profile.
+ */
+export function upstreamDesignToePointAt(
+  section: BundSection,
+  data: BundData
+): BundPoint | null {
+  const projected = projectedProfile(section, data.design)
+  if (projected.length < 2) return null
+  const toes = proposedToeOffsets(section, data)
+  if (!toes) return projected[0] ?? null
+  return {
+    offset: toes.us,
+    rl: round3(existLevelAt(projected, toes.us))
+  }
 }
 
 /**
@@ -4162,12 +4718,40 @@ export function downstreamToeGroundLevelAt(
   return downstreamToePointAt(section, data)?.rl ?? null
 }
 
+/** Existing, unstripped D/S toe RL used to establish the standard drain invert. */
+export function downstreamToeExistingLevelAt(
+  section: BundSection,
+  data: BundData
+): number | null {
+  if (usesFlatGround(data, section)) return section.groundLevel ?? null
+  const toes = proposedToeOffsets(section, data)
+  if (!toes || (section.pre?.length ?? 0) < 2) return null
+  return round3(existLevelAt(section.pre, toes.ds))
+}
+
+/** Lowest D/S toe RL minus stripping and the standard drain depth. */
+export function automaticToeDrainInvertLevel(data: BundData): number | null {
+  const levels = orderedSections(data)
+    .map((section) => downstreamToeExistingLevelAt(section, data))
+    .filter((level): level is number => level != null && Number.isFinite(level))
+  if (!levels.length) return null
+  return round3(
+    Math.min(...levels) -
+      Math.max(0, data.design.stripDepth || 0) -
+      Math.max(0, data.downstreamToe.depth || 0.3)
+  )
+}
+
 /**
  * Longitudinal toe-drain invert RL at a chainage. Start/end reference levels
  * define one straight falling grade; a single entered end is treated as level.
  */
 export function toeDrainInvertLevelAt(section: BundSection, data: BundData): number | null {
   const toe = data.downstreamToe
+  const legacyManual = toe.invertMode == null && toe.invertLevel != null
+  if (toe.invertMode === 'auto' || (!legacyManual && toe.invertMode == null)) {
+    return automaticToeDrainInvertLevel(data)
+  }
   if (toe.invertLevel != null) return toe.invertLevel
   if (toe.invertStartLevel == null && toe.invertEndLevel == null) return null
   const startLevel = toe.invertStartLevel ?? toe.invertEndLevel!
@@ -4228,6 +4812,27 @@ export interface BundToeDrainPlatform {
   cutArea: number
 }
 
+/** Offsets of the standard berm–drain–berm arrangement outside the D/S toe. */
+export interface BundToeDrainLayout {
+  platformFrom: number
+  drainFrom: number
+  drainTo: number
+  platformTo: number
+}
+
+export function toeDrainLayoutAt(section: BundSection, data: BundData): BundToeDrainLayout | null {
+  const toe = downstreamDesignToePointAt(section, data)
+  if (!toe) return null
+  const berm = Math.max(0, data.downstreamToe.bermWidth || 0)
+  const width = toeDrainTopWidthAt(section, data)
+  return {
+    platformFrom: toe.offset,
+    drainFrom: round3(toe.offset + berm),
+    drainTo: round3(toe.offset + berm + width),
+    platformTo: round3(toe.offset + berm + width + berm)
+  }
+}
+
 /**
  * The formation platform for a toe element, on either face.
  *
@@ -4264,7 +4869,7 @@ export function toePlatformAt(
     { offset: toOffset, rl: level }
   ]
   const ground: BundPoint[] =
-    section.pre.length >= 2
+    (section.pre?.length ?? 0) >= 2
       ? section.pre
       : [
           { offset: fromOffset, rl: level },
@@ -4283,7 +4888,12 @@ export function toeDrainPlatformAt(
   section: BundSection,
   data: BundData
 ): BundToeDrainPlatform | null {
-  return toePlatformAt(section, data, 'ds', toeDrainTopWidthAt(section, data))
+  return toePlatformAt(
+    section,
+    data,
+    'ds',
+    toeDrainTopWidthAt(section, data) + 2 * Math.max(0, data.downstreamToe.bermWidth || 0)
+  )
 }
 
 /** Platform for the u/s pitching toe wall, formed to the proposed toe level. */
@@ -4430,10 +5040,11 @@ export function toeBuildMeasure(toe: BundToe): 'area' | 'volume' {
 
 /** Effective lining thickness for a CUM toe-drain protection item. */
 export function toeBuildThicknessM(toe: BundToe): number {
+  if (toe.buildMaterial?.code === BUND_DEFAULT_TOE_CC_CODE) return 0.1
+  if (toe.buildMaterial?.code === BUND_DEFAULT_TOE_BUILD_CODE) return 0.225
   return (
-    (toe.liningThickness > 0 ? toe.liningThickness : null) ??
     parseThicknessM(toe.buildMaterial?.description) ??
-    (toe.buildMaterial?.code === BUND_DEFAULT_TOE_CC_CODE ? 0.1 : 0.3)
+    (toe.liningThickness > 0 ? toe.liningThickness : 0.225)
   )
 }
 
@@ -4460,14 +5071,14 @@ export function toeBuildMeasurement(
 /**
  * Vertical construction depth below the rock-toe base.
  *
- * For CAW-5-11 this is the 1.00 m thickness of filter media below the toe; it
- * is not assumed to be 1.00 m of additional payable excavation. The payable
+ * For DAW-6-4 this is the 0.85 m thickness of filter media below the toe; it
+ * is not assumed to be 0.85 m of additional payable excavation. The payable
  * cut is derived below from the union of this bed and the already-prepared
  * bund surface at every section.
  */
 export function rockToeFoundationExcavationDepth(data: BundData): number {
   return data.rockToeFilterMaterial
-    ? BUND_ROCKTOE_FILTER_BELOW_M
+    ? rockToeFilterBelowThicknessM(data)
     : Math.max(0, data.rockToeExcavationDepth)
 }
 
@@ -4512,6 +5123,32 @@ function clipProfileBand(
     lowerFromRl: bandLevelAt(band, from, 'lower'),
     lowerToRl: bandLevelAt(band, to, 'lower')
   }
+}
+
+/** General bund excavation clipped to the embankment footprint only. */
+function bundFootprintExcavationBands(
+  leveling: BundLevelingGeometry,
+  data: BundData
+): BundProfileBand[] {
+  if (data.mode === 'new') {
+    const upper = profileWithin(
+      leveling.existing,
+      leveling.limits.usToeOffset,
+      leveling.limits.dsToeOffset
+    )
+    const depth = Math.max(0, data.design.stripDepth || 0)
+    const lower = upper.map((point) => ({ ...point, rl: point.rl - depth }))
+    return positiveProfileBands(upper, lower)
+  }
+  return leveling.stripping
+    .map((band) =>
+      clipProfileBand(
+        band,
+        leveling.limits.usToeOffset,
+        leveling.limits.dsToeOffset
+      )
+    )
+    .filter((band): band is BundProfileBand => band != null)
 }
 
 /**
@@ -4582,14 +5219,15 @@ export function rockToeExcavationAt(
 
   const toOffset = dsToe.offset
   const baseFromOffset = toOffset - rockToeBaseWidthAt(section, data)
-  // The 0.50 m filter behind the inner face projects slightly upstream of the
+  // The selected filter behind the inner face projects upstream of the
   // rubble base at its heel. Only that cap can add excavation outside the
   // below-filter footprint; the rest lies above the base and is already inside
   // the deeper foundation cut.
   const innerSlope = Math.max(0, data.rockToeInnerSlope || 0)
+  const behindThickness = rockToeFilterBehindThicknessM(data)
   const behindHorizontal =
     data.rockToeFilterMaterial
-      ? BUND_ROCKTOE_FILTER_BEHIND_M / Math.hypot(1, innerSlope)
+      ? behindThickness / Math.hypot(1, innerSlope)
       : 0
   const fromOffset = baseFromOffset - behindHorizontal
   const bottomRl = dsToe.rl - constructionDepth
@@ -4619,7 +5257,7 @@ export function rockToeExcavationAt(
   let behindUnionArea = profileBandsArea(clippedGeneralBehind)
   if (behindHorizontal > 1e-9) {
     const behindRise =
-      (BUND_ROCKTOE_FILTER_BEHIND_M * innerSlope) /
+      (behindThickness * innerSlope) /
       Math.hypot(1, innerSlope)
     const behindFloor = [
       { offset: fromOffset, rl: dsToe.rl + behindRise },
@@ -4674,10 +5312,11 @@ export function bundNetStrippingBands(
 ): BundProfileBand[] {
   const leveling = bundLevelingGeometry(data, section)
   if (!leveling) return []
+  const footprint = bundFootprintExcavationBands(leveling, data)
   const rockToe = rockToeExcavationAt(section, data)
   return rockToe
-    ? excludeSpanFromBands(leveling.stripping, rockToe.fromOffset, rockToe.toOffset)
-    : leveling.stripping
+    ? excludeSpanFromBands(footprint, rockToe.fromOffset, rockToe.toOffset)
+    : footprint
 }
 
 /** Foundation-excavation union under the rock toe, integrated by MSA. */
@@ -4771,13 +5410,14 @@ export function copySectionGeometry(target: BundSection, source: BundSection): B
     projectedOverrides: source.projectedOverrides?.map((p) => ({ ...p })),
     upstreamGroundLevel: source.upstreamGroundLevel ?? null,
     downstreamGroundLevel: source.downstreamGroundLevel ?? null,
+    separateToeLevels: source.separateToeLevels,
     designPointOffsets: source.designPointOffsets ? [...source.designPointOffsets] : undefined,
     hiddenLevelOffsets: source.hiddenLevelOffsets ? [...source.hiddenLevelOffsets] : undefined
   }
 }
 
 function round3(n: number): number {
-  return Math.round(n * 1000) / 1000
+  return Number.isFinite(n) ? Math.round(n * 1000) / 1000 : 0
 }
 
 // ---------------------------------------------------------------------------
@@ -4786,20 +5426,38 @@ function round3(n: number): number {
 // the item code, so totals, seigniorage, and prints work unchanged.
 // ---------------------------------------------------------------------------
 
+export const BUND_EXCAVATION_ROLES: readonly BundExcavationRole[] = [
+  'stripping',
+  'ustoe-exc',
+  'dstoe-exc',
+  'rocktoe-exc',
+  'chute-exc',
+  'berm-drain-exc',
+  'hearting-trench-exc'
+]
+
+export function isBundExcavationRole(role: string): role is BundExcavationRole {
+  return (BUND_EXCAVATION_ROLES as readonly string[]).includes(role)
+}
+
+/** Print label for a berm contribution: `u/s Berm (RL 97)`. */
+export function bermSourceLabel(berm: BundBerm): string {
+  const side = berm.side === 'us' ? 'u/s Berm' : 'd/s Berm'
+  return `${side} (RL ${round3(berm.level)})`
+}
+
 export interface BundRequiredItem {
   role: BundItemRole
   ref: TemplateMaterialRef
   quantity: number
   /** Measurement basis used to generate the estimate item. */
   measure: 'area' | 'volume'
+  /** Named source when several works share one payable code. */
+  sourceLabel?: string
 }
 
-/**
- * The items this bund should generate. Rolling repeats the formation volume —
- * it is the same earth billed as a second operation, which is exactly why the
- * split only exists for codes that leave compaction out of the formation item.
- */
-export function requiredItems(data: BundData): BundRequiredItem[] {
+/** Unmerged measured works, including one row per berm when those share a code. */
+export function requiredItemSources(data: BundData): BundRequiredItem[] {
   const out: BundRequiredItem[] = []
   const pushExcavation = (
     role: BundExcavationRole,
@@ -4810,7 +5468,11 @@ export function requiredItems(data: BundData): BundRequiredItem[] {
     const configuredBands =
       role === 'stripping' && data.soilBands?.length
         ? data.soilBands
-        : centralBands ?? []
+        : centralBands && centralBands.length > 0
+        ? centralBands
+        : ['stripping', 'dstoe-exc', 'chute-exc', 'berm-drain-exc'].includes(role)
+        ? defaultBundExcavationRows(legacyRef, 'channel')
+        : []
     const bands = configuredBands.filter(
       (band) => band.pct > 0 && band.material.code
     )
@@ -4903,7 +5565,7 @@ export function requiredItems(data: BundData): BundRequiredItem[] {
     }
   }
 
-  // Optional surface / protection items. Turfing and pitching are slope areas;
+  // Optional surface/protection items. Turfing and revetment are slope areas;
   // the rock toe is a fixed rubble section along the downstream toe.
   if (data.turfingMaterial) {
     out.push({
@@ -4924,7 +5586,12 @@ export function requiredItems(data: BundData): BundRequiredItem[] {
       quantity: pitching.quantity,
       measure: pitching.measure
     })
-    if (data.pitchingBeddingMaterial) {
+    if (
+      data.pitchingBeddingMaterial &&
+      !(BUND_DAW_REVETMENT_CODES as readonly string[]).includes(
+        data.pitchingMaterial.code
+      )
+    ) {
       out.push({
         role: 'pitching-bedding',
         ref: data.pitchingBeddingMaterial,
@@ -4933,8 +5600,8 @@ export function requiredItems(data: BundData): BundRequiredItem[] {
       })
     }
   }
-  // U/S anchorage is controlled by pitching, but its excavation and built
-  // volume are deliberately separate from the slope-pitching payment.
+  // U/S anchorage is controlled by revetment, but its excavation and built
+  // volume are deliberately separate from the slope-revetment payment.
   if (upstreamToeTrenchEnabled(data)) {
     const toeVolume = rowsTotal(toeExcavationRows(data, data.upstreamToe))
     pushExcavation(
@@ -4999,23 +5666,25 @@ export function requiredItems(data: BundData): BundRequiredItem[] {
         role: 'berm-surface',
         ref: berm.surfaceMaterial,
         quantity: surfacing.quantity,
-        measure: surfacing.measure
+        measure: surfacing.measure,
+        sourceLabel: bermSourceLabel(berm)
       })
     }
+    if (berm.drainExcavationMaterial) {
+      pushExcavation(
+        'berm-drain-exc',
+        rowsTotal(bermDrainExcavationRows(data, berm)),
+        berm.drainExcavationMaterial
+      )
+    }
     if (berm.drainLiningMaterial) {
-      if (berm.drainExcavationMaterial) {
-        pushExcavation(
-          'berm-drain-exc',
-          rowsTotal(bermDrainExcavationRows(data, berm)),
-          berm.drainExcavationMaterial
-        )
-      }
       const protection = bermDrainProtectionMeasurement(data, berm)
       out.push({
         role: 'berm-drain-lining',
         ref: berm.drainLiningMaterial,
         quantity: protection.quantity,
-        measure: protection.measure
+        measure: protection.measure,
+        sourceLabel: bermSourceLabel(berm)
       })
     }
   }
@@ -5058,23 +5727,36 @@ export function requiredItems(data: BundData): BundRequiredItem[] {
       role: 'hfilter',
       ref: data.horizontalFilterMaterial,
       quantity: rowsTotal(horizontalFilterRows(data)),
-      measure: 'volume'
+      measure: horizontalFilterMeasure(data)
     })
     if (data.verticalFilterMaterial) {
       out.push({
         role: 'vfilter',
         ref: data.verticalFilterMaterial,
         quantity: rowsTotal(verticalFilterRows(data)),
-        measure: 'volume'
+        measure: verticalFilterMeasure(data)
       })
     }
   }
 
-  // One SSR code billed at one rate is one line, however many places on the
-  // bund it came from: the four excavations that all run on CAW-1-1 must not
-  // reach the abstract as four identical rows. Merging is by code and DATA
-  // variant, not by role — except for the zoned roles, where casing and
-  // hearting are deliberately kept apart even when they share a code.
+  return out.filter((candidate) => candidate.quantity > 0)
+}
+
+/**
+ * The items this bund should generate. Rolling repeats the formation volume —
+ * it is the same earth billed as a second operation, which is exactly why the
+ * split only exists for codes that leave compaction out of the formation item.
+ * One SSR code billed at one rate is one line, however many places on the
+ * bund it came from: the four excavations that all run on CAW-1-1 must not
+ * reach the abstract as four identical rows. Merging is by code and DATA
+ * variant, not by role — except for the zoned roles, where casing and
+ * hearting are deliberately kept apart even when they share a code.
+ */
+export function requiredItems(data: BundData): BundRequiredItem[] {
+  return combineRequiredItems(requiredItemSources(data))
+}
+
+export function requiredItemGroupKey(item: BundRequiredItem): string {
   const separatelyNamed = new Set<BundItemRole>([
     'casing',
     'casing-rolling',
@@ -5082,14 +5764,18 @@ export function requiredItems(data: BundData): BundRequiredItem[] {
     'hearting-rolling',
     'hearting-trench'
   ])
+  const variant = item.ref.dataVariant
+    ? `${item.ref.dataVariant.key}:${item.ref.dataVariant.addonId ?? ''}`
+    : ''
+  return separatelyNamed.has(item.role)
+    ? `${item.role}::${item.ref.code}::${variant}`
+    : `${item.ref.code}::${variant}::${item.measure}`
+}
+
+function combineRequiredItems(items: BundRequiredItem[]): BundRequiredItem[] {
   const combined = new Map<string, BundRequiredItem>()
-  for (const item of out.filter((candidate) => candidate.quantity > 0)) {
-    const variant = item.ref.dataVariant
-      ? `${item.ref.dataVariant.key}:${item.ref.dataVariant.addonId ?? ''}`
-      : ''
-    const key = separatelyNamed.has(item.role)
-      ? `${item.role}::${item.ref.code}::${variant}`
-      : `${item.ref.code}::${variant}::${item.measure}`
+  for (const item of items) {
+    const key = requiredItemGroupKey(item)
     const existing = combined.get(key)
     combined.set(
       key,
@@ -5185,7 +5871,9 @@ export function mapBundMaterialRefs(
         ...berm,
         surfaceMaterial: opt(berm.surfaceMaterial),
         drainLiningMaterial: opt(berm.drainLiningMaterial),
-        drainExcavationMaterial: opt(berm.drainExcavationMaterial)
+        drainExcavationMaterial: opt(berm.drainExcavationMaterial),
+        chuteDrainLiningMaterial: opt(berm.chuteDrainLiningMaterial),
+        chuteDrainExcavationMaterial: opt(berm.chuteDrainExcavationMaterial)
       }))
     }
   }
@@ -5334,7 +6022,7 @@ export function roleLabel(role: BundItemRole): string {
   if (role === 'hearting-trench') return 'Hearting cut-off trench - impervious filling'
   if (role === 'hearting-trench-exc') return 'Hearting cut-off trench - foundation excavation'
   if (role === 'turfing') return 'Turfing (d/s slope)'
-  if (role === 'pitching') return 'Stone pitching (u/s slope)'
+  if (role === 'pitching') return 'Revetment (u/s slope)'
   if (role === 'pitching-bedding') return 'Designed sand filter below u/s revetment'
   if (role === 'pitching-metal') return 'Legacy upstream graded-metal item'
   if (role === 'rocktoe') return 'Rock toe (d/s)'

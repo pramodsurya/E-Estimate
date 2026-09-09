@@ -1,12 +1,7 @@
 # Build the Windows installer and publish it as a GitHub Release.
 #
-# Every release here is delivered to users by electron-updater, so this is not
-# an internal artefact — it ships. Two consequences shape the workflow:
-#
-#   - it waits for CI, and will not build from a commit that failed;
-#   - it does not fire on every push. A release is asked for, by tagging or by
-#     running it by hand, so that "I committed a fix" and "everyone gets it"
-#     stay separate decisions.
+# Tauri NSIS builds must run on Windows. Auto-update via tauri-plugin-updater
+# is not wired yet — this workflow ships the installer only.
 #
 # To ship:  git tag v0.1.9 && git push origin v0.1.9
 # Or run this workflow with a bump of patch/minor/major and it will tag for you.
@@ -27,7 +22,6 @@ permissions:
   contents: write
 
 concurrency:
-  # Two releases racing would fight over the tag and the release assets.
   group: release
   cancel-in-progress: false
 
@@ -47,14 +41,11 @@ jobs:
 
   release:
     needs: check
-    # electron-builder cannot cross-build an NSIS installer; this must be Windows.
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
-          # The version bump is committed back, so the checkout needs a token
-          # that can push and the full history to push onto.
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -63,10 +54,10 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - uses: dtolnay/rust-toolchain@stable
+
       - run: npm ci
 
-      # Dispatched from master: bump, commit and tag here. Triggered by a tag:
-      # the version in package.json is already the one being released.
       - name: Bump version and tag
         if: github.event_name == 'workflow_dispatch'
         shell: bash
@@ -74,17 +65,25 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           npm version ${{ github.event.inputs.bump }} -m 'chore: release v%s'
-          git push --follow-tags origin HEAD:master
+          new="$(node -p "require('./package.json').version")"
+          node -e '
+            const fs = require("fs");
+            const v = process.argv[1];
+            const conf = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json"));
+            conf.version = v;
+            fs.writeFileSync("src-tauri/tauri.conf.json", JSON.stringify(conf, null, 2) + "\n");
+            const cargo = fs.readFileSync("src-tauri/Cargo.toml", "utf8")
+              .replace(/^version = ".*"$/m, `version = "${v}"`);
+            fs.writeFileSync("src-tauri/Cargo.toml", cargo);
+          ' "$new"
+          git add src-tauri/tauri.conf.json src-tauri/Cargo.toml
+          git commit --amend --no-edit
+          # The updater compares against the version baked into the binary
+          # (tauri.conf.json), so the tag must point at the commit carrying it.
+          git tag -f "v$new"
+          git push origin HEAD:master
+          git push --force origin "v$new"
 
-      # electron-builder uploads the installer, its blockmap and latest.yml in
-      # parallel, and each uploader creates the release if it cannot find one.
-      # Both look before either has created it, so they both create: as drafts
-      # that yields two releases sharing a tag, and once one is tagged the other
-      # gets "422 already_exists" and the build dies before latest.yml is
-      # uploaded. That is how v0.1.10 published a blockmap and nothing else, and
-      # became the "latest" release every installed copy asks for.
-      #
-      # Creating it here first means the publisher only ever finds one.
       - name: Create the release before publishing into it
         shell: bash
         env:
@@ -97,30 +96,48 @@ jobs:
             gh release create "$version" --title "${version#v}" --generate-notes
           fi
 
-      - name: Build and publish the installer
-        env:
-          # Uploads the installer, its blockmap and latest.yml — which is what
-          # electron-updater reads — into the release created above.
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run publish:win
+      - name: Install analysis-engine Python deps
+        shell: bash
+        run: pip install -r analysis/requirements-packaging.txt
 
-      - name: Confirm the update manifest was published
+      - name: Build analysis engine and Tauri bundle
+        run: npm run publish:win
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - name: Upload NSIS installer, signature and updater manifest
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Without latest.yml no installed copy will ever see the update, and
-          # the release would look fine while reaching nobody.
-          test -f release/latest.yml || { echo 'latest.yml was not produced'; exit 1; }
-          cat release/latest.yml
-
-          # Built is not published. Check the assets actually landed on the
-          # release, and that exactly one release carries this tag - a second one
-          # can win "latest" and answer every updater with no installer at all.
-          version="v$(node -p "require('./package.json').version")"
-          assets=$(gh release view "$version" --json assets --jq '.assets[].name')
-          echo "$assets"
-          echo "$assets" | grep -q '^latest\.yml$' || { echo 'latest.yml never reached the release'; exit 1; }
-          echo "$assets" | grep -q '\.exe$' || { echo 'the installer never reached the release'; exit 1; }
-          count=$(gh api "repos/${GITHUB_REPOSITORY}/releases" --jq "[.[]|select(.tag_name==\"$version\")]|length")
-          test "$count" = "1" || { echo "expected one release for $version, found $count"; exit 1; }
+          version="$(node -p "require('./package.json').version")"
+          tag="v$version"
+          installer=$(find src-tauri/target/release/bundle/nsis -name '*-setup.exe' -type f | head -n 1)
+          if [ -z "$installer" ]; then
+            echo 'NSIS installer was not produced'
+            exit 1
+          fi
+          sig="${installer}.sig"
+          if [ ! -f "$sig" ]; then
+            echo 'Update signature was not produced (set createUpdaterArtifacts and TAURI_SIGNING_PRIVATE_KEY)'
+            exit 1
+          fi
+          installer_name="$(basename "$installer")"
+          sig_content="$(cat "$sig")"
+          asset_url="https://github.com/pramodsurya/E-Estimate/releases/download/${tag}/${installer_name}"
+          pub_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          node -e '
+            const fs = require("fs");
+            const [v, pub, sig, url] = process.argv.slice(1);
+            const payload = {
+              version: v,
+              notes: "",
+              pub_date: pub,
+              platforms: { "windows-x86_64": { signature: sig, url } }
+            };
+            fs.writeFileSync("latest.json", JSON.stringify(payload, null, 2));
+          ' "$version" "$pub_date" "$sig_content" "$asset_url"
+          echo "Uploading $installer_name, its signature and latest.json"
+          gh release upload "$tag" "$installer" "$sig" latest.json --clobber
+          gh release view "$tag" --json assets --jq '.assets[].name' | grep -q '\.exe$'

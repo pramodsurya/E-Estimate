@@ -325,6 +325,7 @@ export interface SeigniorageItemRow {
   quantityRatio?: number | null
   conversionFactor?: number | null
   conversionRequired?: boolean
+  slabThicknessMm?: number | null
   status?: string | null
   policyNotes?: string | null
   charge: SeigniorageCharge | null
@@ -712,6 +713,7 @@ export function computeSeigniorageTable(
   for (const itemContext of items) {
     const { item, itemCode, quantity: qty } = itemContext
     const itemKey = projectItemKey(item)
+    const override = storedOverrides[itemKey]
     const savedRecipe = rateAnalysisOverrideForNode(project, item)
     const compiledRecipe = project.dashboardSnapshot?.recipes?.[item.id]
     const recipe = savedRecipe ?? compiledRecipe
@@ -740,7 +742,25 @@ export function computeSeigniorageTable(
     const policies = [...basePolicies, ...addonPolicies]
     if (policies?.length) {
       for (const configuredPolicy of policies) {
-        const adjustedPolicy = addonPolicyFromData(addonDataRecipe, configuredPolicy)
+        let adjustedPolicy = addonPolicyFromData(addonDataRecipe, configuredPolicy)
+        const slabThicknessMm =
+          itemCode === 'IRR-CAW-7-27' &&
+          override?.slabThicknessMm != null &&
+          override.slabThicknessMm >= 25 &&
+          override.slabThicknessMm <= 40
+            ? override.slabThicknessMm
+            : null
+        if (slabThicknessMm != null) {
+          adjustedPolicy = {
+            ...adjustedPolicy,
+            status: 'REVIEWED',
+            charge_unit: 'CUM',
+            quantity_unit: 'CUM',
+            conversion_factor: slabThicknessMm / 1000,
+            conversion_required: false,
+            notes: `Adopted slab thickness: ${slabThicknessMm} mm. Quantity = item area x 1.05 x thickness.`
+          }
+        }
         const policyDescription =
           adjustedPolicy.material_desc ||
           adjustedPolicy.recipe_material_desc ||
@@ -795,6 +815,7 @@ export function computeSeigniorageTable(
           conversionRequired: Boolean(
             policy.conversion_required && policy.conversion_factor == null
           ),
+          slabThicknessMm,
           status: policy.status,
           policyNotes: policy.notes,
           charge,
@@ -829,12 +850,11 @@ export function computeSeigniorageTable(
     }
 
     // 2. Project-level override.
-    const override = storedOverrides[itemKey]
     if (override) {
       if (override.seigCode === null) {
         charge = null
         autoMatched = false
-      } else {
+      } else if (override.seigCode !== undefined) {
         const effectiveCode = canonicalSeigniorageCode(
           override.seigCode,
           naturalSandRecipeDescription

@@ -3,7 +3,7 @@
 > Discussion record: moving from Electron to a Tauri + Rust architecture with a
 > future hosted-web path, including the Print/PDF pipeline replacement.
 >
-> Status: **Research complete. Tools installed. Migration not started.**
+> Status: **Phase 0 complete — Tauri 2 is the only desktop shell (Electron removed).**
 
 ---
 
@@ -73,19 +73,19 @@ Key decisions:
 ## 3. Codebase audit summary
 
 - **Size:** ~186 TS source files, ~73,600 lines.
-  - `src/main` (Electron main): 6 files / ~490 lines
-  - `src/preload`: ~145 lines
+  - `src-tauri` (Tauri shell): Rust commands for I/O, bund sidecar, Typst, export
   - `src/renderer`: ~73,000 lines (React SPA + all business logic)
-- **Electron surface is tiny (~650 lines):** ~25 IPC channels (window controls,
-  project file I/O `.eestimate`, recents, export pdf/workbook, print-to-pdf,
-  updater). Renderer never imports Electron — it talks only through `window.api`.
+- **Desktop bridge:** ~25 invoke channels (window controls, project file I/O
+  `.eestimate`, recents, export pdf/workbook, Typst compile, updater stub).
+  Renderer never imports the shell — it talks only through `window.api`
+  (`platformApi.ts` / `tauriApi.ts`).
 - **No native Node modules** (no better-sqlite3, no node-gyp) — major plus for Tauri.
 - **Business logic is pure TS** in `src/renderer/src/lib` (~24,700 lines):
   bund.ts (5,031), rateAnalysis.ts (~2,900), seigniorage.ts (845),
   lead.ts + leadApplicability.ts (~1,500), dataVariants.ts (1,501), etc.
 - **Data layer:** Supabase (Postgres) via supabase-js in the webview; no local SQL.
   Nine lib modules call Supabase inline (no repository seam yet — optional hygiene).
-- **Frontend:** React 18 + Vite (electron-vite), zustand store
+- **Frontend:** React 18 + Vite (`vite.config.ts`), zustand store
   (`useStore.ts` is a 1,929-line god-store), Univer editors, chart.js,
   leaflet/react-leaflet maps with OSRM routing, onnxruntime-web semantic search worker.
 - **Tests:** 36 hand-rolled headless suites (`scripts/test-*.cjs`) run by
@@ -93,10 +93,10 @@ Key decisions:
 
 ### Risk ranking
 
-1. **Print/PDF pipeline (~8,300 lines)** — assumes Chromium `printToPDF`;
+1. **Print/PDF pipeline (~8,300 lines)** — legacy Chromium `printToPDF` removed;
    WebView2 has no equivalent. → Solved by Typst (§4).
-2. Auto-updater parity (`electron-updater` → `tauri-plugin-updater`,
-   new artifact signing/format).
+2. Auto-updater parity (`tauri-plugin-updater` — currently stubbed in
+   `src-tauri/src/update.rs`).
 3. God-store `useStore.ts` touches the bridge centrally → build an adapter shim
    (`window.api` backed by Tauri `invoke`) instead of editing call sites.
 4. Window chrome (frameless custom title bar) and DevTools/shell.openExternal
@@ -111,14 +111,18 @@ Key decisions:
 
 ### Current system (two mechanisms)
 
-1. **HTML → Chromium `printToPDF`** (`src/main/print.ts`): renderer builds full
-   printable HTML per domain module; hidden sandboxed window rasterizes it
-   (20 s load / 90 s print timeouts, header/footer templates, A2–A4/Letter/Legal).
+1. **Typst compile** (`src-tauri/src/typst_compile.rs` / `typst_compile` command):
+   renderer builds `.typ` per domain module; native Typst engine compiles to PDF.
+   The first debug build that pulls Typst/krilla is often **30–90 minutes**; later
+   `tauri dev` incremental builds should be seconds to a few minutes unless Rust
+   dependencies change. Typst stays in the Tauri debug binary because the app
+   compiles PDFs through this command (the Node Typst compiler is tests only).
 2. **pdf-lib assembly**: merging pages, signature blocks, closing block,
    Telangana emblem (`lib/emblem.ts`).
 3. Special cases: Univer sheets have no print engine → `printRender.ts`
-   reconstructs HTML tables from worksheet snapshots; `liveRender.tsx` mounts
-   components off-screen and waits for Leaflet tiles to settle before printing.
+   reconstructs layout constants from worksheet snapshots; lead route maps use
+   html-to-image capture off-screen (`LeadCombinedPrintPreview`) then Typst
+   (`leadMapTypst.ts`).
 
 ### Replacement: **Typst** (chosen)
 
@@ -140,7 +144,7 @@ DocumentModel (JSON from business logic)
 | Current pipeline | With Typst |
 |---|---|
 | ~8,300 lines of string-built HTML tuned to Chromium | One `.typ` template per document type |
-| Requires hidden BrowserWindow (Electron-only) | Runs natively in Rust **and** as WASM |
+| Requires hidden BrowserWindow (legacy Electron printToPDF) | Runs natively in Rust **and** as WASM |
 | Output varies by Chromium version/platform | Deterministic, byte-identical everywhere |
 | pdf-lib post-processing for signatures/emblem/merging | Headers, footers, page numbers, tables, images, page sizes are first-class language features |
 | Univer DOM reconstruction for sheets | Feed sheet *data* straight into a table template |
@@ -185,8 +189,8 @@ Image bytes → DocumentModel → Typst places & frames it
 
 - Existing map settings control **image generation** (UI code survives).
 - Document-side presentation (title, frame, legend, caption, sizing) moves to Typst.
-- Replaces flaky "wait until Leaflet stops adding tiles" polling
-  (`liveRender.tsx`) with one deliberate capture step.
+- Replaces flaky "wait until Leaflet stops adding tiles" polling with one
+  deliberate capture step (`compileLeadMapPdfFromPage` in `leadMapTypst.ts`).
 
 ## 6. Front page ("Word"-style)
 
@@ -233,12 +237,44 @@ Image placement:
 
 ---
 
-## 9. Next steps (not started)
+## 9. Phase 0 status (Tauri-only desktop shell)
 
-- [ ] Scaffold `src-tauri/` + `estimate-core` workspace skeleton
-- [ ] Build `window.api` adapter shim backed by Tauri `invoke()`
-- [ ] POC: reproduce one abstract page + one lead-map page as Typst templates;
-      compare side-by-side with current Chromium output (incl. user-placed
-      image test and Telugu font check)
-- [ ] Port IPC channels to Tauri commands/plugins (dialog, fs, updater, shell)
-- [ ] Replace electron-vite config with plain Vite + Tauri
+**Last updated:** 2026-09-08
+
+| Area | Status |
+|---|---|
+| Tauri 2 + WebView2 shell | ✅ Production shell (`src-tauri/`, `npm run dev`) |
+| Renderer | ✅ React/Vite; `window.api` via `platformApi.ts` + `tauriApi.ts` |
+| Electron | ❌ Removed — no electron-vite, electron-builder, or preload bridge |
+| Window chrome | ✅ minimize / maximize / close / isMaximized + event |
+| Project I/O (`.eestimate`) | ✅ dialog + fs |
+| Recent projects | ✅ app data dir JSON store |
+| Bund simulation sidecar | ✅ spawns `analysis/bund_analysis.py` (dev) or bundled `bund-analysis.exe` (release) |
+| Typst compile | ✅ native Rust (`typst` + `typst-world` + `typst-pdf`) |
+| Export PDF/xlsx + reveal | ✅ dialog + fs + opener |
+| Remote image embed | ✅ reqwest |
+| Lead map export | ✅ Typst + html-to-image capture (no `printToPDF`) |
+| Auto-update | ⚠️ **Stub** — commands return idle/stub payloads; wire `tauri-plugin-updater` later |
+| `estimate-core` Rust crate | ✅ Skeleton only (no business logic ported) |
+
+### Run
+
+```bash
+npm install
+npm run dev                 # Tauri + Vite. Open http://localhost:5173 while Rust compiles.
+npm run dev:ui              # Vite only (browser UI; no Typst/file IPC)
+npm run build               # Windows NSIS (requires icons + analysis engine built)
+```
+
+Rust artifacts go to `%LOCALAPPDATA%\e-estimate\cargo-target` (not OneDrive `src-tauri/target`). A full Typst debug compile is 30–90 min once; later `npm run dev` should be incremental. Do not `cargo clean`.
+
+Bund sidecar for production: `npm run build:analysis-engine` before `npm run build` (bundled via `tauri.conf.json` resources).
+
+---
+
+## 10. Next steps (post Phase 0)
+
+- [ ] Wire `tauri-plugin-updater` + signing
+- [x] Lead map: deliberate capture → Typst (see §5)
+- [ ] POC: reproduce one abstract page + one lead-map page as Typst templates
+- [ ] Move shared validation/calc into `estimate-core` incrementally (optional)

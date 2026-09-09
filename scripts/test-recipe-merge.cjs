@@ -359,7 +359,10 @@ const recipe = (sections, over = {}) => ({
     zone: 'zone_3',
     publishedRate: 130,
     layout: { unitLabel: 'new' },
-    sourceFigures: ['new.png']
+    sourceFigures: ['new.png'],
+    storedValues: { sectionTotals: { materials: '390' }, labourExtract: [], abstract: [] },
+    sectionRules: [{ kind: 'factor', groupId: 'materials', factor: 1, label: 'new rule' }],
+    publishedLabourComponent: 30
   })
   const saved = recipe([section([line({ rate: 100 })])], {
     year: '2025-26',
@@ -367,6 +370,9 @@ const recipe = (sections, over = {}) => ({
     publishedRate: 100,
     layout: { unitLabel: 'old' },
     sourceFigures: ['old.png'],
+    storedValues: { sectionTotals: { materials: '200' }, labourExtract: [], abstract: [] },
+    sectionRules: [{ kind: 'factor', groupId: 'materials', factor: 2, label: 'old rule' }],
+    publishedLabourComponent: 20,
     outputQuantity: 7
   })
   const merged = mergeSavedRecipe(source, saved)
@@ -375,6 +381,9 @@ const recipe = (sections, over = {}) => ({
   assert.equal(merged.publishedRate, 130, 'a SOR published rate must revalue')
   assert.deepEqual(merged.layout, { unitLabel: 'new' })
   assert.deepEqual(merged.sourceFigures, ['new.png'])
+  assert.deepEqual(merged.storedValues, source.storedValues, 'published audit totals must revalue')
+  assert.deepEqual(merged.sectionRules, source.sectionRules, 'published total rules must revalue')
+  assert.equal(merged.publishedLabourComponent, 30, 'published labour must revalue')
   assert.equal(merged.outputQuantity, 7, 'estimator-owned recipe values still carry across')
 }
 

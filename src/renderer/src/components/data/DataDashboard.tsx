@@ -4,8 +4,6 @@ import {
   BookOpen,
   Database,
   FilePenLine,
-  Eye,
-  LayoutDashboard,
   Plus,
   Printer,
   RefreshCw,
@@ -18,12 +16,12 @@ import {
 } from '../../lib/dashboardSync'
 import { collectDataSheets } from '../../lib/dataSheets'
 import { buildDataSheetsPrintPdf } from '../../lib/dataSheetPrint'
-import { PRINT_REBUILD_DELAY_MS } from '../../lib/componentPrint'
 import type { MasterItem } from '../../lib/masterData'
 import { resolveProjectPrintSettings } from '../../lib/projectPrintSettings'
 import { projectDataRate } from '../../lib/projectData'
 import { calculateRateAnalysis, fetchRateAnalysis } from '../../lib/rateAnalysis'
 import { supabase } from '../../lib/supabase'
+import { resolveTemplateDashboardMaterials } from '../../lib/templateDashboardSync'
 import { useStore } from '../../store/useStore'
 import type {
   CompiledDataDashboardEntry,
@@ -50,6 +48,7 @@ const money = new Intl.NumberFormat('en-IN', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2
 })
+const PRINT_REBUILD_DELAY_MS = 300
 
 function entryDisplayName(entry: CompiledDataDashboardEntry): string {
   return entry.source === 'SOR' || entry.source === 'PROJECT_DATA'
@@ -60,13 +59,15 @@ function entryDisplayName(entry: CompiledDataDashboardEntry): string {
 export default function DataDashboard(): JSX.Element | null {
   const project = useStore((state) => state.project)
   const setDashboardSnapshot = useStore((state) => state.setDashboardSnapshot)
+  const setGuideWallMaterial = useStore((state) => state.setGuideWallMaterial)
+  const resolveBundMaterials = useStore((state) => state.resolveBundMaterials)
+  const resolveMiSluiceNewMaterials = useStore((state) => state.resolveMiSluiceNewMaterials)
   const openRateAnalysis = useStore((state) => state.openRateAnalysis)
   const dataDashboardSection = useStore((state) => state.dataDashboardSection)
   const setDataDashboardSection = useStore((state) => state.setDataDashboardSection)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('')
-  const [printView, setPrintView] = useState(false)
   const [printPreview, setPrintPreview] = useState(false)
   const [printPdfUrl, setPrintPdfUrl] = useState<string | null>(null)
   const [createDataOpen, setCreateDataOpen] = useState(false)
@@ -116,8 +117,18 @@ export default function DataDashboard(): JSX.Element | null {
     setSyncing(true)
     setError('')
     try {
-      const next = await syncDataDashboardSnapshot(project)
-      if (useStore.getState().project?.id === project.id) setDashboardSnapshot(next)
+      await resolveTemplateDashboardMaterials(project.root, {
+        setGuideWallMaterial,
+        resolveBundMaterials,
+        resolveMiSluiceNewMaterials
+      })
+      // Template resolution mutates generated items (for example, replacing a
+      // zoned bund's casing/hearting DATA with its homogeneous DATA). Always
+      // compile the latest tree, not the project captured before resolution.
+      const current = useStore.getState().project
+      if (!current || current.id !== project.id) return
+      const next = await syncDataDashboardSnapshot(current)
+      if (useStore.getState().project?.id === current.id) setDashboardSnapshot(next)
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : 'Unable to sync the DATA Dashboard.')
     } finally {
@@ -138,8 +149,6 @@ export default function DataDashboard(): JSX.Element | null {
     <div
       className={`dashboard aggregate-dashboard data-total-dashboard ${
         dataDashboardSection === 'catalogue' ? 'data-catalogue-dashboard' : ''
-      } ${
-        printView ? 'dashboard-print-view' : ''
       }`}
     >
       <div className="dash-header">
@@ -195,21 +204,10 @@ export default function DataDashboard(): JSX.Element | null {
               <button
                 className="btn ghost"
                 onClick={() => {
-                  setPrintView(false)
                   setPrintPreview(true)
                 }}
               >
-                <Printer size={15} /> Print Preview
-              </button>
-              <button
-                className="btn ghost"
-                onClick={() => {
-                  setPrintPreview(false)
-                  setPrintView((value) => !value)
-                }}
-              >
-                {printView ? <LayoutDashboard size={15} /> : <Eye size={15} />}
-                {printView ? 'Dashboard View' : 'View Print View'}
+                <Printer size={15} /> Typst Preview
               </button>
             </>
           )}
@@ -227,108 +225,94 @@ export default function DataDashboard(): JSX.Element | null {
                 : 'Click Sync to compile all DATA items, descriptions, scoped edits, and rates.'}
             </div>
           )}
-          {printView ? (
-            report
-          ) : (
-            <>
-        <SignatureFooterCard scopeKey={DATA_SIGNATURE_SCOPE} />
-        <section className="aggregate-panel">
-          <label className="aggregate-search">
-            <Search size={14} />
-            <input
-              value={filter}
-              onChange={(event) => setFilter(event.target.value)}
-              placeholder="Filter code, description, edit scope, or component…"
-            />
-          </label>
-          <div className="aggregate-table data-aggregate-table">
-            <div className="aggregate-table-head">
-              <span>DATA item</span>
-              <span>Description</span>
-              <span>Applied at</span>
-              <span>Rate</span>
-              <span></span>
-            </div>
-            {visibleEntries.length === 0 ? (
-              <div className="aggregate-empty">No compiled DATA rows found.</div>
-            ) : (
-              visibleEntries.map((entry) => (
-                <div className="aggregate-table-row" key={entry.key}>
-                  <span className="aggregate-primary">
-                    <strong>{entryDisplayName(entry)}</strong>
-                    <small className={`data-scope-badge ${entry.scope}`}>
-                      {scopeLabel(entry.scope, entry.scopeName)}
-                    </small>
-                  </span>
-                  <span>{entry.description}</span>
-                  <span className="aggregate-usage-list">
-                    {entry.usages.map((usage) => (
-                      <small key={usage.nodeId}>{usage.path}</small>
-                    ))}
-                  </span>
-                  <span className="aggregate-rate">
-                    {entry.rate === null
-                      ? 'Rate unavailable'
-                      : `₹ ${money.format(entry.rate)}${entry.unit ? ` / ${entry.unit}` : ''}`}
-                    {entry.leadRate > 0 && (
-                      <small>
-                        Base ₹ {money.format(entry.baseRate ?? 0)} + Lead ₹{' '}
-                        {money.format(entry.leadRate)}
+          <SignatureFooterCard scopeKey={DATA_SIGNATURE_SCOPE} />
+          <section className="aggregate-panel">
+            <label className="aggregate-search">
+              <Search size={14} />
+              <input
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+                placeholder="Filter code, description, edit scope, or component…"
+              />
+            </label>
+            <div className="aggregate-table data-aggregate-table">
+              <div className="aggregate-table-head">
+                <span>DATA item</span>
+                <span>Description</span>
+                <span>Applied at</span>
+                <span>Rate</span>
+                <span></span>
+              </div>
+              {visibleEntries.length === 0 ? (
+                <div className="aggregate-empty">No compiled DATA rows found.</div>
+              ) : (
+                visibleEntries.map((entry) => (
+                  <div className="aggregate-table-row" key={entry.key}>
+                    <span className="aggregate-primary">
+                      <strong>{entryDisplayName(entry)}</strong>
+                      <small className={`data-scope-badge ${entry.scope}`}>
+                        {scopeLabel(entry.scope, entry.scopeName)}
                       </small>
-                    )}
-                  </span>
-                  <span>
-                    <button
-                      className="btn-mini"
-                      onClick={() =>
-                        openRateAnalysis(
-                          entry.baseKey,
-                          entry.representativeNodeId,
-                          false,
-                          entry.scopeNodeId
-                        )
-                      }
-                    >
-                      Open
-                    </button>
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-            </>
-          )}
+                    </span>
+                    <span>{entry.description}</span>
+                    <span className="aggregate-usage-list">
+                      {entry.usages.map((usage) => (
+                        <small key={usage.nodeId}>{usage.path}</small>
+                      ))}
+                    </span>
+                    <span className="aggregate-rate">
+                      {entry.rate === null ? 'Not compiled' : `₹ ${money.format(entry.rate)}`}
+                    </span>
+                    <span>
+                      <button
+                        className="btn-mini"
+                        onClick={() =>
+                          openRateAnalysis(
+                            entry.key,
+                            entry.usages[0]?.nodeId ?? '',
+                            false,
+                            entry.scopeNodeId
+                          )
+                        }
+                      >
+                        Open
+                      </button>
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
 
           {printPreview && (
-        <div className="aggregate-print-overlay" role="dialog" aria-modal="true">
-          <div className="aggregate-print-shell">
-            <div className="aggregate-print-toolbar">
-              <strong>DATA Dashboard Print Preview</strong>
-              <div>
-                <button
-                  className="btn ghost"
-                  disabled={!printPdfUrl}
-                  onClick={() => printFrameRef.current?.contentWindow?.print()}
-                >
-                  <Printer size={14} /> Print
-                </button>
-                <button className="btn ghost" onClick={() => setPrintPreview(false)}>
-                  Close
-                </button>
+            <div className="aggregate-print-overlay" role="dialog" aria-modal="true">
+              <div className="aggregate-print-shell">
+                <div className="aggregate-print-toolbar">
+                  <strong>DATA Dashboard Typst Preview</strong>
+                  <div>
+                    <button
+                      className="btn ghost"
+                      disabled={!printPdfUrl}
+                      onClick={() => printFrameRef.current?.contentWindow?.print()}
+                    >
+                      <Printer size={14} /> Print
+                    </button>
+                    <button className="btn ghost" onClick={() => setPrintPreview(false)}>
+                      Close
+                    </button>
+                  </div>
+                </div>
+                {report}
+                {printPdfUrl && (
+                  <iframe
+                    ref={printFrameRef}
+                    className="data-dashboard-print-source"
+                    title="DATA Dashboard PDF"
+                    src={printPdfUrl}
+                  />
+                )}
               </div>
             </div>
-            {report}
-            {printPdfUrl && (
-              <iframe
-                ref={printFrameRef}
-                className="data-dashboard-print-source"
-                title="DATA Dashboard PDF"
-                src={printPdfUrl}
-              />
-            )}
-          </div>
-        </div>
           )}
         </>
       )}
@@ -875,8 +859,7 @@ export function DataDashboardReport({
   if (!pdfUrl) {
     return (
       <div className="data-dashboard-print-message">
-        Assembling {entries.length} SSR/SOR code{entries.length === 1 ? '' : 's'} into a continuous
-        print flow…
+        Compiling {entries.length} SSR/SOR code{entries.length === 1 ? '' : 's'} with Typst…
       </div>
     )
   }

@@ -205,7 +205,7 @@ const panel = fs.readFileSync(
 )
 assert.ok(
   /const PRINT_MARGIN_MM = \{ top: 12, bottom: 12, left: 10, right: 10 \}/.test(panel) &&
-    /margins: PRINT_MARGINS/.test(panel) &&
+    /PRINT_MARGIN_MM/.test(panel) &&
     /padding:0!important/.test(panel),
   'page-box padding reaches only the first and last sheet; the frame must be a page margin'
 )

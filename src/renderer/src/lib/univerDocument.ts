@@ -25,6 +25,7 @@ import {
 import emblemTelanganaPng from '../assets/emblem-telangana.png?inline'
 import type { Orientation, ProjectMeta, ProjectNode } from '../types/project'
 import { formatCompactIndianEstimate } from './estimateAmount'
+import { normalizePlaceName } from './placeNormalization'
 import { newId } from './tree'
 
 /** Roughly A4 at 96dpi, in Univer's pixel units. */
@@ -176,11 +177,11 @@ export function createFrontCoverDocumentData(
 ): IDocumentData {
   const projectName = meta.name.trim() || node.name || 'Name of Project'
   const village =
-    tableLocation?.village?.trim() || meta.areaAllowance?.village?.trim() || '________________'
+    normalizePlaceName(tableLocation?.village || meta.areaAllowance?.village) || '________________'
   const mandal =
-    tableLocation?.mandal?.trim() || meta.areaAllowance?.mandal?.trim() || '________________'
+    normalizePlaceName(tableLocation?.mandal || meta.areaAllowance?.mandal) || '________________'
   const district =
-    tableLocation?.district?.trim() || meta.areaAllowance?.district?.trim() || '________________'
+    normalizePlaceName(tableLocation?.district || meta.areaAllowance?.district) || '________________'
   const centre: IParagraphStyle = {
     horizontalAlign: HorizontalAlign.CENTER,
     lineSpacing: 1.15

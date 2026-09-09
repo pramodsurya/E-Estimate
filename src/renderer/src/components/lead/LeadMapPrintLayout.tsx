@@ -12,16 +12,21 @@ interface Props {
   onChange: (settings: LeadPrintSettings) => void
   onOpenPreview?: () => void
   embedded?: boolean
+  locked?: boolean
 }
 
 export default function LeadMapPrintLayout({
   settings,
   onChange,
   onOpenPreview,
-  embedded = false
+  embedded = false,
+  locked = false
 }: Props): JSX.Element {
   const layout = normalizeLeadPrintSettings(settings)
-  const commit = (next: NormalizedLeadPrintSettings): void => onChange(next)
+  const commit = (next: NormalizedLeadPrintSettings): void => {
+    if (locked) return
+    onChange(next)
+  }
 
   const setMapOrientation = (orientation: Orientation): void => {
     commit({
@@ -37,8 +42,12 @@ export default function LeadMapPrintLayout({
     <div className={`lead-map-print-layout ${embedded ? 'embedded' : ''}`}>
       <div className="lead-map-print-layout-heading">
         <div>
-          <strong><MapPinned size={16} /> Map Print Layout</strong>
-          <small>Control only the route map page shown in Lead Print Preview.</small>
+          <strong><MapPinned size={16} /> Map Print Studio</strong>
+          <small>
+            {locked
+              ? 'Layout is locked. Clear to change paper, size, or the map view.'
+              : 'Control the separate route-map page and PDF.'}
+          </small>
         </div>
         {onOpenPreview && (
           <div className="lead-map-print-layout-actions">
@@ -49,7 +58,7 @@ export default function LeadMapPrintLayout({
         )}
       </div>
 
-      <div className="lead-map-print-layout-grid map-only">
+      <fieldset className="lead-map-print-layout-grid map-only" disabled={locked}>
         <section>
           <div className="lead-map-print-section-title">
             <Printer size={15} /> Map page
@@ -306,7 +315,7 @@ export default function LeadMapPrintLayout({
             </select>
           </label>
         </section>
-      </div>
+      </fieldset>
       <small className="lead-map-print-help">
         These settings affect only the printed route map and are saved with the project.
       </small>

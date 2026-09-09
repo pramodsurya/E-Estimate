@@ -1,0 +1,7 @@
+[package]
+name = "estimate-core"
+version = "0.1.0"
+edition = "2021"
+description = "Shared E-Estimate business logic (Phase 0 skeleton)"
+
+[dependencies]

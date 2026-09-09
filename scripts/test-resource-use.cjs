@@ -105,7 +105,7 @@ assert.ok(
 )
 
 // --- The bundle must not carry the assets folder as base64 -----------------
-const viteConfig = read('electron.vite.config.ts')
+const viteConfig = read('vite.config.ts')
 assert.ok(
   !/assetsInlineLimit/.test(viteConfig),
   'the emblem is inlined by its own `?inline` import; raising the limit inlines everything else too'

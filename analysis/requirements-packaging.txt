@@ -1,0 +1,4 @@
+# Reproducible Windows sidecar toolchain. Install into the Python selected by
+# EESTIMATE_PYTHON before running `npm run build:analysis-engine`.
+PyInstaller==6.14.2
+xslope[fem]==0.3.0

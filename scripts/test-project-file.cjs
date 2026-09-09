@@ -74,6 +74,9 @@ const editedMerged = recipe('i4', { outputQuantity: 99 })
 const project = {
   id: 'p1',
   meta: { name: 'Test', sorYear: '2026-27' },
+  printStudioShadowFiles: {
+    'images/lead-route-map.png': 'data:image/png;base64,aGVsbG8='
+  },
   root: {
     id: 'root',
     kind: 'title',
@@ -129,7 +132,14 @@ const project = {
 
 // --- Nothing is lost -------------------------------------------------------
 const compacted = compactProjectForSave(project)
+const compactedAgain = compactProjectForSave({ ...project, updatedAt: 'later' })
 const restored = expandLoadedProject(JSON.parse(JSON.stringify(compacted)))
+
+assert.equal(
+  compactedAgain.dashboardSnapshot,
+  compacted.dashboardSnapshot,
+  'autosave must reuse compaction while the dashboard snapshot is unchanged'
+)
 
 assert.deepEqual(
   restored.dashboardSnapshot.componentRecipes,
@@ -210,7 +220,7 @@ assert.ok(
   'starting a new project must clear the previous file, or the autosave would overwrite it'
 )
 assert.ok(
-  /if \(!project \|\| !filePath \|\| !dirty\) return/.test(
+  /if \(!projectRevision \|\| !filePath \|\| !dirty\) return/.test(
     fs.readFileSync(path.join(root, 'src/renderer/src/App.tsx'), 'utf8')
   ),
   'the autosave gate is what makes the notice necessary; it must still be there'
@@ -218,14 +228,24 @@ assert.ok(
 const app = fs.readFileSync(path.join(root, 'src/renderer/src/App.tsx'), 'utf8')
 assert.ok(
   /function UnsavedProjectNotice/.test(app) &&
-    /if \(!project \|\| filePath\) return null/.test(app) &&
+    /if \(!hasProject \|\| filePath\) return null/.test(app) &&
     /showShell && <UnsavedProjectNotice \/>/.test(app),
   'a cancelled save must be said plainly, on every screen, until there is a file'
+)
+assert.equal(
+  restored.printStudioShadowFiles['images/lead-route-map.png'],
+  project.printStudioShadowFiles['images/lead-route-map.png'],
+  'the Base64 route map remains embedded in the .eestimate project after save and reopen'
+)
+assert.ok(
+  /function ProjectAutosaveController/.test(app) &&
+    !/export default function App[\s\S]{0,900}const project = useStore/.test(app),
+  'autosave must not subscribe the application shell to every project edit'
 )
 
 // --- Saving must write the compacted form --------------------------------
 assert.ok(
-  /compactProjectForSave\(project\)/.test(store) &&
+  /compactProjectForSave\(ensureProjectHasCoverEmblem\(project\)\)/.test(store) &&
     /const data = expandLoadedProject\(rawData\)/.test(store),
   'the file is written compacted and expanded on load'
 )

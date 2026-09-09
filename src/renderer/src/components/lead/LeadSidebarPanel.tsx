@@ -108,7 +108,7 @@ export default function LeadSidebarPanel(): JSX.Element {
         <div>
           <Route size={13} />
           <strong>{variants.length}</strong>
-          <span>Variants</span>
+          <span>Materials</span>
         </div>
         <div>
           <Link2 size={13} />

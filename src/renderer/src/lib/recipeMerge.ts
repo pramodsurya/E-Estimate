@@ -374,10 +374,18 @@ export function mergeSavedRecipe(
     year: source.year,
     zone: source.zone,
     layout: source.layout,
+    // These are published document data, not estimator-owned values. Keeping
+    // them from `saved` makes a year change combine the new year's rows with
+    // the previous year's printed totals/rules, which produces false audit
+    // differences even though a project created directly in the target year
+    // is clean.
+    storedValues: source.storedValues,
+    sectionRules: source.sectionRules,
     sourceFigures: source.sourceFigures,
     publishedRateBlocks: source.publishedRateBlocks,
     publishedRate: source.publishedRate,
     publishedRateText: source.publishedRateText,
+    publishedLabourComponent: source.publishedLabourComponent,
     multiRateClassification: source.multiRateClassification,
     dataVariant: source.dataVariant,
     areaAllowancePercent: source.areaAllowancePercent,

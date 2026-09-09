@@ -101,17 +101,63 @@ export function createDocumentFinal(
   return { startIndex, endIndex, capturedValue: value, capturedText: text }
 }
 
-/** Clamps a stored print area to the paragraphs that currently exist. */
+/** Finds the zero-based paragraph index containing the fixed final number's offset. */
+export function finalNumberParagraphIndex(
+  data: IDocumentData | undefined,
+  finalNumber: DocumentFinalNumber | null | undefined
+): number | null {
+  if (!finalNumber || !data?.body?.paragraphs?.length) return null
+  const offset = finalNumber.startIndex
+  let from = 0
+  for (const [index, paragraph] of data.body.paragraphs.entries()) {
+    const to = paragraph.startIndex
+    if (offset >= from && offset <= to) return index
+    from = to + 1
+  }
+  return null
+}
+
+/** Checks whether the document's fixed final number is enclosed in the print area. Returns true if no final number is set. */
+export function isDocumentFinalInPrintArea(
+  data: IDocumentData | undefined,
+  area: DocumentPrintArea | null | undefined,
+  finalNumber: DocumentFinalNumber | null | undefined
+): boolean {
+  if (!finalNumber) return true
+  const pIndex = finalNumberParagraphIndex(data, finalNumber)
+  if (pIndex === null) return true
+  if (!area) return true
+  return pIndex >= area.startParagraph && pIndex <= area.endParagraph
+}
+
+/** Clamps a stored print area to the paragraphs that currently exist, ensuring any fixed final number is included. */
 export function resolvePrintArea(
   data: IDocumentData | undefined,
-  area: DocumentPrintArea | undefined
+  area: DocumentPrintArea | undefined,
+  finalNumber?: DocumentFinalNumber | null
 ): DocumentPrintArea | null {
   const count = data?.body?.paragraphs?.length ?? 0
   if (count === 0) return null
-  // No area chosen: fall back to everything actually written. Same idea as a
-  // sheet's used range — the trailing empty paragraphs left behind by pressing
-  // Enter are not content, and printing them adds blank space or a blank page.
-  if (!area) return usedParagraphRange(data)
+  const finalPIndex = finalNumberParagraphIndex(data, finalNumber)
+
+  // No area chosen: fall back to everything actually written, expanding to include the final number if fixed.
+  if (!area) {
+    const used = usedParagraphRange(data)
+    if (!used) {
+      if (finalPIndex !== null) {
+        return { startParagraph: finalPIndex, endParagraph: finalPIndex }
+      }
+      return null
+    }
+    if (finalPIndex !== null) {
+      return {
+        startParagraph: Math.min(used.startParagraph, finalPIndex),
+        endParagraph: Math.max(used.endParagraph, finalPIndex)
+      }
+    }
+    return used
+  }
+
   const start = Math.max(0, Math.min(area.startParagraph, count - 1))
   const end = Math.max(start, Math.min(area.endParagraph, count - 1))
   return { startParagraph: start, endParagraph: end }

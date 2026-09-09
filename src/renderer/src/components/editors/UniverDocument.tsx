@@ -3,6 +3,7 @@ import '@univerjs/preset-docs-drawing/lib/index.css'
 
 import {
   ICommandService,
+  ImageSourceType,
   JSONX,
   LocaleType,
   LogLevel,
@@ -18,12 +19,13 @@ import { InsertDocDrawingCommand } from '@univerjs/docs-drawing-ui'
 import enUS from '@univerjs/preset-docs-core/locales/en-US'
 import drawingEnUS from '@univerjs/preset-docs-drawing/locales/en-US'
 import { DocSelectionManagerService, RichTextEditingMutation } from '@univerjs/docs'
-import { AlertTriangle, Crop, Hash, Printer } from 'lucide-react'
+import { AlertTriangle, Crop, FileCode, Hash } from 'lucide-react'
 import {
   forwardRef,
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState
 } from 'react'
@@ -31,13 +33,92 @@ import { useStore } from '../../store/useStore'
 import { createUniverDocumentData, documentPlainText } from '../../lib/univerDocument'
 import { resolveNodeSettings } from '../../lib/nodeSettings'
 import { resolveVillageLocation } from '../../lib/masterData'
-import { createDocumentFinal, resolveDocumentFinal } from '../../lib/documentFinal'
+import {
+  createDocumentFinal,
+  finalNumberParagraphIndex,
+  resolveDocumentFinal
+} from '../../lib/documentFinal'
 import { findNode } from '../../lib/tree'
 import DocumentPrintAreaModal from './DocumentPrintAreaModal'
-import PrintLayoutModal from '../print/PrintLayoutModal'
+import EEstimatePrintStudio from '../typst/EEstimatePrintStudio'
+import { nodeDisplayName } from '../nodeVisual'
+import {
+  buildItemSheetRenderData,
+  EE_ITEM_TABLE_PRELUDE,
+  itemSheetCompileInputs,
+  itemSheetScopeKey,
+  itemSheetShadowFiles,
+  itemSheetTypstTemplate,
+  resolveItemSheetDocumentSettings
+} from '../../lib/typist-output/itemTypst'
 import type { ProjectNode } from '../../types/project'
 
 const PERSIST_DEBOUNCE_MS = 600
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize))
+  }
+  return btoa(binary)
+}
+
+/**
+ * Univer can retain an image pasted as HTML using its original http/blob URL.
+ * That URL may render during the current session but is not a portable project
+ * asset. Replace every resolvable non-data source with its bytes before saving
+ * the document snapshot into the `.eestimate` file.
+ */
+async function embedDocumentDrawingSources(snapshot: IDocumentData): Promise<IDocumentData> {
+  const entries = Object.entries(snapshot.drawings ?? {})
+  if (!entries.length) return snapshot
+
+  let changed = false
+  const drawings = { ...(snapshot.drawings ?? {}) }
+  await Promise.all(entries.map(async ([drawingId, drawing]) => {
+    const image = drawing as typeof drawing & { source?: string; imageSourceType?: ImageSourceType }
+    const source = image.source?.trim()
+    if (!source || source.startsWith('data:')) return
+
+    try {
+      let dataUrl = ''
+      try {
+        const response = await fetch(source)
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const blob = await response.blob()
+        const mime = blob.type || 'image/png'
+        const bytes = new Uint8Array(await blob.arrayBuffer())
+        if (!bytes.length) throw new Error('empty image')
+        dataUrl = `data:${mime};base64,${bytesToBase64(bytes)}`
+      } catch (rendererReason) {
+        if (!/^https?:/i.test(source)) throw rendererReason
+        const remote = await window.api.image.embedRemote(source)
+        if (!remote.ok || !remote.data) throw new Error(remote.error || 'image download failed')
+        dataUrl = remote.data
+      }
+      drawings[drawingId] = {
+        ...drawing,
+        source: dataUrl,
+        imageSourceType: ImageSourceType.BASE64
+      } as typeof drawings[string]
+      changed = true
+    } catch (reason) {
+      // Keep the original source in the live snapshot instead of deleting the
+      // drawing. A later edit/save can retry while the source is still valid.
+      console.warn(`[UniverDocument] could not embed image ${drawingId}`, reason)
+    }
+  }))
+
+  return changed ? { ...snapshot, drawings } : snapshot
+}
+
+function hasExternalDocumentDrawingSource(snapshot: IDocumentData): boolean {
+  return Object.values(snapshot.drawings ?? {}).some((drawing) => {
+    const source = (drawing as { source?: string }).source?.trim()
+    return Boolean(source && !source.startsWith('data:'))
+  })
+}
 
 export interface UniverDocumentHandle {
   /** Insert or replace one drawing through Univer's registered drawing commands. */
@@ -47,7 +128,7 @@ export interface UniverDocumentHandle {
 interface UniverDocumentProps {
   node: ProjectNode
   allowImages?: boolean
-  /** Item documents also carry Fix Final No. / Print Area / Print Preview. */
+  /** Item documents also carry Fix Final No. and a Typst print area. */
   showItemTools?: boolean
   /** Render the stored snapshot without editor controls or persistence (VPV). */
   preview?: boolean
@@ -58,12 +139,13 @@ interface UniverDocumentProps {
  * per mounted node, snapshot persisted into the project file on a debounce.
  *
  * `allowImages` registers the drawing preset, which adds the Insert Image menu
- * and stores pictures as base64 inside the document snapshot. It is enabled for
- * the Front Page only, so ordinary pages cannot bloat the project file.
+ * and stores pictures as base64 inside the document snapshot. Document editors
+ * enable it by default; preview-only callers may disable it when drawings are
+ * known to be absent.
  */
 const UniverDocument = forwardRef<UniverDocumentHandle, UniverDocumentProps>(
   function UniverDocument(
-    { node, allowImages = false, showItemTools = false, preview = false },
+    { node, allowImages = true, showItemTools = false, preview = false },
     ref
   ): JSX.Element {
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -74,6 +156,8 @@ const UniverDocument = forwardRef<UniverDocumentHandle, UniverDocumentProps>(
   const setNodeDocumentData = useStore((state) => state.setNodeDocumentData)
   const setNodeDocumentFinal = useStore((state) => state.setNodeDocumentFinal)
   const setNodeDocumentPrintArea = useStore((state) => state.setNodeDocumentPrintArea)
+  const project = useStore((state) => state.project)
+  const updatePrintStudioDocument = useStore((state) => state.updatePrintStudioDocument)
   /**
    * The item's own orientation, resolved the same way the print path resolves it.
    * A document has to be *built* on the right page — unlike a sheet, there is no
@@ -90,7 +174,7 @@ const UniverDocument = forwardRef<UniverDocumentHandle, UniverDocumentProps>(
   })
   const [notice, setNotice] = useState<string | null>(null)
   const [printAreaOpen, setPrintAreaOpen] = useState(false)
-  const [previewOpen, setPreviewOpen] = useState(false)
+  const [printStudioOpen, setPrintStudioOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [hostReady, setHostReady] = useState<{ nodeId: string; ready: boolean }>({
@@ -155,6 +239,7 @@ const UniverDocument = forwardRef<UniverDocumentHandle, UniverDocumentProps>(
     let commandDisposable: { dispose: () => void } | null = null
     let documentApi: DocumentDataModel | null = null
 
+    let persistRevision = 0
     const flush = (protectExternalUpdate = false): void => {
       if (preview) return
       const snapshot = documentApi?.getSnapshot()
@@ -177,7 +262,20 @@ const UniverDocument = forwardRef<UniverDocumentHandle, UniverDocumentProps>(
         }
       }
       lastSerialized = serialized
-      setNodeDocumentData(node.id, snapshot, documentPlainText(snapshot))
+      if (!hasExternalDocumentDrawingSource(snapshot)) {
+        persistRevision += 1
+        setNodeDocumentData(node.id, snapshot, documentPlainText(snapshot))
+        return
+      }
+      const revision = ++persistRevision
+      void embedDocumentDrawingSources(snapshot).then((portableSnapshot) => {
+        if (revision !== persistRevision) return
+        setNodeDocumentData(
+          node.id,
+          portableSnapshot,
+          documentPlainText(portableSnapshot)
+        )
+      })
     }
 
     const disposeUniver = (instance: Univer | null): void => {
@@ -529,10 +627,39 @@ const UniverDocument = forwardRef<UniverDocumentHandle, UniverDocumentProps>(
       return
     }
     setNodeDocumentFinal(node.id, fixed)
-    setNotice(`Final quantity fixed at ${fixed.capturedValue}.`)
+    let printNotice = ''
+    if (node.documentPrintArea) {
+      const pIndex = finalNumberParagraphIndex(node.documentData, fixed)
+      if (
+        pIndex !== null &&
+        (pIndex < node.documentPrintArea.startParagraph ||
+          pIndex > node.documentPrintArea.endParagraph)
+      ) {
+        const nextArea = {
+          startParagraph: Math.min(node.documentPrintArea.startParagraph, pIndex),
+          endParagraph: Math.max(node.documentPrintArea.endParagraph, pIndex)
+        }
+        setNodeDocumentPrintArea(node.id, nextArea)
+        printNotice = ' (print area expanded to include it)'
+      }
+    }
+    setNotice(`Final quantity fixed at ${fixed.capturedValue}.${printNotice}`)
   }
 
   const final = showItemTools ? resolveDocumentFinal(node) : null
+
+  const itemPrintStudio = useMemo(() => {
+    if (!project) return null
+    return {
+      defaultTypstSource: itemSheetTypstTemplate(project, node),
+      savedTypstSource: project.printStudioDocuments?.[itemSheetScopeKey(node)],
+      compileInputs: itemSheetCompileInputs(project, node),
+      shadowFiles: itemSheetShadowFiles(node),
+      runtimeData: buildItemSheetRenderData(project, node),
+      projectDocumentSettings: resolveItemSheetDocumentSettings(project, node),
+      savedDocumentSettings: project.printStudioDocumentSettings?.[itemSheetScopeKey(node)]
+    }
+  }, [project, node])
 
   return (
     <>
@@ -555,8 +682,12 @@ const UniverDocument = forwardRef<UniverDocumentHandle, UniverDocumentProps>(
           <button className="btn ghost" onClick={() => setPrintAreaOpen(true)}>
             <Crop size={14} /> Set Print Area
           </button>
-          <button className="btn ghost" onClick={() => setPreviewOpen(true)}>
-            <Printer size={14} /> Print Preview
+          <button
+            className="btn ghost"
+            title="Open Print Studio (Typst) — edit the layout as code. Document content is variable data."
+            onClick={() => setPrintStudioOpen(true)}
+          >
+            <FileCode size={14} /> Print Studio
           </button>
 
           <span className="doc-item-final">
@@ -593,11 +724,27 @@ const UniverDocument = forwardRef<UniverDocumentHandle, UniverDocumentProps>(
           onClose={() => setPrintAreaOpen(false)}
         />
       )}
-      {previewOpen && (
-        // The same Print Layout dialog the spreadsheet items use, so a document
-        // gets identical page controls and the same DATA description header.
-        <PrintLayoutModal node={node} onClose={() => setPreviewOpen(false)} />
-      )}
+      {printStudioOpen && project && itemPrintStudio ? (
+        <EEstimatePrintStudio
+          scopeKey={itemSheetScopeKey(node)}
+          key={itemSheetScopeKey(node)}
+          title="Item Document — Typst Layout Studio"
+          subtitle={nodeDisplayName(node)}
+          defaultTypstSource={itemPrintStudio.defaultTypstSource}
+          savedTypstSource={itemPrintStudio.savedTypstSource}
+          compileInputs={itemPrintStudio.compileInputs}
+          shadowFiles={itemPrintStudio.shadowFiles}
+          compilePrelude={EE_ITEM_TABLE_PRELUDE}
+          runtimeData={itemPrintStudio.runtimeData}
+          projectDocumentSettings={itemPrintStudio.projectDocumentSettings}
+          savedDocumentSettings={itemPrintStudio.savedDocumentSettings}
+          onSave={async (source, settings) => {
+            updatePrintStudioDocument(itemSheetScopeKey(node), source, settings)
+            await useStore.getState().saveProject({ requireSaved: true })
+          }}
+          onClose={() => setPrintStudioOpen(false)}
+        />
+      ) : null}
     </>
   )
 })

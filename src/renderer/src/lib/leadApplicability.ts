@@ -210,7 +210,15 @@ export function materialRefsForLeadInfo(info: LeadInfo, _description = ''): Lead
       source: description
     })
   }
-  if (info.earthwork && info.classes.includes('EARTH')) {
+  // `earthwork` is also set for composite DATA containing incidental excavation
+  // (and for items such as sand blankets). When an explicit EARTH-class material
+  // already exists, it owns that lead quantity and name; adding a second generic
+  // Earth card would incorrectly mix Sand with Ordinary Earth.
+  if (
+    info.earthwork &&
+    info.classes.includes('EARTH') &&
+    !refs.some((ref) => ref.conveyanceClass === 'EARTH')
+  ) {
     refs.push({ name: 'Earth', conveyanceClass: 'EARTH', source: 'Earthwork item quantity' })
   }
   for (const conveyanceClass of info.classes) {

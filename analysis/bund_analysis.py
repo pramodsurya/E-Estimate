@@ -27,6 +27,11 @@ import sys
 import tempfile
 import time
 
+# XSLOPE's seepage module imports matplotlib for optional plotting. The bridge
+# never opens plots, so force its non-GUI backend in development and in the
+# packaged Windows sidecar.
+os.environ.setdefault("MPLBACKEND", "Agg")
+
 import numpy as np
 import openpyxl
 from shapely.geometry import Polygon

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "E-Estimate",
+  "version": "0.1.12",
+  "identifier": "com.eestimate.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev:renderer",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build:renderer",
+    "frontendDist": "../dist/renderer"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "E-Estimate",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 940,
+        "minHeight": 600,
+        "decorations": false,
+        "backgroundColor": "#1e1e1e"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
+    "icon": ["icons/icon.ico"],
+    "resources": {
+      "../vendor/bund-analysis/*": "analysis-engine/"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "both"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVGQTAxMjczQjdBMjgyNjMKUldSamdxSzNjeEtnWC92MU8xNldHUUlyVGh6aWdDWVpvS1UwN0c4Ri90dXZLT0Jsb3Q1d0xjZDAK",
+      "endpoints": [
+        "https://github.com/pramodsurya/E-Estimate/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

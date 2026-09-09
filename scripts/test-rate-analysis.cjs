@@ -65,35 +65,6 @@ assert.match(
   /rate-sheet-code">SOR DATA/,
   'The on-screen SOR sheet heading must not duplicate the description printed in its table row'
 )
-assert.match(
-  sorSheetSource,
-  /className="sor-sheet-audit"/,
-  'The SOR audit block must remain available in the on-screen item dashboard'
-)
-const dataSheetPrintSource = fs.readFileSync(
-  path.join(root, 'src/renderer/src/lib/dataSheetPrint.tsx'),
-  'utf8'
-)
-assert.match(
-  dataSheetPrintSource,
-  /\.sor-sheet-audit\{display:none!important\}/,
-  'Printed DATA sheets must omit the SOR row/column-label audit block'
-)
-assert.match(
-  dataSheetPrintSource,
-  /function SorPrintTable[\s\S]*?sheets\.map[\s\S]*?\{sheet\.recipe\.description\}/,
-  'Printed SOR DATA must render catalogue items as rows in one flowing table'
-)
-assert.match(
-  dataSheetPrintSource,
-  /const sorSheets = sheets\.filter[\s\S]*?let sorTableRendered = false/,
-  'All SOR items must be collected into one printed table'
-)
-assert.match(
-  dataSheetPrintSource,
-  /Base Rs\.[\s\S]*?\+ Lead Rs\./,
-  'The flowing SOR print table must show applied Lead as part of the final item rate'
-)
 
 function loadTsModule(filePath, mocks = {}) {
   const source = fs.readFileSync(filePath, 'utf8')
@@ -118,6 +89,7 @@ const {
   calculateBaseRateAnalysis,
   calculateOptionalAddition,
   calculateRateAnalysis,
+  labourRowsForDisplay,
   publishedRateBlocks,
   recalculateRateAnalysis,
   updateRateAnalysisLine
@@ -680,3 +652,85 @@ assert.equal(cawAddonWithAreaAllowance.sectionTotals.labour, 3175)
 assert.equal(cawAddonWithAreaAllowance.totalCost, 10008.35)
 
 console.log('Rate-analysis published-first, audit, and dual-measurement tests passed.')
+
+// DATA layouts are fixed .typ assets; changing JSON must never regenerate source.
+{
+  const templatePath = path.join(root, 'src/renderer/src/lib/typist-output/data.typ')
+  const template = fs.readFileSync(templatePath, 'utf8')
+  const visibilityMock = {
+    defaultRateAnalysisLayout: () => ({
+      codeVisible: true, descriptionVisible: true, unitQuantityVisible: true,
+      sections: { materials: { visible: true }, machinery: { visible: true }, labour: { visible: true } },
+      labourSummary: { visible: true }, abstract: { visible: true }, descriptionRuns: []
+    }),
+    descriptionRunsForDisplay: (text, runs) => runs && runs.length ? runs : [{ text, bold: false, italic: false, underline: false }]
+  }
+  const documentSettingsModule = loadTsModule(
+    path.join(root, 'src/renderer/src/lib/typist-output/documentSettings.ts')
+  )
+  const dataPresentation = loadTsModule(
+    path.join(root, 'src/renderer/src/lib/dataPresentation.ts'),
+    {
+      './rateAnalysis': {
+        calculateBaseRateAnalysis,
+        calculateRateAnalysis,
+        calculateOptionalAddition,
+        labourRowsForDisplay
+      },
+      './leadApplicability': { parseLeadInfo: () => ({}), addonLeadRuleForVariant: () => null },
+      './rateAnalysisVisibility': visibilityMock
+    }
+  )
+  const dataOutput = loadTsModule(path.join(root, 'src/renderer/src/lib/typist-output/dataTypst.ts'), {
+    './data.typ?raw': template,
+    '../rateAnalysis': { calculateRateAnalysis },
+    '../rateAnalysisVisibility': visibilityMock,
+    '../dataPresentation': dataPresentation,
+    './documentSettings': documentSettingsModule,
+    '../signatureFooter': {
+      DATA_SIGNATURE_SCOPE: 'data',
+      printableSignatureRows: (settings) => settings.rows,
+      resolveSignatureFooter: () => ({ enabled: true, placement: 'subject_end', rows: [] })
+    }
+  })
+  const { NodeCompiler } = require('@myriaddreamin/typst-ts-node-compiler')
+  const compiler = NodeCompiler.create({ workspace: root })
+  assert.equal(dataOutput.dataTypstTemplate(), template)
+  const sampleRecipe = {
+    ...recipe, itemCode: 'DATA #1 [literal]', description: 'Template test & material values',
+    storedValues: undefined, publishedRateBlocks: undefined, multiRateClassification: undefined,
+    outputQuantity: 1, overheadPercent: 14,
+    sections: [
+      { key: 'materials', label: 'Materials', lines: [{ id: 'm', slNo: '1', description: 'New sand material', unit: 'cum', quantity: 2, rate: 100, amount: 200 }] },
+      { key: 'machinery', label: 'Machinery', lines: [] },
+      { key: 'labour', label: 'Labour', lines: [] }
+    ]
+  }
+  const input = dataOutput.rateAnalysisCompileInputs(sampleRecipe, null)
+  const readText = (inputs) => compiler.svg({ mainFileContent: template, inputs }).replace(/<[^>]*>/g, '')
+  const text = readText(input)
+  assert(text.includes('New sand material'))
+  assert(!text.includes('B. MACHINERY') && !text.includes('C. LABOUR'))
+  assert(!text.includes('LEAD &amp; CONVEYANCE BREAKDOWN'))
+  const withExtras = { ...sampleRecipe, areaAllowancePercent: 10, sections: [
+    sampleRecipe.sections[0],
+    { key: 'machinery', label: 'Machinery', lines: [{ id: 'machine', description: 'Concrete mixer', unit: 'hour', quantity: 1, rate: 50, amount: 50 }] },
+    { key: 'labour', label: 'Labour', lines: [{ id: 'worker', description: 'Mason labour', unit: 'day', quantity: 1, rate: 80, amount: 80 }] }
+  ] }
+  const refreshed = dataOutput.rateAnalysisCompileInputs(withExtras, null, [{ variantId: 'v1', itemCode: 'Sand source', quantity: 2, unit: 'cum', grossRate: 10, grossAmount: 20 }], [])
+  const refreshedText = readText(refreshed)
+  for (const value of ['Concrete mixer', 'Mason labour', 'Area allowance', 'Sand source']) assert(refreshedText.includes(value), value)
+  assert.equal(dataOutput.dataTypstTemplate(), template)
+  assert(compiler.pdf({ mainFileContent: template, inputs: refreshed }).length > 4000)
+  const sorInputs = dataOutput.dataSheetsCompileInputs([{ recipe: { ...sampleRecipe, itemSource: 'SOR' }, sorPrintRate: { hasNumericRate: false, rateText: 'As quoted by supplier' }, leadApplications: [], leadVariants: [] }])
+  assert(readText(sorInputs).includes('As quoted by supplier'))
+  assert(compiler.pdf({ mainFileContent: template, inputs: dataOutput.dataSheetsCompileInputs([]) }).length > 1000)
+  const settings = loadTsModule(path.join(root, 'src/renderer/src/lib/typist-output/documentSettings.ts'))
+  for (const name of ['lead', 'seigniorage', 'data']) {
+    const layout = fs.readFileSync(path.join(root, 'src/renderer/src/lib/typist-output/' + name + '.typ'), 'utf8')
+    const changed = settings.applyDocumentSettingsToTypst(layout, { ...settings.DEFAULT_DOCUMENT_SETTINGS, pageSize: 'A3', orientation: 'landscape', fontSizePt: 12 })
+    const parsed = settings.parseDocumentSettingsFromTypst(changed)
+    assert.equal(parsed.pageSize, 'A3'); assert.equal(parsed.orientation, 'landscape'); assert.equal(parsed.fontSizePt, 12)
+  }
+  console.log('DATA/SOR native templates: live rows, optional sections, literal text, PDF compilation and two-way settings passed')
+}

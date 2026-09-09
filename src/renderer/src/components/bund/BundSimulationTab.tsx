@@ -13,6 +13,7 @@ import { BUND_SIMULATION_CASES } from '../../types/bundSimulation'
 import { useStore } from '../../store/useStore'
 import {
   orderedSections,
+  resolvedHeartingTrenchDepth,
   steepestSection,
   formatChainage
 } from '../../lib/bund'
@@ -435,7 +436,9 @@ export default function BundSimulationTab({
 
   const patchMaterial = (index: number, patch: Partial<BundSimulationMaterial>): void =>
     updateSim({
-      materials: sim.materials.map((m, i) => (i === index ? { ...m, ...patch } : m))
+      materials: sim.materials.map((m, i) =>
+        i === index ? { ...m, ...patch, propertiesSource: 'engineer-entered' } : m
+      )
     })
 
   const currentFingerprints = useMemo(() => {
@@ -826,20 +829,20 @@ export default function BundSimulationTab({
                   Upstream slope{' '}
                   <HelpTip
                     term="Upstream slope"
-                    text="The reservoir-facing side. A value 1:2 means 1 metre vertical for 2 metres horizontal."
+                    text="The reservoir-facing side. A value 2:1 means 2 metres horizontal for 1 metre vertical."
                   />
                 </dt>
-                <dd>1:{data.design.usSlope}</dd>
+                <dd>{data.design.usSlope}:1</dd>
               </div>
               <div>
                 <dt>
                   Downstream slope{' '}
                   <HelpTip
                     term="Downstream slope"
-                    text="The land-facing side away from the reservoir. A value 1:2 means 1 metre vertical for 2 metres horizontal."
+                    text="The land-facing side away from the reservoir. A value 2:1 means 2 metres horizontal for 1 metre vertical."
                   />
                 </dt>
-                <dd>1:{data.design.dsSlope}</dd>
+                <dd>{data.design.dsSlope}:1</dd>
               </div>
             </dl>
           )}
@@ -1007,6 +1010,12 @@ export default function BundSimulationTab({
                   text="Engineer-entered soil parameters for each zone. These values strongly control the calculated FS and should come from laboratory/field testing or an approved geotechnical report."
                 />
               </h3>
+              <p className="bund-sim-preliminary-warning" role="note">
+                Soil-type values loaded from Design are preliminary screening defaults. Replace
+                them with project laboratory or field results before relying on an analysis.
+                Editing any value marks that material as engineer-entered; it does not mark it as
+                laboratory-tested.
+              </p>
               {rapidDrawdown && !hasRapidStrengthPair && (
                 <p className="bund-sim-material-gate" role="note">
                   {caseMeta.short} cannot start yet. Enter both <strong>d</strong> and{' '}
@@ -1023,11 +1032,11 @@ export default function BundSimulationTab({
                         value={m.name}
                         onChange={(e) => patchMaterial(i, { name: e.target.value })}
                       />
-                      <span className={`bund-mat-role is-${m.role ?? 'embankment'}`}>
+                       <span className={`bund-mat-role is-${m.role ?? 'embankment'}`}>
                         {m.role === 'foundation'
                           ? 'foundation'
                           : m.role === 'hearting'
-                          ? 'hearting'
+                          ? 'impervious core'
                           : m.role === 'cutoff-trench'
                           ? 'cut-off'
                           : m.role === 'rocktoe'
@@ -1035,8 +1044,15 @@ export default function BundSimulationTab({
                           : m.role === 'rocktoe-filter'
                           ? 'toe filter'
                           : 'fill'}
-                      </span>
-                    </header>
+                       </span>
+                     </header>
+                    <div className={`bund-material-source is-${m.propertiesSource ?? 'legacy'}`}>
+                      {m.propertiesSource === 'preliminary-default'
+                        ? 'Preliminary soil-type defaults'
+                        : m.propertiesSource === 'engineer-entered'
+                          ? 'Engineer-entered values — verification required'
+                          : 'Existing project values — source not recorded'}
+                    </div>
                     <div className="bund-mat-fields">
                       <label>
                         <FieldHelp
@@ -1757,8 +1773,9 @@ function ImportedGeometrySummary({
   const zoned = data.embankmentType === 'zoned'
   const formationBase =
     section?.groundLevel != null ? section.groundLevel - data.design.stripDepth : null
+  const trenchDepth = resolvedHeartingTrenchDepth(data)
   const trenchOn = Boolean(
-    zoned && data.mode === 'new' && data.heartingTrench?.fillMaterial && data.heartingTrench.depth > 0
+    zoned && data.mode === 'new' && data.heartingTrench?.fillMaterial && trenchDepth > 0
   )
   return (
     <>
@@ -1778,7 +1795,7 @@ function ImportedGeometrySummary({
         <div>
           <dt>Casing / shell</dt>
           <dd>
-            full embankment, faces 1:{data.design.usSlope} u/s and 1:{data.design.dsSlope} d/s
+            full embankment, faces {data.design.usSlope}:1 u/s and {data.design.dsSlope}:1 d/s
           </dd>
         </div>
         {zoned && (
@@ -1793,7 +1810,7 @@ function ImportedGeometrySummary({
           <dt>Cut-off trench</dt>
           <dd>
             {trenchOn
-              ? `enabled, ${data.heartingTrench.depth.toFixed(2)} m deep`
+              ? `enabled, ${trenchDepth.toFixed(2)} m deep (${data.heartingTrench.depthMode === 'auto' ? 'auto' : 'manual'})`
               : 'not included'}
           </dd>
         </div>

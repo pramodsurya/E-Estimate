@@ -19,8 +19,9 @@ interface UpdateInfo {
 type UpdateApi = Window['api']
 
 /**
- * Keeps the notification centre synchronized with electron-updater.
+ * Keeps the notification centre synchronized with the shell updater API.
  *
+ * Tauri: update commands are stubbed until tauri-plugin-updater is wired.
  * This component is deliberately headless: update prompts and actions belong
  * in the title-bar bell, where they cannot cover an estimate or simulation.
  */
@@ -73,10 +74,10 @@ export default function UpdateNotification(): null {
         stage === 'downloading'
           ? `${version} · ${Math.round(percent ?? 0)}% downloaded`
           : stage === 'downloaded'
-            ? `${version} is ready. Restart the app to install it.`
+            ? `${version} is ready. It will install when you close the app, or restart now.`
             : stage === 'error'
               ? message || 'The update service returned an unexpected error.'
-              : `${version} is ready to download.`
+              : `${version} was found. Its verified installer will download automatically.`
 
       upsert(
         {

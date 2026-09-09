@@ -141,7 +141,7 @@ with policies(pattern, policy) as (
       )
     ),
     (
-      '^IRR-CCDW-1-(1|3|4|5|6|7)$',
+      '^IRR-CCDW-1-[1-7]$',
       jsonb_build_object(
         'purpose', 'EXCAVATED_DISPOSAL',
         'included_lead_m', 50,

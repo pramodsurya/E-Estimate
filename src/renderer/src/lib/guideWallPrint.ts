@@ -58,12 +58,12 @@ function descriptionHtml(item: ProjectNode | null, recipe: RateAnalysisRecipe | 
 const fmt3 = (value: number | null | undefined): string =>
   value == null ? '—' : value.toLocaleString('en-IN', { maximumFractionDigits: 3 })
 
-interface SectionGroup {
+export interface SectionGroup {
   sample: GuideWallSection
   ranges: { fromCh: number; toCh: number }[]
 }
 
-function groupSections(sections: GuideWallSection[]): SectionGroup[] {
+export function groupSections(sections: GuideWallSection[]): SectionGroup[] {
   const groups: SectionGroup[] = []
   for (const section of sections) {
     const key = JSON.stringify({
@@ -120,7 +120,7 @@ function vDim(y1: number, y2: number, featX: number, dimX: number, label: string
  * two walls (vertical inner face, battered outer face), with dimension lines
  * and labels for every measurement plus a metre scale bar.
  */
-function sectionSvg(section: GuideWallSection): string {
+export function sectionSvg(section: GuideWallSection): string {
   const left = hasLeftWall(section) ? section.left : null
   const right = hasRightWall(section) ? section.right : null
   const bottomL = left ? wallBottomWidth(left) : 0

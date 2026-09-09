@@ -31,7 +31,6 @@ import type {
   ProjectNode,
   ProjectDataDefinition,
   ProjectDataDefinitionInput,
-  SeignioragePrintSettings,
   ProjectChargeSettings,
   DocumentFinalNumber,
   DocumentPrintArea,
@@ -57,7 +56,7 @@ import type {
   BundSimulationRun
 } from '../types/bundSimulation'
 import { BUND_SIMULATION_CASES } from '../types/bundSimulation'
-import type { RecentEntry } from '../../../preload/index.d'
+import type { RecentEntry } from '../types/eestimateApi'
 import {
   addChild,
   addChildren,
@@ -66,6 +65,7 @@ import {
   createNode,
   findNode,
   findParent,
+  moveNode,
   newId,
   patchNode,
   removeNode,
@@ -92,6 +92,10 @@ import {
 import { foldsIntoPreviousEntry, MAX_HISTORY, type HistoryRun } from './history'
 import { compactProjectForSave, expandLoadedProject } from '../lib/projectFile'
 import { mergeBundSimulationRuns } from '../lib/bundSimulation'
+import type { DocumentSettings } from '../lib/typist-output/documentSettings'
+import { ensureProjectHasCoverEmblem } from '../lib/typist-output/coverTypst'
+import { LEAD_MAP_IMAGE_PATH } from '../lib/leadMapGeometry'
+import { mergeLeadMapShadowFiles, stripLeadMapShadowFiles } from '../lib/leadMapCapture'
 
 const SSR_ITEM_TABLE = 'ssr_item'
 
@@ -429,7 +433,7 @@ function normalizeLoaded(rawData: EestimateProject): EestimateProject {
   // maps back before anything reads the snapshot.
   const data = expandLoadedProject(rawData)
   const normalizedRoot = normalizeNode(data.root)
-  return {
+  return ensureProjectHasCoverEmblem({
     ...data,
     meta: {
       ...data.meta,
@@ -452,7 +456,7 @@ function normalizeLoaded(rawData: EestimateProject): EestimateProject {
       (item) => item.name.trim() && Number.isFinite(item.cost) && item.cost >= 0
     ),
     earthworkOverrides: data.earthworkOverrides ?? {}
-  }
+  })
 }
 
 export type AppView = 'home' | 'newproject' | 'project'
@@ -598,7 +602,6 @@ interface StoreState {
   addPage: AddPageState
   addStructure: AddStructureState
   settings: SettingsState
-  exportPdfOpen: boolean
   analysisSelection: AnalysisSelection | null
   leadSelection: LeadSelection | null
   seigniorageSelection: SeigniorageSelection | null
@@ -621,7 +624,7 @@ interface StoreState {
   createProject: (meta: ProjectMeta) => void
   openProjectFromDisk: () => Promise<void>
   openRecent: (path: string) => Promise<void>
-  saveProject: () => Promise<void>
+  saveProject: (options?: { requireSaved?: boolean }) => Promise<void>
   saveProjectAs: () => Promise<void>
   closeProject: () => void
 
@@ -717,6 +720,7 @@ interface StoreState {
   setNodeRate: (id: string, rate: number | null) => void
   updateMeta: (patch: Partial<ProjectMeta>) => void
   setDashboardSnapshot: (snapshot: DashboardDataSnapshot) => void
+  setSeigniorageSlabThickness: (itemNodeId: string, thicknessMm: number | null) => void
   addMiscellaneousItem: (item: Omit<ProjectMiscellaneousItem, 'id' | 'createdAt'>) => void
   removeMiscellaneousItem: (id: string) => void
   setEarthworkOverride: (itemKey: string, value: boolean | null) => void
@@ -731,9 +735,26 @@ interface StoreState {
   upsertLeadMapDirection: (direction: LeadMapDirection) => void
   removeLeadMapDirection: (directionId: string) => void
   updateLeadPrintSettings: (settings: LeadPrintSettings) => void
-  updateSeignioragePrintSettings: (settings: SeignioragePrintSettings) => void
   updateChargeSettings: (settings: Partial<ProjectChargeSettings>) => void
   updateProjectPrintSettings: (settings: EestimateProject['projectPrintSettings']) => void
+  updatePrintStudioDocument: (
+    scopeKey: string,
+    source: string,
+    settings: Partial<DocumentSettings> | null
+  ) => void
+  commitLeadMapPrint: (payload: {
+    pngDataUrl?: string
+    typstSource: string
+    printSettings: LeadPrintSettings
+    tileFiles?: Record<string, string>
+  }) => void
+  clearLeadMapPrint: () => void
+  updateSeignioragePrintOverrides: (
+    overrides: Partial<import('../types/project').SeignioragePrintOverrides>
+  ) => void
+  updateLeadPrintOverrides: (
+    overrides: Partial<import('../types/project').LeadPrintOverrides>
+  ) => void
   updateSignatureFooter: (
     scopeKey: string,
     settings: EestimateProject['signatureFooter'] | null
@@ -743,6 +764,8 @@ interface StoreState {
   setNodeDocumentPrintArea: (id: string, documentPrintArea: DocumentPrintArea | null) => void
   /** Drop `dragId` just above or below its sibling `targetId`. */
   reorderNode: (dragId: string, targetId: string, edge: ReorderEdge) => void
+  moveNodeUp: (id: string) => void
+  moveNodeDown: (id: string) => void
   openLeadMaterial: (selection: LeadSelection) => void
   closeLeadMaterial: () => void
   openSeigniorage: (selection?: SeigniorageSelection) => void
@@ -760,8 +783,6 @@ interface StoreState {
   closeAddStructure: () => void
   openSettings: (nodeId: string) => void
   closeSettings: () => void
-  openExportPdf: () => void
-  closeExportPdf: () => void
 
   // undo / redo
   undo: () => void
@@ -838,6 +859,8 @@ function upsertNotificationRow(
   }
   return [next, ...rows.filter((row) => row.id !== notification.id)].slice(0, 30)
 }
+
+let projectSaveChain: Promise<void> = Promise.resolve()
 
 export const useStore = create<StoreState>((set, get) => {
   /** What produced the newest history entry, and when. */
@@ -928,7 +951,6 @@ export const useStore = create<StoreState>((set, get) => {
     addPage: { open: false, parentId: null },
     addStructure: { open: false, kind: 'component', parentId: null },
     settings: { open: false, nodeId: null },
-    exportPdfOpen: false,
     analysisSelection: null,
     leadSelection: null,
     seigniorageSelection: null,
@@ -966,7 +988,7 @@ export const useStore = create<StoreState>((set, get) => {
 
     startNewProject: () => {
       if (!confirmProjectReplacementWhileSimulation('Starting a new project')) return
-      const draft = createDraftProject()
+      const draft = ensureProjectHasCoverEmblem(createDraftProject())
       set({
         view: 'newproject',
         project: draft,
@@ -989,12 +1011,12 @@ export const useStore = create<StoreState>((set, get) => {
       if (!p) return
       // Every project opens with a Front Page and an Introduction.
       const root = ensurePinnedPages({ ...p.root, name: meta.name || 'Untitled Project' })
-      const next: EestimateProject = {
+      const next: EestimateProject = ensureProjectHasCoverEmblem({
         ...p,
         meta,
         root,
         updatedAt: new Date().toISOString()
-      }
+      })
       set({
         project: next,
         view: 'project',
@@ -1071,29 +1093,39 @@ export const useStore = create<StoreState>((set, get) => {
       void get().loadRecent()
     },
 
-    saveProject: async () => {
-      const { project, filePath } = get()
-      if (!project) return
-      const res = await window.api.project.save(
-        compactProjectForSave(project),
-        filePath,
-        project.meta.name || 'Project'
-      )
-      if (res.canceled) return
-      const savedPath = res.path ?? filePath
-      set((state) => ({
-        filePath: savedPath,
-        dirty: state.project?.updatedAt === project.updatedAt ? false : state.dirty
-      }))
-      if (savedPath) localStorage.setItem(LAST_PROJECT_KEY, savedPath)
-      void get().loadRecent()
+    saveProject: async (options) => {
+      const queued = projectSaveChain.then(async () => {
+        const { project, filePath } = get()
+        if (!project) {
+          if (options?.requireSaved) throw new Error('No project is open.')
+          return
+        }
+        const res = await window.api.project.save(
+          compactProjectForSave(ensureProjectHasCoverEmblem(project)),
+          filePath,
+          project.meta.name || 'Project'
+        )
+        if (res.canceled) {
+          if (options?.requireSaved) throw new Error('Saving was canceled. The template is still unsaved on disk.')
+          return
+        }
+        const savedPath = res.path ?? filePath
+        set((state) => ({
+          filePath: savedPath,
+          dirty: state.project?.updatedAt === project.updatedAt ? false : state.dirty
+        }))
+        if (savedPath) localStorage.setItem(LAST_PROJECT_KEY, savedPath)
+        void get().loadRecent()
+      })
+      projectSaveChain = queued.then(() => undefined, () => undefined)
+      await queued
     },
 
     saveProjectAs: async () => {
       const { project } = get()
       if (!project) return
       const res = await window.api.project.saveAs(
-        compactProjectForSave(project),
+        compactProjectForSave(ensureProjectHasCoverEmblem(project)),
         project.meta.name || 'Project'
       )
       if (res.canceled) return
@@ -1957,6 +1989,32 @@ export const useStore = create<StoreState>((set, get) => {
       })
     },
 
+    setSeigniorageSlabThickness: (itemNodeId, thicknessMm) => {
+      const project = get().project
+      const item = project ? findNode(project.root, itemNodeId) : null
+      if (!project || !item || item.kind !== 'item') return
+      const itemKey = projectItemKey(item)
+      const adopted =
+        thicknessMm != null && Number.isFinite(thicknessMm) && thicknessMm >= 25 && thicknessMm <= 40
+          ? thicknessMm
+          : null
+      mutateProject((current) => {
+        const overrides = { ...(current.seigniorageOverrides ?? {}) }
+        const previous = overrides[itemKey] ?? {}
+        const next = { ...previous, slabThicknessMm: adopted }
+        if (
+          next.seigCode === undefined &&
+          next.rate === undefined &&
+          next.slabThicknessMm === null
+        ) {
+          delete overrides[itemKey]
+        } else {
+          overrides[itemKey] = next
+        }
+        return { ...current, seigniorageOverrides: overrides }
+      })
+    },
+
     addMiscellaneousItem: (item) => {
       const name = item.name.trim()
       const cost = Number(item.cost)
@@ -2176,10 +2234,95 @@ export const useStore = create<StoreState>((set, get) => {
       })
     },
 
-    updateSeignioragePrintSettings: (settings) => {
+    updatePrintStudioDocument: (scopeKey, source, settings) => {
+      mutateProject((project) => {
+        const documentSettings = { ...(project.printStudioDocumentSettings ?? {}) }
+        if (settings) documentSettings[scopeKey] = settings
+        else delete documentSettings[scopeKey]
+        return {
+          ...project,
+          printStudioDocuments: {
+            ...(project.printStudioDocuments ?? {}),
+            [scopeKey]: source
+          },
+          printStudioDocumentSettings: Object.keys(documentSettings).length
+            ? documentSettings
+            : undefined
+        }
+      })
+    },
+
+    commitLeadMapPrint: ({ pngDataUrl, typstSource, printSettings, tileFiles }) => {
+      mutateProject((project) => {
+        const chart = normalizeLeadChart(project.leadChart)
+        const lockedSettings = normalizeLeadPrintLayoutSettings({
+          ...printSettings,
+          mapLayoutSaved: true
+        })
+        const shadows = pngDataUrl
+          ? mergeLeadMapShadowFiles(
+            project.printStudioShadowFiles,
+            pngDataUrl,
+            tileFiles ?? {},
+            LEAD_MAP_IMAGE_PATH
+          )
+          : project.printStudioShadowFiles
+        return {
+          ...project,
+          leadChart: {
+            ...chart,
+            printSettings: lockedSettings
+          },
+          printStudioDocuments: {
+            ...(project.printStudioDocuments ?? {}),
+            'lead-statement': typstSource
+          },
+          printStudioShadowFiles: shadows
+        }
+      })
+    },
+
+    clearLeadMapPrint: () => {
+      mutateProject((project) => {
+        const chart = normalizeLeadChart(project.leadChart)
+        return {
+          ...project,
+          leadChart: {
+            ...chart,
+            printSettings: {
+              ...normalizeLeadPrintLayoutSettings(chart.printSettings),
+              mapLayoutSaved: false
+            }
+          },
+          printStudioShadowFiles: stripLeadMapShadowFiles(
+            project.printStudioShadowFiles,
+            LEAD_MAP_IMAGE_PATH
+          )
+        }
+      })
+    },
+
+    updateSeignioragePrintOverrides: (overrides) => {
       mutateProject((project) => ({
         ...project,
-        seignioragePrintSettings: settings
+        // The dashboards send complete sub-maps (they seed from `existing`,
+        // then add/delete keys) and complete scalar overrides. Replacing rather
+        // than merging the sub-maps is what lets a deleted key stay deleted:
+        // merging would pull the old value back out of `existing` forever.
+        seignioragePrintOverrides: {
+          ...(project.seignioragePrintOverrides ?? {}),
+          ...overrides
+        }
+      }))
+    },
+
+    updateLeadPrintOverrides: (overrides) => {
+      mutateProject((project) => ({
+        ...project,
+        leadPrintOverrides: {
+          ...(project.leadPrintOverrides ?? {}),
+          ...overrides
+        }
       }))
     },
 
@@ -2190,6 +2333,18 @@ export const useStore = create<StoreState>((set, get) => {
       const target = findNode(p.root, targetId)
       if (!dragged || !target || !canReorderBetween(dragged, target)) return
       mutate((root) => reorderSibling(root, dragId, targetId, edge))
+    },
+
+    moveNodeUp: (id) => {
+      const p = get().project
+      if (!p) return
+      mutate((root) => moveNode(root, id, 'up'))
+    },
+
+    moveNodeDown: (id) => {
+      const p = get().project
+      if (!p) return
+      mutate((root) => moveNode(root, id, 'down'))
     },
 
     setNodeDocumentFinal: (id, documentFinal) => {
@@ -2373,9 +2528,6 @@ export const useStore = create<StoreState>((set, get) => {
     closeAddStructure: () => set({ addStructure: { open: false, kind: 'component', parentId: null } }),
     openSettings: (nodeId) => set({ settings: { open: true, nodeId } }),
     closeSettings: () => set({ settings: { open: false, nodeId: null } }),
-
-    openExportPdf: () => set({ exportPdfOpen: true }),
-    closeExportPdf: () => set({ exportPdfOpen: false }),
 
     undo: () =>
       set((s) => {

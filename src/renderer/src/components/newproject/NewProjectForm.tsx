@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Check, LoaderCircle, MapPin, Search } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import { fetchSorYears, resolveAreaAllowance } from '../../lib/masterData'
+import { normalizePlaceName } from '../../lib/placeNormalization'
 import type { ProjectAreaAllowance, ProjectLocation, ProjectMeta } from '../../types/project'
 import LocationMap from './LocationMap'
 
@@ -361,7 +362,11 @@ export function ProjectDetailsForm({
             <div>
               <span>Mapped location</span>
               <strong>
-                {[areaAllowance.village, areaAllowance.mandal, areaAllowance.district]
+                {[
+                  normalizePlaceName(areaAllowance.village),
+                  normalizePlaceName(areaAllowance.mandal),
+                  normalizePlaceName(areaAllowance.district)
+                ]
                   .filter(Boolean)
                   .join(', ') || 'Outside a mapped allowance area'}
               </strong>

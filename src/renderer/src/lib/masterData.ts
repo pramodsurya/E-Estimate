@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { normalizePlaceNameOrNull } from './placeNormalization'
 import type {
   ConveyanceClass,
   DataVariantSelection,
@@ -493,15 +494,15 @@ async function allowancePlaceAt(location: ProjectLocation): Promise<AllowanceAtR
   return ((data ?? []) as AllowanceAtRow[])[0]
 }
 
-/** Read the village, mandal and district exactly as stored in village_allowance. */
+/** Read the village, mandal and district normalized in Title Case from village_allowance. */
 export async function resolveVillageLocation(
   location: ProjectLocation
 ): Promise<VillageLocationDetails> {
   const place = await allowancePlaceAt(location)
   return {
-    village: place?.name ?? null,
-    mandal: place?.mandal ?? null,
-    district: place?.district ?? null
+    village: normalizePlaceNameOrNull(place?.name),
+    mandal: normalizePlaceNameOrNull(place?.mandal),
+    district: normalizePlaceNameOrNull(place?.district)
   }
 }
 
@@ -515,14 +516,17 @@ export async function resolveAreaAllowance(
   const place = await allowancePlaceAt(location)
   const allowanceType = manualType === undefined ? place?.allowance_type ?? null : manualType
   const source = manualType === undefined ? 'automatic' : 'manual'
+  const village = normalizePlaceNameOrNull(place?.name)
+  const mandal = normalizePlaceNameOrNull(place?.mandal)
+  const district = normalizePlaceNameOrNull(place?.district)
   if (!allowanceType) {
     return {
       type: null,
       label: source === 'manual' ? 'No area allowance (manual)' : 'No location-based area allowance',
       percent: 0,
-      village: place?.name ?? null,
-      mandal: place?.mandal ?? null,
-      district: place?.district ?? null,
+      village,
+      mandal,
+      district,
       goReference: place?.go_reference ?? null,
       ruleYear: sorYear || null,
       source
@@ -569,9 +573,9 @@ export async function resolveAreaAllowance(
     percent: Number.isFinite(percent) ? percent : 0,
     tier: rule?.tier ?? null,
     description: rule?.description ?? null,
-    village: place?.name ?? null,
-    mandal: place?.mandal ?? null,
-    district: place?.district ?? null,
+    village,
+    mandal,
+    district,
     ruleYear: rule?.sor_year ?? sorYear ?? null,
     goReference: rule?.go_reference ?? place?.go_reference ?? null,
     source

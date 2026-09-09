@@ -29,7 +29,9 @@ const {
   projectItemGroupIndex,
   projectItemGroups,
   projectItemKey,
-  rateAnalysisOverrideForNode
+  projectNodePath,
+  rateAnalysisOverrideForNode,
+  rateAnalysisOverrideResolution
 } = loadTsModule(path.join(root, 'src/renderer/src/lib/projectItems.ts'))
 const { removeNode } = loadTsModule(path.join(root, 'src/renderer/src/lib/tree.ts'))
 
@@ -176,6 +178,46 @@ function component(id, children) {
   )
   assert.equal(projectItemGroups(nextRoot).length, 1, 'the new version must reflect the edit')
   assert.equal(projectItemGroups(treeRoot).length, 2, 'the old version must be untouched')
+}
+
+// Group traversal stops at items, keeps structural paths, and retains metadata precedence.
+{
+  const first = item('first', { itemCode: '  CODE-10 ', itemDescription: 'First description' })
+  const last = item('last', { itemCode: 'CODE-10', itemDescription: '' })
+  const nested = { ...component('nested', [last]), kind: 'subcomponent' }
+  const section = component('section', [first, nested])
+  const other = item('other', { itemCode: 'CODE-2', children: [item('hidden')] })
+  const page = { id: 'page', kind: 'page', name: 'Page', children: [section] }
+  const rootNode = { id: 'root', kind: 'title', name: 'Project', children: [page, other] }
+  const groups = collectProjectItemGroups(rootNode)
+  assert.deepEqual(groups.map((group) => group.code), ['CODE-2', 'CODE-10'])
+  const group = groups[1]
+  assert.equal(group.displayName, 'CODE-10')
+  assert.equal(group.description, '', 'an explicitly empty later description wins')
+  assert.deepEqual(group.usages.map((usage) => usage.path.map((node) => node.id)), [
+    ['section'], ['section', 'nested']
+  ])
+  assert.deepEqual(group.branches, [{
+    id: 'section', name: 'section', kind: 'component', itemNodeIds: ['first', 'last'],
+    children: [{ id: 'nested', name: 'nested', kind: 'subcomponent', itemNodeIds: ['last'], children: [] }]
+  }])
+  assert.deepEqual(projectNodePath(rootNode, 'last'), [rootNode, page, section, nested])
+  assert.equal(projectNodePath(rootNode, 'last'), projectNodePath(rootNode, 'last'))
+  assert.deepEqual(projectNodePath(rootNode, 'missing'), [])
+  assert.deepEqual(projectNodePath(rootNode, 'root'), [])
+
+  const key = projectItemKey(last)
+  const outer = { description: 'Outer' }
+  const nearest = { description: 'Nearest' }
+  const project = {
+    root: rootNode,
+    rateAnalysisOverrides: { [key]: { description: 'Shared' } },
+    rateAnalysisScopedOverrides: { section: { [key]: outer }, nested: { [key]: nearest } }
+  }
+  assert.deepEqual(rateAnalysisOverrideResolution(project, last), {
+    recipe: nearest, scope: 'component', scopeNodeId: 'nested', scopeName: 'nested'
+  })
+  assert.equal(rateAnalysisOverrideForNode(project, first), outer)
 }
 
 console.log('project Item/DATA ownership tests passed')

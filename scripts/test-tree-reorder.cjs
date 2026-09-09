@@ -23,7 +23,7 @@ function loadTsModule(filePath) {
   return loadedModule.exports
 }
 
-const { reorderSibling, canReorderBetween, uniqueChildName } = loadTsModule(
+const { reorderSibling, canReorderBetween, uniqueChildName, patchNode, addChildren, removeNode, moveNode, canMoveNode } = loadTsModule(
   path.join(root, 'src/renderer/src/lib/tree.ts')
 )
 
@@ -107,6 +107,35 @@ assert.equal(canReorderBetween(generated, item), false)
 assert.equal(canReorderBetween(item, generated), false)
 assert.equal(canReorderBetween(item, item), false)
 
+// --- One-step move (Explorer up/down arrows) ---------------------------------
+
+// Move an item one step within its component.
+assert.deepEqual(order(moveNode(tree(), 'i3', 'up'), 'cA'), ['i1', 'i3', 'i2'])
+assert.deepEqual(order(moveNode(tree(), 'i1', 'down'), 'cA'), ['i2', 'i1', 'i3'])
+// Move a component past an ordinary sibling, leaving the pinned page untouched.
+assert.deepEqual(order(moveNode(tree(), 'cC', 'up'), 'root'), ['intro', 'cA', 'cC', 'cB'])
+// A pinned page in the way blocks the move entirely (no partial swaps).
+const pinnedTree = tree()
+assert.equal(moveNode(pinnedTree, 'cA', 'up'), pinnedTree)
+assert.ok(canMoveNode(tree(), 'cB', 'up'))
+assert.ok(canMoveNode(tree(), 'cA', 'down'))
+assert.ok(!canMoveNode(tree(), 'cA', 'up'), 'pinned Introduction blocks an upward move')
+assert.ok(!canMoveNode(tree(), 'cC', 'down'), 'no sibling below to move onto')
+assert.ok(!canMoveNode(tree(), 'intro', 'up'), 'pinned page never moves')
+
+// Template-generated rows are hidden and skipped rather than treated as targets.
+const withGen = node('root', 'title', [
+  node('comp', 'component', [
+    node('gen', 'item', [], { templateGenerated: true }),
+    node('a', 'item'),
+    node('b', 'item')
+  ])
+])
+assert.ok(!canMoveNode(withGen, 'a', 'up'), 'first visible item has nothing above it')
+assert.deepEqual(order(moveNode(withGen, 'b', 'up'), 'comp'), ['gen', 'b', 'a'])
+assert.equal(moveNode(withGen, 'a', 'up'), withGen)
+assert.deepEqual(order(moveNode(withGen, 'a', 'down'), 'comp'), ['gen', 'b', 'a'])
+
 // --- Sibling-safe structure names -------------------------------------------
 
 const namedParent = node('named', 'title', [
@@ -125,4 +154,40 @@ const before = JSON.stringify(original)
 reorderSibling(original, 'i1', 'i3', 'below')
 assert.equal(JSON.stringify(original), before)
 
-console.log('tree reorder: all assertions passed')
+// Tree edits preserve untouched references and never mutate the input.
+const editSource = tree()
+const editSnapshot = JSON.stringify(editSource)
+const added = node('i4', 'item')
+for (const edited of [
+  patchNode(editSource, 'i2', { name: 'Renamed' }),
+  addChildren(editSource, 'cA', [added]),
+  removeNode(editSource, 'i2')
+]) {
+  assert.notEqual(edited, editSource)
+  assert.notEqual(edited.children[1], editSource.children[1])
+  assert.equal(edited.children[0], editSource.children[0])
+  assert.equal(edited.children[2], editSource.children[2])
+  assert.equal(edited.children[1].children[0], editSource.children[1].children[0])
+}
+assert.equal(patchNode(editSource, 'i2', { name: 'Renamed' }).children[1].children[1].name, 'Renamed')
+assert.deepEqual(order(addChildren(editSource, 'cA', [added]), 'cA'), ['i1', 'i2', 'i3', 'i4'])
+assert.deepEqual(order(removeNode(editSource, 'i2'), 'cA'), ['i1', 'i3'])
+assert.equal(patchNode(editSource, 'missing', {}), editSource)
+assert.equal(addChildren(editSource, 'missing', [added]), editSource)
+assert.equal(addChildren(editSource, 'cA', []), editSource)
+assert.equal(removeNode(editSource, 'missing'), editSource)
+assert.equal(removeNode(editSource, 'root'), editSource)
+assert.equal(JSON.stringify(editSource), editSnapshot)
+
+// Preserve first-match semantics, including direct-child priority for removal.
+const duplicateTree = node('root', 'title', [
+  node('branch', 'component', [node('duplicate', 'item')]),
+  node('duplicate', 'item')
+])
+const patchedDuplicate = patchNode(duplicateTree, 'duplicate', { name: 'First' })
+assert.equal(patchedDuplicate.children[0].children[0].name, 'First')
+assert.equal(patchedDuplicate.children[1], duplicateTree.children[1])
+const removedDuplicate = removeNode(duplicateTree, 'duplicate')
+assert.deepEqual(removedDuplicate.children, [duplicateTree.children[0]])
+
+console.log('tree edits and reorder: all assertions passed')

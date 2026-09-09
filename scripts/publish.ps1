@@ -1,6 +1,21 @@
-# E-Estimate One-Click Publish Script
-# Usage: .\scripts\publish.ps1 [patch|minor|major|version]
-# Example: .\scripts\publish.ps1 patch
+# E-Estimate One-Click Release (signing + analysis engine + auto-update manifest).
+#
+# Usage: .\scripts\publish.ps1            # patch bump
+#        .\scripts\publish.ps1 minor      # or major / an explicit version
+#
+# It wires the full release end-to-end so running it IS the release:
+#   1. Ensures the signing keypair exists in ~/.tauri (generates if missing).
+#   2. Mounts the private key + pushes it to GitHub Secrets (so CI runs match).
+#   3. Writes the public key into src-tauri/tauri.conf.json.
+#   4. Bumps package.json + tauri.conf.json + Cargo.toml to the same version.
+#   5. Pre-flights the analysis-engine Python deps.
+#   6. Commits the version bump, tags it, pushes, creates the GitHub release.
+#   7. Builds the Python analysis engine + the Tauri installer (signed).
+#   8. Verifies the bund-analysis.exe sidecar was bundled.
+#   9. Uploads installer + signature + latest.json for auto-update.
+#
+# Requires: GitHub CLI (`gh`) logged in with push access to pramodsurya/E-Estimate,
+# and a Python that can build the bund-analysis sidecar (see step 5).
 
 param(
     [string]$bumpType = "patch"
@@ -10,239 +25,186 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot | Split-Path -Parent
 Set-Location $root
 
+$repoSlug = "pramodsurya/E-Estimate"
+
 Write-Host "====================================" -ForegroundColor Cyan
-Write-Host "  E-Estimate - Publish Update" -ForegroundColor Cyan
+Write-Host "  E-Estimate - One-Click Release" -ForegroundColor Cyan
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 1. Refresh PATH so gh is available
+# ----------------------------------------------------------------------------
+# 1/2. Signing keys (local, gitignored) + mount private key
+# ----------------------------------------------------------------------------
+$keyFile = Join-Path $HOME ".tauri\eestimate.key"
+$pubFile = "$keyFile.pub"
+if (-not (Test-Path -LiteralPath $keyFile) -or -not (Test-Path -LiteralPath $pubFile)) {
+    Write-Host "Generating a fresh signing keypair at $keyFile ..." -ForegroundColor Yellow
+    & npx tauri signer generate -w $keyFile --ci
+    if ($LASTEXITCODE -ne 0) { Write-Host "ERROR: could not generate signing keys" -ForegroundColor Red; exit 1 }
+    Write-Host "[OK] Keys generated" -ForegroundColor Green
+} else {
+    Write-Host "[OK] Using existing keys in $HOME\.tauri" -ForegroundColor Green
+}
+
+# The private key is never committed; it is mounted for the build AND mirrored to
+# the repo secrets so the CI release job reproduces the exact same signature key.
+$privateKeyContent = (Get-Content -LiteralPath $keyFile -Raw).Trim()
+$null = New-Item -ItemType Directory -Path (Split-Path $keyFile) -Force
+$env:TAURI_SIGNING_PRIVATE_KEY = $privateKeyContent
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
+$env:TAURI_SIGNING_PRIVATE_KEY_PATH = $keyFile
+
+# ----------------------------------------------------------------------------
+# 3. GitHub CLI + secrets + public key sync
+# ----------------------------------------------------------------------------
 $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
 $userPath    = [System.Environment]::GetEnvironmentVariable("Path", "User")
 $env:Path    = "$machinePath;$userPath"
 
 $gh = (Get-Command gh -ErrorAction SilentlyContinue).Source
-if (-not $gh) {
-    $ghCandidates = @(
-        "C:\Program Files\GitHub CLI\gh.exe",
-        "C:\Program Files (x86)\GitHub CLI\gh.exe"
-    )
-    $gh = $ghCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-}
-if (-not $gh) {
-    Write-Host "ERROR: GitHub CLI executable not found. Install GitHub CLI or add it to PATH." -ForegroundColor Red
-    exit 1
-}
-
-# 2. Ensure GH_TOKEN is set
-try {
-    $env:GH_TOKEN = & $gh auth token 2>$null
-} catch { }
-if (-not $env:GH_TOKEN) {
-    Write-Host "ERROR: Not logged into GitHub CLI. Run 'gh auth login' first." -ForegroundColor Red
-    exit 1
-}
+if (-not $gh) { $gh = "C:\Program Files\GitHub CLI\gh.exe"; $gh = if (Test-Path $gh) { $gh } else { "C:\Program Files (x86)\GitHub CLI\gh.exe" } }
+if (-not (Test-Path $gh)) { Write-Host "ERROR: GitHub CLI not found (https://cli.github.com)" -ForegroundColor Red; exit 1 }
+try { $env:GH_TOKEN = & $gh auth token 2>$null } catch { }
+if (-not $env:GH_TOKEN) { Write-Host "ERROR: run 'gh auth login' first" -ForegroundColor Red; exit 1 }
 Write-Host "[OK] GitHub authenticated" -ForegroundColor Green
 
-$repoSlug = "pramodsurya/E-Estimate"
+# Keep CI reproducible: mirror the signing key to the repo secrets (idempotent).
+# No password is set because the generated key is unencrypted.
+& $gh secret set TAURI_SIGNING_PRIVATE_KEY --repo $repoSlug --body $privateKeyContent
+Write-Host "[OK] TAURI_SIGNING_PRIVATE_KEY secret updated" -ForegroundColor Green
 
-# 3. Read & bump version
-$pkgPath = Join-Path $root "package.json"
-$pkgJson = Get-Content $pkgPath -Raw -Encoding UTF8
-$oldVersion = ($pkgJson | Select-String -Pattern '"version"\s*:\s*"([^"]+)"').Matches.Groups[1].Value
-Write-Host ""
-Write-Host "Current version: $oldVersion" -ForegroundColor Yellow
-
-$validBumps = @("patch", "minor", "major")
-if ($bumpType -in $validBumps) {
-    $parts = $oldVersion -split '\.'
-    if ($parts.Count -ne 3) {
-        Write-Host "ERROR: Version must be X.Y.Z (got: $oldVersion)" -ForegroundColor Red
-        exit 1
-    }
-    $major = [int]$parts[0]
-    $minor = [int]$parts[1]
-    $patch = [int]$parts[2]
-    switch ($bumpType) {
-        "major" { $major++; $minor=0; $patch=0 }
-        "minor" { $minor++; $patch=0 }
-        "patch" { $patch++ }
-    }
-    $newVersion = "$major.$minor.$patch"
-} else {
-    $newVersion = $bumpType
+# Keep tauri.conf.json's public key in sync with the keypair.
+$pubContent = (Get-Content -LiteralPath $pubFile -Raw).Trim()
+$confPath = Join-Path $root "src-tauri\tauri.conf.json"
+$conf = Get-Content -LiteralPath $confPath -Raw | ConvertFrom-Json
+if ($conf.plugins.updater.pubkey -ne $pubContent) {
+    $conf.plugins.updater.pubkey = $pubContent
+    $conf | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $confPath -Encoding utf8
+    Write-Host "[OK] Sync'd public key into src-tauri/tauri.conf.json" -ForegroundColor Green
 }
 
+# ----------------------------------------------------------------------------
+# 4. Version bump (package.json + tauri.conf.json + Cargo.toml)
+# ----------------------------------------------------------------------------
+$pkgPath = Join-Path $root "package.json"
+$pkg = Get-Content -LiteralPath $pkgPath -Raw | ConvertFrom-Json
+$oldVersion = [string]$pkg.version
+Write-Host "Current version: $oldVersion" -ForegroundColor Yellow
+
+$part = $oldVersion -split '\.'
+if ($part.Count -ne 3) { Write-Host "ERROR: version must be X.Y.Z (got: $oldVersion)" -ForegroundColor Red; exit 1 }
+switch ($bumpType) {
+    "major" { $newVersion = "$([int]$part[0]+1).0.0" }
+    "minor" { $newVersion = "$($part[0]).$([int]$part[1]+1).0" }
+    "patch" { $newVersion = "$($part[0]).$($part[1]).$([int]$part[2]+1)" }
+    default { $newVersion = $bumpType }
+}
 Write-Host "New version:     $newVersion" -ForegroundColor Green
-Write-Host ""
 
-# 4. Update package.json (regex replace preserves all formatting)
-$pkgJson = $pkgJson -replace '("version"\s*:\s*)"[^"]+"', ('$1"' + $newVersion + '"')
-$pkgJson = $pkgJson.TrimEnd() + "`n"
-# Use .NET to write without BOM (Byte Order Mark) which breaks JSON parsers
-[System.IO.File]::WriteAllText($pkgPath, $pkgJson, [System.Text.UTF8Encoding]::new($false))
-Write-Host "[OK] package.json updated" -ForegroundColor Green
+$pkg.version = $newVersion
+$pkg | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $pkgPath -Encoding utf8
+$conf.version = $newVersion
+$conf | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $confPath -Encoding utf8
+$cargoPath = Join-Path $root "src-tauri\Cargo.toml"
+$cargo = Get-Content -LiteralPath $cargoPath -Raw
+$cargo = $cargo -replace '(?m)^version = ".*"$', "version = `"$newVersion`""
+Set-Content -LiteralPath $cargoPath -Value $cargo -Encoding utf8
+Write-Host "[OK] Version synced across package.json, tauri.conf.json, Cargo.toml" -ForegroundColor Green
 
-# 5. Git commit & push
-Write-Host ""
-Write-Host "Committing version bump..." -ForegroundColor Cyan
-git add package.json
-git commit -m "v$newVersion" --allow-empty
+# ----------------------------------------------------------------------------
+# 5. Analysis-engine Python deps pre-flight
+# ----------------------------------------------------------------------------
+$python = if ($env:EESTIMATE_PYTHON) { $env:EESTIMATE_PYTHON } else { 'python' }
+& $python -c "import PyInstaller, xslope, numpy, scipy, shapely, openpyxl, gmsh" 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host @"
+
+ERROR: The analysis-engine build Python is missing solver deps. Install them first:
+
+  python -m pip install -r analysis/requirements-packaging.txt
+
+(or set EESTIMATE_PYTHON to an interpreter that has them.)
+
+"@ -ForegroundColor Red
+    exit 1
+}
+Write-Host "[OK] Analysis-engine Python deps present" -ForegroundColor Green
+
+# ----------------------------------------------------------------------------
+# 6. Commit version bump, tag, push, ensure release
+# ----------------------------------------------------------------------------
+git config user.name "github-actions[bot]"
+git config user.email "github-actions[bot]@users.noreply.github.com"
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
+git commit -m "chore: release v$newVersion" --allow-empty
 git push origin master
-Write-Host "[OK] Pushed v$newVersion to GitHub" -ForegroundColor Green
-
-# 6. Ensure release exists first (avoids electron-builder race on create-release)
 $tagName = "v$newVersion"
+git tag -f $tagName
+git push --force origin $tagName
+Write-Host "[OK] Pushed v$newVersion tag" -ForegroundColor Green
+
 & $gh release view $tagName --repo $repoSlug *> $null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Creating GitHub release $tagName..." -ForegroundColor Cyan
     & $gh release create $tagName --repo $repoSlug --target master --title $tagName --notes "Automated release $tagName" *> $null
-    if ($LASTEXITCODE -ne 0) {
-        # If creation failed due to a parallel create, a second view will succeed.
-        & $gh release view $tagName --repo $repoSlug *> $null
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "ERROR: Failed to create or locate GitHub release $tagName" -ForegroundColor Red
-            exit 1
-        }
-    }
 }
-Write-Host "[OK] Release $tagName is ready" -ForegroundColor Green
+Write-Host "[OK] Release $tagName ready" -ForegroundColor Green
 
-# 7. Build & Publish to GitHub Releases
+# ----------------------------------------------------------------------------
+# 7. Build the analysis engine + signed Tauri installer
+# ----------------------------------------------------------------------------
 Write-Host ""
-Write-Host "Building & publishing to GitHub Releases..." -ForegroundColor Cyan
-Write-Host "  (this will take 2-5 minutes)" -ForegroundColor Gray
-Write-Host ""
+Write-Host "Building analysis engine + Tauri bundle (10-60+ min)..." -ForegroundColor Cyan
+npm run publish:win
+if ($LASTEXITCODE -ne 0) { Write-Host "ERROR: build failed" -ForegroundColor Red; exit 1 }
 
-npm run build
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "ERROR: Build failed" -ForegroundColor Red
+# ----------------------------------------------------------------------------
+# 8. Verify the analysis engine sidecar exists (simulation tab depends on it)
+# ----------------------------------------------------------------------------
+$engine = Join-Path $root "vendor\bund-analysis\bund-analysis.exe"
+if (-not (Test-Path -LiteralPath $engine)) {
+    Write-Host "ERROR: bund-analysis.exe was not produced — the simulation tab ships broken." -ForegroundColor Red
     exit 1
 }
+Write-Host "[OK] Analysis engine present: $engine" -ForegroundColor Green
 
-$electronBuilder = Join-Path $root "node_modules\.bin\electron-builder.cmd"
-if (-not (Test-Path $electronBuilder)) {
-    Write-Host "ERROR: electron-builder executable not found in node_modules\.bin" -ForegroundColor Red
-    exit 1
+$nsisDir = Join-Path $root "src-tauri\target\release\bundle\nsis"
+$installer = Get-ChildItem $nsisDir -Filter "*-setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $installer) { Write-Host "ERROR: NSIS installer not found under $nsisDir" -ForegroundColor Red; exit 1 }
+$sigFile = "$($installer.FullName).sig"
+if (-not (Test-Path -LiteralPath $sigFile)) {
+    Write-Host "ERROR: installer signature not produced (createUpdaterArtifacts / signing key?)" -ForegroundColor Red; exit 1
 }
+Write-Host "[OK] Built signed installer: $($installer.Name)" -ForegroundColor Green
 
-& $electronBuilder --win nsis --x64 --publish always
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "WARNING: electron-builder publish failed. Trying direct release asset upload..." -ForegroundColor Yellow
-    $exePath = Join-Path $root "release\E-Estimate-$newVersion-windows-x64.exe"
-    $blockMapPath = "$exePath.blockmap"
+# ----------------------------------------------------------------------------
+# 9. Upload installer + signature + latest.json (auto-update)
+# ----------------------------------------------------------------------------
+$installerName = $installer.Name
+$sigContent = (Get-Content -LiteralPath $sigFile -Raw).Trim()
+$assetUrl = "https://github.com/$repoSlug/releases/download/$tagName/$installerName"
+$pubDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
-    if (-not (Test-Path $exePath)) {
-        Write-Host "ERROR: Publish failed and installer not found at $exePath" -ForegroundColor Red
-        exit 1
-    }
-
-    & $gh release upload $tagName $exePath --repo $repoSlug --clobber
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "ERROR: Fallback upload failed for installer" -ForegroundColor Red
-        exit 1
-    }
-
-    if (Test-Path $blockMapPath) {
-        & $gh release upload $tagName $blockMapPath --repo $repoSlug --clobber
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "ERROR: Fallback upload failed for blockmap" -ForegroundColor Red
-            exit 1
-        }
-    }
-
-    Write-Host "[OK] Fallback asset upload completed" -ForegroundColor Green
-}
-
-# 8. Ensure latest.yml exists, upload it, and verify the release asset.
-Write-Host ""
-Write-Host "Publishing latest.yml..." -ForegroundColor Cyan
-$exeFile = Get-ChildItem "release" -Filter "E-Estimate-$newVersion-windows-x64.exe" | Select-Object -First 1
-$latestYmlPath = Join-Path $root "release\latest.yml"
-
-if (-not $exeFile) {
-    Write-Host "ERROR: Installer not found; latest.yml cannot be published." -ForegroundColor Red
-    exit 1
-}
-
-# electron-builder normally creates this file with the required base64 SHA-512
-# checksum. Regenerate it only if it is missing or belongs to another version.
-$generateLatestYml = -not (Test-Path $latestYmlPath)
-if (-not $generateLatestYml) {
-    $latestYmlContent = Get-Content $latestYmlPath -Raw -Encoding UTF8
-    $expectedVersionLine = "(?m)^version:\s*$([regex]::Escape($newVersion))\s*$"
-    $generateLatestYml = $latestYmlContent -notmatch $expectedVersionLine
-}
-
-if ($generateLatestYml) {
-    Write-Host "Generating latest.yml for v$newVersion..." -ForegroundColor Cyan
-    $stream = [System.IO.File]::OpenRead($exeFile.FullName)
-    $sha512 = [System.Security.Cryptography.SHA512]::Create()
-    try {
-        $hash = [Convert]::ToBase64String($sha512.ComputeHash($stream))
-    } finally {
-        $sha512.Dispose()
-        $stream.Dispose()
-    }
-
-    $size = $exeFile.Length
-    $date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-    $yml = @"
-version: $newVersion
-files:
-  - url: E-Estimate-$newVersion-windows-x64.exe
-    sha512: $hash
-    size: $size
-path: E-Estimate-$newVersion-windows-x64.exe
-sha512: $hash
-releaseDate: '$date'
-"@
-    [System.IO.File]::WriteAllText($latestYmlPath, $yml, [System.Text.Encoding]::ASCII)
-} else {
-    Write-Host "[OK] Using latest.yml generated by electron-builder" -ForegroundColor Green
-}
-
-$uploadSucceeded = $false
-for ($attempt = 1; $attempt -le 3; $attempt++) {
-    & $gh release upload $tagName $latestYmlPath --repo $repoSlug --clobber
-    if ($LASTEXITCODE -eq 0) {
-        $uploadSucceeded = $true
-        break
-    }
-
-    if ($attempt -lt 3) {
-        Write-Host "WARNING: latest.yml upload attempt $attempt failed; retrying..." -ForegroundColor Yellow
-        Start-Sleep -Seconds 2
+$latest = [ordered]@{
+    version  = $newVersion
+    notes    = ""
+    pub_date = $pubDate
+    platforms = [ordered]@{
+        "windows-x86_64" = [ordered]@{ signature = $sigContent; url = $assetUrl }
     }
 }
+$latestPath = Join-Path $root "latest.json"
+$latest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $latestPath -Encoding utf8
 
-if (-not $uploadSucceeded) {
-    Write-Host "ERROR: Failed to upload latest.yml after 3 attempts." -ForegroundColor Red
-    exit 1
-}
-
-$releaseJson = & $gh release view $tagName --repo $repoSlug --json assets
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "ERROR: Could not verify assets for release $tagName." -ForegroundColor Red
-    exit 1
-}
-
-$latestAsset = (($releaseJson | ConvertFrom-Json).assets |
-    Where-Object { $_.name -eq "latest.yml" -and $_.state -eq "uploaded" } |
-    Select-Object -First 1)
-$localLatestYmlSize = (Get-Item $latestYmlPath).Length
-if (-not $latestAsset -or $latestAsset.size -ne $localLatestYmlSize) {
-    Write-Host "ERROR: GitHub release verification failed for latest.yml." -ForegroundColor Red
-    exit 1
-}
-Write-Host "[OK] latest.yml uploaded and verified" -ForegroundColor Green
+Write-Host "Uploading installer, signature and latest.json..." -ForegroundColor Cyan
+& $gh release upload $tagName $installer.FullName $sigFile $latestPath --repo $repoSlug --clobber
+if ($LASTEXITCODE -ne 0) { Write-Host "ERROR: upload failed" -ForegroundColor Red; exit 1 }
+Remove-Item -LiteralPath $latestPath -Force
 
 Write-Host ""
 Write-Host "====================================" -ForegroundColor Green
-Write-Host "  PUBLISHED: v$newVersion" -ForegroundColor Green
+Write-Host "  RELEASED v$newVersion (auto-update ready)" -ForegroundColor Green
 Write-Host "====================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "Release: https://github.com/pramodsurya/E-Estimate/releases/tag/v$newVersion" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Users will get the update notification next time they open the app!" -ForegroundColor Yellow
-Write-Host ""
-
+Write-Host "Release:  https://github.com/$repoSlug/releases/tag/$tagName" -ForegroundColor Cyan
+Write-Host "Installer: $installerName (includes the bundled analysis engine)" -ForegroundColor Cyan

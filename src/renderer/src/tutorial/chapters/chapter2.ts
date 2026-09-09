@@ -28,7 +28,7 @@ const chapter2: TutorialChapter = {
       title: 'Sync compiles every material',
       body:
         'Sync scans the whole project for anything that needs a lead — earth, sand, stone, aggregate — and ' +
-        'lists it below, even before any variant exists.',
+        'lists it below, even before any Material exists.',
       primary: 'Synced',
       screen: 'the Lead Dashboard',
       target: { text: 'Sync', within: '.dash-actions', placement: 'bottom' }
@@ -92,15 +92,15 @@ const chapter2: TutorialChapter = {
     },
     {
       id: 'create-variant',
-      rail: 'Variant',
+      rail: 'Material',
       section: 'sand',
-      actionLabel: 'Create Variant',
-      title: 'A variant is the route itself',
+      actionLabel: 'Create Lead',
+      title: 'A Material is the route itself',
       body:
-        'The point marks where the material is; a variant is the trip from there to the work. Open Create Variant.',
+        'The point marks where the material is; a Material is the trip from there to the work. Open Create Lead.',
       primary: 'Opened it',
       screen: 'the Sand material page',
-      target: { text: 'Create Variant', placement: 'bottom' }
+      target: { text: 'Create Lead', placement: 'bottom' }
     },
     {
       id: 'variant-name',
@@ -112,7 +112,7 @@ const chapter2: TutorialChapter = {
         'better on the lead chart than “SR-1 → Work site”. Route colour underneath is cosmetic; it decides how ' +
         'this route is drawn on the printed map.',
       primary: 'Next — the starting point',
-      screen: 'the Create Variant dialog',
+      screen: 'the Create Lead dialog',
       target: { selector: '[data-tour="variant-name"]', placement: 'bottom' }
     },
     {
@@ -124,7 +124,7 @@ const chapter2: TutorialChapter = {
         'Open Starting and choose SR-1 — the sand reach you just created. It reads “No starting point / manual ' +
         'only” until you do, and that is the reason the point had to exist before the route could.',
       primary: 'Picked it',
-      screen: 'the Create Variant dialog',
+      screen: 'the Create Lead dialog',
       target: { selector: '[data-tour="variant-start"]', placement: 'bottom' }
     },
     {
@@ -136,7 +136,7 @@ const chapter2: TutorialChapter = {
         'Scroll past Intermediate stops to Ending and choose the work site. Start and end together are what the ' +
         'router needs — leave either as “manual only” and no route can be measured.',
       primary: 'Picked it',
-      screen: 'the Create Variant dialog',
+      screen: 'the Create Lead dialog',
       target: { selector: '[data-tour="variant-end"]', placement: 'top' }
     },
     {
@@ -149,20 +149,20 @@ const chapter2: TutorialChapter = {
         'straight line. That measured distance is what the lead charge is based on, and nothing here is typed by ' +
         'hand.',
       primary: 'Next — save it',
-      screen: 'the Create Variant dialog',
+      screen: 'the Create Lead dialog',
       target: { selector: '[data-tour="variant-map"]', placement: 'left', pad: 2 }
     },
     {
       id: 'variant-save',
       rail: 'Save',
       section: 'sand',
-      actionLabel: 'Create Variant',
-      title: 'Save the variant',
+      actionLabel: 'Create Lead',
+      title: 'Save the Material',
       body:
         'It joins the material, and every item using Sand can now pick the charge up. Cancelling closes the ' +
-        'dialog too — this card waits for the variant, not for the dialog.',
+        'dialog too — this card waits for the Material, not for the dialog.',
       primary: 'Saved',
-      screen: 'the Create Variant dialog',
+      screen: 'the Create Lead dialog',
       target: { selector: '[data-tour="variant-save"]', placement: 'top' }
     },
     {
@@ -171,7 +171,7 @@ const chapter2: TutorialChapter = {
       section: 'sand',
       title: 'Tick where this route applies',
       body:
-        'A saved variant charges nothing until it is linked to work. One material can reach the site by more than ' +
+        'A saved Material charges nothing until it is linked to work. One material can reach the site by more than ' +
         'one route, so check the items this route serves and press Apply Checked — only those items pick the ' +
         'charge up.',
       primary: 'Applied',
@@ -186,7 +186,7 @@ const chapter2: TutorialChapter = {
       title: 'Same three moves, no more hand-holding',
       body:
         'Press Back, open Rough stone from the same list, and give it what you gave Sand: Create Point for the ' +
-        'quarry, Create Variant from it to site, then tick its usages and Apply Checked. This card moves on when ' +
+        'quarry, Create Lead from it to site, then tick its usages and Apply Checked. This card moves on when ' +
         'a stone route is actually applied — not before.',
       primary: 'Got it — set it aside',
       screen: 'the Lead panel, bottom left'
@@ -223,34 +223,34 @@ const chapter2: TutorialChapter = {
       section: 'paper',
       title: 'Reshape the printed map if you need to',
       body:
-        'Close the preview first. Landscape suits a wide route; a compact one reads better tall. Map Print ' +
-        'Layout switches orientation and lets you drag the map box to the size it should print at.',
+        'Landscape suits a wide route; a compact one reads better tall. Map Print Studio controls its own ' +
+        'separate page, including paper, orientation, map size, labels and legend.',
       primary: 'Opened it',
       screen: 'the Lead Dashboard',
-      target: { text: 'Map Print Layout', within: '.dash-actions', placement: 'bottom' }
+      target: { text: 'Map Print Studio', within: '.dash-actions', placement: 'bottom' }
     },
     {
       id: 'map-resize',
       rail: 'Resize',
       section: 'paper',
-      title: 'Drag the handle to grow the box',
+      title: 'Set the map box dimensions',
       body:
-        'The handle under the map box is draggable — pull it and the printed map grows to match, in real page ' +
-        'millimetres, not screen pixels. Closing saves the layout with the project.',
+        'Choose Fill page or enter a fixed height in millimetres. The preview and the saved map PDF use the ' +
+        'same dimensions, and closing saves the layout with the project.',
       primary: 'Sized and closed',
-      screen: 'the Map Print Layout screen'
+      screen: 'the Map Print Studio screen'
     },
     {
       id: 'lead-print-view',
       rail: 'Print view',
       section: 'paper',
-      title: 'Confirm the map prints at that size',
+      title: 'Edit the Lead statement in Typst',
       body:
-        'View Print View is the embedded version of the same pages. The route map now occupies exactly the box ' +
-        'you dragged.',
+        'Open Print Studio opens the Typst source and compiled Lead Statement. The route map remains a separate ' +
+        'map-only page under Map Print Studio.',
       primary: 'Checked it',
       screen: 'the Lead Dashboard',
-      target: { text: 'View Print View', within: '.dash-actions', placement: 'bottom' }
+      target: { text: 'Open Print Studio', within: '.dash-actions', placement: 'bottom' }
     },
     {
       // Seigniorage is its own dashboard, reached from the bottom panel. The
@@ -290,7 +290,7 @@ const chapter2: TutorialChapter = {
         'other total in this app: sync, then look at the real output.',
       primary: 'Finish chapter 2',
       screen: 'the Seigniorage dashboard',
-      target: { text: 'View Print View', within: '.dash-actions', placement: 'bottom' }
+      target: { text: 'Open Print Studio', within: '.dash-actions', placement: 'bottom' }
     }
   ],
   complete: {

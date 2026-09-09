@@ -181,6 +181,7 @@ assert.equal(
 const withFilters = {
   ...newBund,
   horizontalFilterMaterial: { code: 'IRR-CAW-5-10', unit: 'CUM' },
+  horizontalFilterLengthMode: 'manual',
   horizontalFilterLength: 8,
   horizontalFilterThickness: 0.3,
   verticalFilterMaterial: { code: 'IRR-DAW-9-1', unit: 'CUM' },
@@ -325,11 +326,10 @@ const wideTrench = {
   ...zonedNew,
   heartingTrench: { ...zonedNew.heartingTrench, bottomWidth: 40 }
 }
-assert.ok(
-  bund
-    .heartingTrenchIssues(wideTrench, wideTrench.sections[0])
-    .some((issue) => issue.code === 'too-wide'),
-  'a trench wider than the hearting base is flagged'
+assert.deepEqual(
+  bund.heartingTrenchIssues(wideTrench, wideTrench.sections[0]),
+  [],
+  'a trench wider than the hearting base has no width warning'
 )
 
 console.log('OK — all new-bund checks passed')

@@ -1,0 +1,54 @@
+[workspace]
+members = [".", "estimate-core"]
+resolver = "2"
+
+[package]
+name = "e-estimate"
+version = "0.1.12"
+description = "E-Estimate desktop shell (Tauri 2)"
+authors = ["E-Estimate"]
+edition = "2021"
+
+[lib]
+name = "e_estimate_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+estimate-core = { path = "estimate-core" }
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-process = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-updater = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "process", "io-util"] }
+tempfile = "3"
+typst = "0.15.1"
+typst-pdf = "0.15.1"
+typst-layout = "0.15.1"
+typst-world = { version = "0.3.1", features = ["render"] }
+comemo = "0.5"
+time = { version = "0.3", features = ["formatting"] }
+once_cell = "1"
+
+# First Typst/krilla debug build is 30–90 min. Incremental after that only if
+# artifacts stay on local disk — `npm run dev` sets CARGO_TARGET_DIR under
+# %LOCALAPPDATA%\e-estimate\cargo-target so OneDrive cannot wipe `target/`.
+# Do not `cargo clean`. Print Studio compiles Typst in this binary on purpose.
+[profile.dev]
+debug = "line-tables-only"
+incremental = true
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

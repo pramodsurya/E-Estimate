@@ -30,6 +30,12 @@
 import type { DashboardDataSnapshot, EestimateProject, ProjectNode } from '../types/project'
 import type { RateAnalysisRecipe } from '../types/rateAnalysis'
 
+const serializedRecipeCache = new WeakMap<RateAnalysisRecipe, string>()
+const compactSnapshotCache = new WeakMap<
+  DashboardDataSnapshot,
+  { componentSignature: string; snapshot: DashboardDataSnapshot }
+>()
+
 /** Rough JSON size of a value, for reporting what the compaction saved. */
 export function approximateBytes(value: unknown): number {
   try {
@@ -43,8 +49,17 @@ function sameRecipe(left: RateAnalysisRecipe, right: RateAnalysisRecipe): boolea
   // Identity first: an item with no project edit gets the published object back
   // from `dashboardRecipeForNode`, so this is the common case and it is free.
   if (left === right) return true
-  return approximateBytes(left) === approximateBytes(right) &&
-    JSON.stringify(left) === JSON.stringify(right)
+  let leftJson = serializedRecipeCache.get(left)
+  if (leftJson === undefined) {
+    leftJson = JSON.stringify(left)
+    serializedRecipeCache.set(left, leftJson)
+  }
+  let rightJson = serializedRecipeCache.get(right)
+  if (rightJson === undefined) {
+    rightJson = JSON.stringify(right)
+    serializedRecipeCache.set(right, rightJson)
+  }
+  return leftJson.length === rightJson.length && leftJson === rightJson
 }
 
 /** Top-level components, in tree order — what `projectRecipes` was built from. */
@@ -63,6 +78,14 @@ function compactSnapshot(
   const componentRecipes = snapshot.componentRecipes
   if (!componentRecipes) return snapshot
 
+  // Geometry/text edits replace the project and root but leave the dashboard
+  // snapshot untouched. Reuse its compact form instead of serialising every
+  // recipe again at each autosave. Only the top-level component index comes
+  // from root, so include it in the cache key.
+  const componentSignature = topLevelComponentIds(root).join('|')
+  const cached = compactSnapshotCache.get(snapshot)
+  if (cached?.componentSignature === componentSignature) return cached.snapshot
+
   const published = snapshot.recipes ?? {}
   const mergedRecipes: Record<string, RateAnalysisRecipe> = {}
   const componentItemIds: Record<string, string[]> = {}
@@ -78,15 +101,17 @@ function compactSnapshot(
     }
   }
 
-  return {
+  const compacted: DashboardDataSnapshot = {
     ...snapshot,
     componentRecipes: undefined,
     // A pure union of the top-level component maps; rebuilt from them on load.
     projectRecipes: undefined,
     componentItemIds,
     mergedRecipes: Object.keys(mergedRecipes).length > 0 ? mergedRecipes : undefined,
-    projectComponentIds: topLevelComponentIds(root)
+    projectComponentIds: componentSignature ? componentSignature.split('|') : []
   }
+  compactSnapshotCache.set(snapshot, { componentSignature, snapshot: compacted })
+  return compacted
 }
 
 /** Put the indexes back, exactly as they were before the file was written. */

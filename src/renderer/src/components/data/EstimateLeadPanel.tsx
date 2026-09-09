@@ -144,7 +144,7 @@ export default function EstimateLeadPanel(): JSX.Element {
                     pipeLead: item.pipeLead
                   })
                 }
-                title={`${item.dataCount} DATA item(s), ${item.variantCount} variant(s)`}
+                title={`${item.dataCount} DATA item(s), ${item.variantCount} Material${item.variantCount === 1 ? '' : 's'}`}
               >
                 <CircleDot size={12} />
                 <span>
@@ -163,7 +163,7 @@ export default function EstimateLeadPanel(): JSX.Element {
       )}
       <div className="lead-abstract-foot">
         <Route size={12} />
-        <span>Select a material to edit locations, variants, and DATA links on the right.</span>
+          <span>Select a material to edit locations, Materials, and DATA links on the right.</span>
       </div>
     </div>
   )

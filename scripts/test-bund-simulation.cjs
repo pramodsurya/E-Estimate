@@ -21,6 +21,7 @@ require.extensions['.ts'] = function compileTs(loadedModule, filename) {
 
 const bund = require(path.join(root, 'src/renderer/src/lib/bund.ts'))
 const sim = require(path.join(root, 'src/renderer/src/lib/bundSimulation.ts'))
+const soilPresets = require(path.join(root, 'src/renderer/src/lib/bundSoilPresets.ts'))
 const simTypes = require(path.join(root, 'src/renderer/src/types/bundSimulation.ts'))
 
 // ── Case thresholds (IS 7894) ──────────────────────────────────────────────
@@ -37,6 +38,39 @@ assert.equal(defaults.schemaVersion, 1)
 assert.equal(defaults.materials.length, 2,
   'one row for the fill and one for the foundation')
 assert.equal(defaults.foundationThicknessM, 10)
+
+// Zoned soil choices use plain-language presets, preliminary properties and
+// the small-dam casing/core slope arrangements.
+assert.equal(soilPresets.CASING_SOIL_OPTIONS[0].label, 'Well-graded gravel')
+assert.equal(soilPresets.HEARTING_SOIL_OPTIONS[0].label, 'Clayey sand')
+assert.deepEqual(
+  soilPresets.recommendedZonedSlopes('low-plasticity-clay', 'broad-core'),
+  { casing: 2.5, hearting: 1 }
+)
+assert.deepEqual(
+  soilPresets.recommendedZonedSlopes('high-plasticity-clay', 'broad-core'),
+  { casing: 3, hearting: 1 }
+)
+assert.deepEqual(
+  soilPresets.recommendedZonedSlopes('silty-sand', 'broad-core'),
+  { casing: 2, hearting: 0.5 },
+  'sand/silt hearting falls back to the compact-core arrangement'
+)
+const presetMaterial = soilPresets.applySoilPreset(
+  defaults.materials[0],
+  'well-graded-gravel',
+  'embankment'
+)
+assert.equal(presetMaterial.name, 'Well-graded gravel')
+assert.equal(presetMaterial.propertiesSource, 'preliminary-default')
+assert.equal(presetMaterial.cPrime, 0)
+const presetZoned = bund.defaultBundData()
+presetZoned.embankmentType = 'zoned'
+presetZoned.casingSoilType = 'well-graded-gravel'
+presetZoned.heartingSoilType = 'low-plasticity-clay'
+const presetSimulation = sim.normalizeBundSimulationData(presetZoned, undefined)
+assert.equal(presetSimulation.materials.find((m) => m.role === 'embankment').name, 'Well-graded gravel')
+assert.equal(presetSimulation.materials.find((m) => m.role === 'hearting').name, 'Low-plasticity clay')
 
 // ── Geometry mapping ───────────────────────────────────────────────────────
 const data = bund.defaultBundData()
@@ -762,24 +796,26 @@ assert.match(sidecar, /row=5[\s\S]*value="material"/,
 assert.match(sidecar, /redirect_stdout|dup2/,
   'engine chatter is kept off the JSON stdout channel')
 
-const runner = fs.readFileSync(path.join(root, 'src/main/bundSimulation.ts'), 'utf8')
-assert.doesNotMatch(runner, /\bshell:\s*true|exec\(/,
+const runner = fs.readFileSync(path.join(root, 'src-tauri/src/bund.rs'), 'utf8')
+assert.doesNotMatch(runner, /shell:\s*true/,
   'the sidecar spawns without any shell')
 assert.match(runner, /RUN_TIMEOUT_MS/, 'the sidecar run has a timeout')
-assert.match(runner, /activeBundProcesses[\s\S]*cancelBundSimulation/s,
-  'the main process owns and can cancel navigation-independent solver children')
-assert.match(runner, /seepage-stage-1[\s\S]*seepage-stage-2[\s\S]*slip-search/s,
+assert.match(runner, /ACTIVE[\s\S]*bund_cancel/s,
+  'the shell owns and can cancel navigation-independent solver children')
+assert.match(runner, /SeepageStage1[\s\S]*SeepageStage2[\s\S]*SlipSearch/s,
   'the solver reports meaningful calculation phases')
 
-const ipc = fs.readFileSync(path.join(root, 'src/main/ipc.ts'), 'utf8')
-assert.match(ipc, /'bund:simulate'/, 'the simulate handler is registered')
-assert.match(ipc, /'bund:cancel'/, 'the simulation cancellation handler is registered')
+const ipc = fs.readFileSync(path.join(root, 'src-tauri/src/lib.rs'), 'utf8')
+assert.match(ipc, /bund_simulate/, 'the simulate command is registered')
+assert.match(ipc, /bund_cancel/, 'the simulation cancellation command is registered')
 
-const preload = fs.readFileSync(path.join(root, 'src/preload/index.ts'), 'utf8')
-assert.match(preload, /bund:\s*\{[\s\S]*simulate:/s,
-  'the preload bridge exposes bund.simulate')
-assert.match(preload, /onProgress:[\s\S]*bund:simulation-progress/s,
-  'the preload bridge exposes persistent main-process progress')
+const tauriApi = fs.readFileSync(path.join(root, 'src/renderer/src/lib/tauriApi.ts'), 'utf8')
+assert.match(tauriApi, /bund:\s*\{[\s\S]*simulate:/s,
+  'the Tauri adapter exposes bund.simulate')
+assert.match(tauriApi, /invoke\('bund_simulate',\s*\{\s*args:\s*\{\s*request\s*\}\s*\}\)/,
+  'the simulation request is nested under the Rust command argument name')
+assert.match(tauriApi, /onProgress:[\s\S]*bund:simulation-progress/s,
+  'the Tauri adapter exposes persistent shell progress')
 
 // ── Simulation UI explanations ────────────────────────────────────────────
 const simulationTab = fs.readFileSync(
@@ -838,17 +874,21 @@ const titleBarSource = fs.readFileSync(
 )
 assert.match(titleBarSource, /Bell[\s\S]*NotificationPanel[\s\S]*appNotifications/s,
   'the title bar bell owns the persistent notification centre')
-assert.match(titleBarSource, /Cancel simulation[\s\S]*update\.download[\s\S]*update\.install/s,
-  'the bell exposes simulation cancellation and updater actions')
+assert.match(titleBarSource, /Cancel simulation[\s\S]*Automatic download is starting[\s\S]*update\.install/s,
+  'the bell exposes simulation cancellation and automatic updater status/actions')
 const updaterSource = fs.readFileSync(
   path.join(root, 'src/renderer/src/components/UpdateNotification.tsx'),
   'utf8'
 )
 assert.match(updaterSource, /deliberately headless[\s\S]*upsertAppNotification[\s\S]*return null/s,
   'the updater feeds the bell without drawing another floating toast')
-const mainIndex = fs.readFileSync(path.join(root, 'src/main/index.ts'), 'utf8')
-assert.match(mainIndex, /hasActiveBundSimulations[\s\S]*Cancel simulation and close/s,
-  'closing the application warns before cancelling an active analysis')
+const updateRs = fs.readFileSync(path.join(root, 'src-tauri/src/update.rs'), 'utf8')
+assert.match(updateRs, /pub async fn update_check|\.updater\(\)/,
+  'the Tauri updater is wired through tauri-plugin-updater, not stubbed')
+assert.match(updaterSource, /download automatically/,
+  'the bell explains that verified updates download automatically')
+assert.match(updaterSource, /install when you close the app/,
+  'the bell explains the default install-on-exit behavior')
 const storeSource = fs.readFileSync(
   path.join(root, 'src/renderer/src/store/useStore.ts'),
   'utf8'

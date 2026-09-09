@@ -34,7 +34,9 @@ const {
   resolveDocumentFinal,
   createDocumentFinal,
   resolvePrintArea,
-  paragraphInPrintArea
+  paragraphInPrintArea,
+  finalNumberParagraphIndex,
+  isDocumentFinalInPrintArea
 } = loadTsModule(path.join(root, 'src/renderer/src/lib/documentFinal.ts'))
 
 /** Builds a document from paragraph texts, the way Univer stores them. */
@@ -163,5 +165,25 @@ assert.equal(paragraphInPrintArea(0, area), false)
 assert.equal(paragraphInPrintArea(1, area), true)
 assert.equal(paragraphInPrintArea(2, area), true)
 assert.equal(paragraphInPrintArea(3, area), false)
+
+// --- Final Number Gate: inclusion & default expansion ---------------------
+
+// Paragraph index lookup
+assert.equal(finalNumberParagraphIndex(sample, fixed), 1, 'finds paragraph index 1 for fixed final number')
+assert.equal(finalNumberParagraphIndex(sample, null), null, 'null when no final number')
+
+// Gate check: isDocumentFinalInPrintArea
+assert.equal(isDocumentFinalInPrintArea(sample, { startParagraph: 0, endParagraph: 2 }, fixed), true, 'final number is included')
+assert.equal(isDocumentFinalInPrintArea(sample, { startParagraph: 0, endParagraph: 0 }, fixed), false, 'gated: final number is excluded')
+assert.equal(isDocumentFinalInPrintArea(sample, { startParagraph: 2, endParagraph: 2 }, fixed), false, 'gated: final number is excluded')
+assert.equal(isDocumentFinalInPrintArea(sample, { startParagraph: 0, endParagraph: 0 }, null), true, 'no gate when final number is not set')
+
+// Default print area automatically expands to include final number if it was outside used range
+const trailingDoc = doc(['Title', '', '', 'Final Qty: 50.00'])
+const trailingParas = documentParagraphs(trailingDoc)
+const trailingFixed = createDocumentFinal(trailingParas[3].startIndex, trailingParas[3].endIndex, '50.00')
+// Without final number: line 0 only has content if trailing whitespace is ignored
+const resolvedWithFinal = resolvePrintArea(trailingDoc, undefined, trailingFixed)
+assert.equal(resolvedWithFinal.endParagraph >= 3, true, 'default print area expanded to include line with final number')
 
 console.log('document final number: all assertions passed')

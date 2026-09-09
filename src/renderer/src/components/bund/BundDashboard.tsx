@@ -12,11 +12,15 @@ import { useStore } from '../../store/useStore'
 import type {
   BundBerm,
   BundBermSide,
+  BundCasingSoilType,
   BundData,
   BundExcavationRole,
   BundItemRole,
   BundPoint,
   BundSection,
+  BundHeartingSlopeProfile,
+  BundHeartingSoilType,
+  BundHomogeneousSoilType,
   BundSoilBand,
   BundToe,
   ProjectNode
@@ -27,7 +31,6 @@ import {
   BUND_DEFAULT_BERM_DRAIN_LINING_CODE,
   BUND_DEFAULT_BERM_DRAIN_STONE_CODE,
   BUND_DEFAULT_BERM_DROP,
-  BUND_DEFAULT_BERM_MURUM_CODE,
   BUND_DEFAULT_BERM_TURF_CODE,
   bermDrainExcavationRows,
   bermDrainProtectionMeasurement,
@@ -51,7 +54,7 @@ import {
   BUND_DEFAULT_FORMATION_CODE,
   BUND_DEFAULT_FOUNDATION_EXC_CODE,
   BUND_HEARTING_TRENCH_FILL_CODE,
-  BUND_DEFAULT_PITCHING_BEDDING_CODE,
+  BUND_DAW_REVETMENT_OPTIONS,
   BUND_DEFAULT_PITCHING_CODE,
   BUND_DEFAULT_ROCKTOE_CODE,
   BUND_DEFAULT_HFILTER_CODE,
@@ -62,6 +65,8 @@ import {
   BUND_DEFAULT_TOE_CC_CODE,
   BUND_DEFAULT_TOE_EXC_CODE,
   BUND_DEFAULT_UPSTREAM_TOE_BUILD_CODE,
+  automaticToeDrainInvertLevel,
+  automaticHorizontalFilterLength,
   BUND_DEFAULT_TURFING_CODE,
   BUND_SPLIT_FORMATION_CODE,
   BUND_SPLIT_ROLLING_CODE,
@@ -83,6 +88,7 @@ import {
   clearancePerimeterRows,
   clearanceTotal,
   copySectionGeometry,
+  deepestBundToe,
   designSurfaceAt,
   existLevelAt,
   upstreamToeOffset,
@@ -101,26 +107,35 @@ import {
   isZonedBund,
   lowestStrippedLevelAt,
   orderedSections,
+  parseBundSlope,
   parseThicknessM,
-  pitchingBeddingQuantity,
   pitchingMeasuredQuantity,
   pitchingRows,
   pitchingThicknessM,
+  revetmentFilterThicknessM,
+  revetmentOptionForCode,
   rockToeExcavationRows,
   rockToeExcavationAt,
   rockToeExcavationAvailable,
   steepestSection,
   defaultBundExcavationRows,
   horizontalFilterRows,
+  horizontalFilterLengthAt,
+  horizontalFilterMeasure,
+  horizontalFilterThicknessM,
+  filterFixedDimensionM,
   internalFiltersAvailable,
   rockToeFilterRows,
   verticalFilterHeightAt,
+  verticalFilterMeasure,
   verticalFilterRows,
+  verticalFilterWidthM,
   zonedSsrCodePair,
   zonedRepairAreas,
   rockToeFoundationExcavationDepth,
   rockToeHeightAt,
   rockToeRows,
+  resolvedHeartingTrenchDepth,
   rowsTotal,
   sectionAreas,
   sectionDesignOffsets,
@@ -132,7 +147,6 @@ import {
   toeDrainInvertLevelAt,
   toeDrainTopWidthAt,
   toeExcavationArea,
-  toeDrainCheck,
   toeDrainPlatformAt,
   upstreamToePlatformAt,
   toeExcavationAreaAt,
@@ -149,12 +163,22 @@ import {
   withStrippingExcavationFamily,
   type BundQtyRow
 } from '../../lib/bund'
+import {
+  applySoilPreset,
+  CASING_SOIL_OPTIONS,
+  HEARTING_SOIL_OPTIONS,
+  HOMOGENEOUS_SOIL_OPTIONS,
+  homogeneousSoilSuitable,
+  recommendedHomogeneousSlopes,
+  recommendedZonedSlopes,
+  soilPreset
+} from '../../lib/bundSoilPresets'
+import { normalizeBundSimulationData } from '../../lib/bundSimulation'
 import { fetchSsrItems, type MasterItem } from '../../lib/masterData'
 import { findNode, newId } from '../../lib/tree'
 import MaterialPicker from '../templates/MaterialPicker'
 import SsrCode from '../templates/SsrCode'
 import TemplateDefaultVariantButton from '../templates/TemplateDefaultVariantButton'
-import BundAssemblyDiagram from './BundAssemblyDiagram'
 import BundBermDiagram from './BundBermDiagram'
 import BundChuteDiagram from './BundChuteDiagram'
 import BundRockToeDiagram from './BundRockToeDiagram'
@@ -381,9 +405,8 @@ export default function BundDashboard({
 }: Props): JSX.Element {
   const setBund = useStore((s) => s.setBund)
   const setBundMaterial = useStore((s) => s.setBundMaterial)
-  const setTemplateCodeVariant = useStore((s) => s.setTemplateCodeVariant)
-  const sorYear = useStore((s) => s.project?.meta.sorYear ?? '')
   const zonedRepair = template === 'zoned' && isZonedBund(data)
+  const homogeneous = !isZonedBund(data)
 
   const sections = useMemo(() => orderedSections(data), [data])
   const [selectedId, setSelectedId] = useState<string | null>(sections[0]?.id ?? null)
@@ -403,6 +426,7 @@ export default function BundDashboard({
   // Chainages ticked to receive the current section's levels (bulk copy).
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [copyFrom, setCopyFrom] = useState('')
+  const automaticToeInvert = useMemo(() => automaticToeDrainInvertLevel(data), [data])
   const [designMessage, setDesignMessage] = useState<string | null>(null)
   const selectedIndex = selected ? sections.findIndex((s) => s.id === selected.id) : -1
 
@@ -410,6 +434,118 @@ export default function BundDashboard({
   const unitLabel = chainageUnitLabel(unit)
 
   const update = (patch: Partial<BundData>): void => setBund(node.id, { ...data, ...patch })
+
+  const zonedSlopeMode = data.zonedSlopeMode ?? 'manual'
+  const homogeneousSlopeMode = data.homogeneousSlopeMode ?? 'manual'
+  const selectedCasingSoil = CASING_SOIL_OPTIONS.find(
+    (option) => option.id === data.casingSoilType
+  )
+  const selectedHeartingSoil = HEARTING_SOIL_OPTIONS.find(
+    (option) => option.id === data.heartingSoilType
+  )
+
+  const recommendationPatch = (
+    soil: BundHeartingSoilType,
+    profile: BundHeartingSlopeProfile
+  ): Pick<BundData, 'design' | 'heartingDesign'> => {
+    const recommendation = recommendedZonedSlopes(soil, profile)
+    return {
+      design: {
+        ...data.design,
+        usSlope: recommendation.casing,
+        dsSlope: recommendation.casing
+      },
+      heartingDesign: {
+        ...data.heartingDesign,
+        usSlope: recommendation.hearting,
+        dsSlope: recommendation.hearting
+      }
+    }
+  }
+
+  const selectCasingSoil = (soil: BundCasingSoilType): void => {
+    const simulation = normalizeBundSimulationData(data, data.simulation)
+    update({
+      casingSoilType: soil,
+      simulation: {
+        ...simulation,
+        materials: simulation.materials.map((material) =>
+          material.role === 'embankment'
+            ? applySoilPreset(material, soil, 'embankment')
+            : material
+        )
+      }
+    })
+  }
+
+  const selectHeartingSoil = (soil: BundHeartingSoilType): void => {
+    const nextProfile: BundHeartingSlopeProfile = 'compact-core'
+    const simulation = normalizeBundSimulationData(data, data.simulation)
+    update({
+      heartingSoilType: soil,
+      heartingSlopeProfile: nextProfile,
+      zonedSlopeMode: 'automatic',
+      ...recommendationPatch(soil, nextProfile),
+      simulation: {
+        ...simulation,
+        materials: simulation.materials.map((material) =>
+          material.role === 'hearting' || material.role === 'cutoff-trench'
+            ? applySoilPreset(material, soil, material.role)
+            : material
+        )
+      }
+    })
+  }
+
+  const setAutomaticZonedSlopes = (): void => {
+    const soil = data.heartingSoilType
+    update({
+      zonedSlopeMode: 'automatic',
+      heartingSlopeProfile: 'compact-core',
+      ...(soil ? recommendationPatch(soil, 'compact-core') : {})
+    })
+  }
+
+  const selectHomogeneousSoil = (soil: BundHomogeneousSoilType): void => {
+    const recommendation = recommendedHomogeneousSlopes(soil)
+    const simulation = normalizeBundSimulationData(data, data.simulation)
+    update({
+      homogeneousSoilType: soil,
+      homogeneousSlopeMode: recommendation ? 'automatic' : 'manual',
+      ...(recommendation
+        ? {
+            design: {
+              ...data.design,
+              usSlope: recommendation.upstream,
+              dsSlope: recommendation.downstream
+            }
+          }
+        : {}),
+      simulation: {
+        ...simulation,
+        materials: simulation.materials.map((material) =>
+          material.role === 'embankment'
+            ? applySoilPreset(material, soil, 'embankment')
+            : material
+        )
+      }
+    })
+  }
+
+  const setAutomaticHomogeneousSlopes = (): void => {
+    const soil = data.homogeneousSoilType
+    if (!soil) return
+    const recommendation = recommendedHomogeneousSlopes(soil)
+    if (!recommendation) return
+    update({
+      homogeneousSlopeMode: 'automatic',
+      design: {
+        ...data.design,
+        usSlope: recommendation.upstream,
+        dsSlope: recommendation.downstream
+      }
+    })
+  }
 
   const updateSection = (id: string, patch: Partial<BundSection>): void =>
     update({ sections: data.sections.map((s) => (s.id === id ? { ...s, ...patch } : s)) })
@@ -426,6 +562,10 @@ export default function BundDashboard({
   const trenchAvailable = heartingTrenchAvailable(data)
   const trenchOn = Boolean(data.heartingTrench?.fillMaterial)
   const trenchTotal = useMemo(() => rowsTotal(heartingTrenchRows(data)), [data])
+  const governingDeepestToe = useMemo(() => deepestBundToe(data), [data])
+  const effectiveTrenchDepth = useMemo(() => resolvedHeartingTrenchDepth(data), [data])
+  const autoTrenchWaterLevel = data.design.ftl ?? data.design.mwl
+  const autoTrenchWaterLabel = data.design.ftl != null ? 'FTL/FRL' : 'MWL'
   const derivedTopLevel = freeBoardDesign ? topLevelFromFreeBoard(data.design) : null
 
   /** Write MWL / free board and carry TBL with them while both are known. */
@@ -435,19 +575,27 @@ export default function BundDashboard({
   }): void => {
     const design = { ...data.design, ...patch }
     const topLevel = topLevelFromFreeBoard(design)
-    update({ design: topLevel == null ? design : { ...design, topLevel } })
+    const nextDesign = topLevel == null ? design : { ...design, topLevel }
+    const heartingFollowsMwl =
+      isZonedBund(data) &&
+      (data.heartingDesign.topLevel === (data.design.mwl ?? data.design.topLevel))
+    update({
+      design: nextDesign,
+      ...(patch.mwl !== undefined && heartingFollowsMwl && patch.mwl != null
+        ? { heartingDesign: { ...data.heartingDesign, topLevel: patch.mwl } }
+        : {})
+    })
   }
 
-  const setPitchingMurumBedAddon = (enabled: boolean): void => {
-    if (!data.pitchingMaterial) return
-    setTemplateCodeVariant(node.id, BUND_DEFAULT_PITCHING_CODE, {
-      kind: 'optional_addition',
-      key: enabled ? 'addon:murum_bed_15cm' : 'addon:none',
-      label: enabled
-        ? 'Add 15 cm thick murum bed below pitching'
-        : 'Pitching without murum-bed add-on',
-      sourceYear: sorYear,
-      addonId: enabled ? 'murum_bed_15cm' : undefined
+  const setRepairMwl = (mwl: number | null): void => {
+    const heartingFollowsMwl =
+      isZonedBund(data) &&
+      data.heartingDesign.topLevel === (data.design.mwl ?? data.design.topLevel)
+    update({
+      design: { ...data.design, mwl },
+      ...(heartingFollowsMwl && mwl != null
+        ? { heartingDesign: { ...data.heartingDesign, topLevel: mwl } }
+        : {})
     })
   }
 
@@ -516,7 +664,8 @@ export default function BundDashboard({
   // metadata (unit, description) from the master list so prints read right.
   const enableOptional = (role: BundItemRole, key: keyof BundData, code: string): void => {
     update({ [key]: { code } } as Partial<BundData>)
-    void fetchSsrItems('IRR-CAW').then((items) => {
+    const category = code.startsWith('IRR-DAW-') ? 'IRR-DAW' : 'IRR-CAW'
+    void fetchSsrItems(category).then((items) => {
       const master = items.find((i) => i.code === code)
       if (master && useStore.getState().project) setBundMaterial(node.id, role, master)
     })
@@ -538,34 +687,57 @@ export default function BundDashboard({
     })
   }
 
-  const enablePitchingBedding = (): void => {
+  const selectRevetmentCode = (code: string): void => {
+    const option = revetmentOptionForCode(code)
     update({
-      pitchingBeddingMaterial: { code: BUND_DEFAULT_PITCHING_BEDDING_CODE },
-      pitchingBeddingThickness: data.pitchingBeddingThickness || 0.15
+      pitchingMaterial: { code },
+      pitchingThickness: option?.stoneThickness ?? 0.6,
+      pitchingBeddingMaterial: null,
+      pitchingMetalEnabled: false,
+      pitchingMetalMaterial: null
     })
     void fetchSsrItems('IRR-DAW').then((items) => {
-      const material = items.find((item) => item.code === BUND_DEFAULT_PITCHING_BEDDING_CODE)
+      const material = items.find((item) => item.code === code)
       if (material && useStore.getState().project) {
-        setBundMaterial(node.id, 'pitching-bedding', material)
+        setBundMaterial(node.id, 'pitching', material)
       }
     })
   }
 
   const enableRockToe = (): void => {
     update({
-      rockToeMaterial: { code: BUND_DEFAULT_ROCKTOE_CODE }
+      rockToeMaterial: { code: BUND_DEFAULT_ROCKTOE_CODE },
+      rockToeFilterMaterial: { code: BUND_DEFAULT_ROCKTOE_FILTER_CODE },
+      // The graded filter is the default rock-toe build-up. On a repair its
+      // below-filter also needs a separately measured foundation excavation;
+      // on new work it lies within the general bund foundation cut.
+      ...(rockToeExcavation
+        ? {
+            rockToeExcavationMaterial: { code: BUND_DEFAULT_FOUNDATION_EXC_CODE },
+            rockToeExcavationDepth:
+              data.rockToeExcavationDepth > 0 ? data.rockToeExcavationDepth : 0.3
+          }
+        : {})
     })
-    void fetchSsrItems('IRR-CAW').then((items) => {
+    void fetchSsrItems('IRR-DAW').then((daw) => {
       if (!useStore.getState().project) return
-      const rockToe = items.find((item) => item.code === BUND_DEFAULT_ROCKTOE_CODE)
+      const rockToe = daw.find((item) => item.code === BUND_DEFAULT_ROCKTOE_CODE)
+      const filter = daw.find((item) => item.code === BUND_DEFAULT_ROCKTOE_FILTER_CODE)
+      const excavation = daw.find(
+        (item) => item.code === BUND_DEFAULT_FOUNDATION_EXC_CODE
+      )
       if (rockToe) setBundMaterial(node.id, 'rocktoe', rockToe)
+      if (filter) setBundMaterial(node.id, 'rocktoe-filter', filter)
+      if (rockToeExcavation && excavation) {
+        setBundMaterial(node.id, 'rocktoe-exc', excavation)
+      }
     })
   }
 
   const enableRockToeFilter = (): void => {
     update({
       rockToeFilterMaterial: { code: BUND_DEFAULT_ROCKTOE_FILTER_CODE },
-      // On a repair the 1.00 m below-filter cannot be constructed without
+      // On a repair the 0.85 m below-filter cannot be constructed without
       // excavating its full footprint, so the filter brings its excavation with
       // it. On a new bund that footprint is already inside the general
       // foundation cut and no second excavation is measured.
@@ -577,8 +749,8 @@ export default function BundDashboard({
           }
         : {})
     })
-    void Promise.all([fetchSsrItems('IRR-CAW'), fetchSsrItems('IRR-DAW')]).then(([caw, daw]) => {
-      const filter = caw.find((item) => item.code === BUND_DEFAULT_ROCKTOE_FILTER_CODE)
+    void fetchSsrItems('IRR-DAW').then((daw) => {
+      const filter = daw.find((item) => item.code === BUND_DEFAULT_ROCKTOE_FILTER_CODE)
       const excavation = daw.find(
         (item) => item.code === BUND_DEFAULT_FOUNDATION_EXC_CODE
       )
@@ -656,15 +828,28 @@ export default function BundDashboard({
     patchHeartingTrench({ fillMaterial: null, excavationMaterial: null })
 
   const enableHorizontalFilter = (): void => {
-    update({ horizontalFilterMaterial: { code: BUND_DEFAULT_HFILTER_CODE } })
-    void fetchSsrItems('IRR-CAW').then((items) => {
-      const m = items.find((item) => item.code === BUND_DEFAULT_HFILTER_CODE)
-      if (m && useStore.getState().project) setBundMaterial(node.id, 'hfilter', m)
+    update({
+      horizontalFilterMaterial: { code: BUND_DEFAULT_HFILTER_CODE },
+      horizontalFilterThickness: 0.4,
+      verticalFilterMaterial: { code: BUND_DEFAULT_VFILTER_CODE },
+      verticalFilterWidth: 0.45,
+      verticalFilterHeight: 0
+    })
+    void fetchSsrItems('IRR-DAW').then((items) => {
+      if (!useStore.getState().project) return
+      const blanket = items.find((item) => item.code === BUND_DEFAULT_HFILTER_CODE)
+      const chimney = items.find((item) => item.code === BUND_DEFAULT_VFILTER_CODE)
+      if (blanket) setBundMaterial(node.id, 'hfilter', blanket)
+      if (chimney) setBundMaterial(node.id, 'vfilter', chimney)
     })
   }
 
   const enableVerticalFilter = (): void => {
-    update({ verticalFilterMaterial: { code: BUND_DEFAULT_VFILTER_CODE } })
+    update({
+      verticalFilterMaterial: { code: BUND_DEFAULT_VFILTER_CODE },
+      verticalFilterWidth: 0.45,
+      verticalFilterHeight: 0
+    })
     void fetchSsrItems('IRR-DAW').then((items) => {
       const m = items.find((item) => item.code === BUND_DEFAULT_VFILTER_CODE)
       if (m && useStore.getState().project) setBundMaterial(node.id, 'vfilter', m)
@@ -841,15 +1026,15 @@ export default function BundDashboard({
       )
     )
 
-  const setBermSurface = (id: string, preset: 'turf' | 'murum' | 'cc'): void => {
+  const setBermSurface = (id: string, preset: 'stone' | 'turf' | 'cc'): void => {
     const code =
-      preset === 'turf'
+      preset === 'stone'
+        ? BUND_DEFAULT_PITCHING_CODE
+        : preset === 'turf'
         ? BUND_DEFAULT_BERM_TURF_CODE
-        : preset === 'murum'
-          ? BUND_DEFAULT_BERM_MURUM_CODE
-          : BUND_DEFAULT_BERM_CC_CODE
+        : BUND_DEFAULT_BERM_CC_CODE
     attachBerm(id, 'surfaceMaterial', code, {
-      surfaceThickness: preset === 'murum' ? 0.15 : 0.1
+      surfaceThickness: 0.1
     })
     setBermPicker(null)
   }
@@ -882,15 +1067,13 @@ export default function BundDashboard({
   const turfingTotal = rowsTotal(turfRows)
   const pitchRows = useMemo(() => pitchingRows(data), [data])
   const pitchingMeasurement = useMemo(() => pitchingMeasuredQuantity(data), [data])
-  const pitchingBeddingTotal = useMemo(() => pitchingBeddingQuantity(data), [data])
+  const revetmentStoneThickness = pitchingThicknessM(data)
+  const revetmentFilterThickness = revetmentFilterThicknessM(data)
+  const selectedRevetment = revetmentOptionForCode(data.pitchingMaterial?.code)
   const pitchingDisplayRows =
     pitchingMeasurement.measure === 'volume'
       ? scaleQuantityRows(pitchRows, pitchingThicknessM(data))
       : pitchRows
-  const pitchingBeddingRows = scaleQuantityRows(
-    pitchRows,
-    Math.max(0, data.pitchingBeddingThickness || 0)
-  )
   const pitchingQtyText =
     pitchingMeasurement.measure === 'volume'
       ? `${qty3.format(pitchingMeasurement.quantity)} cu.m`
@@ -928,6 +1111,13 @@ export default function BundDashboard({
   )
   const hFilterTotal = useMemo(() => rowsTotal(horizontalFilterRows(data)), [data])
   const vFilterTotal = useMemo(() => rowsTotal(verticalFilterRows(data)), [data])
+  const hFilterMeasure = horizontalFilterMeasure(data)
+  const vFilterMeasure = verticalFilterMeasure(data)
+  const effectiveHFilterThickness = horizontalFilterThicknessM(data)
+  const effectiveVFilterWidth = verticalFilterWidthM(data)
+  const hFilterDimensionFixed =
+    filterFixedDimensionM(data.horizontalFilterMaterial) != null
+  const vFilterDimensionFixed = filterFixedDimensionM(data.verticalFilterMaterial) != null
   const drainageSection = useMemo(() => steepestSection(data), [data])
   const baselinePhreaticData = useMemo<BundData>(
     () => ({
@@ -996,6 +1186,9 @@ export default function BundDashboard({
     filterBaseLevel == null || data.design.mwl == null
       ? null
       : data.design.mwl - filterBaseLevel
+  const filterDiagramLength = rockToeDisplaySection
+    ? horizontalFilterLengthAt(rockToeDisplaySection, data)
+    : automaticHorizontalFilterLength(data)
   const chuteRows = useMemo(() => chuteDrainRows(data), [data])
   const chuteCount = chuteRows.length
   const chuteLength = useMemo(() => chuteDrainTotalLength(data), [data])
@@ -1031,12 +1224,12 @@ export default function BundDashboard({
     {
       role: 'stripping',
       title:
-        strippingExcavationFamily === 'foundation'
-          ? 'Bund foundation excavation'
-          : 'Stripping / bund seating',
+        data.mode === 'new'
+          ? 'Bund Foundation Excavation'
+          : 'Bund Stripping',
       purpose:
-        strippingExcavationFamily === 'foundation'
-          ? 'Foundation excavation below the bund footprint. The measured cut is classified with DAW foundation codes.'
+        data.mode === 'new'
+          ? 'Foundation excavation below the bund footprint. The measured cut is classified with the selected excavation-code basis.'
           : 'Shallow removal and seating across the bund footprint. Keep rock classes at zero unless the measured cut actually enters rock.',
       family: strippingExcavationFamily === 'foundation' ? 'foundation' : 'channel',
       quantity: strippingTotal,
@@ -1044,8 +1237,8 @@ export default function BundDashboard({
     },
     {
       role: 'ustoe-exc',
-      title: 'U/S pitching toe wall / anchorage',
-      purpose: 'Structural foundation trench below the upstream pitching anchorage.',
+      title: 'U/S revetment toe wall / anchorage',
+      purpose: 'Structural foundation trench below the upstream revetment anchorage.',
       family: 'foundation',
       quantity: upstreamToeExcTotal,
       enabled: upstreamToeOn
@@ -1116,7 +1309,9 @@ export default function BundDashboard({
     const measuredQuantity = source.enabled ? source.quantity : 0
     return (
       <section
-        className={`bund-excavation-source is-compact${source.enabled ? '' : ' is-disabled'}`}
+        className={`bund-excavation-source is-compact${
+          source.role === 'hearting-trench-exc' ? ' is-hearting-trench' : ''
+        }${source.enabled ? '' : ' is-disabled'}`}
         key={source.role}
       >
         <div className="bund-excavation-source-heading">
@@ -1385,6 +1580,48 @@ export default function BundDashboard({
     )
   }
 
+  const enableDownstreamToe = (): void => {
+    patchToe('downstreamToe', {
+      excavationMaterial: { code: BUND_DEFAULT_TOE_EXC_CODE },
+      buildMaterial: { code: BUND_DEFAULT_TOE_BUILD_CODE },
+      bottomWidth: 1,
+      depth: 0.3,
+      leftSlope: 1,
+      rightSlope: 1,
+      bermWidth: 1,
+      invertMode: 'auto',
+      invertLevel: null,
+      invertStartLevel: null,
+      invertEndLevel: null,
+      liningThickness: 0.225
+    })
+    void fetchSsrItems('IRR-CAW').then((items) => {
+      if (!useStore.getState().project) return
+      const excavation = items.find((item) => item.code === BUND_DEFAULT_TOE_EXC_CODE)
+      const protection = items.find((item) => item.code === BUND_DEFAULT_TOE_BUILD_CODE)
+      patchToe('downstreamToe', {
+        excavationMaterial: excavation
+          ? {
+              code: excavation.code,
+              description: excavation.description,
+              unit: excavation.unit,
+              categoryKey: excavation.category,
+              side: excavation.side
+            }
+          : { code: BUND_DEFAULT_TOE_EXC_CODE },
+        buildMaterial: protection
+          ? {
+              code: protection.code,
+              description: protection.description,
+              unit: protection.unit,
+              categoryKey: protection.category,
+              side: protection.side
+            }
+          : { code: BUND_DEFAULT_TOE_BUILD_CODE }
+      })
+    })
+  }
+
   /** Clear Proposed points and their generated design-grid rows. */
   const clearProposedLevels = (): void => {
     applyLevels(
@@ -1639,6 +1876,12 @@ export default function BundDashboard({
     const buildAreaTotal = rowsTotal(toeBuildRows(data, toe))
     const buildMeasurement = toeBuildMeasurement(data, toe)
     const buildThickness = toeBuildThicknessM(toe)
+    const fixedProtectionThickness =
+      toe.buildMaterial?.code === BUND_DEFAULT_TOE_BUILD_CODE ||
+      toe.buildMaterial?.code === BUND_DEFAULT_TOE_CC_CODE ||
+      /(?:mm|cm)\s+(?:thick|lining)|(?:thick|lining).*?(?:mm|cm)/i.test(
+        toe.buildMaterial?.description ?? ''
+      )
     return (
       <div className={`bund-option-module${on ? ' is-enabled' : ''}`}>
         <label className="bund-optional-head">
@@ -1647,8 +1890,15 @@ export default function BundDashboard({
             checked={on}
             onChange={() =>
               on
-                ? patchToe(which, { excavationMaterial: null })
-                : attachToe(which, 'excavationMaterial', BUND_DEFAULT_TOE_EXC_CODE)
+                ? patchToe(
+                    which,
+                    longitudinalDrain
+                      ? { excavationMaterial: null, buildMaterial: null }
+                      : { excavationMaterial: null }
+                  )
+                : longitudinalDrain
+                  ? enableDownstreamToe()
+                  : attachToe(which, 'excavationMaterial', BUND_DEFAULT_TOE_EXC_CODE)
             }
           />
           <span className="bund-option-module-title">{title}</span>
@@ -1664,6 +1914,7 @@ export default function BundDashboard({
           rightSlope={
             longitudinalDrain && selectedInvert != null ? toe.rightSlope : undefined
           }
+          bermWidth={longitudinalDrain ? toe.bermWidth : 0}
           lined={Boolean(toe.buildMaterial)}
         />
         {on && (
@@ -1671,11 +1922,39 @@ export default function BundDashboard({
             <div className="gw-param-grid">
               {longitudinalDrain ? (
                 <>
+                  <label className="field">
+                    <span className="field-label">Invert RL calculation</span>
+                    <select
+                      className="text-input"
+                      value={toe.invertMode ?? ''}
+                      onChange={(event) => {
+                        const mode = event.target.value as 'auto' | 'manual'
+                        patchToe(which, {
+                          invertMode: mode,
+                          invertLevel:
+                            mode === 'manual'
+                              ? (selectedInvert ?? automaticToeInvert)
+                              : null,
+                          invertStartLevel: null,
+                          invertEndLevel: null
+                        })
+                      }}
+                    >
+                      <option value="auto">Auto — lowest D/S toe</option>
+                      <option value="manual">Manual entry</option>
+                    </select>
+                  </label>
                   <NullField
                     label="Toe-drain bottom / invert RL"
-                    value={toe.invertLevel ?? toe.invertStartLevel ?? null}
+                    value={
+                      toe.invertMode === 'auto'
+                        ? automaticToeInvert
+                        : (toe.invertLevel ?? toe.invertStartLevel ?? null)
+                    }
+                    disabled={toe.invertMode === 'auto'}
                     onChange={(v) =>
                       patchToe(which, {
+                        invertMode: 'manual',
                         invertLevel: v,
                         invertStartLevel: null,
                         invertEndLevel: null
@@ -1687,15 +1966,20 @@ export default function BundDashboard({
                     value={toe.bottomWidth}
                     onChange={(v) => patchToe(which, { bottomWidth: v })}
                   />
-                  <NumField
-                    label="Left side slope (H : 1V)"
+                  <SlopeField
+                    label="Left side slope"
                     value={toe.leftSlope}
                     onChange={(v) => patchToe(which, { leftSlope: v })}
                   />
-                  <NumField
-                    label="Right side slope (H : 1V)"
+                  <SlopeField
+                    label="Right side slope"
                     value={toe.rightSlope}
                     onChange={(v) => patchToe(which, { rightSlope: v })}
+                  />
+                  <NumField
+                    label="Berm width on each side (m)"
+                    value={toe.bermWidth}
+                    onChange={(v) => patchToe(which, { bermWidth: v })}
                   />
                 </>
               ) : (
@@ -1722,6 +2006,15 @@ export default function BundDashboard({
               <div className="settings-note">
                 {selected && selectedInvert != null ? (
                   <>
+                    {toe.invertMode === 'auto' ? (
+                      <>
+                        Auto RL = lowest D/S toe RL − {qty3.format(data.design.stripDepth)} m{' '}
+                        {data.mode === 'new' ? 'foundation excavation' : 'stripping'} −{' '}
+                        {qty3.format(toe.depth)} m drain depth.{' '}
+                      </>
+                    ) : (
+                      <>Manual constant invert. </>
+                    )}
                     At {formatChainage(selected.chainage, data.chainageUnit)}: invert RL{' '}
                     <b>{qty3.format(selectedInvert)}</b>, calculated depth{' '}
                     <b>{qty3.format(selectedDepth)} m</b>, calculated top width{' '}
@@ -1730,8 +2023,8 @@ export default function BundDashboard({
                   </>
                 ) : (
                   <>
-                    Enter one bottom/invert RL. Until then, this older project retains its legacy{' '}
-                    {qty3.format(toe.depth)} m depth for quantity continuity.
+                    Enter D/S toe levels to calculate the automatic invert, or select Manual
+                    entry and enter one bottom RL.
                   </>
                 )}
                 <br />
@@ -1744,36 +2037,15 @@ export default function BundDashboard({
             {longitudinalDrain &&
               selected &&
               (() => {
-                const check = toeDrainCheck(selected, data)
-                if (!check.undercutsBase || check.invert == null || check.baseRl == null) {
-                  return null
-                }
-                return (
-                  <div className="settings-note bund-berm-issue is-warning">
-                    Invert RL <b>{qty3.format(check.invert)}</b> is below the stripped base the
-                    bund stands on at its toe (RL {qty3.format(check.baseRl)}), so this trench
-                    undercuts the embankment it protects. Its sides batter back 1:
-                    {qty3.format(toe.leftSlope)} and 1:{qty3.format(toe.rightSlope)}, which is
-                    what makes it {qty3.format(check.depth)} m deep and{' '}
-                    {qty3.format(check.topWidth)} m wide on the drawing — and{' '}
-                    {qty3.format(rowsTotal(toeExcavationRows(data, toe)))} cu.m in the estimate.
-                    A toe drain is normally a shallow collector; raise the invert unless the
-                    approved drawing really shows this depth.
-                  </div>
-                )
-              })()}
-            {longitudinalDrain &&
-              selected &&
-              (() => {
                 const platform = toeDrainPlatformAt(selected, data)
                 if (!platform) return null
                 return (
                   <div className="settings-note bund-toe-line">
-                    Formed at the <b>proposed</b> level RL {qty3.format(platform.level)}, not on
-                    the existing ground. General bund leveling now continues from the D/S bund
-                    toe through this {qty3.format(platform.toOffset - platform.fromOffset)} m
-                    top width and includes any cut or fill needed to form it. The drain quantity
-                    below is only the trench dug afterward.
+                    The drain is excavated <b>below stripped level</b> RL{' '}
+                    {qty3.format(platform.level)}. Its opening is separated from the bund by a{' '}
+                    {qty3.format(toe.bermWidth)} m berm, with the same berm beyond it. The full{' '}
+                    {qty3.format(platform.toOffset - platform.fromOffset)} m platform is shown;
+                    only the trapezoidal drain is included in the drain excavation quantity.
                   </div>
                 )
               })()}
@@ -1804,7 +2076,7 @@ export default function BundDashboard({
                 onChange={(e) =>
                   e.target.checked
                     ? attachToe(which, 'buildMaterial', BUND_DEFAULT_TOE_BUILD_CODE, {
-                        liningThickness: 0.3
+                        liningThickness: 0.225
                       })
                     : patchToe(which, { buildMaterial: null })
                 }
@@ -1824,11 +2096,11 @@ export default function BundDashboard({
                       }`}
                       onClick={() =>
                         attachToe(which, 'buildMaterial', BUND_DEFAULT_TOE_BUILD_CODE, {
-                          liningThickness: 0.3
+                          liningThickness: 0.225
                         })
                       }
                     >
-                      300 mm rubble revetment
+                      225 mm rubble revetment (maintenance)
                     </button>
                     <button
                       className={`btn ghost${
@@ -1849,7 +2121,9 @@ export default function BundDashboard({
                     </button>
                   </div>
                 )}
-                {longitudinalDrain && buildMeasurement.measure === 'volume' && (
+                {longitudinalDrain &&
+                  buildMeasurement.measure === 'volume' &&
+                  !fixedProtectionThickness && (
                   <div className="gw-param-grid">
                     <NumField
                       label="CC lining thickness (m)"
@@ -1858,6 +2132,15 @@ export default function BundDashboard({
                     />
                   </div>
                 )}
+                {longitudinalDrain &&
+                  buildMeasurement.measure === 'volume' &&
+                  fixedProtectionThickness && (
+                    <div className="settings-note">
+                      Thickness is fixed by the selected SSR item:{' '}
+                      <b>{(buildThickness * 1000).toFixed(0)} mm</b>. No second thickness entry is
+                      required.
+                    </div>
+                  )}
                 <div className="settings-note bund-toe-line">
                   <SsrCode
                     code={toe.buildMaterial.code}
@@ -2004,7 +2287,6 @@ export default function BundDashboard({
               depth={data.chuteDrainDepth}
               liningThickness={data.chuteDrainLiningThickness}
               protection={data.chuteDrainProtectionType}
-              faceSlope={data.design.dsSlope}
               lined={Boolean(data.chuteDrainLiningMaterial)}
             />
             <div className="bund-inline-measure">
@@ -2068,7 +2350,6 @@ export default function BundDashboard({
         </button>
       </div>
 
-
       {/* ---- Proposed bund design ---- */}
       <section className="gw-materials">
         <div className="gw-materials-title">
@@ -2087,7 +2368,7 @@ export default function BundDashboard({
               <NullField
                 label="Max water level, MWL (RL)"
                 value={data.design.mwl}
-                onChange={(v) => update({ design: { ...data.design, mwl: v } })}
+                onChange={setRepairMwl}
               />
               <NumField
                 label="Top bund level, TBL (RL)"
@@ -2120,14 +2401,17 @@ export default function BundDashboard({
                 onChange={(v) => setFreeBoardLevels({ freeBoard: v })}
               />
               <label className="field">
-                <span className="field-label">Top bund level, TBL (RL)</span>
+                <span className="field-label">Calculated top bund level, TBL (RL)</span>
                 <input
                   className="text-input"
                   type="number"
                   readOnly
+                  disabled
                   tabIndex={-1}
-                  title="Derived — MWL plus the free board"
-                  value={derivedTopLevel ?? data.design.topLevel}
+                  aria-label="Calculated top bund level"
+                  title="Calculated automatically as MWL plus free board"
+                  placeholder="Calculated from MWL + free board"
+                  value={derivedTopLevel ?? ''}
                 />
               </label>
             </div>
@@ -2149,32 +2433,186 @@ export default function BundDashboard({
           </div>
         )}
 
+        {homogeneous && (
+          <div className="bund-soil-selector bund-homogeneous-soil-selector">
+            <div>
+              <div className="gw-panel-label">Homogeneous embankment material</div>
+              <small>
+                Select the single fill soil used throughout the bund. Preliminary properties
+                are copied to Simulation and remain editable there.
+              </small>
+            </div>
+            <label className="field">
+              <span className="field-label">Embankment soil type</span>
+              <select
+                className="text-input"
+                value={data.homogeneousSoilType ?? ''}
+                onChange={(event) =>
+                  event.target.value &&
+                  selectHomogeneousSoil(event.target.value as BundHomogeneousSoilType)
+                }
+              >
+                <option value="">Select soil type…</option>
+                {HOMOGENEOUS_SOIL_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                    {option.homogeneousSuitable === false
+                      ? ' — pervious, not suitable alone'
+                      : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {soilPreset(data.homogeneousSoilType)?.summary && (
+              <p className="bund-soil-summary">
+                {soilPreset(data.homogeneousSoilType)?.summary}
+              </p>
+            )}
+            {data.homogeneousSoilType &&
+              !homogeneousSoilSuitable(data.homogeneousSoilType) && (
+                <div className="bund-soil-unsuitable" role="alert">
+                  This clean gravel or sand is too pervious for a homogeneous water-retaining
+                  embankment. Use a zoned section with an impervious core or select a suitable
+                  fine-bearing soil.
+                </div>
+              )}
+          </div>
+        )}
+
+        {zonedRepair && (
+          <div className="bund-soil-selector bund-zoned-material-selector">
+            <div className="bund-zoned-material-heading">
+              <div className="gw-panel-label">Zoned embankment materials & slope basis</div>
+              <small>
+                Choose both materials before entering casing and core dimensions. The core soil
+                determines the applicable standard case; both soil choices load preliminary
+                properties into Simulation.
+              </small>
+            </div>
+            <label className="field">
+              <span className="field-label">Casing soil type</span>
+              <select
+                className="text-input"
+                value={data.casingSoilType ?? ''}
+                onChange={(event) =>
+                  event.target.value &&
+                  selectCasingSoil(event.target.value as BundCasingSoilType)
+                }
+              >
+                <option value="">Select soil type…</option>
+                {CASING_SOIL_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {selectedCasingSoil && <small>{selectedCasingSoil.summary}</small>}
+            </label>
+            <label className="field">
+              <span className="field-label">Impervious core soil type</span>
+              <select
+                className="text-input"
+                value={data.heartingSoilType ?? ''}
+                onChange={(event) =>
+                  event.target.value &&
+                  selectHeartingSoil(event.target.value as BundHeartingSoilType)
+                }
+              >
+                <option value="">Select soil type…</option>
+                {HEARTING_SOIL_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {selectedHeartingSoil && <small>{selectedHeartingSoil.summary}</small>}
+            </label>
+            <div className="bund-preliminary-note bund-zoned-material-note" role="note">
+              Automatic geometry uses the standard 0.5 horizontal to 1 vertical core case. These
+              are preliminary selections; verify classification, properties and slopes using
+              project investigation and stability analysis before approval.
+            </div>
+          </div>
+        )}
+
+        {zonedRepair && (
+          <div className="bund-section-material-selection">
+            <span>Casing dimensions</span>
+            <strong>{selectedCasingSoil?.label ?? 'No casing soil selected'}</strong>
+          </div>
+        )}
         <div className="gw-param-grid bund-design-grid">
           <NumField
             label={zonedRepair ? 'Casing crest width (m)' : 'Crest width (m)'}
             value={data.design.topWidth}
             onChange={(v) => update({ design: { ...data.design, topWidth: v } })}
           />
-          <NumField
-            label="Upstream slope, left (1 in …)"
+          <SlopeField
+            label="Upstream slope, left"
             value={data.design.usSlope}
-            onChange={(v) => update({ design: { ...data.design, usSlope: v } })}
-          />
-          <NumField
-            label="Downstream slope, right (1 in …)"
-            value={data.design.dsSlope}
-            onChange={(v) => update({ design: { ...data.design, dsSlope: v } })}
-          />
-          <NumField
-            label={
-              strippingExcavationFamily === 'foundation'
-                ? 'Foundation excavation depth (m)'
-                : 'Depth of top soil stripped (m)'
+            onChange={(v) =>
+              update({
+                design: { ...data.design, usSlope: v },
+                ...(zonedRepair
+                  ? { zonedSlopeMode: 'manual' as const }
+                  : { homogeneousSlopeMode: 'manual' as const })
+              })
             }
-            value={data.design.stripDepth}
-            onChange={(v) => update({ design: { ...data.design, stripDepth: v } })}
+          />
+          <SlopeField
+            label="Downstream slope, right"
+            value={data.design.dsSlope}
+            onChange={(v) =>
+              update({
+                design: { ...data.design, dsSlope: v },
+                ...(zonedRepair
+                  ? { zonedSlopeMode: 'manual' as const }
+                  : { homogeneousSlopeMode: 'manual' as const })
+              })
+            }
           />
         </div>
+        {zonedRepair && (
+          <div className="bund-slope-source-row">
+            <span className={`bund-source-badge is-${zonedSlopeMode}`}>
+              {zonedSlopeMode === 'automatic'
+                ? 'Recommended slopes applied'
+                : 'Manual slope values'}
+            </span>
+            {zonedSlopeMode === 'manual' && data.heartingSoilType && (
+              <button type="button" className="btn ghost" onClick={setAutomaticZonedSlopes}>
+                Reapply recommendation
+              </button>
+            )}
+            <small>
+              Preliminary geometry only—confirm with project-specific stability and seepage
+              analysis.
+            </small>
+          </div>
+        )}
+        {homogeneous && data.homogeneousSoilType && (
+          <div className="bund-slope-source-row">
+            <span className={`bund-source-badge is-${homogeneousSlopeMode}`}>
+              {homogeneousSlopeMode === 'automatic'
+                ? 'Recommended slopes applied'
+                : 'Manual slope values'}
+            </span>
+            {homogeneousSlopeMode === 'manual' &&
+              homogeneousSoilSuitable(data.homogeneousSoilType) && (
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={setAutomaticHomogeneousSlopes}
+                >
+                  Reapply recommendation
+                </button>
+              )}
+            <small>
+              Preliminary geometry only—confirm with project-specific stability and seepage
+              analysis.
+            </small>
+          </div>
+        )}
         <div className="settings-note">
           {zonedRepair
             ? 'The casing is the proposed outer bund section. Existing ground, stripping, toe levels, berms and all outer protection remain exactly as in the repair workflow.'
@@ -2184,13 +2622,20 @@ export default function BundDashboard({
                 ? `The bund widens by (${data.design.usSlope} + ${data.design.dsSlope}) m per 1 m of height, on top of the ${data.design.topWidth} m crest. This draws the proposed bund (blue) at every chainage, so you only enter the surveyed ground it stands on. Upstream is the left face, downstream the right. MWL and FTL are drawn as reference lines.`
                 : 'This draws the proposed bund (blue) at every chainage, so you only enter the existing ground. Upstream is the left face, downstream the right. MWL and FTL are drawn as reference lines.'}
         </div>
+        <div className="settings-note">
+          Every slope uses two entries: <b>horizontal run : vertical rise</b>. Enter one value
+          in each box, for example <b>2 : 1</b> or <b>2½ : 1</b>.
+        </div>
 
         {zonedRepair && (
           <div className="bund-hearting-design">
-            <div className="gw-panel-label">Hearting Zone</div>
+            <div className="bund-section-material-selection is-hearting">
+              <span>Impervious core (hearting zone)</span>
+              <strong>{selectedHeartingSoil?.label ?? 'No core soil selected'}</strong>
+            </div>
             <div className="bund-hearting-fields">
               <NumField
-                label="Top RL"
+                label="Top RL (default = MWL)"
                 value={data.heartingDesign.topLevel}
                 onChange={(value) =>
                   update({
@@ -2207,21 +2652,23 @@ export default function BundDashboard({
                   })
                 }
               />
-              <NumField
-                label="U/S slope (H : 1V)"
+              <SlopeField
+                label="U/S slope"
                 value={data.heartingDesign.usSlope}
                 onChange={(value) =>
                   update({
-                    heartingDesign: { ...data.heartingDesign, usSlope: value }
+                    heartingDesign: { ...data.heartingDesign, usSlope: value },
+                    zonedSlopeMode: 'manual'
                   })
                 }
               />
-              <NumField
-                label="D/S slope (H : 1V)"
+              <SlopeField
+                label="D/S slope"
                 value={data.heartingDesign.dsSlope}
                 onChange={(value) =>
                   update({
-                    heartingDesign: { ...data.heartingDesign, dsSlope: value }
+                    heartingDesign: { ...data.heartingDesign, dsSlope: value },
+                    zonedSlopeMode: 'manual'
                   })
                 }
               />
@@ -2236,126 +2683,6 @@ export default function BundDashboard({
               />
             </div>
 
-            {trenchAvailable && (
-              <div
-                className={`bund-option-module bund-hearting-trench-card${
-                  trenchOn ? ' is-enabled' : ''
-                }`}
-              >
-                <label className="bund-optional-head">
-                  <input
-                    type="checkbox"
-                    checked={trenchOn}
-                    onChange={() =>
-                      trenchOn ? disableHeartingTrench() : enableHeartingTrench()
-                    }
-                  />
-                  <span className="bund-option-module-title">
-                    Hearting cut-off trench (foundation of the hearting)
-                  </span>
-                </label>
-                <small>
-                  The core carried below the formation base into tighter soil, so seepage
-                  cannot pass underneath it. The trench is excavated and then filled back
-                  with the same selected impervious soil — one solid, so the cut and the
-                  filling carry the same volume.
-                </small>
-                {trenchOn && (
-                  <>
-                    <div className="gw-param-grid">
-                      <NumField
-                        label="Depth below formation base (m)"
-                        value={data.heartingTrench.depth}
-                        onChange={(v) => patchHeartingTrench({ depth: v })}
-                      />
-                      <NumField
-                        label="Bottom width (m)"
-                        value={data.heartingTrench.bottomWidth}
-                        onChange={(v) => patchHeartingTrench({ bottomWidth: v })}
-                      />
-                      <NumField
-                        label="U/S side slope (1 in …)"
-                        value={data.heartingTrench.usSlope}
-                        onChange={(v) => patchHeartingTrench({ usSlope: v })}
-                      />
-                      <NumField
-                        label="D/S side slope (1 in …)"
-                        value={data.heartingTrench.dsSlope}
-                        onChange={(v) => patchHeartingTrench({ dsSlope: v })}
-                      />
-                    </div>
-                    <div className="bund-inline-measure">
-                      <span>
-                        <b>{qty3.format(heartingTrenchArea(data))}</b> sq.m section
-                      </span>
-                      <span>
-                        top width <b>{qty3.format(heartingTrenchTopWidth(data))}</b> m
-                      </span>
-                      <span>
-                        <b>{qty3.format(trenchTotal)}</b> cu.m over{' '}
-                        {Math.round(data.lengthM).toLocaleString('en-IN')} m
-                      </span>
-                    </div>
-
-                    {data.heartingTrench.fillMaterial && (
-                      <div className="bund-inline-measure">
-                        <SsrCode
-                          code={data.heartingTrench.fillMaterial.code}
-                          description={data.heartingTrench.fillMaterial.description}
-                          className="gw-material-code"
-                        />
-                        <span>Impervious filling · {qty3.format(trenchTotal)} cu.m</span>
-                        <button
-                          className="btn ghost"
-                          onClick={() => setPicker('hearting-trench')}
-                        >
-                          <Pencil size={12} /> filling code
-                        </button>
-                      </div>
-                    )}
-                    {picker === 'hearting-trench' && (
-                      <MaterialPicker
-                        initialCategory="IRR-DAW"
-                        initialSearch="cut-off trench filling"
-                        onClose={() => setPicker(null)}
-                        onPick={(item) => {
-                          patchHeartingTrench({
-                            fillMaterial: {
-                              code: item.code,
-                              description: item.description,
-                              unit: item.unit,
-                              categoryKey: item.category,
-                              side: item.side,
-                              dataVariant: item.dataVariant
-                            }
-                          })
-                          setPicker(null)
-                        }}
-                      />
-                    )}
-                    <div className="settings-note">
-                      The filling is billed apart from the hearting embankment above it:
-                      the SSR rates a confined trench fill separately from open
-                      embankment layers.
-                    </div>
-
-                    {data.heartingTrench.excavationMaterial &&
-                      renderExcavationClassCard(excavationSource('hearting-trench-exc'))}
-
-                    {heartingTrenchIssues(data, selected).map((issue) => (
-                      <div
-                        key={`trench-${issue.code}`}
-                        className={`settings-note bund-berm-issue ${
-                          issue.code === 'no-code' ? 'is-warning' : 'is-error'
-                        }`}
-                      >
-                        {issue.message}
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
           </div>
         )}
       </section>
@@ -2398,7 +2725,9 @@ export default function BundDashboard({
                               const split = zonedRepairAreas(data, s)
                               return `${qty3.format(split.casing)} m² casing · ${qty3.format(split.hearting)} m² hearting`
                             })()
-                          : `${qty3.format(areas.formation)} m² fill · ${qty3.format(areas.stripping)} m² cut / stripping`
+                          : `${qty3.format(areas.formation)} m² fill · ${qty3.format(areas.stripping)} m² ${
+                              data.mode === 'new' ? 'foundation excavation' : 'cut / stripping'
+                            }`
                         : 'No levels yet'}
                     </small>
                   </button>
@@ -2855,9 +3184,7 @@ export default function BundDashboard({
 
       <section className="gw-materials bund-stripping-section">
         <div className="gw-materials-title">
-          {strippingExcavationFamily === 'foundation'
-            ? 'Foundation excavation and bund seating'
-            : 'Stripping and bund seating'}
+          {data.mode === 'new' ? 'Bund Foundation Excavation' : 'Bund Stripping'}
         </div>
         <div className="bund-stripping-layout">
           <div className="bund-option-card bund-stripping-excavation-card">
@@ -2870,7 +3197,7 @@ export default function BundDashboard({
                   onChange={() => setStrippingExcavationFamily('seating')}
                 />
                 <span>
-                  <b>Stripping / seating</b>
+                  <b>{data.mode === 'new' ? 'Bund Foundation Excavation' : 'Bund Stripping'}</b>
                   <small>CAW excavation codes</small>
                 </span>
               </label>
@@ -2881,19 +3208,201 @@ export default function BundDashboard({
                   onChange={() => setStrippingExcavationFamily('foundation')}
                 />
                 <span>
-                  <b>Foundation excavation</b>
+                  <b>Bund Foundation Excavation</b>
                   <small>DAW excavation codes</small>
                 </span>
               </label>
+            </div>
+            <div className="gw-param-grid bund-stripping-depth-grid">
+              <NumField
+                label={
+                  data.mode === 'new'
+                    ? 'Foundation excavation depth (m)'
+                    : 'Depth of top soil stripped (m)'
+                }
+                value={data.design.stripDepth}
+                onChange={(v) => update({ design: { ...data.design, stripDepth: v } })}
+              />
             </div>
             {renderExcavationClassCard(excavationSource('stripping'))}
             <div className="settings-note">
               The default is All Soils 100%. HDR, F&amp;F and HR are used only when the measured
               cut actually enters those strata.{' '}
               {data.mode === 'new'
-                ? 'A new bund starts on foundation excavation: the whole seating is cut and prepared before any fill is placed. Switch to stripping/seating only if the approved section bills that cut as CAW seating.'
+                ? 'A new bund starts on foundation excavation: the whole foundation is cut and prepared before any fill is placed. Select the CAW code basis only when required by the approved specification.'
                 : 'Select foundation excavation only when the approved section treats the cut below the embankment as a foundation.'}
             </div>
+            {trenchAvailable && (
+              <div
+                className={`bund-option-module bund-hearting-trench-card${
+                  trenchOn ? ' is-enabled' : ''
+                }`}
+              >
+                <label className="bund-optional-head">
+                  <input
+                    type="checkbox"
+                    checked={trenchOn}
+                    onChange={() =>
+                      trenchOn ? disableHeartingTrench() : enableHeartingTrench()
+                    }
+                  />
+                  <span className="bund-option-module-title">
+                    Hearting cut-off trench (foundation of the hearting)
+                  </span>
+                </label>
+                <small>
+                  The core carried below the formation base into tighter soil, so seepage
+                  cannot pass underneath it. The trench is excavated and then filled back
+                  with the same selected impervious soil — one solid, so the cut and the
+                  filling carry the same volume.
+                </small>
+                {trenchOn && (
+                  <>
+                    <div className="gw-param-grid">
+                      <label className="field">
+                        <span className="field-label">Depth calculation</span>
+                        <select
+                          className="text-input"
+                          value={data.heartingTrench.depthMode}
+                          onChange={(event) =>
+                            patchHeartingTrench({
+                              depthMode: event.target.value as 'auto' | 'manual'
+                            })
+                          }
+                        >
+                          <option value="auto">Auto — ½ water depth</option>
+                          <option value="manual">Manual entry</option>
+                        </select>
+                      </label>
+                      {data.heartingTrench.depthMode === 'auto' ? (
+                        <label className="field">
+                          <span className="field-label">Calculated depth (m)</span>
+                          <input
+                            className="text-input"
+                            type="number"
+                            readOnly
+                            disabled
+                            tabIndex={-1}
+                            title="Calculated automatically from FTL/FRL (or MWL when FTL is blank) and the lowest toe RL"
+                            value={effectiveTrenchDepth}
+                          />
+                        </label>
+                      ) : (
+                        <NumField
+                          label="Manual depth (m)"
+                          value={data.heartingTrench.depth}
+                          onChange={(v) => patchHeartingTrench({ depth: v })}
+                        />
+                      )}
+                      <NumField
+                        label="Bottom width (m)"
+                        value={data.heartingTrench.bottomWidth}
+                        onChange={(v) => patchHeartingTrench({ bottomWidth: v })}
+                      />
+                      <SlopeField
+                        label="U/S side slope"
+                        value={data.heartingTrench.usSlope}
+                        onChange={(v) => patchHeartingTrench({ usSlope: v })}
+                      />
+                      <SlopeField
+                        label="D/S side slope"
+                        value={data.heartingTrench.dsSlope}
+                        onChange={(v) => patchHeartingTrench({ dsSlope: v })}
+                      />
+                    </div>
+                    <div className="settings-note">
+                      {data.heartingTrench.depthMode === 'auto' ? (
+                        governingDeepestToe && autoTrenchWaterLevel != null ? (
+                          <>
+                            Auto depth = ½ × ({autoTrenchWaterLabel}{' '}
+                            {qty3.format(autoTrenchWaterLevel)} − lowest{' '}
+                            {governingDeepestToe.side.toUpperCase()} toe RL{' '}
+                            {qty3.format(governingDeepestToe.rl)} at{' '}
+                            {formatChainage(governingDeepestToe.chainage, data.chainageUnit)}) ={' '}
+                            <b>{qty3.format(effectiveTrenchDepth)} m</b>, subject to the 0.60 m
+                            minimum.
+                          </>
+                        ) : (
+                          <>
+                            Auto mode needs FTL/FRL and at least one measurable toe section. MWL
+                            is used only when FTL/FRL is blank. Until a water level and toe are
+                            available, the minimum <b>0.60 m</b> depth is used.
+                          </>
+                        )
+                      ) : (
+                        <>Manual mode uses the entered depth for every section.</>
+                      )}
+                    </div>
+                    <div className="bund-inline-measure">
+                      <span>
+                        <b>{qty3.format(heartingTrenchArea(data))}</b> sq.m section
+                      </span>
+                      <span>
+                        top width <b>{qty3.format(heartingTrenchTopWidth(data))}</b> m
+                      </span>
+                      <span>
+                        <b>{qty3.format(trenchTotal)}</b> cu.m over{' '}
+                        {Math.round(data.lengthM).toLocaleString('en-IN')} m
+                      </span>
+                    </div>
+
+                    {data.heartingTrench.fillMaterial && (
+                      <div className="bund-inline-measure">
+                        <SsrCode
+                          code={data.heartingTrench.fillMaterial.code}
+                          description={data.heartingTrench.fillMaterial.description}
+                          className="gw-material-code"
+                        />
+                        <span>Impervious filling · {qty3.format(trenchTotal)} cu.m</span>
+                        <button
+                          className="btn ghost"
+                          onClick={() => setPicker('hearting-trench')}
+                        >
+                          <Pencil size={12} /> filling code
+                        </button>
+                      </div>
+                    )}
+                    {picker === 'hearting-trench' && (
+                      <MaterialPicker
+                        initialCategory="IRR-DAW"
+                        initialSearch="cut-off trench filling"
+                        onClose={() => setPicker(null)}
+                        onPick={(item) => {
+                          patchHeartingTrench({
+                            fillMaterial: {
+                              code: item.code,
+                              description: item.description,
+                              unit: item.unit,
+                              categoryKey: item.category,
+                              side: item.side,
+                              dataVariant: item.dataVariant
+                            }
+                          })
+                          setPicker(null)
+                        }}
+                      />
+                    )}
+                    <div className="settings-note">
+                      The filling is billed apart from the hearting embankment above it:
+                      the SSR rates a confined trench fill separately from open
+                      embankment layers.
+                    </div>
+                    {data.heartingTrench.excavationMaterial &&
+                      renderExcavationClassCard(excavationSource('hearting-trench-exc'))}
+                    {heartingTrenchIssues(data, selected).map((issue) => (
+                      <div
+                        key={`trench-${issue.code}`}
+                        className={`settings-note bund-berm-issue ${
+                          issue.code === 'below-hearting' ? 'is-error' : 'is-warning'
+                        }`}
+                      >
+                        {issue.message}
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
           </div>
           <div className="bund-stripping-side">
             <div className="gw-material-card bund-clearance-card">
@@ -2969,9 +3478,9 @@ export default function BundDashboard({
                     <span>
                       <strong>Automatic</strong>
                       <em className="bund-radio-hint">
-                        {surveyEntry
-                          ? 'Average existing-ground perimeter × chainage length.'
-                          : 'Average designed seating width × chainage length.'}
+                        {data.mode === 'new'
+                          ? 'Average width at stripped level × chainage length.'
+                          : 'Average surveyed ground perimeter × chainage length.'}
                       </em>
                     </span>
                   </label>
@@ -3365,16 +3874,14 @@ export default function BundDashboard({
         </div>
         <div className="bund-optional-layout">
           <OptionalCard
-            title="Stone pitching — upstream slope"
-            desc="450 mm dry-rubble pitching on the developed upstream slope. Fixed SSR item: IRR-CAW-8-8."
+            title="Revetment — upstream slope"
+            desc="Choose the DAW construction and its protection extent. Stone and graded-filter dimensions are fixed by the selected code."
             enabled={Boolean(data.pitchingMaterial)}
             code={data.pitchingMaterial?.code}
             description={data.pitchingMaterial?.description}
             unit={data.pitchingMaterial?.unit}
             qtyText={pitchingQtyText}
-            onEnable={() =>
-              enableOptional('pitching', 'pitchingMaterial', BUND_DEFAULT_PITCHING_CODE)
-            }
+            onEnable={() => selectRevetmentCode(BUND_DEFAULT_PITCHING_CODE)}
             onDisable={() =>
               update({
                 pitchingMaterial: null,
@@ -3384,117 +3891,90 @@ export default function BundDashboard({
               })
             }
             horizontal
+            showStatus={false}
             extra={
               data.pitchingMaterial ? (
-                <div className="bund-rocktoe-fields bund-upstream-details">
-                  <div className="settings-note bund-upstream-code-strip">
-                    <SsrCode
-                      code={BUND_DEFAULT_PITCHING_CODE}
-                      description={data.pitchingMaterial.description}
-                    />{' '}
-                    · 450 mm dry-rubble pitching without pin headers · developed upstream slope
-                    area → <b>{pitchingQtyText}</b>. The toe anchorage remains a separate item.
+                <div className="bund-revetment-panel">
+                  <div className="bund-revetment-controls">
+                    <div className="bund-revetment-selected">
+                      <span>Selected system</span>
+                      <SsrCode
+                        code={data.pitchingMaterial.code}
+                        description={data.pitchingMaterial.description}
+                      />
+                      <strong>{selectedRevetment?.construction ?? 'DAW revetment'}</strong>
+                      <small>
+                        {Math.round(revetmentStoneThickness * 1000)} mm stone +{' '}
+                        {Math.round(revetmentFilterThickness * 1000)} mm graded filter
+                      </small>
+                      <b>{pitchingQtyText}</b>
+                    </div>
+
+                    <div className="bund-pitching-presets bund-revetment-extent">
+                      <span>Protection extent</span>
+                      <button
+                        type="button"
+                        className={`btn small${data.pitchingExtent !== 'full' ? ' active' : ''}`}
+                        onClick={() => update({ pitchingExtent: 'mwl' })}
+                      >
+                        Up to MWL
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn small${data.pitchingExtent === 'full' ? ' active' : ''}`}
+                        onClick={() => update({ pitchingExtent: 'full' })}
+                      >
+                        Full U/S face
+                      </button>
+                      <small>
+                        {data.pitchingExtent === 'full'
+                          ? 'Complete upstream face.'
+                          : data.design.mwl == null
+                            ? 'MWL is required.'
+                            : 'Ends where MWL meets ground.'}
+                      </small>
+                    </div>
                   </div>
 
-                  <label
-                    className={`bund-pitching-addon${
-                      data.pitchingMaterial.dataVariant?.addonId === 'murum_bed_15cm'
-                        ? ' is-selected'
-                        : ''
-                    }`}
+                  <div
+                    className="bund-revetment-options"
+                    role="radiogroup"
+                    aria-label="DAW revetment system"
                   >
-                    <input
-                      type="checkbox"
-                      checked={
-                        data.pitchingMaterial.dataVariant?.addonId === 'murum_bed_15cm'
-                      }
-                      onChange={(event) =>
-                        setPitchingMurumBedAddon(event.target.checked)
-                      }
-                    />
-                    <span>
-                      <b>Include 150 mm murum-bed add-on</b>
-                      <small>
-                        Published CAW-8 addition: provide and compact a 15 cm thick murum bed
-                        directly below the stone pitching. Its added rate, murum lead and
-                        seigniorage are included with the pitching item; it is not a second SSR
-                        code.
-                      </small>
-                    </span>
-                  </label>
-
-                  <div className="bund-upstream-filter-grid bund-legacy-pitching-filter">
-                    <div
-                      className={`bund-option-module${
-                        data.pitchingBeddingMaterial ? ' is-enabled' : ''
-                      }`}
-                    >
-                      <label className="bund-optional-head">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(data.pitchingBeddingMaterial)}
-                          onChange={() =>
-                            data.pitchingBeddingMaterial
-                              ? update({ pitchingBeddingMaterial: null })
-                              : enablePitchingBedding()
-                          }
-                        />
-                        <span className="bund-option-module-title">
-                          Designed sand filter below revetment (optional)
-                        </span>
-                      </label>
-                      <small>
-                        Use only when the approved design specifies clean sand satisfying filter
-                        criteria. This is not the broken-stone, quarry-rubbish or gravel backing
-                        shown in the reference detail.
-                      </small>
-                      {data.pitchingBeddingMaterial && (
-                        <>
-                          <div className="gw-param-grid">
-                            <NumField
-                              label="Design thickness (m)"
-                              value={data.pitchingBeddingThickness}
-                              onChange={(v) => update({ pitchingBeddingThickness: v })}
-                            />
-                          </div>
-                          <div className="settings-note bund-toe-line">
-                            <SsrCode
-                              code={data.pitchingBeddingMaterial.code}
-                              description={data.pitchingBeddingMaterial.description}
-                            />{' '}
-                            · upstream slope area ×{' '}
-                            {qty3.format(data.pitchingBeddingThickness)} m →{' '}
-                            <b>{qty3.format(pitchingBeddingTotal)} cu.m</b>
-                            <button
-                              className="btn ghost"
-                              onClick={() => setPicker('pitching-bedding')}
-                            >
-                              <Pencil size={12} /> code
-                            </button>
-                          </div>
-                          {picker === 'pitching-bedding' && (
-                            <MaterialPicker
-                              initialCategory="IRR-DAW"
-                              initialSearch="sand filters below revetment"
-                              onClose={() => setPicker(null)}
-                              onPick={(item) => {
-                                setBundMaterial(node.id, 'pitching-bedding', item)
-                                setPicker(null)
-                              }}
-                            />
-                          )}
-                        </>
-                      )}
+                    <div className="bund-revetment-option-head" aria-hidden="true">
+                      <span>DAW item</span>
+                      <span>Construction</span>
+                      <span>Stone</span>
+                      <span>Filter</span>
+                      <span>Anchoring</span>
                     </div>
-                    <div className="settings-note bund-upstream-reference-note">
-                      <b>Code for the shown 450 mm pitching: IRR-CAW-8-8.</b> The Telangana
-                      standard-data note under CAW-8 permits a 150 mm murum bed below pitching.
-                      It is an add-on to the pitching rate, not IRR-DAW-6-7. The pictured 150 mm
-                      broken-stone / quarry-rubbish / gravel backing has no standalone SSR work
-                      code in the connected master; use a project-specific rate analysis when
-                      that exact material is required by the approved drawing.
-                    </div>
+                    {BUND_DAW_REVETMENT_OPTIONS.map((option) => {
+                      const selected = data.pitchingMaterial?.code === option.code
+                      return (
+                        <button
+                          key={option.code}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          className={`bund-revetment-option${selected ? ' is-selected' : ''}`}
+                          onClick={() => selectRevetmentCode(option.code)}
+                        >
+                          <span className="bund-revetment-option-code">
+                            {option.code.replace('IRR-', '')}
+                            {option.code === BUND_DEFAULT_PITCHING_CODE && <em>Default</em>}
+                          </span>
+                          <span>{option.construction}</span>
+                          <strong>{Math.round(option.stoneThickness * 1000)} mm</strong>
+                          <strong>{Math.round(option.filterThickness * 1000)} mm</strong>
+                          <span>{option.throughStones ? 'Through stones' : 'None'}</span>
+                        </button>
+                      )
+                    })}
                   </div>
+
+                  <small className="bund-revetment-footnote">
+                    Each row is one integrated SQM item covering both displayed layers. Toe anchorage is measured separately.
+                  </small>
                 </div>
               ) : null
             }
@@ -3526,7 +4006,7 @@ export default function BundDashboard({
                 </label>
                 <small>
                   Cut-off trench at the upstream toe, with an optional PCC or masonry wall built
-                  into it. Anchors the slope pitching when pitching is used, but stands on its own
+                  into it. Anchors the slope revetment when revetment is used, but stands on its own
                   otherwise.
                 </small>
               </div>
@@ -3668,43 +4148,7 @@ export default function BundDashboard({
               <span className="bund-option-kicker">DOWNSTREAM</span>
             </div>
 
-            {/* A zoned bund's seepage is governed by its impervious core, not
-                by a Casagrande line through a homogeneous body, so the phreatic
-                chart is not drawn there. What is useful instead is seeing the
-                whole assembly in one section. */}
-            {zonedRepair && (
-              <div className="bund-drainage-designer">
-                <div className="bund-drainage-head">
-                  <div>
-                    <div className="gw-panel-label">Bund arrangement — enabled elements</div>
-                    <small>
-                      Diagrammatic section at the tallest chainage. Only what is switched on
-                      is drawn; each element keeps its own dimensioned detail below.
-                    </small>
-                  </div>
-                  {drainageSection && (
-                    <span className="bund-option-kicker">
-                      Ch {formatChainage(drainageSection.chainage, data.chainageUnit)}
-                    </span>
-                  )}
-                </div>
-                <BundAssemblyDiagram data={data} section={drainageSection} />
-                <label className="bund-check bund-phreatic-print">
-                  <input
-                    type="checkbox"
-                    checked={data.includePhreaticInPrint}
-                    onChange={(e) => update({ includePhreaticInPrint: e.target.checked })}
-                  />
-                  Include in print
-                </label>
-                <small className="bund-phreatic-print-note">
-                  Prints this sketch at the head of the component details, ahead of jungle
-                  clearance, as the general arrangement of the section.
-                </small>
-              </div>
-            )}
-
-            {!zonedRepair && <div className="bund-drainage-designer">
+            {!isZonedBund(data) && <div className="bund-drainage-designer">
               <div className="bund-drainage-head">
                 <div>
                   <div className="gw-panel-label">Phreatic line — reference + actual</div>
@@ -3734,8 +4178,8 @@ export default function BundDashboard({
                 Include in print
               </label>
               <small className="bund-phreatic-print-note">
-                Prints this diagram at the head of the component details, ahead of jungle
-                clearance, as the seepage check behind the chosen drainage.
+                Prints this optional seepage check after the compulsory Bund Diagram. It
+                shows only the bund, filters and rock toe.
               </small>
             </div>}
 
@@ -3809,17 +4253,7 @@ export default function BundDashboard({
                           </div>
 
                           <div className="bund-berm-row-body">
-                            <BundBermDiagram
-                              side={berm.side}
-                              width={berm.width}
-                              crossFall={berm.crossFall}
-                              slopeAbove={faceSlopeValue}
-                              slopeBelow={berm.slopeBelow ?? faceSlopeValue}
-                              drainWidth={berm.drainWidth}
-                              drainDepth={berm.drainDepth}
-                              drained={Boolean(berm.drainLiningMaterial)}
-                              surfaced={Boolean(berm.surfaceMaterial)}
-                            />
+                            <BundBermDiagram data={data} berm={berm} />
                             <div className="bund-berm-controls">
                               <div className="gw-param-grid">
                                 <label className="field">
@@ -3847,10 +4281,8 @@ export default function BundDashboard({
                                   value={berm.width}
                                   onChange={(v) => patchBerm(berm.id, { width: v })}
                                 />
-                                <NullField
-                                  label={`Slope below (1 in …, blank = ${qty3.format(
-                                    faceSlopeValue
-                                  )})`}
+                                <NullSlopeField
+                                  label={`Slope below (blank = ${qty3.format(faceSlopeValue)} : 1)`}
                                   value={berm.slopeBelow}
                                   onChange={(v) => patchBerm(berm.id, { slopeBelow: v })}
                                 />
@@ -3916,7 +4348,7 @@ export default function BundDashboard({
                                           setBermPicker(null)
                                         }
                                       } else {
-                                        setBermSurface(berm.id, 'turf')
+                                        setBermSurface(berm.id, 'stone')
                                       }
                                     }}
                                   />
@@ -3952,21 +4384,21 @@ export default function BundDashboard({
                                         }
                                         onClick={() => setBermSurface(berm.id, 'turf')}
                                       >
-                                        Turf
+                                        Stone revetment
                                       </button>
                                       <button
                                         type="button"
                                         className={`btn ghost${
-                                          berm.surfaceMaterial.code === BUND_DEFAULT_BERM_MURUM_CODE
+                                          berm.surfaceMaterial.code === BUND_DEFAULT_BERM_TURF_CODE
                                             ? ' active'
                                             : ''
                                         }`}
                                         aria-pressed={
-                                          berm.surfaceMaterial.code === BUND_DEFAULT_BERM_MURUM_CODE
+                                          berm.surfaceMaterial.code === BUND_DEFAULT_BERM_TURF_CODE
                                         }
-                                        onClick={() => setBermSurface(berm.id, 'murum')}
+                                        onClick={() => setBermSurface(berm.id, 'turf')}
                                       >
-                                        Murum / rubble
+                                        Turfing
                                       </button>
                                       <button
                                         type="button"
@@ -3980,7 +4412,7 @@ export default function BundDashboard({
                                         }
                                         onClick={() => setBermSurface(berm.id, 'cc')}
                                       >
-                                        CC path
+                                        CC protection
                                       </button>
                                       <button
                                         type="button"
@@ -4214,7 +4646,7 @@ export default function BundDashboard({
                   </div>
                   {picker === 'turfing' && (
                     <MaterialPicker
-                      initialCategory="IRR-CAW"
+                      initialCategory="IRR-DAW"
                       initialSearch="turfing"
                       onClose={() => setPicker(null)}
                       onPick={(item) => {
@@ -4275,8 +4707,8 @@ export default function BundDashboard({
                       value={data.rockToeHeight}
                       onChange={(v) => update({ rockToeHeight: v })}
                     />
-                    <NumField
-                      label="Inner slope (1 in …)"
+                    <SlopeField
+                      label="Inner slope"
                       value={data.rockToeInnerSlope}
                       onChange={(v) => update({ rockToeInnerSlope: v })}
                     />
@@ -4309,7 +4741,7 @@ export default function BundDashboard({
                     </div>
                     {picker === 'rocktoe' && (
                       <MaterialPicker
-                        initialCategory="IRR-CAW"
+                        initialCategory="IRR-DAW"
                         initialSearch="rock-toe"
                         onClose={() => setPicker(null)}
                         onPick={(item) => {
@@ -4347,17 +4779,18 @@ export default function BundDashboard({
                           </button>
                         </div>
                         <div className="settings-note">
-                          CAW-5-11 behind: 20 cm sand + 15 cm 20 mm down CA + 15 cm
-                          40 mm down CA. Below: 15 cm sand + 20 cm 20 mm down CA + 65 cm
-                          40 mm down CA. The 1.00 m below-filter is the construction layer.
+                          DAW-6-4 default: 20 cm sand + 25 cm 20–4.75 mm aggregate +
+                          40 cm 80–20 mm aggregate, totaling 0.85 m below and behind.
+                          Selecting CAW-5-11 manually changes the geometry to 1.00 m below
+                          and 0.50 m behind.
                           {rockToeExcavation
                             ? ' Its bottom RL is compared with the prepared bund surface to derive the section-specific excavation union.'
                             : ' It is laid inside the formation as the bund goes up, so only the filter media are measured here.'}
                         </div>
                         {picker === 'rocktoe-filter' && (
                           <MaterialPicker
-                            initialCategory="IRR-CAW"
-                            initialSearch="graded filter media below and behind rock-toe"
+                            initialCategory="IRR-DAW"
+                            initialSearch="filter below behind rock toe"
                             onClose={() => setPicker(null)}
                             onPick={(item) => {
                               setBundMaterial(node.id, 'rocktoe-filter', item)
@@ -4376,7 +4809,7 @@ export default function BundDashboard({
                             data.rockToeExcavationMaterial
                               ? update({
                                   rockToeExcavationMaterial: null,
-                                  // The CAW-5-11 below-filter occupies this cut,
+                                  // The selected below-filter occupies this cut,
                                   // so it cannot remain when excavation is off.
                                   rockToeFilterMaterial: null
                                 })
@@ -4428,7 +4861,7 @@ export default function BundDashboard({
                               )}.`
                             : ''}
                           {data.rockToeFilterMaterial
-                            ? ' CAW-5-11 provides 1.00 m below the toe and 0.50 m behind its inner face. The union includes the below-filter bed and any behind-filter cap that cuts existing ground, but the additional excavation still varies with the section’s already-prepared level. Turning excavation off also turns that dependent filter off.'
+                            ? ' The selected code controls the below/behind filter thicknesses. The union includes the below-filter bed and any behind-filter cap that cuts existing ground, but the additional excavation still varies with the section’s already-prepared level. Turning excavation off also turns that dependent filter off.'
                             : ''}
                         </div>
                         {renderExcavationClassCard(excavationSource('rocktoe-exc'))}
@@ -4455,7 +4888,7 @@ export default function BundDashboard({
                         : ''}
                       ), so the rock toe and proposed bund line remain aligned.
                       {data.rockToeFilterMaterial
-                        ? ' The 1.00 m shown below the toe is filter construction thickness, not a fixed payable excavation depth.'
+                        ? ' The thickness shown below the toe is filter construction thickness, not a fixed payable excavation depth.'
                         : ''}
                     </div>
                     <div className="settings-note">
@@ -4487,36 +4920,82 @@ export default function BundDashboard({
                   <span className="bund-option-module-title">Horizontal filter</span>
                 </label>
                 <small>
-                  Sand/gravel blanket laid at the d/s toe (under new fill only — a repair cannot
-                  reach beneath the existing bund). It receives the seepage arriving at the toe
-                  and carries it out; with a chimney on it, the blanket length sets where the
-                  line is intercepted.
+                  Sand/gravel blanket laid below toe RL (under new fill only — a repair cannot
+                  reach beneath the existing bund). Auto length runs from the d/s toe—or the
+                  rock toe&rsquo;s inner face—to the centreline in a homogeneous bund, and only to
+                  the downstream edge of hearting in a zoned bund. A chimney stands on its
+                  inner end to intercept seepage.
                 </small>
                 {data.horizontalFilterMaterial && (
                   <>
                     <div className="gw-param-grid">
-                      <NumField
-                        label="Length from d/s toe (m)"
-                        value={data.horizontalFilterLength}
-                        onChange={(v) => update({ horizontalFilterLength: v })}
+                      <label className="field">
+                        <span className="field-label">Length calculation</span>
+                        <select
+                          className="text-input"
+                          value={data.horizontalFilterLengthMode}
+                          onChange={(event) => {
+                            const mode = event.target.value as 'auto' | 'manual'
+                            update({
+                              horizontalFilterLengthMode: mode,
+                              horizontalFilterLength:
+                                mode === 'manual'
+                                  ? filterDiagramLength
+                                  : data.horizontalFilterLength
+                            })
+                          }}
+                        >
+                          <option value="auto">Auto — from bund geometry</option>
+                          <option value="manual">Manual entry</option>
+                        </select>
+                      </label>
+                      <NullField
+                        label={
+                          data.rockToeMaterial
+                            ? 'Length inward from rock-toe inner face (m)'
+                            : 'Length inward from d/s toe (m)'
+                        }
+                        value={filterDiagramLength}
+                        disabled={data.horizontalFilterLengthMode === 'auto'}
+                        onChange={(v) =>
+                          update({
+                            horizontalFilterLengthMode: 'manual',
+                            horizontalFilterLength: Math.max(0, v ?? 0)
+                          })
+                        }
                       />
-                      <NumField
-                        label="Thickness (m)"
-                        value={data.horizontalFilterThickness}
-                        onChange={(v) => update({ horizontalFilterThickness: v })}
-                      />
+                      {hFilterDimensionFixed ? (
+                        <NullField
+                          label="Code-fixed thickness (m)"
+                          value={effectiveHFilterThickness}
+                          disabled
+                          onChange={() => undefined}
+                        />
+                      ) : (
+                        <NumField
+                          label="Design thickness (m)"
+                          value={data.horizontalFilterThickness}
+                          onChange={(v) => update({ horizontalFilterThickness: v })}
+                        />
+                      )}
                     </div>
                     <BundFilterDiagram
                       crestWidth={data.design.topWidth}
                       usSlope={data.design.usSlope}
                       dsSlope={data.design.dsSlope}
                       height={filterDiagramHeight}
-                      blanketLength={data.horizontalFilterLength}
-                      blanketThickness={data.horizontalFilterThickness}
+                      blanketLength={filterDiagramLength}
+                      blanketThickness={effectiveHFilterThickness}
                       chimneyOn={Boolean(data.verticalFilterMaterial)}
-                      chimneyWidth={data.verticalFilterWidth}
+                      chimneyWidth={effectiveVFilterWidth}
                       chimneyHeight={filterDiagramChimneyHeight}
                       mwlRise={filterDiagramMwlRise}
+                      rockToeOn={Boolean(data.rockToeMaterial)}
+                      rockToeFilterOn={Boolean(data.rockToeFilterMaterial)}
+                      rockToeTopWidth={data.rockToeTopWidth}
+                      rockToeHeight={rockToeDiagramHeight}
+                      rockToeInnerSlope={data.rockToeInnerSlope}
+                      rockToeOuterSlope={rockToeFaceSlope}
                     />
                     {drainageSection && (
                       <div className="settings-note">
@@ -4531,15 +5010,18 @@ export default function BundDashboard({
                         description={data.horizontalFilterMaterial.description}
                         className="gw-material-code"
                       />
-                      <span>{qty3.format(hFilterTotal)} cu.m</span>
+                      <span>
+                        {qty3.format(hFilterTotal)} {hFilterMeasure === 'area' ? 'sq.m' : 'cu.m'}
+                      </span>
                       <button className="btn ghost" onClick={() => setPicker('hfilter')}>
                         <Pencil size={12} /> code
                       </button>
                     </div>
                     {picker === 'hfilter' && (
                       <MaterialPicker
-                        initialCategory="IRR-CAW"
-                        initialSearch="sand blanket"
+                        initialCategory="IRR-DAW"
+                        initialSearch="filter"
+                        categoryLocked
                         onClose={() => setPicker(null)}
                         onPick={(item) => {
                           setBundMaterial(node.id, 'hfilter', item)
@@ -4547,6 +5029,14 @@ export default function BundDashboard({
                         }}
                       />
                     )}
+                    <div className="settings-note">
+                      DAW choices: 6-2 longitudinal/cross graded drains; 6-3 1.40 m
+                      vertical or inclined graded filter; 6-4 and 6-5 rock-toe filters;
+                      6-6 the 400 mm fabric-and-aggregate horizontal, vertical or inclined
+                      blanket; 6-7 sand below revetment; 6-8 the 450 mm sand chimney; and
+                      6-9 the 900 mm transition/filter behind rockfill. Select “code” to choose
+                      one; this picker is restricted to DAW.
+                    </div>
 
                     <label className="bund-check">
                       <input
@@ -4569,11 +5059,20 @@ export default function BundDashboard({
                           position the chimney deeper inside the bund.
                         </small>
                         <div className="gw-param-grid">
-                          <NumField
-                            label="Width (m)"
-                            value={data.verticalFilterWidth}
-                            onChange={(v) => update({ verticalFilterWidth: v })}
-                          />
+                          {vFilterDimensionFixed ? (
+                            <NullField
+                              label="Code-fixed width (m)"
+                              value={effectiveVFilterWidth}
+                              disabled
+                              onChange={() => undefined}
+                            />
+                          ) : (
+                            <NumField
+                              label="Design width (m)"
+                              value={data.verticalFilterWidth}
+                              onChange={(v) => update({ verticalFilterWidth: v })}
+                            />
+                          )}
                           <NumField
                             label="Height (m, 0 = auto to MWL)"
                             value={data.verticalFilterHeight}
@@ -4590,7 +5089,8 @@ export default function BundDashboard({
                             {drainageSection
                               ? `h ${qty3.format(verticalFilterHeightAt(drainageSection, data))} m · `
                               : ''}
-                            {qty3.format(vFilterTotal)} cu.m
+                            {qty3.format(vFilterTotal)}{' '}
+                            {vFilterMeasure === 'area' ? 'sq.m' : 'cu.m'}
                           </span>
                           <button className="btn ghost" onClick={() => setPicker('vfilter')}>
                             <Pencil size={12} /> code
@@ -4599,7 +5099,8 @@ export default function BundDashboard({
                         {picker === 'vfilter' && (
                           <MaterialPicker
                             initialCategory="IRR-DAW"
-                            initialSearch="chimney"
+                            initialSearch="filter"
+                            categoryLocked
                             onClose={() => setPicker(null)}
                             onPick={(item) => {
                               setBundMaterial(node.id, 'vfilter', item)
@@ -4632,17 +5133,17 @@ export default function BundDashboard({
           title={`Computed — ${data.clearanceMaterial.code} (jungle clearance)`}
           rows={clearancePerimeterRows(data)}
           data={data}
-          startLabel={surveyEntry ? 'Perimeter at A (m)' : 'Seating width at A (m)'}
-          endLabel={surveyEntry ? 'Perimeter at B (m)' : 'Seating width at B (m)'}
-          areaLabel={surveyEntry ? 'Average perimeter (m)' : 'Average seating width (m)'}
+          startLabel={data.mode === 'new' ? 'Width at stripped level A (m)' : 'Perimeter at A (m)'}
+          endLabel={data.mode === 'new' ? 'Width at stripped level B (m)' : 'Perimeter at B (m)'}
+          areaLabel={data.mode === 'new' ? 'Avg width at stripped level (m)' : 'Avg perimeter (m)'}
           qtyLabel="Area (sq.m)"
         />
       )}
       <QuantityTable
         title={
-          strippingExcavationFamily === 'foundation'
-            ? 'Computed — bund foundation excavation (pay quantity before soil classification)'
-            : 'Computed — stripping / bund seating (pay quantity before soil classification)'
+          data.mode === 'new'
+            ? 'Computed — Bund Foundation Excavation (pay quantity before soil classification)'
+            : 'Computed — Bund Stripping (pay quantity before soil classification)'
         }
         rows={stripRows}
         data={data}
@@ -4763,22 +5264,22 @@ export default function BundDashboard({
       {data.pitchingMaterial && (
         <>
           <QuantityTable
-            title={`Computed — ${data.pitchingMaterial.code} (stone pitching, u/s slope)`}
+            title={`Computed — ${data.pitchingMaterial.code} (revetment, u/s slope)`}
             rows={pitchingDisplayRows}
             data={data}
             startLabel={
               pitchingMeasurement.measure === 'volume'
-                ? 'Pitching section at start (sq.m)'
+                ? 'Revetment section at start (sq.m)'
                 : 'Slope length at start (m)'
             }
             endLabel={
               pitchingMeasurement.measure === 'volume'
-                ? 'Pitching section at end (sq.m)'
+                ? 'Revetment section at end (sq.m)'
                 : 'Slope length at end (m)'
             }
             areaLabel={
               pitchingMeasurement.measure === 'volume'
-                ? 'Mean pitching section (sq.m)'
+                ? 'Mean revetment section (sq.m)'
                 : 'Mean slope length (m)'
             }
             qtyLabel={
@@ -4788,23 +5289,12 @@ export default function BundDashboard({
             }
             note="The upstream anchorage trench starts outside the bund toe, so it does not overlap or reduce the measured upstream slope."
           />
-          {data.pitchingBeddingMaterial && (
-            <QuantityTable
-              title={`Computed — ${data.pitchingBeddingMaterial.code} (designed sand filter below u/s pitching)`}
-              rows={pitchingBeddingRows}
-              data={data}
-              startLabel="Bedding section at start (sq.m)"
-              endLabel="Bedding section at end (sq.m)"
-              areaLabel="Mean bedding section (sq.m)"
-              qtyLabel="Volume (cu.m)"
-            />
-          )}
         </>
       )}
       {upstreamToeOn && (
         <>
           <QuantityTable
-            title="Computed — u/s stone-pitching toe-trench excavation (gross)"
+            title="Computed — u/s revetment toe-trench excavation (gross)"
             rows={upstreamToeRows}
             data={data}
             startLabel="Trench section at start (sq.m)"
@@ -4885,10 +5375,22 @@ export default function BundDashboard({
           title={`Computed — ${data.horizontalFilterMaterial.code} (horizontal filter blanket)`}
           rows={horizontalFilterRows(data)}
           data={data}
-          startLabel="Filter section at start (sq.m)"
-          endLabel="Filter section at end (sq.m)"
-          areaLabel="Mean filter section (sq.m)"
-          qtyLabel="Volume (cu.m)"
+          startLabel={
+            hFilterMeasure === 'area'
+              ? 'Blanket width at start (m)'
+              : 'Filter section at start (sq.m)'
+          }
+          endLabel={
+            hFilterMeasure === 'area'
+              ? 'Blanket width at end (m)'
+              : 'Filter section at end (sq.m)'
+          }
+          areaLabel={
+            hFilterMeasure === 'area'
+              ? 'Mean blanket width (m)'
+              : 'Mean filter section (sq.m)'
+          }
+          qtyLabel={hFilterMeasure === 'area' ? 'Area (sq.m)' : 'Volume (cu.m)'}
         />
       )}
       {internalFiltersAvailable(data) &&
@@ -4898,10 +5400,22 @@ export default function BundDashboard({
             title={`Computed — ${data.verticalFilterMaterial.code} (vertical chimney filter)`}
             rows={verticalFilterRows(data)}
             data={data}
-            startLabel="Filter section at start (sq.m)"
-            endLabel="Filter section at end (sq.m)"
-            areaLabel="Mean filter section (sq.m)"
-            qtyLabel="Volume (cu.m)"
+            startLabel={
+              vFilterMeasure === 'area'
+                ? 'Filter height at start (m)'
+                : 'Filter section at start (sq.m)'
+            }
+            endLabel={
+              vFilterMeasure === 'area'
+                ? 'Filter height at end (m)'
+                : 'Filter section at end (sq.m)'
+            }
+            areaLabel={
+              vFilterMeasure === 'area'
+                ? 'Mean filter height (m)'
+                : 'Mean filter section (sq.m)'
+            }
+            qtyLabel={vFilterMeasure === 'area' ? 'Area (sq.m)' : 'Volume (cu.m)'}
           />
         )}
       {data.rockToeMaterial && data.rockToeFilterMaterial && (
@@ -4924,7 +5438,9 @@ export default function BundDashboard({
           endLabel="Union section at end (sq.m)"
           areaLabel="Mean union section (sq.m)"
           qtyLabel="Volume (cu.m)"
-          note="General leveling overlap is removed from stripping and included here once; the additional bed cut is then added section by section."
+          note={`General leveling overlap is removed from ${
+            data.mode === 'new' ? 'foundation excavation' : 'stripping'
+          } and included here once; the additional bed cut is then added section by section.`}
           />
         )}
     </div>
@@ -4946,7 +5462,8 @@ function OptionalCard({
   onChangeCode,
   extra,
   picker,
-  horizontal = false
+  horizontal = false,
+  showStatus = true
 }: {
   title: string
   desc: string
@@ -4961,6 +5478,7 @@ function OptionalCard({
   extra?: JSX.Element | null
   picker?: JSX.Element | false
   horizontal?: boolean
+  showStatus?: boolean
 }): JSX.Element {
   return (
     <div
@@ -4976,7 +5494,7 @@ function OptionalCard({
           </label>
           <small>{desc}</small>
         </div>
-        {enabled && (
+        {enabled && showStatus && (
           <div className="bund-option-status">
             <div className="bund-option-code">
               <SsrCode
@@ -5030,14 +5548,151 @@ function NumField({
   )
 }
 
-/** Like NumField but optional — a blank clears it to null (used for MWL / FTL). */
-function NullField({
+function SlopeField({
+  label,
+  value,
+  onChange
+}: {
+  label: string
+  value: number
+  onChange: (v: number) => void
+}): JSX.Element {
+  return (
+    <SlopeFieldCore
+      label={label}
+      value={value}
+      onChange={(next) => {
+        if (next != null) onChange(next)
+      }}
+    />
+  )
+}
+
+function NullSlopeField({
   label,
   value,
   onChange
 }: {
   label: string
   value: number | null
+  onChange: (v: number | null) => void
+}): JSX.Element {
+  return <SlopeFieldCore label={label} value={value} onChange={onChange} allowBlank />
+}
+
+function SlopeFieldCore({
+  label,
+  value,
+  onChange,
+  allowBlank = false
+}: {
+  label: string
+  value: number | null
+  onChange: (v: number | null) => void
+  allowBlank?: boolean
+}): JSX.Element {
+  const ratioText = (next: number | null): [string, string] =>
+    next == null ? ['', ''] : [String(next), '1']
+  const [horizontal, setHorizontal] = useState(() => ratioText(value)[0])
+  const [vertical, setVertical] = useState(() => ratioText(value)[1])
+  const wrapper = useRef<HTMLDivElement>(null)
+  const editing = useRef(false)
+  const committed = useRef(value)
+  committed.current = value
+
+  useEffect(() => {
+    if (!editing.current) {
+      const [nextHorizontal, nextVertical] = ratioText(value)
+      setHorizontal(nextHorizontal)
+      setVertical(nextVertical)
+    }
+  }, [value])
+
+  const parseDraft = (nextHorizontal: string, nextVertical: string): number | null => {
+    const parsed = parseBundSlope(`${nextHorizontal}:${nextVertical}`)
+    return parsed != null && parsed > 0 ? parsed : null
+  }
+
+  const commit = (): void => {
+    if (allowBlank && horizontal.trim() === '' && vertical.trim() === '') {
+      onChange(null)
+      return
+    }
+    const parsed = parseDraft(horizontal, vertical)
+    if (parsed != null) {
+      onChange(parsed)
+    } else {
+      const [nextHorizontal, nextVertical] = ratioText(committed.current)
+      setHorizontal(nextHorizontal)
+      setVertical(nextVertical)
+    }
+  }
+
+  const change = (
+    side: 'horizontal' | 'vertical',
+    raw: string
+  ): void => {
+    const nextHorizontal = side === 'horizontal' ? raw : horizontal
+    const nextVertical = side === 'vertical' ? raw : vertical
+    if (side === 'horizontal') setHorizontal(raw)
+    else setVertical(raw)
+    if (allowBlank && nextHorizontal.trim() === '' && nextVertical.trim() === '') {
+      onChange(null)
+      return
+    }
+    const parsed = parseDraft(nextHorizontal, nextVertical)
+    if (parsed != null) onChange(parsed)
+  }
+
+  return (
+    <div className="field">
+      <span className="field-label">{label}</span>
+      <div
+        ref={wrapper}
+        className="bund-slope-ratio"
+        onFocus={() => {
+          editing.current = true
+        }}
+        onBlur={(event) => {
+          if (wrapper.current?.contains(event.relatedTarget as Node | null)) return
+          editing.current = false
+          commit()
+        }}
+      >
+        <input
+          className="text-input"
+          type="text"
+          inputMode="decimal"
+          placeholder="_"
+          aria-label={`${label} horizontal run`}
+          value={horizontal}
+          onChange={(event) => change('horizontal', event.target.value)}
+        />
+        <b aria-hidden="true">:</b>
+        <input
+          className="text-input"
+          type="text"
+          inputMode="decimal"
+          placeholder="_"
+          aria-label={`${label} vertical rise`}
+          value={vertical}
+          onChange={(event) => change('vertical', event.target.value)}
+        />
+      </div>
+    </div>
+  )
+}
+
+/** Like NumField but optional — a blank clears it to null (used for MWL / FTL). */
+function NullField({
+  label,
+  value,
+  disabled = false,
+  onChange
+}: {
+  label: string
+  value: number | null
+  disabled?: boolean
   onChange: (v: number | null) => void
 }): JSX.Element {
   return (
@@ -5049,6 +5704,7 @@ function NullField({
         step="any"
         placeholder="—"
         value={value ?? ''}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value.trim() === '' ? null : Number(e.target.value))}
       />
     </label>

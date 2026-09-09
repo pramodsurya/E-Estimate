@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, ArrowRight, FileSpreadsheet, FileText, Printer, Scale } from 'lucide-react'
+import { ArrowLeft, ArrowRight, FileSpreadsheet, FileText, Scale } from 'lucide-react'
 import type { EestimateProject, MaterialRateOverride } from '../../types/project'
 import {
   buildComparativeStatement,
@@ -29,7 +29,6 @@ import {
   type MaterialRatePeriod,
   type MonthlyMaterial
 } from '../../lib/materialRates'
-import { previewPdfOptions, previewPrintHtml, splitPreviewPages } from '../../lib/previewPrint'
 import {
   chooseSmartAbstractPlan,
   FILL_EACH_PAGE,
@@ -61,12 +60,6 @@ const COMPARED_MATERIAL_CATEGORIES = ['CEMENT', 'STEEL', 'STEEL_IRON']
  * takes them.
  */
 const PRINT_MARGIN_MM = { top: 12, bottom: 12, left: 10, right: 10 }
-const PRINT_MARGINS = {
-  top: PRINT_MARGIN_MM.top / 25.4,
-  bottom: PRINT_MARGIN_MM.bottom / 25.4,
-  left: PRINT_MARGIN_MM.left / 25.4,
-  right: PRINT_MARGIN_MM.right / 25.4
-}
 
 /**
  * On paper the page box is not a page — the print engine paginates, so the box
@@ -683,51 +676,6 @@ export default function ComparativeStatementPanel({
     }
   }
 
-  const exportPdf = async (): Promise<void> => {
-    const host = pagesRef.current
-    if (!host || saving) return
-    setSaving(true)
-    setError(null)
-    try {
-      const runs = splitPreviewPages(host.innerHTML, '.pp-page', {
-        pageSize: 'A4',
-        orientation: 'landscape'
-      })
-      const parts: Uint8Array[] = []
-      for (const run of runs) {
-        const result = await window.api.print.toPdf(
-          previewPrintHtml(run.html, '.pp-page', PRINT_CSS),
-          { ...previewPdfOptions(run.pageSize, run.orientation), margins: PRINT_MARGINS }
-        )
-        if (!result.ok || !result.data) {
-          throw new Error(result.error ?? 'Could not render the comparative statement.')
-        }
-        const binary = atob(result.data)
-        const bytes = new Uint8Array(binary.length)
-        for (let index = 0; index < binary.length; index += 1) {
-          bytes[index] = binary.charCodeAt(index)
-        }
-        parts.push(bytes)
-      }
-      const { PDFDocument } = await import('pdf-lib')
-      const merged = await PDFDocument.create()
-      for (const part of parts) {
-        const source = await PDFDocument.load(part)
-        const pages = await merged.copyPages(source, source.getPageIndices())
-        pages.forEach((page) => merged.addPage(page))
-      }
-      const bytes = await merged.save()
-      await window.api.export.pdf(
-        encodeBase64(bytes),
-        `${project.meta.name || 'Estimate'} — Comparative Statement.pdf`
-      )
-    } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : String(reason))
-    } finally {
-      setSaving(false)
-    }
-  }
-
   /**
    * The grades worth asking about: the ones this estimate consumes. If nothing
    * could be identified there is nothing to narrow to, so the full list stands
@@ -779,9 +727,6 @@ export default function ComparativeStatementPanel({
           </span>
           <button className="btn ghost" disabled={saving} onClick={() => void exportWorkbook()}>
             <FileSpreadsheet size={15} /> Excel
-          </button>
-          <button className="btn" disabled={saving} onClick={() => void exportPdf()}>
-            <Printer size={15} /> {saving ? 'Exporting…' : 'Export PDF'}
           </button>
         </div>
         {error && <div className="project-load-warning">{error}</div>}

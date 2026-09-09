@@ -149,6 +149,10 @@ export interface BundSimulationMaterial {
    * role and are migrated by position ([0] fill, [1] foundation).
    */
   role?: BundSimulationMaterialRole
+  /** Design-side soil preset that last supplied these preliminary values. */
+  soilPresetId?: string
+  /** Makes assumed defaults visibly distinct from engineer-entered/tested values. */
+  propertiesSource?: 'preliminary-default' | 'engineer-entered'
   name: string
   /** Moist unit weight (kN/m³). */
   gamma: number | null
@@ -221,6 +225,48 @@ export interface BundSeepField {
   triangles: [number, number, number][]
   head: number[]
 }
+
+/** JSON returned by the XSLOPE sidecar over the shell bridge. */
+export type BundSimulationEngineResponse =
+  | {
+      schemaVersion: number
+      runId: string
+      status: 'ok'
+      engine: { name: string; version: string; bridgeVersion: number }
+      analysisType: BundSimulationAnalysisType
+      method: string
+      factorOfSafety: number
+      treatment?: string
+      criticalSurface: {
+        type: string
+        center: [number, number] | null
+        radius: number | null
+        surface: [number, number][]
+      } | null
+      slices: {
+        xLeft: number
+        topY: number
+        baseY: number
+        xRight: number
+        weight: number
+      }[]
+      phreaticLine: [number, number][]
+      seepField?: BundSeepField
+      postDrawdownPhreaticLine?: [number, number][]
+      postDrawdownSeepField?: BundSeepField
+      warnings: string[]
+      diagnostics: Record<string, unknown>
+      femResult?: BundFemRunResult & { field?: BundFemField }
+    }
+  | {
+      schemaVersion: number
+      runId: string
+      status: 'error' | 'not-evaluated'
+      message?: string
+      engine?: { name: string; version: string; bridgeVersion: number }
+      warnings?: string[]
+      diagnostics?: Record<string, unknown>
+    }
 
 export interface BundSimulationRun {
   id: string

@@ -1029,7 +1029,15 @@ function structuredAddonSpec(
     const sourceAnnual = sourceItem
       ? rows(input.sourceAddonRates?.[sourceItem]).find((candidate) => text(candidate.id) === sourceAddonId)
       : undefined
-    const detailAnnual = Object.keys(record(annual.rates)).length ? annual : sourceAnnual ?? annual
+    // Reference rows carry the published add-on rate for this item, but their
+    // `rates` object is often only an empty shell with three empty section arrays.
+    // Treat that as no detail and load the populated analysis from the source
+    // add-on instead. Checking object keys alone made the UI omit the table while
+    // still showing the referenced rate.
+    const hasLocalDetail = (['materials', 'machinery', 'labour'] as const).some(
+      (section) => rows(record(annual.rates)[section]).length > 0
+    )
+    const detailAnnual = hasLocalDetail ? annual : sourceAnnual ?? annual
     const addOnRate = number(annual.base_rate)
       ?? rateValues(annual.rate_values)[0]?.addValue
       ?? rateValues(annual.rate_values)[0]?.value

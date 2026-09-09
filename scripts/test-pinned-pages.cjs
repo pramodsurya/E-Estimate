@@ -110,16 +110,20 @@ assert.ok(
   'pinned pages must not be drag-reorderable'
 )
 
-// --- Images are enabled on the Front Page only -----------------------------
+// --- Images are enabled in every document editor ---------------------------
 
 const pageEditor = fs.readFileSync(
   path.join(root, 'src/renderer/src/components/editors/PageEditor.tsx'),
   'utf8'
 )
+const documentEditor = fs.readFileSync(
+  path.join(root, 'src/renderer/src/components/editors/UniverDocument.tsx'),
+  'utf8'
+)
 assert.ok(
-  /const isFrontPage = node\.pageTemplate === 'front'/.test(pageEditor) &&
-    /allowImages=\{isFrontPage\}/.test(pageEditor),
-  'image support must be limited to the Front Page'
+  /allowImages = true/.test(documentEditor) &&
+    !/allowImages=\{isFrontPage\}/.test(pageEditor),
+  'image support must be enabled by default in every document editor'
 )
 
 // --- Front-cover migration and village lookup -----------------------------
@@ -139,10 +143,6 @@ assert.ok(
   'an existing customized Front Page must be preserved apart from obsolete paragraph rules'
 )
 
-const documentEditor = fs.readFileSync(
-  path.join(root, 'src/renderer/src/components/editors/UniverDocument.tsx'),
-  'utf8'
-)
 assert.ok(
   /resolveVillageLocation\(projectMeta\.location\)/.test(documentEditor),
   'the Front Page must resolve village details from the village_allowance lookup'
@@ -219,19 +219,6 @@ assert.ok(
     /canvas\.toDataURL\('image\/png'\)/.test(univerDocument) &&
     /export function frontCoverHasEstimatedCost\(/.test(univerDocument),
   'adding cost must create one movable PNG cost object while preventing duplicates'
-)
-
-const projectPrintView = fs.readFileSync(
-  path.join(root, 'src/renderer/src/components/print/ProjectPrintView.tsx'),
-  'utf8'
-)
-assert.ok(
-  /<UniverDocument[\s\S]*?preview/.test(projectPrintView),
-  'VPV must render the stored Front Page through Univer itself'
-)
-assert.ok(
-  !/documentToHtml\(node\.documentData\)/.test(projectPrintView),
-  'VPV must not reconstruct the Front Page with a separate HTML layout'
 )
 
 console.log('pinned pages: all assertions passed')

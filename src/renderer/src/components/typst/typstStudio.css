@@ -1,0 +1,304 @@
+.typst-studio-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: typstFadeIn 0.15s ease-out;
+}
+
+@keyframes typstFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.typst-studio-modal {
+  width: 95vw;
+  max-width: 1440px;
+  height: 92vh;
+  background: #1e2227;
+  border: 1px solid #333842;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  color: #abb2bf;
+}
+
+.typst-studio-header {
+  padding: 10px 16px;
+  background: #181a1f;
+  border-bottom: 1px solid #282c34;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.typst-studio-title-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.typst-studio-title-badge {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e5c07b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.typst-studio-compile-badge {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #282c34;
+  color: #98c379;
+}
+
+.typst-studio-compile-badge.error {
+  background: #4b1113;
+  color: #e06c75;
+}
+
+.typst-studio-tabs {
+  display: flex;
+  background: #21252b;
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid #282c34;
+}
+
+.typst-studio-tab-btn {
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  border: none;
+  background: transparent;
+  color: #828997;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.typst-studio-tab-btn.active {
+  background: #2c313a;
+  color: #61afef;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.typst-studio-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.typst-studio-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 460px 1fr;
+  overflow: hidden;
+}
+
+.typst-studio-left-pane {
+  border-right: 1px solid #282c34;
+  background: #1e2227;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.typst-visual-settings {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.typst-settings-section {
+  background: #21252b;
+  border: 1px solid #282c34;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.typst-settings-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #61afef;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.typst-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.typst-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.typst-form-group label {
+  font-size: 0.78rem;
+  color: #828997;
+}
+
+.typst-form-input,
+.typst-form-select,
+.typst-form-textarea {
+  background: #181a1f;
+  border: 1px solid #333842;
+  border-radius: 4px;
+  padding: 6px 8px;
+  color: #abb2bf;
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.typst-form-input:focus,
+.typst-form-select:focus,
+.typst-form-textarea:focus {
+  border-color: #61afef;
+}
+
+.typst-form-textarea {
+  resize: vertical;
+  min-height: 55px;
+  font-family: inherit;
+}
+
+.typst-code-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #181a1f;
+}
+
+.typst-code-toolbar {
+  padding: 6px 12px;
+  background: #21252b;
+  border-bottom: 1px solid #282c34;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #828997;
+}
+
+.typst-code-snippets {
+  display: flex;
+  gap: 4px;
+}
+
+.typst-snippet-btn {
+  padding: 2px 6px;
+  font-size: 0.72rem;
+  background: #2c313a;
+  border: 1px solid #3e4451;
+  border-radius: 3px;
+  color: #abb2bf;
+  cursor: pointer;
+}
+
+.typst-snippet-btn:hover {
+  background: #3e4451;
+  color: #fff;
+}
+
+.typst-code-editor-wrapper {
+  flex: 1;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+.typst-code-line-numbers {
+  padding: 12px 6px;
+  background: #1e2227;
+  border-right: 1px solid #282c34;
+  color: #4b5263;
+  font-family: 'Consolas', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 12.5px;
+  line-height: 20px;
+  text-align: right;
+  user-select: none;
+  overflow: hidden;
+  width: 44px;
+}
+
+.typst-code-textarea {
+  flex: 1;
+  padding: 12px 14px;
+  background: #181a1f;
+  color: #abb2bf;
+  border: none;
+  font-family: 'Consolas', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 12.5px;
+  line-height: 20px;
+  outline: none;
+  resize: none;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+}
+
+.typst-studio-right-pane {
+  background: #2b2e35;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.typst-preview-toolbar {
+  padding: 6px 14px;
+  background: #21252b;
+  border-bottom: 1px solid #282c34;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.typst-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.typst-preview-scroll-area {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: #3a3f4b;
+}
+
+.typst-error-banner {
+  padding: 10px 14px;
+  background: #4b1113;
+  color: #ffb4b9;
+  border-bottom: 1px solid #e06c75;
+  font-size: 0.8rem;
+  font-family: monospace;
+  white-space: pre-wrap;
+}
+

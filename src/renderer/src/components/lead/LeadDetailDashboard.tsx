@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
-import { ArrowDown, ArrowUp, Check, Eye, LayoutDashboard, MapPin, Pencil, Plus, Printer, RefreshCcw, Route, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Eye, MapPin, Pencil, Plus, Printer, RefreshCcw, Route, Trash2 } from 'lucide-react'
 import { CircleMarker, MapContainer, Marker, Polyline, Popup, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
@@ -45,10 +45,17 @@ import { projectDataForNode, projectDataLeadApplicability } from '../../lib/proj
 import { newId } from '../../lib/tree'
 import {
   dashboardContextMatches,
+  syncLeadDashboardSnapshot,
   dashboardItemIsSynced
 } from '../../lib/dashboardSync'
 import { useStore } from '../../store/useStore'
-import LeadPrintPreviewModal from './LeadPrintPreviewModal'
+import LeadMapPrintStudio from './LeadMapPrintStudio'
+import LeadPrintStudioSession from './LeadPrintStudioSession'
+import LeadCombinedPrintPreview from './LeadCombinedPrintPreview'
+import {
+  LEAD_TABLE_PRELUDE,
+  resolvedLeadTypstSource
+} from '../../lib/typist-output/leadTypst'
 import {
   LEAD_SIGNATURE_SCOPE,
   resolveSignatureFooter
@@ -404,8 +411,8 @@ export default function LeadDetailDashboard(): JSX.Element {
   const [metadata, setMetadata] = useState<Map<string, unknown>>(new Map())
   const [variantBreakdowns, setVariantBreakdowns] = useState<Record<string, LeadChargeBreakdown>>({})
   const [overrideDraft, setOverrideDraft] = useState<LeadOverrideDraft | null>(null)
-  const [printPreviewOpen, setPrintPreviewOpen] = useState(false)
-  const [printView, setPrintView] = useState(false)
+  const [printStudioOpen, setPrintStudioOpen] = useState(false)
+  const [combinedPreviewOpen, setCombinedPreviewOpen] = useState(false)
   const [mapPrintLayoutOpen, setMapPrintLayoutOpen] = useState(false)
   const [pointDialogOpen, setPointDialogOpen] = useState(false)
   const [pointPicking, setPointPicking] = useState(false)
@@ -619,7 +626,7 @@ export default function LeadDetailDashboard(): JSX.Element {
 
   useEffect(() => {
     setSourceDraft(blankSourceDraft(points, materialName, disposalLead))
-    setVariantDraft(blankVariantDraft(disposalLead))
+    setVariantDraft(blankVariantDraft(disposalLead, materialName, variants))
     setSelectedVariantId(selection?.variantId ?? '')
     setSelectedTargetKeys(new Set())
     setVariantBreakdowns({})
@@ -823,7 +830,7 @@ export default function LeadDetailDashboard(): JSX.Element {
       })
       .catch((reason: unknown) => {
         if (!cancelled) {
-          setError(reason instanceof Error ? reason.message : 'Unable to calculate Lead variants.')
+          setError(reason instanceof Error ? reason.message : 'Unable to calculate Lead Materials.')
         }
       })
     return () => {
@@ -869,7 +876,6 @@ export default function LeadDetailDashboard(): JSX.Element {
       </div>
     )
   }
-
   const addSource = (): void => {
     const code = sourceDraft.code.trim().toUpperCase()
     const lat = coordinateNumber(sourceDraft.lat, -90, 90)
@@ -1158,7 +1164,7 @@ export default function LeadDetailDashboard(): JSX.Element {
       !variantDraft.startPointId &&
       !variantDraft.endPointId
     if (accessDrawing) {
-      setError('Finish or cancel the access-line drawing before saving the variant.')
+      setError('Finish or cancel the access-line drawing before saving the Material.')
       return
     }
     if (variantDraft.viaPointIds.some((pointId) => !pointId)) {
@@ -1191,7 +1197,7 @@ export default function LeadDetailDashboard(): JSX.Element {
       return
     }
     if (manualWithoutMap && !variantDraft.variantName.trim()) {
-      setError('Enter a variant name when creating a manual lead without map points.')
+      setError('Enter a Material name when creating a manual lead without map points.')
       return
     }
     if (
@@ -1313,20 +1319,20 @@ export default function LeadDetailDashboard(): JSX.Element {
         upsertApplication(previewToApplication(preview, variant))
       }
       setSelectedVariantId(variant.id)
-      setVariantDraft(blankVariantDraft(disposalLead))
+      setVariantDraft(blankVariantDraft(disposalLead, materialName, variants))
       setEditingVariantId('')
       setVariantDialogOpen(false)
       setAccessDrawing(null)
       setAccessDrawingOriginal([])
       setNotice(
         existingVariant
-          ? `${materialName} variant updated. ${refreshedPreviews.length} linked component usage(s) refreshed.`
+          ? `${materialName} Material updated. ${refreshedPreviews.length} linked component usage(s) refreshed.`
           : disposalLead
-            ? `${materialName} ${disposalClassLabel(variantConveyanceClass)} variant created.`
-            : `${materialName} variant created.`
+            ? `${materialName} ${disposalClassLabel(variantConveyanceClass)} Material created.`
+            : `${materialName} Material created.`
       )
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to save this variant.')
+      setError(reason instanceof Error ? reason.message : 'Unable to save this Material.')
     } finally {
       setBusy('')
     }
@@ -1489,7 +1495,7 @@ export default function LeadDetailDashboard(): JSX.Element {
   const applyTargets = async (targetsToApply: LeadTarget[]): Promise<void> => {
     if (!selectedVariant || targetsToApply.length === 0) return
     if (selectedVariantNeedsAnyOverride) {
-      setError('This Lead variant needs caution approval. Use Add anyway on each DATA item and record the reason.')
+      setError('This Lead Material needs caution approval. Use Add anyway on each DATA item and record the reason.')
       return
     }
     setBusy('apply-all')
@@ -1528,7 +1534,7 @@ export default function LeadDetailDashboard(): JSX.Element {
     const reason =
       overrideDraft.reason === 'Other' ? overrideDraft.otherReason.trim() : overrideDraft.reason
     if (!reason) {
-      setError('Enter the reason for adding this Lead variant.')
+      setError('Enter the reason for adding this Lead Material.')
       return
     }
     setBusy(`override:${overrideDraft.target.key}`)
@@ -1551,7 +1557,7 @@ export default function LeadDetailDashboard(): JSX.Element {
   }
 
   return (
-    <div className={`dashboard lead-detail-dashboard ${printView ? 'dashboard-print-view' : ''}`}>
+    <div className="dashboard lead-detail-dashboard">
       <div className="dash-header">
         <div>
           <div className="dash-eyebrow">Lead material detail</div>
@@ -1561,68 +1567,42 @@ export default function LeadDetailDashboard(): JSX.Element {
           </h1>
         </div>
         <div className="dash-actions">
-          <button className="btn ghost" data-tour="lead-back" onClick={closeLeadMaterial}>
+          <button className="btn ghost" onClick={closeLeadMaterial}>
             Back
           </button>
           <button
             className="btn ghost"
-            onClick={() => {
-              setPrintView(false)
-              setPrintPreviewOpen(true)
-            }}
+            onClick={() => setCombinedPreviewOpen(true)}
           >
             <Printer size={15} /> Print Preview
           </button>
           <button
             className="btn ghost"
-            onClick={() => {
-              setPrintPreviewOpen(false)
-              setPrintView((value) => !value)
-            }}
+            onClick={() => setPrintStudioOpen(true)}
           >
-            {printView ? <LayoutDashboard size={15} /> : <Eye size={15} />}
-            {printView ? 'Dashboard View' : 'View Print View'}
+            <Eye size={15} /> Open Print Studio
           </button>
           <button
             className="btn"
             onClick={() => {
               setEditingVariantId('')
-              setVariantDraft(blankVariantDraft(disposalLead))
+              setVariantDraft(blankVariantDraft(disposalLead, materialName, variants))
               setAccessDrawing(null)
               setAccessDrawingOriginal([])
               setVariantDialogOpen(true)
               setError('')
             }}
           >
-            <Plus size={15} /> Create Variant
+            <Plus size={15} /> Create Lead
           </button>
         </div>
       </div>
 
-      {printView ? (
-        <LeadPrintPreviewModal
-          year={project.meta.sorYear}
-          zone={project.meta.sorZone ?? 'zone_3'}
-          variants={variants}
-          applications={applications}
-          assignments={assignments}
-          points={variantPointOptions}
-          site={site}
-          mapDirections={mapDirections}
-          printSettings={printSettings}
-          signatureFooter={resolveSignatureFooter(project, LEAD_SIGNATURE_SCOPE)}
-          onUpdatePrintSettings={updateLeadPrintSettings}
-          onClose={() => setPrintView(false)}
-          rates={syncedLeadRates}
-          embedded
-        />
-      ) : (
-      <>
       <div className="lead-status-row">
         <span>SOR {project.meta.sorYear} · {zoneLabel(sorZone)} rates</span>
         <span>
           {disposalLead
-            ? 'Disposal Lead - choose Earth/Rock per variant'
+            ? 'Disposal Lead - choose Earth/Rock per Material'
             : `${conveyanceClass} - ${conveyanceClassLabel(conveyanceClass)}`}
         </span>
         <span>{eligibleGroups.length} lead-available DATA item(s)</span>
@@ -1630,10 +1610,27 @@ export default function LeadDetailDashboard(): JSX.Element {
       </div>
       {notice && <div className="rate-notice">{notice}</div>}
       {error && <div className="rate-warning">{error}</div>}
-      {printPreviewOpen && (
-        <LeadPrintPreviewModal
+      {printStudioOpen && project && (
+        <LeadPrintStudioSession
+          project={project}
+          entries={snapshotValid ? project.dashboardSnapshot?.leadDashboardEntries ?? [] : []}
+          variants={variants}
+          applications={applications}
+          assignments={assignments}
+          points={variantPointOptions}
+          site={site}
+          mapDirections={mapDirections}
+          printSettings={printSettings}
+          onClose={() => setPrintStudioOpen(false)}
+        />
+      )}
+      {combinedPreviewOpen && project && (
+        <LeadCombinedPrintPreview
           year={project.meta.sorYear}
-          zone={project.meta.sorZone ?? 'zone_3'}
+          project={project}
+          entries={snapshotValid ? project.dashboardSnapshot?.leadDashboardEntries ?? [] : []}
+          typstSource={resolvedLeadTypstSource(project, snapshotValid ? project.dashboardSnapshot?.leadDashboardEntries ?? [] : [])}
+          compilePrelude={LEAD_TABLE_PRELUDE}
           variants={variants}
           applications={applications}
           assignments={assignments}
@@ -1642,15 +1639,12 @@ export default function LeadDetailDashboard(): JSX.Element {
           mapDirections={mapDirections}
           printSettings={printSettings}
           signatureFooter={resolveSignatureFooter(project, LEAD_SIGNATURE_SCOPE)}
-          onUpdatePrintSettings={updateLeadPrintSettings}
-          onClose={() => setPrintPreviewOpen(false)}
-          rates={syncedLeadRates}
+          onClose={() => setCombinedPreviewOpen(false)}
         />
       )}
       {mapPrintLayoutOpen && (
-        <LeadPrintPreviewModal
+        <LeadMapPrintStudio
           year={project.meta.sorYear}
-          zone={project.meta.sorZone ?? 'zone_3'}
           variants={variants}
           applications={applications}
           assignments={assignments}
@@ -1661,8 +1655,6 @@ export default function LeadDetailDashboard(): JSX.Element {
           signatureFooter={resolveSignatureFooter(project, LEAD_SIGNATURE_SCOPE)}
           onUpdatePrintSettings={updateLeadPrintSettings}
           onClose={() => setMapPrintLayoutOpen(false)}
-          rates={syncedLeadRates}
-          mapLayoutEditor
         />
       )}
       {pointDialogOpen && (
@@ -1681,6 +1673,7 @@ export default function LeadDetailDashboard(): JSX.Element {
               <button
                 className="btn ghost"
                 type="button"
+                disabled={pointPicking}
                 onClick={() => {
                   setPointDialogOpen(false)
                   setPointPicking(false)
@@ -1695,7 +1688,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                 Disposal routes run from the work location to the selected approved dump area.
               </div>
             )}
-            <fieldset className="lead-point-form">
+            <fieldset className="lead-point-form" disabled={pointPicking}>
               <div className="lead-form-grid">
               {!disposalLead && (
                 <label className="span-2">
@@ -1777,19 +1770,30 @@ export default function LeadDetailDashboard(): JSX.Element {
               </label>
               </div>
             </fieldset>
-            <div className="lead-point-picker-shell">
+            <div className={`lead-point-picker-shell ${pointPicking ? 'picking' : ''}`}>
               <div className="lead-point-picker-heading">
                 <span>
-                  {pointLocationPicked
-                    ? 'Location confirmed'
-                    : 'Click the map to set the location'}
+                  {pointPicking
+                    ? 'Click the required position on the map'
+                    : pointLocationPicked
+                      ? 'Location confirmed'
+                      : 'Location is required'}
                 </span>
+                {pointPicking && (
+                  <button
+                    className="btn ghost"
+                    type="button"
+                    onClick={() => setPointPicking(false)}
+                  >
+                    Cancel picking
+                  </button>
+                )}
               </div>
               <PointPickerMap
                 site={site}
                 points={materialMapPoints}
                 value={mapCoordinateFromDraft(sourceDraft)}
-                active
+                active={pointPicking}
                 onReady={() => {
                   window.setTimeout(
                     () => pointCodeRef.current?.focus({ preventScroll: true }),
@@ -1808,6 +1812,17 @@ export default function LeadDetailDashboard(): JSX.Element {
                 }}
               />
             </div>
+            <button
+              className="btn ghost lead-point-map-picker"
+              type="button"
+              disabled={pointPicking}
+              onClick={() => {
+                setPointPicking(true)
+                setError('')
+              }}
+            >
+              <MapPin size={15} /> {pointLocationPicked ? 'Change map location' : 'Pick location on the map'}
+            </button>
             {error && <div className="rate-warning">{error}</div>}
             <div className="lead-split-actions">
               <button
@@ -1823,7 +1838,6 @@ export default function LeadDetailDashboard(): JSX.Element {
               </button>
               <button
                 className="btn"
-                data-tour="lead-point-create"
                 type="button"
                 onClick={addSource}
                 disabled={
@@ -1925,15 +1939,11 @@ export default function LeadDetailDashboard(): JSX.Element {
           <div className="lead-panel-title-row">
             <div>
               <div className="card-title">Route Viewer</div>
-              <small>Viewing {materialName} points, variants, and linked component usages.</small>
+              <small>Viewing {materialName} points, Materials, and linked component usages.</small>
             </div>
             <div className="lead-map-heading-actions">
               <button
                 className="btn"
-                // The button that *opens* the point dialog. The one that saves
-                // carries `lead-point-create` and lives inside the dialog — the
-                // tutorial rings this one first, then that one.
-                data-tour="lead-point-open"
                 type="button"
                 onClick={() => {
                   setSourceDraft(blankSourceDraft(points, materialName, disposalLead))
@@ -1949,11 +1959,10 @@ export default function LeadDetailDashboard(): JSX.Element {
                 className="btn ghost"
                 type="button"
                 onClick={() => {
-                  setPrintPreviewOpen(false)
                   setMapPrintLayoutOpen(true)
                 }}
               >
-                <Printer size={15} /> Map Print Layout
+                <Printer size={15} /> Map Print Studio
               </button>
             </div>
           </div>
@@ -1989,10 +1998,10 @@ export default function LeadDetailDashboard(): JSX.Element {
         </section>
 
         <section className="lead-main-panel">
-          <div className="card-title">Variants and Linked DATA</div>
+          <div className="card-title">Materials and Linked DATA</div>
           <div className="lead-variant-list">
             {materialVariants.length === 0 ? (
-              <div className="list-empty">Create the first {materialName} Lead/Lift variant.</div>
+              <div className="list-empty">Create the first {materialName} Lead/Lift Material.</div>
             ) : (
               materialVariants.map((variant) => {
                 const assignment = assignments.find((candidate) => candidate.id === variant.assignmentId)
@@ -2114,11 +2123,11 @@ export default function LeadDetailDashboard(): JSX.Element {
               className="lead-split-dialog lead-variant-dialog"
               role="dialog"
               aria-modal="true"
-              aria-label={editingVariantId ? 'Edit variant' : 'Create variant'}
+              aria-label={editingVariantId ? 'Edit Lead' : 'Create Lead'}
             >
           <div className="lead-dialog-title-row">
             <div>
-              <div className="card-title">{editingVariantId ? 'Edit Variant' : 'Create Variant'}</div>
+              <div className="card-title">{editingVariantId ? 'Edit Lead' : 'Create Lead'}</div>
               <small>Choose the ordered route. Lead is calculated from the displayed road route.</small>
             </div>
             <button
@@ -2127,7 +2136,7 @@ export default function LeadDetailDashboard(): JSX.Element {
               onClick={() => {
                 setVariantDialogOpen(false)
                 setEditingVariantId('')
-                setVariantDraft(blankVariantDraft(disposalLead))
+                setVariantDraft(blankVariantDraft(disposalLead, materialName, variants))
                 setAccessDrawing(null)
                 setAccessDrawingOriginal([])
                 setError('')
@@ -2175,13 +2184,12 @@ export default function LeadDetailDashboard(): JSX.Element {
             aria-disabled={Boolean(accessDrawing)}
           >
             <label className="span-2">
-              Variant name
+              Material Name
               <input
                 ref={variantNameRef}
-                data-tour="variant-name"
                 className="text-input"
                 autoFocus
-                placeholder="Optional when start/end points are selected"
+                placeholder="Defaults to the material name"
                 value={variantDraft.variantName}
                 onChange={(event) =>
                   setVariantDraft((current) => ({ ...current, variantName: event.target.value }))
@@ -2243,7 +2251,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                 </select>
               </label>
             )}
-            <label className="span-2" data-tour="variant-start">
+            <label className="span-2">
               Starting
               <select
                 className="select-input"
@@ -2366,7 +2374,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                 ))
               )}
             </div>
-            <label className="span-2" data-tour="variant-end">
+            <label className="span-2">
               Ending
               <select
                 className="select-input"
@@ -2827,7 +2835,7 @@ export default function LeadDetailDashboard(): JSX.Element {
               onClick={() => {
                 const editingVariant = materialVariants.find((variant) => variant.id === editingVariantId)
                 if (editingVariant) openVariantEditor(editingVariant)
-                else setVariantDraft(blankVariantDraft(disposalLead))
+                else setVariantDraft(blankVariantDraft(disposalLead, materialName, variants))
                 setAccessDrawing(null)
                 setAccessDrawingOriginal([])
                 setError('')
@@ -2841,7 +2849,7 @@ export default function LeadDetailDashboard(): JSX.Element {
               onClick={() => {
                 setVariantDialogOpen(false)
                 setEditingVariantId('')
-                setVariantDraft(blankVariantDraft(disposalLead))
+                setVariantDraft(blankVariantDraft(disposalLead, materialName, variants))
                 setAccessDrawing(null)
                 setAccessDrawingOriginal([])
                 setError('')
@@ -2853,15 +2861,14 @@ export default function LeadDetailDashboard(): JSX.Element {
               className="btn"
               type="button"
               disabled={busy === 'save-variant'}
-              data-tour="variant-save"
               onClick={() => void saveVariant()}
             >
               {editingVariantId ? <Check size={15} /> : <Plus size={15} />}
               {busy === 'save-variant'
                 ? 'Saving…'
                 : editingVariantId
-                  ? 'Save Variant'
-                  : 'Create Variant'}
+                  ? 'Save Lead'
+                  : 'Create Lead'}
             </button>
           </div>
             </section>
@@ -2875,7 +2882,7 @@ export default function LeadDetailDashboard(): JSX.Element {
               {DELIVERY_AT_SITE_WARNING}{' '}
               {selectedVariant
                 ? 'Use Add anyway on a DATA row only when this extra movement is sanctioned.'
-                : `Create a ${materialName} variant first; any external lead will require Add anyway with a reason.`}
+                : `Create a Lead for ${materialName} first; any external lead will require Add anyway with a reason.`}
             </div>
           )}
           {selectedLoadingUnloadingCaution && (
@@ -2897,7 +2904,7 @@ export default function LeadDetailDashboard(): JSX.Element {
               }
               title={
                 selectedVariantNeedsAnyOverride
-                  ? 'This Lead variant needs Add anyway with a caution reason.'
+                    ? 'This Lead Material needs Add anyway with a caution reason.'
                   : undefined
               }
             >
@@ -2914,13 +2921,13 @@ export default function LeadDetailDashboard(): JSX.Element {
               onClick={() => {
                 if (!selectedVariant) return
                 const confirmed = window.confirm(
-                  `Apply ${selectedVariant.variantName || `${km.format(selectedVariant.leadKm)} km ${selectedVariant.materialName}`} to every eligible component usage (${applyableTargets.length})? Existing variants on those usages will be replaced.`
+                  `Apply ${selectedVariant.variantName || `${km.format(selectedVariant.leadKm)} km ${selectedVariant.materialName}`} to every eligible component usage (${applyableTargets.length})? Existing Materials on those usages will be replaced.`
                 )
                 if (confirmed) void applyTargets(applyableTargets)
               }}
               title={
                 selectedVariantNeedsAnyOverride
-                  ? 'This Lead variant needs Add anyway with a caution reason.'
+                    ? 'This Lead Material needs Add anyway with a caution reason.'
                   : undefined
               }
             >
@@ -2931,7 +2938,7 @@ export default function LeadDetailDashboard(): JSX.Element {
             {eligibleGroups.length === 0 ? (
               <div className="list-empty">
                 {eligibleMismatch
-                  ? `This variant's material class (${conveyanceClassLabel(selectedVariant!.conveyanceClass)}) does not match the selected sidebar material (${conveyanceClassLabel(conveyanceClass)}). Delete and recreate this variant, or select the correct material from the sidebar.`
+                    ? `This Material's material class (${conveyanceClassLabel(selectedVariant!.conveyanceClass)}) does not match the selected sidebar material (${conveyanceClassLabel(conveyanceClass)}). Delete and recreate this Material, or select the correct material from the sidebar.`
                   : pipeLeadMaterial
                     ? 'No added SOR material is linked to this RCC pipe-conveyance selection.'
                     : `No DATA item currently exposes ${materialName} lead.`}
@@ -2993,8 +3000,8 @@ export default function LeadDetailDashboard(): JSX.Element {
                         const loadingUnloadingWarning =
                           applied?.handlingWarning ?? selectedLoadingUnloadingCaution
                         const appliedVariantLabel = appliedVariant
-                          ? appliedVariant.variantName || `${km.format(appliedVariant.leadKm)} km variant`
-                          : 'Stored variant'
+                          ? appliedVariant.variantName || `${km.format(appliedVariant.leadKm)} km Material`
+                          : 'Stored Material'
                         return (
                           <div
                             className={`lead-target-scope ${applied ? 'applied' : ''} ${selectedTargetKeys.has(target.key) ? 'selected' : ''}`}
@@ -3034,13 +3041,13 @@ export default function LeadDetailDashboard(): JSX.Element {
                                     ? `${appliedVariantLabel} applied · Rs. ${money.format(applied.grossAmount)}`
                                     : `${appliedVariantLabel} applied · Rs. ${money.format(applied.grossAmount)}`
                                   : selectedVariant && !groupCanApplySelectedVariant && groupLeadRef
-                                    ? `Needs ${disposalLead ? disposalClassLabel(groupLeadRef.conveyanceClass) : conveyanceClassLabel(groupLeadRef.conveyanceClass)} variant`
+                                    ? `Needs ${disposalLead ? disposalClassLabel(groupLeadRef.conveyanceClass) : conveyanceClassLabel(groupLeadRef.conveyanceClass)} Material`
                                     : needsOverride
                                       ? 'Cement/Steel delivery-at-site guard: use Add anyway with reason'
                                       : needsLoadingOverride
                                         ? 'Loading/unloading caution: use Add anyway with reason'
                                         : showDeliveryWarning
-                                          ? `Create a ${materialName} variant first; external lead will require Add anyway`
+                                          ? `Create a Lead for ${materialName} first; external lead will require Add anyway`
                                           : 'Not applied'}
                               </small>
                               {showDeliveryWarning && (
@@ -3087,8 +3094,6 @@ export default function LeadDetailDashboard(): JSX.Element {
         </section>
 
       </div>
-      </>
-      )}
     </div>
   )
 }
@@ -3115,7 +3120,7 @@ function LeadRateCalculation({
         </div>
       ))}
       <div className="lead-calc-line final">
-        <span>Variant lead rate</span>
+            <span>Material lead rate</span>
         <code>
           {money.format(calculation.netLeadRate)} / {calculation.unit || unit}
         </code>
@@ -3450,7 +3455,6 @@ function VariantRoutePreviewMap({
           </div>
         )}
         <MapContainer
-          data-tour="variant-map"
           center={center}
           zoom={site || stops.length ? 10 : 7}
           scrollWheelZoom
@@ -3738,7 +3742,7 @@ function LeadMap({
               <div className="lead-map-route-label">
                 <strong>
                   <i style={{ background: draftVariantRoute.color }} />
-                  Creating variant
+                  Creating Lead
                 </strong>
                 <small>
                   Road route · {km.format(draftVariantRoute.distanceKm ?? 0)} km ·{' '}
@@ -3772,12 +3776,12 @@ function LeadMap({
         )}
       </MapContainer>
       <div className="lead-map-variant-legend">
-        <strong>Variant routes</strong>
+            <strong>Material routes</strong>
         {draftVariantRoute && draftVariantRoute.stops.length > 0 && (
           <div className="lead-map-variant-row creating">
             <i style={{ background: draftVariantRoute.color }} />
             <span>
-              <b>Creating variant</b>
+              <b>Creating Lead</b>
               <small>
                 {draftVariantRoute.status === 'routing'
                   ? 'Calculating road route…'
@@ -3792,7 +3796,7 @@ function LeadMap({
           </div>
         )}
         {variants.length === 0 ? (
-          <span>No variants created.</span>
+            <span>No Materials created.</span>
         ) : (
           variants.map((variant, index) => {
             const line = mapLines.find((candidate) => candidate.variantId === variant.id)
@@ -4275,9 +4279,18 @@ function blankSourceDraft(points: LeadPoint[], materialName: string, disposalLea
   }
 }
 
-function blankVariantDraft(disposalLead = false): VariantDraft {
+function blankVariantDraft(
+  disposalLead = false,
+  materialName = '',
+  variants: LeadVariant[] = []
+): VariantDraft {
+  const sameMaterial = variants.filter(
+    (variant) => variant.materialName.toLowerCase() === materialName.toLowerCase()
+  )
+  const defaultName =
+    sameMaterial.length === 0 ? materialName : `${materialName} ${sameMaterial.length + 1}`
   return {
-    variantName: '',
+    variantName: defaultName,
     mapColor: '',
     startPointId: disposalLead ? PROJECT_WORK_POINT_ID : '',
     viaPointIds: [],

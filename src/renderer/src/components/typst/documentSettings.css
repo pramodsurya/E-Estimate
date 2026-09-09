@@ -1,0 +1,33 @@
+.document-settings-panel { height: 100%; overflow: auto; padding: 18px; color: #d5dae3; background: #181a1f; }
+.document-settings-intro { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; border: 1px solid #34404d; border-radius: 7px; background: #20252c; }
+.document-settings-intro > div { display: flex; flex-direction: column; gap: 3px; }
+.document-settings-intro strong { color: #f2f5f8; font-size: .95rem; }
+.document-settings-intro span { color: #8f9bab; font-size: .75rem; }
+.document-settings-section { margin-top: 14px; padding: 14px 16px; border: 1px solid #303640; border-radius: 7px; background: #1e2228; }
+.document-settings-section h3 { margin: 0 0 12px; color: #e6edf3; font-size: .82rem; }
+.document-settings-row { display: grid; gap: 12px; }
+.document-settings-row.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.document-settings-row label, .document-margin-gui label { display: flex; flex-direction: column; gap: 5px; color: #9ca7b6; font-size: .72rem; }
+.document-settings-panel select, .document-settings-panel input { box-sizing: border-box; height: 32px; border: 1px solid #3c4652; border-radius: 5px; outline: none; background: #15181d; color: #e6edf3; padding: 0 9px; }
+.document-settings-panel select:focus, .document-settings-panel input:focus { border-color: #10b981; }
+.document-margin-presets { display: flex; gap: 7px; margin-bottom: 14px; }
+.document-margin-presets button, .document-margin-presets span { border: 1px solid #3b4450; border-radius: 14px; background: transparent; color: #aeb7c4; padding: 4px 10px; font-size: .7rem; }
+.document-margin-presets button { cursor: pointer; }
+.document-margin-presets .active { border-color: #10b981; background: rgba(16, 185, 129, .13); color: #79e3bd; }
+.document-margin-gui { display: grid; grid-template: "blank top right" auto "left page right2" 160px "blank2 bottom blank3" auto / minmax(70px, 1fr) 150px minmax(70px, 1fr); align-items: center; justify-items: center; gap: 8px; }
+.document-margin-gui.landscape { grid-template-columns: minmax(70px, 1fr) 205px minmax(70px, 1fr); }
+.document-margin-gui label { position: relative; width: 72px; text-align: center; }
+.document-margin-gui label input { width: 72px; padding-right: 25px; text-align: right; }
+.document-margin-gui label em { position: absolute; right: 6px; bottom: 8px; color: #697482; font-size: .62rem; font-style: normal; }
+.margin-top { grid-area: top; }.margin-right { grid-area: right2; }.margin-bottom { grid-area: bottom; }.margin-left { grid-area: left; }
+.document-page-mini { grid-area: page; box-sizing: border-box; position: relative; width: 130px; height: 160px; background: #f7f8fa; border: 1px solid #bec6cf; box-shadow: 0 3px 12px rgba(0,0,0,.35); }
+.document-margin-gui.landscape .document-page-mini { width: 185px; height: 130px; }
+.document-page-mini > div { position: absolute; border: 2px solid #0fae83; background: repeating-linear-gradient(to bottom, #d4dae0 0 2px, transparent 2px 9px); }
+.document-font-size-input { position: relative; }
+.document-font-size-input input { width: 100%; padding-right: 34px; }
+.document-font-size-input em { position: absolute; right: 10px; top: 9px; color: #778392; font-size: .68rem; font-style: normal; }
+.document-type-scale { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.document-type-scale span { min-height: 64px; display: flex; flex-direction: column; justify-content: flex-end; gap: 3px; padding: 9px; border: 1px solid #323a45; border-radius: 5px; background: #191d22; }
+.document-type-scale b { color: #edf2f7; line-height: 1.15; }
+.document-type-scale small { color: #7f8b99; font-size: .65rem; }
+@media (max-width: 700px) { .document-settings-row.two { grid-template-columns: 1fr; } }

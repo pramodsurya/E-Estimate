@@ -1,16 +1,20 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
+  ArrowLeft,
+  Check,
+  Edit2,
   Eye,
   Gem,
-  LayoutDashboard,
   Printer,
   RefreshCw,
+  RotateCcw,
   Search,
   X
 } from 'lucide-react'
 import {
   computeSeigniorageTable,
+  PERMIT_GO_REFERENCE,
   permitPercentFor,
   seigniorageItemDisplayName,
   type SeigniorageCalculation,
@@ -19,17 +23,27 @@ import {
 } from '../../lib/seigniorage'
 import type { SeigniorageApplicabilityPolicy } from '../../types/rateAnalysis'
 import { useStore } from '../../store/useStore'
-import SeignioragePrintPreviewModal, {
-  SeignioragePrintPages
-} from './SeignioragePrintPreviewModal'
+import EEstimatePrintStudio from '../typst/EEstimatePrintStudio'
+import SeignioragePrintPreview from './SeignioragePrintPreview'
+import {
+  buildSeigniorageRenderData,
+  defaultSeigniorageRowDescription,
+  EE_GROUP_TABLE_PRELUDE,
+  resolveSeigniorageDocumentSettings,
+  resolveSeigniorageGroupHeading,
+  resolveSeigniorageGroupSubtotal,
+  resolveSeigniorageRowDescription,
+  resolvedSeigniorageTypstSource,
+  seigniorageCompileInputs,
+  seigniorageTypstTemplate
+} from '../../lib/typist-output/seigniorageTypst'
 import {
   dashboardContextMatches,
   syncSeigniorageDashboardSnapshot
 } from '../../lib/dashboardSync'
 import SignatureFooterCard from '../signature/SignatureFooterCard'
 import {
-  SEIGNIORAGE_SIGNATURE_SCOPE,
-  resolveSignatureFooter
+  SEIGNIORAGE_SIGNATURE_SCOPE
 } from '../../lib/signatureFooter'
 
 const money = new Intl.NumberFormat('en-IN', {
@@ -44,6 +58,7 @@ const rateFmt = new Intl.NumberFormat('en-IN', {
 const factorFmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 6 })
 const intFmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 })
 
+
 interface MaterialGroup {
   key: string
   label: string
@@ -56,16 +71,43 @@ interface MaterialGroup {
 
 export default function SeigniorageDashboard(): JSX.Element {
   const closeSeigniorage = useStore((state) => state.closeSeigniorage)
+  const openSeigniorage = useStore((state) => state.openSeigniorage)
   const selection = useStore((state) => state.seigniorageSelection)
   const project = useStore((state) => state.project)
-  const seignioragePrintSettings = useStore((state) => state.project?.seignioragePrintSettings)
-  const updateSeignioragePrintSettings = useStore((state) => state.updateSeignioragePrintSettings)
+  const updatePrintStudioDocument = useStore((state) => state.updatePrintStudioDocument)
+  const updateSeignioragePrintOverrides = useStore((state) => state.updateSeignioragePrintOverrides)
   const setDashboardSnapshot = useStore((state) => state.setDashboardSnapshot)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('')
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false)
-  const [printView, setPrintView] = useState(false)
+  const [printStudioOpen, setPrintStudioOpen] = useState(false)
+
+  const printOverrides = project?.seignioragePrintOverrides
+  const statementTitle = printOverrides?.title || 'SEIGNIORAGE STATEMENT'
+  const statementYear = printOverrides?.year || project?.meta.sorYear || '2025-26'
+  const permitBasis = printOverrides?.permitBasis || PERMIT_GO_REFERENCE
+
+  const [editingHeader, setEditingHeader] = useState(false)
+  const [draftTitle, setDraftTitle] = useState(statementTitle)
+  const [draftYear, setDraftYear] = useState(statementYear)
+
+  const [editingPermitBasis, setEditingPermitBasis] = useState(false)
+  const [draftPermitBasis, setDraftPermitBasis] = useState(permitBasis)
+
+  const [editingGroupKey, setEditingGroupKey] = useState<string | null>(null)
+  const [draftGroupHeading, setDraftGroupHeading] = useState('')
+  const [draftGroupSubtotal, setDraftGroupSubtotal] = useState('')
+
+  useEffect(() => {
+    setDraftTitle(statementTitle)
+    setDraftYear(statementYear)
+  }, [statementTitle, statementYear])
+
+  useEffect(() => {
+    setDraftPermitBasis(permitBasis)
+  }, [permitBasis])
+
   const snapshotValid = project
     ? dashboardContextMatches(project.dashboardSnapshot, project)
     : false
@@ -79,9 +121,66 @@ export default function SeigniorageDashboard(): JSX.Element {
     () => computeSeigniorageTable(project, charges, [], policyByCode),
     [project, charges, policyByCode]
   )
-  const signatureFooter = project
-    ? resolveSignatureFooter(project, SEIGNIORAGE_SIGNATURE_SCOPE)
-    : undefined
+  const projectDocumentSettings = project
+    ? resolveSeigniorageDocumentSettings(project)
+    : { pageSize: 'A4' as const, orientation: 'landscape' as const, margins: { top: 20, right: 15, bottom: 20, left: 25 }, fontFamily: 'sans' as const, fontSizePt: 9.5 }
+  const defaultTypstSource = project
+    ? seigniorageTypstTemplate(calc, project)
+    : ''
+  const printTypstSource = project
+    ? resolvedSeigniorageTypstSource(project, calc)
+    : ''
+  const compileInputs = project
+    ? seigniorageCompileInputs(project, calc)
+    : {}
+
+  const handleUpdateRowDescription = async (rowId: string, customText: string | null): Promise<void> => {
+    const nextRowDescriptions = { ...(project?.seignioragePrintOverrides?.rowDescriptions ?? {}) }
+    if (customText && customText.trim()) {
+      nextRowDescriptions[rowId] = customText.trim()
+    } else {
+      delete nextRowDescriptions[rowId]
+    }
+    updateSeignioragePrintOverrides({ rowDescriptions: nextRowDescriptions })
+    await useStore.getState().saveProject({ requireSaved: true })
+  }
+
+  const handleSaveHeader = async (): Promise<void> => {
+    updateSeignioragePrintOverrides({
+      title: draftTitle.trim() || undefined,
+      year: draftYear.trim() || undefined
+    })
+    setEditingHeader(false)
+    await useStore.getState().saveProject({ requireSaved: true })
+  }
+
+  const handleResetHeader = async (): Promise<void> => {
+    setDraftTitle('SEIGNIORAGE STATEMENT')
+    setDraftYear(project?.meta.sorYear || '2025-26')
+    updateSeignioragePrintOverrides({
+      title: undefined,
+      year: undefined
+    })
+    setEditingHeader(false)
+    await useStore.getState().saveProject({ requireSaved: true })
+  }
+
+  const handleSavePermitBasis = async (): Promise<void> => {
+    updateSeignioragePrintOverrides({
+      permitBasis: draftPermitBasis.trim() || undefined
+    })
+    setEditingPermitBasis(false)
+    await useStore.getState().saveProject({ requireSaved: true })
+  }
+
+  const handleResetPermitBasis = async (): Promise<void> => {
+    setDraftPermitBasis(PERMIT_GO_REFERENCE)
+    updateSeignioragePrintOverrides({
+      permitBasis: undefined
+    })
+    setEditingPermitBasis(false)
+    await useStore.getState().saveProject({ requireSaved: true })
+  }
 
   const syncDashboard = async (): Promise<void> => {
     if (!project || loading) return
@@ -109,6 +208,54 @@ export default function SeigniorageDashboard(): JSX.Element {
         : null,
     [materialGroups, selectedMaterialKey]
   )
+
+    const currentGroupHeading = selectedGroup ? resolveSeigniorageGroupHeading(project, selectedGroup) : ''
+  const currentGroupSubtotal = selectedGroup ? resolveSeigniorageGroupSubtotal(project, selectedGroup) : ''
+
+  const handleStartEditGroup = (group: { key: string; label: string }): void => {
+    setEditingGroupKey(group.key)
+    setDraftGroupHeading(resolveSeigniorageGroupHeading(project, group))
+    setDraftGroupSubtotal(resolveSeigniorageGroupSubtotal(project, group))
+  }
+
+  const handleSaveGroupMeta = async (groupKey: string, defaultLabel: string): Promise<void> => {
+    const nextHeadings = { ...(project?.seignioragePrintOverrides?.groupHeadings ?? {}) }
+    const nextSubtotals = { ...(project?.seignioragePrintOverrides?.groupSubtotals ?? {}) }
+
+    if (draftGroupHeading.trim() && draftGroupHeading.trim() !== defaultLabel) {
+      nextHeadings[groupKey] = draftGroupHeading.trim()
+    } else {
+      delete nextHeadings[groupKey]
+    }
+
+    const defaultSubtotal = `Subtotal — ${draftGroupHeading.trim() || defaultLabel}`
+    if (draftGroupSubtotal.trim() && draftGroupSubtotal.trim() !== defaultSubtotal) {
+      nextSubtotals[groupKey] = draftGroupSubtotal.trim()
+    } else {
+      delete nextSubtotals[groupKey]
+    }
+
+    updateSeignioragePrintOverrides({
+      groupHeadings: nextHeadings,
+      groupSubtotals: nextSubtotals
+    })
+    setEditingGroupKey(null)
+    await useStore.getState().saveProject({ requireSaved: true })
+  }
+
+  const handleResetGroupMeta = async (groupKey: string): Promise<void> => {
+    const nextHeadings = { ...(project?.seignioragePrintOverrides?.groupHeadings ?? {}) }
+    const nextSubtotals = { ...(project?.seignioragePrintOverrides?.groupSubtotals ?? {}) }
+    delete nextHeadings[groupKey]
+    delete nextSubtotals[groupKey]
+
+    updateSeignioragePrintOverrides({
+      groupHeadings: nextHeadings,
+      groupSubtotals: nextSubtotals
+    })
+    setEditingGroupKey(null)
+    await useStore.getState().saveProject({ requireSaved: true })
+  }
   const visibleRows = selectedGroup?.rows ?? calc.rows
 
   const filteredRows = useMemo(() => {
@@ -138,6 +285,16 @@ export default function SeigniorageDashboard(): JSX.Element {
           </h1>
         </div>
         <div className="dash-actions">
+          {selectedMaterialKey && (
+            <button
+              type="button"
+              className="btn secondary seig-back-all-btn"
+              onClick={() => openSeigniorage({ seigCode: null, materialKey: undefined })}
+              title="Return to the complete printable statement"
+            >
+              <ArrowLeft size={15} /> Back to All Materials (Statement Dashboard)
+            </button>
+          )}
           {!selectedMaterialKey && (
             <button className="btn ghost" disabled={loading} onClick={() => void syncDashboard()}>
               <RefreshCw size={15} /> {loading ? 'Syncing…' : 'Sync'}
@@ -146,9 +303,8 @@ export default function SeigniorageDashboard(): JSX.Element {
           <button className="btn ghost" onClick={() => setPrintPreviewOpen(true)}>
             <Printer size={15} /> Print Preview
           </button>
-          <button className="btn ghost" onClick={() => setPrintView((value) => !value)}>
-            {printView ? <LayoutDashboard size={15} /> : <Eye size={15} />}
-            {printView ? 'Dashboard View' : 'View Print View'}
+          <button className="btn ghost" onClick={() => setPrintStudioOpen(true)}>
+            <Eye size={15} /> Open Print Studio
           </button>
           <button className="btn ghost" onClick={closeSeigniorage}>
             <X size={14} /> Close
@@ -165,18 +321,6 @@ export default function SeigniorageDashboard(): JSX.Element {
         </div>
       )}
 
-      {printView ? (
-        <div className="aggregate-inline-print">
-          <SeignioragePrintPages
-            calc={calc}
-            projectName={project?.meta?.name ?? 'Untitled'}
-            printSettings={seignioragePrintSettings}
-            signatureFooter={signatureFooter}
-          />
-        </div>
-      ) : (
-        <>
-      <SignatureFooterCard scopeKey={SEIGNIORAGE_SIGNATURE_SCOPE} />
       <div className="seig-summary-row">
         <div className="seig-summary-card">
           <div className="ssc-label">Seigniorage</div>
@@ -213,8 +357,48 @@ export default function SeigniorageDashboard(): JSX.Element {
         <section className="seig-detail-pane">
           <div className="seig-detail-header">
             <div>
-              <div className="dash-eyebrow">Seigniorage Calculation</div>
-              <h2>{selectedGroup?.label ?? 'All materials'}</h2>
+              <div className="dash-eyebrow">
+                {selectedMaterialKey ? 'Filtered Material View' : 'Printable Statement View'}
+              </div>
+              <div className="seig-detail-title-row">
+                <h2>{selectedGroup ? currentGroupHeading : statementTitle}</h2>
+                {selectedMaterialKey ? (
+                  <div className="seig-header-edit-controls">
+                    <button
+                      type="button"
+                      className="btn-mini ghost seig-edit-meta-btn"
+                      onClick={() =>
+                        selectedGroup && (editingGroupKey === selectedGroup.key
+                          ? setEditingGroupKey(null)
+                          : handleStartEditGroup(selectedGroup))
+                      }
+                      title="Edit material heading and subtotal label for statement print"
+                    >
+                      <Edit2 size={11} /> {editingGroupKey === selectedGroup?.key ? 'Close Edit' : 'Edit Heading & Subtotal'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-mini secondary seig-nav-return-btn"
+                      onClick={() => openSeigniorage({ seigCode: null, materialKey: undefined })}
+                      title="Switch to the full statement that will be printed"
+                    >
+                      <ArrowLeft size={12} /> Back to Statement Dashboard
+                    </button>
+                  </div>
+                ) : (
+                  <div className="seig-header-edit-controls">
+                    <span className="seig-header-subtitle">Schedule of Rates: {statementYear}</span>
+                    <button
+                      type="button"
+                      className="btn-mini ghost seig-edit-meta-btn"
+                      onClick={() => setEditingHeader((v) => !v)}
+                      title="Edit statement title and SSR year for printing"
+                    >
+                      <Edit2 size={11} /> {editingHeader ? 'Close Edit' : 'Edit Title & Year'}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             <label className="seig-search">
               <Search size={12} />
@@ -227,69 +411,431 @@ export default function SeigniorageDashboard(): JSX.Element {
           </div>
 
 
-          <div className="seig-calc-table seig-calc-table-material">
-            <div className="seig-calc-thead">
-              <span className="scol-sl">Sl No.</span>
-              <span className="scol-desc">Description</span>
-              <span className="scol-total-qty">Total Quantity</span>
-              <span className="scol-seig-qty">Seigniorage Quantity</span>
-              <span className="scol-rate">Seigniorage Rate</span>
-              <span className="scol-seig">Seigniorage</span>
-              <span className="scol-dmft">DMFT 30%</span>
-              <span className="scol-smft">SMFT 2%</span>
-              <span className="scol-permit">Permit fee (% of seigniorage)</span>
+          {selectedMaterialKey && selectedGroup && editingGroupKey === selectedGroup.key && (
+            <div className="seig-meta-edit-panel">
+              <div className="seig-meta-field">
+                <label>Group Print Heading:</label>
+                <input
+                  type="text"
+                  className="seig-inline-input"
+                  value={draftGroupHeading}
+                  onChange={(e) => setDraftGroupHeading(e.target.value)}
+                  placeholder={selectedGroup?.label}
+                />
+              </div>
+              <div className="seig-meta-field">
+                <label>Group Subtotal Label:</label>
+                <input
+                  type="text"
+                  className="seig-inline-input"
+                  value={draftGroupSubtotal}
+                  onChange={(e) => setDraftGroupSubtotal(e.target.value)}
+                  placeholder={`Subtotal — ${draftGroupHeading || selectedGroup?.label}`}
+                />
+              </div>
+              <div className="seig-meta-actions">
+                <button
+                  type="button"
+                  className="btn-mini secondary"
+                  onClick={() => void handleSaveGroupMeta(selectedGroup.key, selectedGroup.label)}
+                >
+                  <Check size={12} /> Save
+                </button>
+                <button
+                  type="button"
+                  className="btn-mini ghost"
+                  onClick={() => void handleResetGroupMeta(selectedGroup.key)}
+                  title="Reset to default SOR heading"
+                >
+                  <RotateCcw size={12} /> Reset to Default
+                </button>
+                <button type="button" className="btn-mini ghost" onClick={() => setEditingGroupKey(null)}>
+                  Cancel
+                </button>
+              </div>
             </div>
+          )}
 
-            {filteredRows.length === 0 ? (
-              <div className="seig-calc-empty">No seigniorage DATA rows found.</div>
-            ) : (
-              <>
-                {filteredRows.map((row, index) => (
-                  <SeigniorageTableRow key={row.id} row={row} slNo={index + 1} />
-                ))}
-                <TotalRow
-                  label="TOTAL"
-                  calc={calcForRows(filteredRows)}
+          {!selectedMaterialKey && editingHeader && (
+            <div className="seig-meta-edit-panel">
+              <div className="seig-meta-field">
+                <label>Statement Title:</label>
+                <input
+                  type="text"
+                  className="seig-inline-input"
+                  value={draftTitle}
+                  onChange={(e) => setDraftTitle(e.target.value)}
+                  placeholder="SEIGNIORAGE STATEMENT"
                 />
-                <RoundingRow
-                  calc={calcForRows(filteredRows)}
+              </div>
+              <div className="seig-meta-field">
+                <label>Schedule Year:</label>
+                <input
+                  type="text"
+                  className="seig-inline-input"
+                  value={draftYear}
+                  onChange={(e) => setDraftYear(e.target.value)}
+                  placeholder="2025-26"
                 />
-              </>
-            )}
+              </div>
+              <div className="seig-meta-actions">
+                <button type="button" className="btn-mini secondary" onClick={() => void handleSaveHeader()}>
+                  <Check size={12} /> Save
+                </button>
+                <button type="button" className="btn-mini ghost" onClick={() => void handleResetHeader()} title="Reset to defaults">
+                  <RotateCcw size={12} /> Reset to Default
+                </button>
+                <button type="button" className="btn-mini ghost" onClick={() => setEditingHeader(false)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {selectedMaterialKey ? (
+            /* Single Filtered Material View */
+            <div className="seig-calc-table seig-calc-table-material">
+              <div className="seig-calc-thead">
+                <span className="scol-sl">Sl No.</span>
+                <span className="scol-desc">Description</span>
+                <span className="scol-total-qty">Total Quantity</span>
+                <span className="scol-seig-qty">Seigniorage Quantity</span>
+                <span className="scol-rate">Seigniorage Rate</span>
+                <span className="scol-seig">Seigniorage</span>
+                <span className="scol-dmft">DMFT 30%</span>
+                <span className="scol-smft">SMFT 2%</span>
+                <span className="scol-permit">Permit fee (% of seigniorage)</span>
+              </div>
+
+              {filteredRows.length === 0 ? (
+                <div className="seig-calc-empty">No seigniorage DATA rows found.</div>
+              ) : (
+                <>
+                  {filteredRows.map((row, index) => (
+                    <SeigniorageTableRow
+                      key={row.id}
+                      row={row}
+                      slNo={index + 1}
+                      project={project}
+                      onUpdateDescription={handleUpdateRowDescription}
+                    />
+                  ))}
+                  <TotalRow
+                    label={currentGroupSubtotal || 'TOTAL'}
+                    calc={calcForRows(filteredRows)}
+                  />
+                  <RoundingRow
+                    calc={calcForRows(filteredRows)}
+                  />
+                </>
+              )}
+            </div>
+          ) : (
+            /* Full Statement WYSIWYG View (Group by Group, Exactly As Printed) */
+            <div className="seig-statement-wysiwyg">
+              {materialGroups.length === 0 ? (
+                <div className="seig-calc-empty">No seigniorage DATA rows found.</div>
+              ) : (
+                materialGroups.map((group) => {
+                  const groupRows = filter.trim()
+                    ? group.rows.filter((r) => {
+                        const q = filter.toLowerCase()
+                        return (
+                          r.itemCode?.toLowerCase().includes(q) ||
+                          r.materialLabel?.toLowerCase().includes(q) ||
+                          r.recipeMaterialDesc?.toLowerCase().includes(q)
+                        )
+                      })
+                    : group.rows
+                  if (groupRows.length === 0) return null
+
+                  const isEditing = editingGroupKey === group.key
+                  const heading = resolveSeigniorageGroupHeading(project, group)
+                  const subtotal = resolveSeigniorageGroupSubtotal(project, group)
+                  const isCustomHeading = Boolean(project?.seignioragePrintOverrides?.groupHeadings?.[group.key])
+
+                  return (
+                    <div key={group.key} className="seig-statement-group-block">
+                      <div className="seig-group-header-row">
+                        <div className="seig-group-header-left">
+                          <span className="seig-group-badge">Material Group</span>
+                          <h3 className="seig-group-title">{heading}</h3>
+                          {isCustomHeading && <span className="spdb-custom-tag">Customized</span>}
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-mini ghost seig-edit-group-btn"
+                          onClick={() => (isEditing ? setEditingGroupKey(null) : handleStartEditGroup(group))}
+                          title="Edit this material's print heading and subtotal label"
+                        >
+                          <Edit2 size={11} /> {isEditing ? 'Close Edit' : 'Edit Heading & Subtotal'}
+                        </button>
+                      </div>
+
+                      {isEditing && (
+                        <div className="seig-meta-edit-panel">
+                          <div className="seig-meta-field">
+                            <label>Group Print Heading:</label>
+                            <input
+                              type="text"
+                              className="seig-inline-input"
+                              value={draftGroupHeading}
+                              onChange={(e) => setDraftGroupHeading(e.target.value)}
+                              placeholder={group.label}
+                            />
+                          </div>
+                          <div className="seig-meta-field">
+                            <label>Group Subtotal Label:</label>
+                            <input
+                              type="text"
+                              className="seig-inline-input"
+                              value={draftGroupSubtotal}
+                              onChange={(e) => setDraftGroupSubtotal(e.target.value)}
+                              placeholder={`Subtotal — ${draftGroupHeading || group.label}`}
+                            />
+                          </div>
+                          <div className="seig-meta-actions">
+                            <button
+                              type="button"
+                              className="btn-mini secondary"
+                              onClick={() => void handleSaveGroupMeta(group.key, group.label)}
+                            >
+                              <Check size={12} /> Save
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-mini ghost"
+                              onClick={() => void handleResetGroupMeta(group.key)}
+                              title="Reset to default SOR heading"
+                            >
+                              <RotateCcw size={12} /> Reset to Default
+                            </button>
+                            <button type="button" className="btn-mini ghost" onClick={() => setEditingGroupKey(null)}>
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="seig-calc-table seig-calc-table-material">
+                        <div className="seig-calc-thead">
+                          <span className="scol-sl">Sl No.</span>
+                          <span className="scol-desc">Description</span>
+                          <span className="scol-total-qty">Total Quantity</span>
+                          <span className="scol-seig-qty">Seigniorage Quantity</span>
+                          <span className="scol-rate">Seigniorage Rate</span>
+                          <span className="scol-seig">Seigniorage</span>
+                          <span className="scol-dmft">DMFT 30%</span>
+                          <span className="scol-smft">SMFT 2%</span>
+                          <span className="scol-permit">Permit fee (% of seigniorage)</span>
+                        </div>
+
+                        {groupRows.map((row, index) => (
+                          <SeigniorageTableRow
+                            key={row.id}
+                            row={row}
+                            slNo={index + 1}
+                            project={project}
+                            onUpdateDescription={handleUpdateRowDescription}
+                          />
+                        ))}
+
+                        <TotalRow
+                          label={subtotal}
+                          calc={calcForRows(groupRows)}
+                        />
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+
+              {/* Statement Total Block */}
+              <div className="seig-statement-totals-section">
+                <div className="seig-statement-total-heading">
+                  <h3>Statement Grand Total</h3>
+                </div>
+                <div className="seig-calc-table seig-calc-table-material">
+                  <TotalRow
+                    label="Grand Total (All Materials)"
+                    calc={calc}
+                  />
+                  <RoundingRow
+                    calc={calc}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Legal Permit fee basis note */}
+          <div className="seig-permit-basis-bar">
+            <div className="seig-permit-basis-content">
+              <span className="seig-permit-basis-text">
+                <em>Permit fee basis:</em> {permitBasis}
+              </span>
+              {!editingPermitBasis ? (
+                <button
+                  type="button"
+                  className="btn-mini ghost seig-permit-edit-btn"
+                  onClick={() => setEditingPermitBasis(true)}
+                  title="Edit permit fee basis note for printing"
+                >
+                  <Edit2 size={11} /> Edit note
+                </button>
+              ) : (
+                <div className="seig-permit-basis-edit">
+                  <input
+                    type="text"
+                    className="seig-inline-input"
+                    value={draftPermitBasis}
+                    onChange={(e) => setDraftPermitBasis(e.target.value)}
+                    placeholder={PERMIT_GO_REFERENCE}
+                  />
+                  <button type="button" className="btn-mini secondary" onClick={() => void handleSavePermitBasis()}>
+                    <Check size={12} /> Save
+                  </button>
+                  {project?.seignioragePrintOverrides?.permitBasis && (
+                    <button type="button" className="btn-mini ghost" onClick={() => void handleResetPermitBasis()} title="Reset to default GO note">
+                      <RotateCcw size={12} /> Reset
+                    </button>
+                  )}
+                  <button type="button" className="btn-mini ghost" onClick={() => setEditingPermitBasis(false)}>
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
+          <SignatureFooterCard scopeKey={SEIGNIORAGE_SIGNATURE_SCOPE} />
         </section>
       </div>
-        </>
-      )}
-
-      {printPreviewOpen && (
-        <SeignioragePrintPreviewModal
-          calc={calc}
-          projectName={project?.meta?.name ?? 'Untitled'}
-          printSettings={seignioragePrintSettings}
-          signatureFooter={signatureFooter}
-          onUpdatePrintSettings={updateSeignioragePrintSettings}
+      {printPreviewOpen && project && (
+        <SeignioragePrintPreview
+          typstSource={printTypstSource}
+          compileInputs={compileInputs}
+          year={project.meta.sorYear ?? ''}
           onClose={() => setPrintPreviewOpen(false)}
+        />
+      )}
+      {printStudioOpen && project && (
+        <EEstimatePrintStudio
+          scopeKey={'seigniorage-statement'}
+          title="Seigniorage Statement"
+          subtitle="Seigniorage Code & Layout Studio"
+          defaultTypstSource={defaultTypstSource}
+          savedTypstSource={project.printStudioDocuments?.['seigniorage-statement']}
+          compileInputs={compileInputs}
+          compilePrelude={project.printStudioDocuments?.['seigniorage-statement'] !== undefined ? EE_GROUP_TABLE_PRELUDE : ''}
+          runtimeData={buildSeigniorageRenderData(project, calc)}
+          projectDocumentSettings={projectDocumentSettings}
+          savedDocumentSettings={project.printStudioDocumentSettings?.['seigniorage-statement']}
+          onSave={async (source, settings) => {
+            updatePrintStudioDocument('seigniorage-statement', source, settings)
+            await useStore.getState().saveProject({ requireSaved: true })
+          }}
+          onClose={() => setPrintStudioOpen(false)}
         />
       )}
     </div>
   )
 }
 
-function SeigniorageTableRow({ row, slNo }: { row: SeigniorageItemRow; slNo: number }): JSX.Element {
+function SeigniorageTableRow({
+  row,
+  slNo,
+  project,
+  onUpdateDescription
+}: {
+  row: SeigniorageItemRow
+  slNo: number
+  project: import('../../types/project').EestimateProject | null
+  onUpdateDescription: (rowId: string, customText: string | null) => Promise<void>
+}): JSX.Element {
   const needsRate = row.charge === null || row.seigRate === null
   const needsConversion = row.conversionRequired === true
   const needsReview = row.status === 'REVIEW_REQUIRED' || needsConversion
-  const materialLine = [row.materialLabel, row.recipeMaterialDesc].filter(Boolean).join(' - ')
+  const currentPrintDesc = resolveSeigniorageRowDescription(project, row)
+  const hasCustomDesc = Boolean(project?.seignioragePrintOverrides?.rowDescriptions?.[row.id]?.trim())
+  const [isEditingDesc, setIsEditingDesc] = useState(false)
+  const [draftDesc, setDraftDesc] = useState(currentPrintDesc)
+
+  useEffect(() => {
+    setDraftDesc(currentPrintDesc)
+  }, [currentPrintDesc])
+
   return (
     <div className={`seig-calc-tbody-row ${needsRate || needsReview ? 'needs-rate' : ''}`}>
       <span className="scol-sl">{slNo}</span>
       <span className="scol-desc">
-        <strong>{seigniorageItemDisplayName(row)}</strong>
-        <span>{row.description}</span>
-        {materialLine && <small>{materialLine}</small>}
-        {row.mode && row.mode !== 'RECIPE_MATERIAL_RATIO' && (
-          <small className="seig-mode-tag">{modeLabel(row.mode)}</small>
+        {isEditingDesc ? (
+          <div className="seig-desc-edit-row">
+            <input
+              type="text"
+              className="seig-desc-input"
+              value={draftDesc}
+              autoFocus
+              onChange={(e) => setDraftDesc(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  void onUpdateDescription(row.id, draftDesc.trim() || null)
+                  setIsEditingDesc(false)
+                } else if (e.key === 'Escape') {
+                  setIsEditingDesc(false)
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="btn-mini secondary"
+              title="Save description"
+              onClick={() => {
+                void onUpdateDescription(row.id, draftDesc.trim() || null)
+                setIsEditingDesc(false)
+              }}
+            >
+              <Check size={12} /> Save
+            </button>
+            <button
+              type="button"
+              className="btn-mini ghost"
+              title="Cancel"
+              onClick={() => setIsEditingDesc(false)}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        ) : (
+          <div className="seig-desc-display-row">
+            <span className="seig-desc-text">{currentPrintDesc}</span>
+            <div className="seig-desc-actions">
+              <button
+                type="button"
+                className="btn-mini ghost seig-desc-edit-btn"
+                onClick={() => {
+                  setDraftDesc(currentPrintDesc)
+                  setIsEditingDesc(true)
+                }}
+                title="Edit description for statement print"
+              >
+                <Edit2 size={11} />
+              </button>
+              {hasCustomDesc && (
+                <button
+                  type="button"
+                  className="btn-mini ghost seig-desc-reset-btn"
+                  onClick={() => void onUpdateDescription(row.id, null)}
+                  title="Reset description to default SOR format"
+                >
+                  <RotateCcw size={11} />
+                </button>
+              )}
+            </div>
+            {hasCustomDesc && <span className="seig-custom-pill">Edited</span>}
+          </div>
+        )}
+        {row.itemCode === 'IRR-CAW-7-27' && (
+          <SlabThicknessControl row={row} />
         )}
         {needsReview && (
           <small className="seig-review-badge">
@@ -330,6 +876,44 @@ function SeigniorageTableRow({ row, slNo }: { row: SeigniorageItemRow; slNo: num
         )}
       </span>
     </div>
+  )
+}
+
+function SlabThicknessControl({ row }: { row: SeigniorageItemRow }): JSX.Element {
+  const setThickness = useStore((state) => state.setSeigniorageSlabThickness)
+  const [draft, setDraft] = useState(row.slabThicknessMm?.toString() ?? '')
+  useEffect(() => {
+    setDraft(row.slabThicknessMm?.toString() ?? '')
+  }, [row.slabThicknessMm])
+
+  const commit = (): void => {
+    const parsed = Number(draft)
+    setThickness(row.itemNodeId, Number.isFinite(parsed) && parsed >= 25 && parsed <= 40 ? parsed : null)
+  }
+
+  return (
+    <label className="seig-thickness-control">
+      <span>Adopted slab thickness</span>
+      <input
+        type="number"
+        min={25}
+        max={40}
+        step={1}
+        value={draft}
+        placeholder="25–40"
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur()
+        }}
+      />
+      <span>mm</span>
+      {row.slabThicknessMm != null && row.quantityRatio != null && (
+        <small>
+          {factorFmt.format(row.quantityRatio * row.slabThicknessMm / 1000)} CUM/SQM
+        </small>
+      )}
+    </label>
   )
 }
 

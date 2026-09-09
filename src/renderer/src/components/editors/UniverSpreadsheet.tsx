@@ -11,7 +11,7 @@ import {
 import { UniverSheetsDrawingPreset } from '@univerjs/preset-sheets-drawing'
 import enUS from '@univerjs/preset-sheets-core/locales/en-US'
 import drawingEnUS from '@univerjs/preset-sheets-drawing/locales/en-US'
-import { BarChart3, Hash, Printer, Table2, Crop, X } from 'lucide-react'
+import { BarChart3, Hash, Table2, Crop, FileCode, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   SPECIMEN_SHEET_RANGE,
@@ -32,10 +32,25 @@ import {
   readChartValuesFromSnapshot,
   type CellValue
 } from '../../lib/chartData'
-import { cellToA1, readFinalValueFromSnapshot } from '../../lib/finalNumber'
+import {
+  cellToA1,
+  expandRangeToIncludeFinalCell,
+  isFinalCellInPrintRange,
+  readFinalValueFromSnapshot
+} from '../../lib/finalNumber'
 import type { CellRange, ChartDef, ProjectNode } from '../../types/project'
 import { nodeDisplayName } from '../nodeVisual'
-import PrintLayoutModal from '../print/PrintLayoutModal'
+import EEstimatePrintStudio from '../typst/EEstimatePrintStudio'
+import {
+  buildItemSheetRenderData,
+  itemSheetCompileInputs,
+  itemSheetScopeKey,
+  itemSheetTypstTemplate,
+  itemSheetShadowFiles,
+  EE_ITEM_TABLE_PRELUDE,
+  resolveItemSheetDocumentSettings,
+  resolvedItemSheetTypstSource
+} from '../../lib/typist-output/itemTypst'
 import ChartFloat from '../charts/ChartFloat'
 import ChartConfigModal from '../charts/ChartConfigModal'
 import ChartsListModal from '../charts/ChartsListModal'
@@ -151,9 +166,11 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
   const updateNodeChart = useStore((state) => state.updateNodeChart)
   const removeNodeChart = useStore((state) => state.removeNodeChart)
   const setNodeFinalCell = useStore((state) => state.setNodeFinalCell)
+  const project = useStore((state) => state.project)
+  const updatePrintStudioDocument = useStore((state) => state.updatePrintStudioDocument)
   const chartFloatsRef = useRef<Map<string, { dispose?: () => void }>>(new Map())
   const [error, setError] = useState<string | null>(null)
-  const [printOpen, setPrintOpen] = useState(false)
+  const [printStudioOpen, setPrintStudioOpen] = useState(false)
   const [chartModal, setChartModal] = useState<{ mode: 'insert' | 'edit'; chartId?: string } | null>(
     null
   )
@@ -199,6 +216,12 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
       window.setTimeout(() => setNotice(null), 3000)
       return
     }
+    if (node.finalCell && !isFinalCellInPrintRange(range, node.finalCell)) {
+      const a1 = cellToA1(node.finalCell.row, node.finalCell.column)
+      setNotice(`Selected print area must include the fixed final № (${a1}).`)
+      window.setTimeout(() => setNotice(null), 3500)
+      return
+    }
     setNodePrint(node.id, { ...node.print, range })
     setNotice('Print area set.')
     window.setTimeout(() => setNotice(null), 1800)
@@ -220,6 +243,14 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
     }
     const cell = { row: r.startRow, column: r.startColumn }
     setNodeFinalCell(node.id, cell)
+    let printNotice = ''
+    if (node.print?.range && !isFinalCellInPrintRange(node.print.range, cell)) {
+      const expanded = expandRangeToIncludeFinalCell(node.print.range, cell)
+      if (expanded) {
+        setNodePrint(node.id, { ...node.print, range: expanded })
+        printNotice = ' (print area expanded to include it)'
+      }
+    }
     const a1 = cellToA1(cell.row, cell.column)
     let value: unknown
     try {
@@ -229,8 +260,8 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
       value = undefined
     }
     const shown = typeof value === 'number' || typeof value === 'string' ? ` = ${value}` : ''
-    setNotice(`Final number fixed at ${a1}${shown}`)
-    window.setTimeout(() => setNotice(null), 2500)
+    setNotice(`Final number fixed at ${a1}${shown}${printNotice}`)
+    window.setTimeout(() => setNotice(null), 3000)
   }
 
   const clearFinalNumber = (): void => setNodeFinalCell(node.id, null)
@@ -374,10 +405,20 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
     schedulePersistRef.current?.()
   }
 
-  const openPrintLayout = (): void => {
-    syncChartPositions()
-    setPrintOpen(true)
-  }
+  const openPrintStudio = (): void => setPrintStudioOpen(true)
+
+  const itemPrintStudio = useMemo(() => {
+    if (!project) return null
+    return {
+      defaultTypstSource: itemSheetTypstTemplate(project, node),
+      savedTypstSource: project.printStudioDocuments?.[itemSheetScopeKey(node)],
+      compileInputs: itemSheetCompileInputs(project, node),
+      shadowFiles: itemSheetShadowFiles(node, node.print?.range ?? null),
+      runtimeData: buildItemSheetRenderData(project, node),
+      projectDocumentSettings: resolveItemSheetDocumentSettings(project, node),
+      savedDocumentSettings: project.printStudioDocumentSettings?.[itemSheetScopeKey(node)]
+    }
+  }, [project, node])
 
   const editingChart =
     chartModal?.mode === 'edit'
@@ -853,12 +894,12 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
             </button>
           ) : null}
           <button
-            className="btn-mini primary"
-            title="Open Print Layout & Preview"
-            onClick={openPrintLayout}
+            className="btn-mini"
+            title="Open Print Studio (Typst) — edit the layout as code. Sheet content is variable data."
+            onClick={openPrintStudio}
           >
-            <Printer size={13} />
-            Print Layout
+            <FileCode size={13} />
+            Print Studio
           </button>
         </div>
         <span className="editor-badge">Univer Spreadsheet</span>
@@ -881,12 +922,25 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
         {notice ? <div className="univer-editor-notice">{notice}</div> : null}
       </div>
 
-      {printOpen ? (
-        <PrintLayoutModal
-          node={node}
-          getSnapshot={getSnapshot}
-          readActiveRange={readActiveRange}
-          onClose={() => setPrintOpen(false)}
+      {printStudioOpen && project && itemPrintStudio ? (
+        <EEstimatePrintStudio
+          scopeKey={itemSheetScopeKey(node)}
+          key={itemSheetScopeKey(node)}
+          title="Item Sheet — Typst Layout Studio"
+          subtitle={nodeDisplayName(node)}
+          defaultTypstSource={itemPrintStudio.defaultTypstSource}
+          savedTypstSource={itemPrintStudio.savedTypstSource}
+          compileInputs={itemPrintStudio.compileInputs}
+          shadowFiles={itemPrintStudio.shadowFiles}
+          compilePrelude={EE_ITEM_TABLE_PRELUDE}
+          runtimeData={itemPrintStudio.runtimeData}
+          projectDocumentSettings={itemPrintStudio.projectDocumentSettings}
+          savedDocumentSettings={itemPrintStudio.savedDocumentSettings}
+          onSave={async (source, settings) => {
+            updatePrintStudioDocument(itemSheetScopeKey(node), source, settings)
+            await useStore.getState().saveProject({ requireSaved: true })
+          }}
+          onClose={() => setPrintStudioOpen(false)}
         />
       ) : null}
 

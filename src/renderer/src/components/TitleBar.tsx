@@ -26,13 +26,13 @@ import { isComponentLike } from '../lib/tree'
 import { isRenamable } from './nodeVisual'
 import EstimateMark from './tutorial/EstimateMark'
 import HelpMenu from './tutorial/HelpMenu'
+import { isTauriRuntime } from '../lib/platformApi'
 
 type MenuName = 'file' | 'component' | 'help' | null
 
 export default function TitleBar(): JSX.Element {
   const [menu, setMenu] = useState<MenuName>(null)
   const [recentOpen, setRecentOpen] = useState(false)
-  const [exportOpen, setExportOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [maximized, setMaximized] = useState(false)
 
@@ -67,7 +67,6 @@ export default function TitleBar(): JSX.Element {
   const close = (): void => {
     setMenu(null)
     setRecentOpen(false)
-    setExportOpen(false)
     setNotificationsOpen(false)
   }
 
@@ -100,26 +99,6 @@ export default function TitleBar(): JSX.Element {
       <div className="menu-sep" />
       <MenuItem label="Save" shortcut="Ctrl+S" disabled={!hasProject} onClick={() => act(() => void useStore.getState().saveProject())} />
       <MenuItem label="Save As…" disabled={!hasProject} onClick={() => act(() => void useStore.getState().saveProjectAs())} />
-      <div
-        data-tour="menu-export"
-        className={`menu-dd-item ${hasProject ? '' : 'disabled'}`}
-        onMouseEnter={() => hasProject && setExportOpen(true)}
-        onMouseLeave={() => setExportOpen(false)}
-        style={{ position: 'relative' }}
-      >
-        <span>Export</span>
-        <ChevronRight size={14} />
-        {exportOpen && hasProject && (
-          <div className="menu-dropdown" style={{ top: -4, left: '100%' }}>
-            <MenuItem
-              label="PDF"
-              tour="menu-export-pdf"
-              onClick={() => act(() => useStore.getState().openExportPdf())}
-            />
-          </div>
-        )}
-      </div>
-      <div className="menu-sep" />
       <MenuItem label="Close Project" disabled={!hasProject} onClick={() => act(() => useStore.getState().closeProject())} />
     </div>
   )
@@ -264,6 +243,7 @@ export default function TitleBar(): JSX.Element {
           </button>
           {notificationsOpen && <NotificationPanel />}
         </div>
+          {isTauriRuntime() && (
         <div className="window-controls">
           <button className="wc-btn" title="Minimize" onClick={() => window.api.window.minimize()}>
             <Minus size={15} />
@@ -275,6 +255,7 @@ export default function TitleBar(): JSX.Element {
             <X size={16} />
           </button>
         </div>
+          )}
       </div>
     </div>
   )
@@ -398,9 +379,7 @@ function NotificationPanel(): JSX.Element {
                     <span className="tb-notification-muted">Waiting for the solver to stop…</span>
                   )}
                   {notification.status === 'update-available' && (
-                    <button type="button" className="btn primary" onClick={() => void window.api.update.download()}>
-                      <Download size={14} /> Download update
-                    </button>
+                    <span className="tb-notification-muted">Automatic download is starting…</span>
                   )}
                   {notification.status === 'update-downloaded' && (
                     <button type="button" className="btn primary" onClick={() => window.api.update.install()}>

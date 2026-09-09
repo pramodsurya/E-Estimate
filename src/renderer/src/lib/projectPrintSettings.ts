@@ -4,6 +4,7 @@
  */
 
 import type { Margins, Orientation, PaperSize } from '../types/project'
+import type { DocumentFontFamily } from './typist-output/documentSettings'
 
 const DEFAULT_MARGINS: Margins = { top: 20, right: 15, bottom: 20, left: 25 }
 
@@ -22,6 +23,8 @@ export interface ProjectPrintSettings {
   margins: Margins
   /** Report font scale, as a percentage. */
   fontPercent: number
+  fontFamily: DocumentFontFamily
+  fontSizePt: number
   sections: Record<ProjectPrintSectionKey, boolean>
 }
 
@@ -30,6 +33,8 @@ export const DEFAULT_PROJECT_PRINT_SETTINGS: ProjectPrintSettings = {
   orientation: 'portrait',
   margins: DEFAULT_MARGINS,
   fontPercent: 100,
+  fontFamily: 'sans',
+  fontSizePt: 9.5,
   sections: {
     cover: true,
     introduction: true,

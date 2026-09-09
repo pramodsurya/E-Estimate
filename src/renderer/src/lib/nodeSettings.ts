@@ -64,3 +64,30 @@ export function resolveProjectNodeSettings(
   if (!node) return { ...SETTINGS_DEFAULTS, margins: { ...SETTINGS_DEFAULTS.margins } }
   return resolveNodeSettings(project.root, nodeId)
 }
+
+/**
+ * Resolve only the settings overrides actually set anywhere along the root → node
+ * path, without filling in {@link SETTINGS_DEFAULTS}. A caller that wants project
+ * defaults to win can then overlay these overrides (an unset field stays inherited
+ * rather than being masked by a hard-coded default).
+ */
+export function resolveNodeSettingsOverrides(
+  root: ProjectNode,
+  nodeId: string
+): Partial<NodeSettings> {
+  const path = pathToNode(root, nodeId) ?? [root]
+  const merged: Partial<NodeSettings> = {}
+  for (const node of path) {
+    const s = node.settings
+    if (!s) continue
+    if (s.pageSize) merged.pageSize = s.pageSize
+    if (s.orientation) merged.orientation = s.orientation
+    if (s.margins) merged.margins = { ...(merged.margins ?? {}), ...s.margins }
+    if (s.borders !== undefined) merged.borders = s.borders
+    if (s.printArea) merged.printArea = s.printArea
+    if (typeof s.reportFontPercent === 'number' && s.reportFontPercent > 0) {
+      merged.reportFontPercent = s.reportFontPercent
+    }
+  }
+  return merged
+}

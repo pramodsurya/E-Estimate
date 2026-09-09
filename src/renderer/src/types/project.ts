@@ -6,6 +6,7 @@ import type {
   SeigniorageApplicabilityPolicy
 } from './rateAnalysis'
 import type { IDocumentData, IWorkbookData } from '@univerjs/core'
+import type { DocumentFontFamily } from '../lib/typist-output/documentSettings'
 
 export type NodeKind = 'title' | 'page' | 'component' | 'subcomponent' | 'item'
 
@@ -638,6 +639,8 @@ export interface BundHeartingDesign {
  * trench cannot be dug without taking that bund down.
  */
 export interface BundHeartingTrench {
+  /** How the cut-off depth is fixed: automatically from the water depth, or entered by hand. */
+  depthMode: 'auto' | 'manual'
   /** Depth below the formation base (m). */
   depth: number
   /** Clear width at the trench bottom (m). */
@@ -692,6 +695,12 @@ export interface BundBerm {
   drainWidth: number
   drainDepth: number
   drainLiningThickness: number
+  /** Chute drain surge lining material; null = no chute drain. */
+  chuteDrainLiningMaterial: TemplateMaterialRef | null
+  /** Chute drain excavation; generated only while the chute drain is on. */
+  chuteDrainExcavationMaterial: TemplateMaterialRef | null
+  /** Chute drain lining/protection type (e.g. concrete or stone). */
+  chuteDrainProtectionType: 'concrete' | 'stone'
 }
 
 /** One chainage. Which fields matter depends on the component's mode. */
@@ -718,6 +727,8 @@ export interface BundSection {
   upstreamGroundLevel?: number | null
   /** Ground RL used to locate the designed downstream toe for this chainage. */
   downstreamGroundLevel?: number | null
+  /** Use one surveyed toe RL for both faces instead of separate u/s and d/s levels. */
+  separateToeLevels?: boolean
   /** Offsets inserted by the seven-point design button; manual points are kept separately. */
   designPointOffsets?: number[]
   /** Generated level rows hidden by the user's Rearrange points action. */
@@ -780,6 +791,10 @@ export interface BundToe {
   depth: number
   /** D/S toe-drain constant bottom/invert RL; null retains legacy geometry. */
   invertLevel: number | null
+  /** How the invert level is fixed: automatically derived or entered by hand. */
+  invertMode: 'auto' | 'manual' | null
+  /** Lever arm / top width datum (m). */
+  bermWidth: number
   /** D/S trapezoidal-drain side slopes expressed as horizontal to 1 vertical. */
   leftSlope: number
   rightSlope: number
@@ -823,7 +838,17 @@ export type BundExcavationRole =
   | 'hearting-trench-exc'
 
 /** Percentage/code rows for one independently measured excavation quantity. */
-export type BundExcavationBands = Record<BundExcavationRole, BundSoilBand[]>
+export type BundExcavationBands = Partial<Record<BundExcavationRole, BundSoilBand[]>> &
+  Record<
+    | 'stripping'
+    | 'ustoe-exc'
+    | 'dstoe-exc'
+    | 'rocktoe-exc'
+    | 'chute-exc'
+    | 'berm-drain-exc'
+    | 'hearting-trench-exc',
+    BundSoilBand[]
+  >
 
 /** One manually measured jungle-clearance patch (area = length × breadth). */
 export interface BundClearanceManualRow {
@@ -832,12 +857,64 @@ export interface BundClearanceManualRow {
   breadth: number | null
 }
 
+/** Soil type id selected for the outer (casing/random) zone of a zoned bund. */
+export type BundCasingSoilType =
+  | 'well-graded-gravel'
+  | 'poorly-graded-gravel'
+  | 'gravelly-well-graded-sand'
+  | 'gravelly-poorly-graded-sand'
+  | 'clayey-gravel'
+  | 'clayey-sand'
+
+/** Soil type id selected for the impervious hearting zone. */
+export type BundHeartingSoilType =
+  | 'clayey-sand'
+  | 'silty-sand'
+  | 'low-plasticity-clay'
+  | 'low-plasticity-silt'
+  | 'high-plasticity-clay'
+  | 'high-plasticity-silt'
+
+/** Soil type id selected for the single matrix of a homogeneous bund. */
+export type BundHomogeneousSoilType =
+  | 'well-graded-gravel'
+  | 'poorly-graded-gravel'
+  | 'gravelly-well-graded-sand'
+  | 'gravelly-poorly-graded-sand'
+  | 'clayey-gravel'
+  | 'silty-gravel'
+  | 'clayey-sand'
+  | 'silty-sand'
+  | 'low-plasticity-clay'
+  | 'low-plasticity-silt'
+  | 'high-plasticity-clay'
+  | 'high-plasticity-silt'
+
+/** Impervious-core geometry profile used to recommend zoned side slopes. */
+export type BundHeartingSlopeProfile = 'broad-core' | 'compact-core'
+
 export interface BundData {
   /** False until the setup wizard finishes; Edit setup reopens the wizard. */
   configured: boolean
   mode: BundMode
   /** Asked alongside mode in setup step 1; selects homogeneous or zoned quantities. */
   embankmentType: BundEmbankmentType
+  /** Selected soil for the outer casing of a zoned bund; null until chosen. */
+  casingSoilType: BundCasingSoilType | null
+  /** Selected soil for the impervious hearting; null until chosen. */
+  heartingSoilType: BundHeartingSoilType | null
+  /** Impervious-core profile used to recommend zoned side slopes. */
+  heartingSlopeProfile: BundHeartingSlopeProfile
+  /** Whether zoned side slopes are derived automatically or set by hand. */
+  zonedSlopeMode: 'automatic' | 'manual'
+  /** Selected soil for a homogeneous bund; null until chosen. */
+  homogeneousSoilType: BundHomogeneousSoilType | null
+  /** Whether homogeneous side slopes are derived automatically or set by hand. */
+  homogeneousSlopeMode: 'automatic' | 'manual'
+  /** How far upstream of MWL the slope protection/extent reaches. */
+  pitchingExtent: 'mwl' | 'full'
+  /** Whether the horizontal filter length is derived or entered by hand. */
+  horizontalFilterLengthMode: 'auto' | 'manual'
   /** Repair only: breached/damaged restoration or general raising/strengthening. */
   zonedRepairKind: BundZonedRepairKind
   /** Breached/damaged repair only: approved borrow area or approved dump area. */
@@ -1266,6 +1343,8 @@ export interface LeadPrintSettings {
   mapBoxWidthPercent?: number
   /** Saved pan/zoom. Unset or null means "fit the routes". */
   mapView?: { lat: number; lon: number; zoom: number } | null
+  /** True after Map Print Studio Save; layout is locked until Clear. */
+  mapLayoutSaved?: boolean
 }
 
 export interface SeignioragePrintSettings {
@@ -1381,6 +1460,10 @@ export interface LeadRateCalculationLine {
   label: string
   expression: string
   amount: number
+  /** Quantity used to build the row (distance km, multiplier, etc.). */
+  quantity?: number
+  /** Unit rate used to derive the row amount. */
+  unitRate?: number
 }
 
 export interface LeadRateCalculationDetail {
@@ -1498,6 +1581,25 @@ export interface CompiledLeadApplication {
   variantAmount: number
 }
 
+/** One row of a compiled Lead rate calculation, as stored on a dashboard entry. */
+export interface LeadBreakdownEntry {
+  label: string
+  expression: string
+  amount: number
+  quantity?: number | null
+  unitRate?: number | null
+}
+
+/** Minimal shape of a compiled lead charge breakdown read by print/dashboard views. */
+export interface LeadChargeBreakdownShape {
+  liftRate: number
+  leadRate: number
+  loadingRate: number
+  unloadingRate: number
+  deductedLeadRate?: number
+  netRate?: number
+}
+
 export interface CompiledLeadDashboardEntry {
   variantId: string
   materialName: string
@@ -1510,6 +1612,10 @@ export interface CompiledLeadDashboardEntry {
   pipeLead?: PipeLeadSource
   /** Cost per Lead unit compiled from the synced Lead chart rows. */
   variantRate: number | null
+  /** Printed rate-calculation breakdown rows (label, expression, amount). */
+  breakdown?: LeadBreakdownEntry[]
+  /** Full lead charge breakdown, when the variant was compiled from charges. */
+  chargeBreakdown?: LeadChargeBreakdownShape | null
   rateUnit: string
   applications: CompiledLeadApplication[]
 }
@@ -1618,6 +1724,31 @@ export interface DashboardDataSnapshot {
   }>
 }
 
+/** User-tweaked wording for the printed Lead Statement and its variants. */
+export interface LeadPrintOverrides {
+  title?: string
+  subtitle?: string
+  notes?: string
+  /** Re-labelled variant names keyed by variant id. */
+  variantNames?: Record<string, string>
+}
+
+/** User-tweaked wording and toggles for the printed seigniorage schedules. */
+export interface SeignioragePrintOverrides {
+  /** Custom schedule title. */
+  title?: string
+  /** Custom schedule year line. */
+  year?: string
+  /** Custom group headings keyed by group key. */
+  groupHeadings?: Record<string, string>
+  /** Per-group subtotal on/off or custom label, keyed by group key. */
+  groupSubtotals?: Record<string, string>
+  /** Custom row descriptions keyed by row id. */
+  rowDescriptions?: Record<string, string>
+  /** Optional permit-basis note shown in the schedule header. */
+  permitBasis?: string
+}
+
 export interface EestimateProject {
   formatVersion: 1
   /** Stable id for the project. */
@@ -1636,9 +1767,18 @@ export interface EestimateProject {
    */
   rateAnalysisScopedOverrides?: Record<string, Record<string, RateAnalysisRecipe>>
   /** Per-item seigniorage charge overrides keyed by projectItemKey. */
-  seigniorageOverrides?: Record<string, { seigCode: string | null; rate?: number | null }>
+  seigniorageOverrides?: Record<string, {
+    seigCode: string | null
+    rate?: number | null
+    slabThicknessMm?: number | null
+    quantityRatio?: number
+  }>
   /** Seigniorage print preview layout settings. */
   seignioragePrintSettings?: SeignioragePrintSettings
+  /** Local seigniorage print headings/subtotals/notes keyed by group or row id. */
+  seignioragePrintOverrides?: SeignioragePrintOverrides
+  /** Lead statement title/subtitle/notes and variant-name overrides. */
+  leadPrintOverrides?: LeadPrintOverrides
   /** NAC / labour cess percentages used by the General Abstract. */
   chargeSettings?: ProjectChargeSettings
   /**
@@ -1652,6 +1792,21 @@ export interface EestimateProject {
     fontPercent?: number
     sections?: Record<string, boolean>
   }
+  /** Saved Typst layouts keyed by Print Studio scope (e.g. `front-cover`). */
+  printStudioDocuments?: Record<string, string>
+  printStudioDocumentSettings?: Record<string, {
+    pageSize?: PaperSize
+    orientation?: Orientation
+    margins?: Margins
+    fontFamily?: DocumentFontFamily
+    fontSizePt?: number
+  }>
+  /**
+   * Virtual files stored in the `.eestimate` (base64 data URLs). The Telangana
+   * emblem (`telangana-emblem.svg`), the Lead route-map PNG, and downloaded map
+   * tiles (`images/lead-map-cache/`) live here so print stays portable.
+   */
+  printStudioShadowFiles?: Record<string, string>
   /** Project-wide default inherited by every dashboard, DATA and Page. */
   signatureFooter?: SignatureFooterSettings
   /** Local dashboard/Page overrides keyed by node id or dashboard scope key. */

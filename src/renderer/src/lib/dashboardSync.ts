@@ -31,9 +31,8 @@ import {
   projectDataRecipe
 } from './projectData'
 import { scopedLeadRateAddition } from './leadApplications'
-import { calculateRateAnalysis } from './rateAnalysis'
+import { calculateRateAnalysis, fetchRateAnalysis } from './rateAnalysis'
 import { fetchGstRateRules } from './projectTax'
-import { fetchRateAnalysis } from './rateAnalysis'
 import {
   fetchSeigniorageCharges,
   fetchSeignioragePolicies,
@@ -203,22 +202,41 @@ export async function fetchDashboardItemData(
   const groupedRows = await mapWithConcurrency<ProjectNode[], DashboardItemFetchRow[]>(
     groups,
     8,
-    async (group) => {
-    const representative = group[0]
-    const projectData = projectDataForNode(project.projectData, representative)
-    if (representative.projectDataId) {
-      if (!projectData) {
-        return group.map((item) => ({
-          id: item.id,
-          rate: null,
-          recipe: null,
-          sourceFailure: {
-            code: item.itemCode?.trim() || item.name,
-            message: 'The linked project DATA definition no longer exists.'
-          }
-        }))
-      }
-      return Promise.all(group.map(async (item) => {
+    (group) => fetchDashboardSourceGroup(project, context, group)
+  )
+  const rows = groupedRows.flat()
+  assertDashboardSourcesLoaded(rows, context.sorYear)
+
+  const rates: Record<string, number> = {}
+  const recipes: Record<string, RateAnalysisRecipe> = {}
+  for (const row of rows) {
+    if (typeof row.rate === 'number') rates[row.id] = row.rate
+    if (row.recipe) recipes[row.id] = leanSnapshotRecipe(row.recipe)
+  }
+  return { rates, recipes }
+}
+
+async function fetchDashboardSourceGroup(
+  project: EestimateProject,
+  context: DashboardDataSnapshot['context'],
+  group: ProjectNode[]
+): Promise<DashboardItemFetchRow[]> {
+  const representative = group[0]
+  const projectData = projectDataForNode(project.projectData, representative)
+  if (representative.projectDataId) {
+    if (!projectData) {
+      return group.map((item) => ({
+        id: item.id,
+        rate: null,
+        recipe: null,
+        sourceFailure: {
+          code: item.itemCode?.trim() || item.name,
+          message: 'The linked project DATA definition no longer exists.'
+        }
+      }))
+    }
+    return Promise.all(
+      group.map(async (item) => {
         const recipe = await projectDataRecipe(
           projectData,
           item,
@@ -231,69 +249,60 @@ export async function fetchDashboardItemData(
           rate: dashboardRateFromRecipe(recipe),
           recipe
         }
-      }))
-    }
-    let fetchedRecipe: RateAnalysisRecipe | null = null
-    let fetchFailure: string | null = null
-    try {
-      fetchedRecipe = await fetchRateAnalysis(representative, context.sorYear, {
-        zone: context.sorZone,
-        areaAllowancePercent: context.areaAllowancePercent,
-        areaAllowanceLabel: context.areaAllowanceLabel,
-        materialRateOverrides: project.meta.materialRateOverrides
       })
-    } catch (reason) {
-      fetchFailure = errorMessage(reason)
-    }
-    const fetchedRate = fetchedRecipe ? dashboardRateFromRecipe(fetchedRecipe) : null
-    return group.map((item) => {
-      const saved = rateAnalysisOverrideForNode(project, item)
-      const sourceFailure =
-        fetchFailure && (item.itemSource === 'SSR' || item.itemSource === 'SOR')
-          ? {
-              code: item.itemCode?.trim() || item.name,
-              message: fetchFailure
-            }
-          : undefined
-      return {
-        id: item.id,
-        rate: fetchedRate,
-        recipe: fetchedRecipe ?? saved,
-        sourceFailure
-      }
-    })
-    }
-  )
-  const rows = groupedRows.flat()
-  const failures = Array.from(
-    new Map(
-      rows.flatMap((row) =>
-        row.sourceFailure
-          ? [[`${row.sourceFailure.code}:${row.sourceFailure.message}`, row.sourceFailure] as const]
-          : []
-      )
-    ).values()
-  )
-  if (failures.length) {
-    const examples = failures
-      .slice(0, 4)
-      .map((failure) => `${failure.code}: ${failure.message}`)
-      .join('; ')
-    const remaining = failures.length > 4 ? `; and ${failures.length - 4} more` : ''
-    throw new Error(
-      `Could not prepare ${failures.length} source DATA entr${
-        failures.length === 1 ? 'y' : 'ies'
-      } for SOR ${context.sorYear}. ${examples}${remaining}`
     )
   }
-
-  const rates: Record<string, number> = {}
-  const recipes: Record<string, RateAnalysisRecipe> = {}
-  for (const row of rows) {
-    if (typeof row.rate === 'number') rates[row.id] = row.rate
-    if (row.recipe) recipes[row.id] = leanSnapshotRecipe(row.recipe)
+  let fetchedRecipe: RateAnalysisRecipe | null = null
+  let fetchFailure: string | null = null
+  try {
+    fetchedRecipe = await fetchRateAnalysis(representative, context.sorYear, {
+      zone: context.sorZone,
+      areaAllowancePercent: context.areaAllowancePercent,
+      areaAllowanceLabel: context.areaAllowanceLabel,
+      materialRateOverrides: project.meta.materialRateOverrides
+    })
+  } catch (reason) {
+    fetchFailure = errorMessage(reason)
   }
-  return { rates, recipes }
+  const fetchedRate = fetchedRecipe ? dashboardRateFromRecipe(fetchedRecipe) : null
+  return group.map((item) => {
+    const saved = rateAnalysisOverrideForNode(project, item)
+    const sourceFailure =
+      fetchFailure && (item.itemSource === 'SSR' || item.itemSource === 'SOR')
+        ? {
+            code: item.itemCode?.trim() || item.name,
+            message: fetchFailure
+          }
+        : undefined
+    return {
+      id: item.id,
+      rate: fetchedRate,
+      recipe: fetchedRecipe ?? saved,
+      sourceFailure
+    }
+  })
+}
+
+function assertDashboardSourcesLoaded(rows: DashboardItemFetchRow[], sorYear: string): void {
+  const failuresBySource = new Map<string, NonNullable<DashboardItemFetchRow['sourceFailure']>>()
+  for (const { sourceFailure } of rows) {
+    if (sourceFailure) {
+      failuresBySource.set(`${sourceFailure.code}:${sourceFailure.message}`, sourceFailure)
+    }
+  }
+  const failures = Array.from(failuresBySource.values())
+  if (failures.length === 0) return
+
+  const examples = failures
+    .slice(0, 4)
+    .map((failure) => `${failure.code}: ${failure.message}`)
+    .join('; ')
+  const remaining = failures.length > 4 ? `; and ${failures.length - 4} more` : ''
+  throw new Error(
+    `Could not prepare ${failures.length} source DATA entr${
+      failures.length === 1 ? 'y' : 'ies'
+    } for SOR ${sorYear}. ${examples}${remaining}`
+  )
 }
 
 /**
@@ -316,15 +325,11 @@ function dashboardRateFromRecipe(recipe: RateAnalysisRecipe): number | null {
       ? recipe.publishedRate
       : null
   }
-  const usesLinkedInputs = recipe.sections.some((section) =>
-    section.lines.some((line) => Boolean(line.linkedRate))
-  )
-  const usesMaterialRateOverride = recipe.sections.some((section) =>
-    section.lines.some((line) => Boolean(line.rateOverride))
+  const usesAdjustedInputs = recipe.sections.some((section) =>
+    section.lines.some((line) => Boolean(line.linkedRate || line.rateOverride))
   )
   if (
-    !usesLinkedInputs &&
-    !usesMaterialRateOverride &&
+    !usesAdjustedInputs &&
     !(typeof recipe.areaAllowancePercent === 'number' && recipe.areaAllowancePercent > 0) &&
     !recipe.dataVariant?.postRate &&
     !(
@@ -630,17 +635,22 @@ export function compileLeadDashboardEntries(
   const applications = project.leadChart?.applications ?? []
   const rates = snapshot.leadRates ?? []
 
-  return variants
+  const compiled = variants
     .map((variant) => {
       let variantRate: number | null = null
       let rateUnit = ''
+      let breakdown: import('../types/project').LeadRateCalculationLine[] | null = null
+      let chargeBreakdown: import('./lead').LeadChargeBreakdown | undefined
       const pipeQuote = snapshot.pipeLeadQuotes?.[variant.id]
       if (variant.pipeLead && pipeQuote) {
         variantRate = pipeQuote.leadRatePerMetre
         rateUnit = pipeQuote.unit
+        breakdown = [
+          { label: 'Adopted rate from Public Health Table 6/7', expression: `${pipeQuote.diameterMm} mm · ${pipeQuote.pipeClassGroup.replaceAll('_', ' / ')}`, amount: pipeQuote.leadRatePerMetre }
+        ]
       } else if (!variant.pipeLead && rates.length) {
         try {
-          const breakdown = calculateLeadVariantChargeFromRows(rates, {
+          const calc = calculateLeadVariantChargeFromRows(rates, {
             year: project.meta.sorYear,
             zone: project.meta.sorZone ?? 'zone_3',
             conveyanceClass: variant.conveyanceClass,
@@ -658,8 +668,10 @@ export function compileLeadDashboardEntries(
               variant.rateSource === 'chart' ? null : variant.customGrossRate ?? null,
             chargeCode: variant.chargeCode
           })
-          variantRate = breakdown.grossRate
-          rateUnit = breakdown.unit
+          chargeBreakdown = calc
+          variantRate = calc.grossRate
+          rateUnit = calc.unit
+          breakdown = calc.calculation?.rows ?? null
         } catch {
           // A stored application below is still a valid last-known cost.
         }
@@ -690,7 +702,7 @@ export function compileLeadDashboardEntries(
       return {
         variantId: variant.id,
         materialName: variant.materialName,
-        variantName: variant.variantName?.trim() || 'Variant',
+        variantName: variant.variantName?.trim() || variant.materialName,
         conveyanceClass: variant.conveyanceClass,
         active: variant.active !== false,
         leadKm: variant.leadKm,
@@ -699,9 +711,29 @@ export function compileLeadDashboardEntries(
         pipeLead: variant.pipeLead,
         variantRate,
         rateUnit,
+        breakdown: breakdown ?? undefined,
+        chargeBreakdown,
         applications: linked
       }
     })
+
+  // Default names: a variant's name is its material, and a second/third variant of
+  // the same material becomes "Material 2", "Material 3", … A name the estimator
+  // typed is kept as-is.
+  const byMaterial = new Map<string, CompiledLeadDashboardEntry[]>()
+  for (const entry of compiled) {
+    byMaterial.set(entry.materialName, [...(byMaterial.get(entry.materialName) ?? []), entry])
+  }
+  const named = compiled.map((entry) => {
+    if ((entry.variantName || '').trim() && entry.variantName !== entry.materialName) return entry
+    const siblings = byMaterial.get(entry.materialName) ?? []
+    const index = siblings.indexOf(entry)
+    return index <= 0
+      ? { ...entry, variantName: entry.materialName }
+      : { ...entry, variantName: `${entry.materialName} ${index + 1}` }
+  })
+
+  return named
     .sort(
       (left, right) =>
         left.materialName.localeCompare(right.materialName) ||

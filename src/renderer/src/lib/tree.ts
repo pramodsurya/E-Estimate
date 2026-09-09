@@ -44,12 +44,14 @@ export function findParent(root: ProjectNode, id: string): ProjectNode | null {
   return null
 }
 
-/** Immutable map over the tree, replacing the node with matching id. */
-export function patchNode(root: ProjectNode, id: string, patch: Partial<ProjectNode>): ProjectNode {
-  if (root.id === id) return { ...root, ...patch }
+/** Stop at the first edit and copy only its ancestors; unchanged branches retain identity. */
+function editTree(root: ProjectNode, edit: (node: ProjectNode) => ProjectNode): ProjectNode {
+  const updated = edit(root)
+  if (updated !== root) return updated
+
   for (let index = 0; index < root.children.length; index += 1) {
     const child = root.children[index]
-    const nextChild = patchNode(child, id, patch)
+    const nextChild = editTree(child, edit)
     if (nextChild !== child) {
       const children = root.children.slice()
       children[index] = nextChild
@@ -57,6 +59,11 @@ export function patchNode(root: ProjectNode, id: string, patch: Partial<ProjectN
     }
   }
   return root
+}
+
+/** Immutable update of the first node with matching id. */
+export function patchNode(root: ProjectNode, id: string, patch: Partial<ProjectNode>): ProjectNode {
+  return editTree(root, (node) => node.id === id ? { ...node, ...patch } : node)
 }
 
 /** Immutable add of a child under parentId. */
@@ -70,19 +77,9 @@ export function addChildren(
   childrenToAdd: ProjectNode[]
 ): ProjectNode {
   if (childrenToAdd.length === 0) return root
-  if (root.id === parentId) {
-    return { ...root, children: [...root.children, ...childrenToAdd] }
-  }
-  for (let index = 0; index < root.children.length; index += 1) {
-    const current = root.children[index]
-    const nextChild = addChildren(current, parentId, childrenToAdd)
-    if (nextChild !== current) {
-      const children = root.children.slice()
-      children[index] = nextChild
-      return { ...root, children }
-    }
-  }
-  return root
+  return editTree(root, (node) => node.id === parentId
+    ? { ...node, children: [...node.children, ...childrenToAdd] }
+    : node)
 }
 
 /**
@@ -145,24 +142,73 @@ export function canReorderBetween(a: ProjectNode, b: ProjectNode): boolean {
   return true
 }
 
-export function removeNode(root: ProjectNode, id: string): ProjectNode {
-  const directIndex = root.children.findIndex((child) => child.id === id)
-  if (directIndex >= 0) {
-    return {
-      ...root,
-      children: root.children.filter((_, index) => index !== directIndex)
-    }
+export type MoveDirection = 'up' | 'down'
+
+/**
+ * Whether `id` may be moved one position in `direction` among its siblings.
+ * Template-generated rows are hidden in the Explorer and pinned pages cannot be
+ * crossed, and the in-between slots are filled only by visible siblings, so the
+ * arrows move a node only across nodes the user is allowed to reorder past.
+ */
+export function canMoveNode(
+  root: ProjectNode,
+  id: string,
+  direction: MoveDirection
+): boolean {
+  const siblings = findParent(root, id)?.children
+  if (!siblings) return false
+  const index = siblings.findIndex((child) => child.id === id)
+  if (index < 0) return false
+  const moved = siblings[index]
+  const step = direction === 'up' ? -1 : 1
+  for (let i = index + step; i >= 0 && i < siblings.length; i += step) {
+    const neighbor = siblings[i]
+    if (neighbor.templateGenerated) continue
+    return canReorderBetween(moved, neighbor)
   }
-  for (let index = 0; index < root.children.length; index += 1) {
-    const child = root.children[index]
-    const nextChild = removeNode(child, id)
-    if (nextChild !== child) {
-      const children = root.children.slice()
-      children[index] = nextChild
-      return { ...root, children }
-    }
+  return false
+}
+
+/**
+ * Move `id` one position in `direction` among its siblings. Template-generated
+ * rows are skipped so a node shifts across only the visible siblings, and any
+ * pinned page in the way blocks the move. Returns `root` unchanged when there
+ * is nothing to move onto.
+ */
+export function moveNode(
+  root: ProjectNode,
+  id: string,
+  direction: MoveDirection
+): ProjectNode {
+  const parent = findParent(root, id)
+  if (!parent) return root
+  const siblings = parent.children
+  const index = siblings.findIndex((child) => child.id === id)
+  if (index < 0) return root
+  const moved = siblings[index]
+  const step = direction === 'up' ? -1 : 1
+  for (let i = index + step; i >= 0 && i < siblings.length; i += step) {
+    const neighbor = siblings[i]
+    if (neighbor.templateGenerated) continue
+    if (!canReorderBetween(moved, neighbor)) return root
+    const children = siblings.slice()
+    // Swap the two positions; any template-generated rows between them stay put.
+    children[index] = neighbor
+    children[i] = moved
+    return patchNode(root, parent.id, { children })
   }
   return root
+}
+
+export function removeNode(root: ProjectNode, id: string): ProjectNode {
+  return editTree(root, (node) => {
+    const directIndex = node.children.findIndex((child) => child.id === id)
+    if (directIndex < 0) return node
+    return {
+      ...node,
+      children: node.children.filter((_, index) => index !== directIndex)
+    }
+  })
 }
 
 /** A node is "addable to" as a parent for items if it is a component or sub-component. */
@@ -173,12 +219,12 @@ export function isComponentLike(node: ProjectNode): boolean {
 /** Resolve the parent that a new item/sub-item should be added under, given the current selection. */
 export function resolveItemParent(root: ProjectNode, selectedId: string | null): ProjectNode {
   if (!selectedId) return root
-  const sel = findNode(root, selectedId)
-  if (!sel) return root
-  if (isComponentLike(sel)) return sel
+  const selected = findNode(root, selectedId)
+  if (!selected) return root
+  if (isComponentLike(selected)) return selected
   // Item selected -> add as sibling under its parent component.
-  if (sel.kind === 'item') {
-    const parent = findParent(root, sel.id)
+  if (selected.kind === 'item') {
+    const parent = findParent(root, selected.id)
     if (parent && isComponentLike(parent)) return parent
   }
   return root

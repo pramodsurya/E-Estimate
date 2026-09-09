@@ -301,7 +301,10 @@ const dawAbstract = [
       id: 'murum_bed_15cm', kind: 'reference', label: 'Add Murum bed',
       source_item: 'IRR-CAW-8-1', source_addon_id: 'murum_bed_15cm'
     }],
-    addonRates: [{ id: 'murum_bed_15cm', base_rate: '95.00', label: 'Add Murum bed' }],
+    addonRates: [{
+      id: 'murum_bed_15cm', base_rate: '95.00', label: 'Add Murum bed',
+      rates: { materials: [], machinery: [], labour: [] }
+    }],
     sourceAddonTables: { 'IRR-CAW-8-1': addonTable },
     sourceAddonRates: { 'IRR-CAW-8-1': addonRates },
     leadApplicability
@@ -309,6 +312,7 @@ const dawAbstract = [
   assert.equal(reference.options[1].addOnRate, 95)
   assert.equal(reference.options[1].rate, 475.1)
   assert.equal(reference.options[1].additionAnalysis.sections[0].lines[0].description, 'Murum')
+  assert.equal(reference.options[1].additionAnalysis.sections[0].lines[0].rate, 313)
 }
 
 {

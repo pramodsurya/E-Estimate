@@ -363,27 +363,16 @@ const chapter1: TutorialChapter = {
       target: { text: 'Sync', within: '.dash-actions', placement: 'bottom' }
     },
     {
-      id: 'print-view',
-      rail: 'Print view',
-      section: 'closing',
-      title: 'This is what actually prints',
-      body:
-        'View Print View shows the real paginated output for this component — only fixed final numbers and set ' +
-        'print areas appear on it. It is the fastest way to catch a forgotten one.',
-      primary: 'Opened it',
-      screen: 'the component dashboard',
-      target: { text: 'View Print View', within: '.dash-actions', placement: 'bottom' }
-    },
-    {
       id: 'printed',
-      rail: 'Printed',
+      rail: 'Print Studio',
       eyebrow: 'CHAPTER 1',
       title: 'Three items, all accounted for',
       body:
-        'Every fixed final number and every print area you set shows up here, nowhere else. If something is ' +
-        'missing from a printout, this is always where to look first.',
+        'Every fixed final number and print area is available to the component Typst document. Open Print Studio ' +
+        'when you want to review or edit the final layout.',
       primary: 'Finish chapter 1',
-      screen: 'the component print view'
+      screen: 'the component dashboard',
+      target: { text: 'Print Studio', within: '.dash-actions', placement: 'bottom' }
     }
   ],
   complete: {

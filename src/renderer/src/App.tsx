@@ -12,7 +12,6 @@ const AddItemModal = lazy(() => import('./components/modals/AddItemModal'))
 const AddPageModal = lazy(() => import('./components/modals/AddPageModal'))
 const AddStructureModal = lazy(() => import('./components/modals/AddStructureModal'))
 const SettingsModal = lazy(() => import('./components/modals/SettingsModal'))
-const ExportPdfModal = lazy(() => import('./components/modals/ExportPdfModal'))
 
 /**
  * A project with nowhere to be written is not being saved.
@@ -23,10 +22,10 @@ const ExportPdfModal = lazy(() => import('./components/modals/ExportPdfModal'))
  * is said, on every screen, until there is a file.
  */
 function UnsavedProjectNotice(): JSX.Element | null {
-  const project = useStore((state) => state.project)
+  const hasProject = useStore((state) => Boolean(state.project))
   const filePath = useStore((state) => state.filePath)
   const saveProjectAs = useStore((state) => state.saveProjectAs)
-  if (!project || filePath) return null
+  if (!hasProject || filePath) return null
   return (
     <div className="unsaved-project-notice">
       <span>
@@ -40,13 +39,33 @@ function UnsavedProjectNotice(): JSX.Element | null {
   )
 }
 
+/**
+ * Keep autosave subscriptions below the application shell. Project identity
+ * changes on every editor update; subscribing in App made every keystroke
+ * rerender TitleBar, sidebars, WorkArea and all open dashboard content before
+ * the browser could deliver the next keyboard event.
+ */
+function ProjectAutosaveController(): null {
+  const projectRevision = useStore((state) => state.project?.updatedAt ?? null)
+  const filePath = useStore((state) => state.filePath)
+  const dirty = useStore((state) => state.dirty)
+
+  useEffect(() => {
+    if (!projectRevision || !filePath || !dirty) return
+    const handle = window.setTimeout(() => {
+      void useStore.getState().saveProject().catch(() => undefined)
+    }, 1200)
+    return () => window.clearTimeout(handle)
+  }, [projectRevision, filePath, dirty])
+
+  return null
+}
+
 export default function App(): JSX.Element {
   const view = useStore((s) => s.view)
   const loadRecent = useStore((s) => s.loadRecent)
   const restoreLastSession = useStore((s) => s.restoreLastSession)
-  const project = useStore((s) => s.project)
   const filePath = useStore((s) => s.filePath)
-  const dirty = useStore((s) => s.dirty)
   const selectedId = useStore((s) => s.selectedId)
   const expanded = useStore((s) => s.expanded)
   const activity = useStore((s) => s.activity)
@@ -58,7 +77,6 @@ export default function App(): JSX.Element {
   const addPageOpen = useStore((s) => s.addPage.open)
   const addStructureOpen = useStore((s) => s.addStructure.open)
   const settingsOpen = useStore((s) => s.settings.open)
-  const exportPdfOpen = useStore((s) => s.exportPdfOpen)
 
   useEffect(() => {
     if (restoreStarted.current) return
@@ -95,18 +113,11 @@ export default function App(): JSX.Element {
     seigniorageSelection
   ])
 
-  useEffect(() => {
-    if (!project || !filePath || !dirty) return
-    const handle = window.setTimeout(() => {
-      void useStore.getState().saveProject().catch(() => undefined)
-    }, 1200)
-    return () => window.clearTimeout(handle)
-  }, [project, filePath, dirty])
-
   const showShell = view !== 'home'
 
   return (
     <div className="app">
+      <ProjectAutosaveController />
       <TitleBar />
       {showShell && <UnsavedProjectNotice />}
       <div className="app-body">
@@ -121,14 +132,13 @@ export default function App(): JSX.Element {
       </div>
       <ErrorBoundary
         label="this dialog"
-        resetKeys={[addItemOpen, addPageOpen, addStructureOpen, settingsOpen, exportPdfOpen]}
+        resetKeys={[addItemOpen, addPageOpen, addStructureOpen, settingsOpen]}
       >
         <Suspense fallback={null}>
           {addItemOpen && <AddItemModal />}
           {addPageOpen && <AddPageModal />}
           {addStructureOpen && <AddStructureModal />}
           {settingsOpen && <SettingsModal />}
-          {exportPdfOpen && <ExportPdfModal />}
         </Suspense>
       </ErrorBoundary>
 

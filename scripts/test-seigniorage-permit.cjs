@@ -423,6 +423,74 @@ assert.match(naturalFineAggregateMigration, /SAND_FINE_AGGREGATE/)
 assert.match(naturalFineAggregateMigration, /'seig_code', 'SEIG_ORDINARY_SAND'/)
 assert.match(naturalFineAggregateMigration, /SSR policy verification failed/)
 
+const deterministicReviewMigration = fs.readFileSync(
+  path.join(
+    root,
+    'supabase/migrations/20260830150000_resolve_deterministic_seigniorage_reviews.sql'
+  ),
+  'utf8'
+)
+assert.match(deterministicReviewMigration, /status', 'REVIEWED'/)
+assert.match(deterministicReviewMigration, /plummer blocks\|couplings\|hubs/)
+assert.match(deterministicReviewMigration, /SEIG_ORDINARY_SAND/)
+
+const dimensionalStoneMigration = fs.readFileSync(
+  path.join(
+    root,
+    'supabase/migrations/20260830151000_resolve_dimensional_stone_seigniorage.sql'
+  ),
+  'utf8'
+)
+assert.match(dimensionalStoneMigration, /IRR-CAW-8-11', 33\.00000000/)
+assert.match(dimensionalStoneMigration, /IRR-CCDW-5-1', 1\.05000000/)
+assert.match(dimensionalStoneMigration, /IRR-CAW-7-27/)
+assert.match(dimensionalStoneMigration, /conversion_required', true/)
+
+// CAW-7-27 cannot convert its slab area until the estimator adopts one
+// thickness from the published 25-40 mm range. The project-local choice turns
+// 1.05 SQM of slab per SQM output into CUM without changing the backend SSR.
+const slabItem = { ...item('slab', 'IRR-CAW-7-27', 100), unit: 'SQM' }
+const slabPolicy = {
+  applicable: true,
+  rows: [{
+    seig_code: 'SEIG_BUILDING_STONE',
+    mode: 'RECIPE_MATERIAL_RATIO',
+    quantity_basis: 'ITEM_QTY_X_RATIO',
+    quantity_ratio: 1.05,
+    conversion_required: true,
+    conversion_factor: null,
+    charge_unit: 'SQM',
+    material_key: 'STONE_AGGREGATE',
+    material_label: 'Stone slab',
+    status: 'REVIEW_REQUIRED'
+  }]
+}
+const slabCharges = [charge('SEIG_BUILDING_STONE', 'Building Stone', 117, 78)]
+const slabWithoutThickness = computeSeigniorageTable(
+  project([slabItem]),
+  slabCharges,
+  [],
+  { 'IRR-CAW-7-27': slabPolicy }
+)
+assert.equal(slabWithoutThickness.rows[0].quantity, null)
+assert.equal(slabWithoutThickness.rows[0].conversionRequired, true)
+
+const slabProject = project([slabItem])
+slabProject.seigniorageOverrides = {
+  'IRR-CAW-7-27': { slabThicknessMm: 30 }
+}
+const slabWithThickness = computeSeigniorageTable(
+  slabProject,
+  slabCharges,
+  [],
+  { 'IRR-CAW-7-27': slabPolicy }
+)
+assert.equal(slabWithThickness.rows[0].slabThicknessMm, 30)
+assert.equal(slabWithThickness.rows[0].conversionRequired, false)
+assert.equal(slabWithThickness.rows[0].unit, 'CUM')
+assert.ok(Math.abs(slabWithThickness.rows[0].quantity - 3.15) < 1e-9)
+assert.ok(Math.abs(slabWithThickness.rows[0].seigniorage - 368.55) < 1e-9)
+
 // A full-item earth quantity stored in CUM uses the M3 rate, while the MT
 // value remains only as the statutory reference rate.
 const fullMorramCalc = computeSeigniorageTable(

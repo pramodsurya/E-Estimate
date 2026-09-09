@@ -9,6 +9,7 @@ export default function BundToeDiagram({
   depth,
   leftSlope,
   rightSlope,
+  bermWidth = 0,
   lined,
   solid = false
 }: {
@@ -17,6 +18,7 @@ export default function BundToeDiagram({
   depth: number
   leftSlope?: number
   rightSlope?: number
+  bermWidth?: number
   lined: boolean
   solid?: boolean
 }): JSX.Element {
@@ -26,7 +28,7 @@ export default function BundToeDiagram({
   const padTop = 30
   const padBottom = 44
 
-  const maxW = Math.max(topWidth, bottomWidth, 0.001)
+  const maxW = Math.max(topWidth + 2 * bermWidth, bottomWidth, 0.001)
   const scale = Math.min((W - padX * 2) / maxW, (H - padTop - padBottom) / Math.max(depth, 0.001))
   const cx = W / 2
   const groundY = padTop
@@ -52,11 +54,19 @@ export default function BundToeDiagram({
       role="img"
       aria-label={`Toe trench ${topWidth} m top, ${bottomWidth} m bottom, ${depth} m deep${ariaSlopes}`}
     >
-      {/* ground line */}
+      {/* stripped-level platform, including the standard berms beside a D/S drain */}
       <line x1={16} y1={groundY} x2={W - 16} y2={groundY} className="bund-toe-ground" />
       <text x={20} y={groundY - 6} className="bund-toe-note">
-        ground
+        {bermWidth > 0 ? 'stripped level' : 'ground'}
       </text>
+      {bermWidth > 0 && (
+        <>
+          <line x1={topLeft - bermWidth * scale} y1={groundY - 8} x2={topLeft} y2={groundY - 8} className="bund-toe-dim" />
+          <line x1={topRight} y1={groundY - 8} x2={topRight + bermWidth * scale} y2={groundY - 8} className="bund-toe-dim" />
+          <text x={topLeft - (bermWidth * scale) / 2} y={groundY - 11} textAnchor="middle" className="bund-toe-note">berm {bermWidth.toFixed(2)} m</text>
+          <text x={topRight + (bermWidth * scale) / 2} y={groundY - 11} textAnchor="middle" className="bund-toe-note">berm {bermWidth.toFixed(2)} m</text>
+        </>
+      )}
 
       {/* trench trapezium */}
       <polygon

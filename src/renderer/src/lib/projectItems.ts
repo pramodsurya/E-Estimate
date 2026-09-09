@@ -76,16 +76,16 @@ export function projectItemKey(node: ProjectNode): string {
 
 /** Find the structural ancestors of an item, from Title down to its direct parent. */
 export function projectNodePath(root: ProjectNode, nodeId: string): ProjectNode[] {
-  let paths = nodePathCache.get(root)
-  if (!paths) {
-    paths = new Map<string, ProjectNode[]>()
-    const index = (node: ProjectNode, path: ProjectNode[]): void => {
-      paths?.set(node.id, path)
-      node.children.forEach((child) => index(child, [...path, node]))
-    }
-    index(root, [])
-    nodePathCache.set(root, paths)
+  const cachedPaths = nodePathCache.get(root)
+  if (cachedPaths) return cachedPaths.get(nodeId) ?? []
+
+  const paths = new Map<string, ProjectNode[]>()
+  const index = (node: ProjectNode, path: ProjectNode[]): void => {
+    paths.set(node.id, path)
+    node.children.forEach((child) => index(child, [...path, node]))
   }
+  index(root, [])
+  nodePathCache.set(root, paths)
   return paths.get(nodeId) ?? []
 }
 
@@ -151,18 +151,8 @@ function addBranch(
 }
 
 /**
- * One grouping per project version, shared by everything that asks for it.
- *
- * `collectProjectItemGroups` walks the whole tree and allocates a group, a
- * usage list and a branch list for every distinct item. That is fine once; it
- * was not fine per item, which is what `getItemLeadRate` was doing — a full
- * tree walk for each item it priced, so totalling a component was quadratic in
- * the size of the project. Several panels mounted at once each paid for their
- * own walk too.
- *
- * Mutations replace the root object (see `patchNode`), so the root is exactly
- * the right cache key: a new version misses, and the old entry goes when the
- * old tree does. Nothing mutates the returned groups, so sharing them is safe.
+ * Root identity identifies an immutable project version. Reuse its groups and
+ * index across callers; consumers must not mutate these shared results.
  */
 const groupsByRoot = new WeakMap<ProjectNode, ProjectItemGroup[]>()
 const groupIndexByRoot = new WeakMap<ProjectNode, Map<string, ProjectItemGroup>>()
@@ -190,29 +180,34 @@ export function projectItemGroupIndex(root: ProjectNode): Map<string, ProjectIte
 export function collectProjectItemGroups(root: ProjectNode): ProjectItemGroup[] {
   const groups = new Map<string, ProjectItemGroup>()
 
+  function addUsage(node: ProjectNode, path: ProjectNode[]): void {
+    const key = projectItemKey(node)
+    const displayName = projectItemDisplayName(node)
+    let group = groups.get(key)
+    if (!group) {
+      group = {
+        key,
+        code: node.itemCode?.trim() || node.name,
+        displayName,
+        description: node.itemDescription ?? node.name,
+        source: node.itemSource ?? 'OTHERS',
+        categoryKey: node.categoryKey ?? 'custom',
+        usages: [],
+        branches: []
+      }
+      groups.set(key, group)
+    } else {
+      // Later usages supply the display name and the last defined description.
+      group.description = node.itemDescription ?? group.description
+      group.displayName = displayName
+    }
+    group.usages.push({ node, path })
+    addBranch(group.branches, path, node.id)
+  }
+
   function visit(node: ProjectNode, path: ProjectNode[]): void {
     if (node.kind === 'item') {
-      const key = projectItemKey(node)
-      let group = groups.get(key)
-      if (!group) {
-        const code = node.itemCode?.trim() || node.name
-        const displayName = projectItemDisplayName(node)
-        group = {
-          key,
-          code,
-          displayName,
-          description: node.itemDescription ?? node.name,
-          source: node.itemSource ?? 'OTHERS',
-          categoryKey: node.categoryKey ?? 'custom',
-          usages: [],
-          branches: []
-        }
-        groups.set(key, group)
-      }
-      group.description = node.itemDescription ?? group.description
-      group.displayName = projectItemDisplayName(node)
-      group.usages.push({ node, path })
-      addBranch(group.branches, path, node.id)
+      addUsage(node, path)
       return
     }
 

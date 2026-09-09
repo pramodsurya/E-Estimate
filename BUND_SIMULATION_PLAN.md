@@ -530,7 +530,7 @@ src/renderer/src/components/bund/BundSimulationResults.tsx
 src/renderer/src/components/bund/BundStabilityDiagram.tsx
 src/renderer/src/lib/bundSimulation.ts
 src/renderer/src/types/bundSimulation.ts
-src/main/bundSimulation.ts
+src-tauri/src/bund.rs
 analysis/bund_analysis.py
 analysis/requirements.txt
 analysis/schemas/request.schema.json
@@ -545,9 +545,9 @@ src/renderer/src/components/bund/BundDashboard.tsx
 src/renderer/src/lib/bund.ts
 src/renderer/src/types/project.ts
 src/renderer/src/store/useStore.ts
-src/preload/index.ts
-src/main/ipc.ts
-electron-builder.yml
+src/renderer/src/lib/tauriApi.ts
+src-tauri/src/lib.rs
+src-tauri/tauri.conf.json
 package.json
 ```
 

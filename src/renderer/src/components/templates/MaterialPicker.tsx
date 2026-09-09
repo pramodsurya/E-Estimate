@@ -38,7 +38,9 @@ export default function MaterialPicker({
   onClose,
   initialCategory = 'IRR-CCDW',
   initialSearch = '',
-  selectionHint
+  selectionHint,
+  categoryLocked = false,
+  allowedCodes
 }: {
   onPick: (item: MasterItem) => void
   onClose: () => void
@@ -46,6 +48,10 @@ export default function MaterialPicker({
   initialCategory?: string
   initialSearch?: string
   selectionHint?: string
+  /** Keep role-specific pickers inside one SSR chapter. */
+  categoryLocked?: boolean
+  /** Restrict a role to an explicit set of compatible SSR items. */
+  allowedCodes?: string[]
 }): JSX.Element {
   const project = useStore((state) => state.project)
   const [category, setCategory] = useState(initialCategory)
@@ -94,9 +100,16 @@ export default function MaterialPicker({
   // verbatim, so natural queries like "excavation drain seating" found nothing.
   const q = debouncedSearch.trim()
   const parsedSearch = useMemo(() => parseMasterSearch(q), [q])
+  const selectableItems = useMemo(
+    () =>
+      allowedCodes?.length
+        ? items.filter((item) => allowedCodes.includes(item.code))
+        : items,
+    [allowedCodes, items]
+  )
   const lexicalMatches = useMemo(
-    () => (q ? rankMasterItems(items, parsedSearch) : []),
-    [items, parsedSearch, q]
+    () => (q ? rankMasterItems(selectableItems, parsedSearch) : []),
+    [parsedSearch, q, selectableItems]
   )
   const semanticCandidates = useMemo(
     () => semanticCandidateMatches(lexicalMatches),
@@ -160,7 +173,7 @@ export default function MaterialPicker({
 
   const rows: Array<{ item: MasterItem; match?: MasterSearchMatch }> = q
     ? rankedMatches.slice(0, MAX_PICKER_RESULTS).map((match) => ({ item: match.item, match }))
-    : items.slice(0, MAX_PICKER_RESULTS).map((item) => ({ item }))
+    : selectableItems.slice(0, MAX_PICKER_RESULTS).map((item) => ({ item }))
 
   const inspectAndPick = async (item: MasterItem): Promise<void> => {
     const year = project?.meta.sorYear
@@ -236,6 +249,7 @@ export default function MaterialPicker({
           className="text-input"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
+          disabled={categoryLocked}
         >
           {SSR_CATEGORIES.map((cat) => (
             <option key={cat.key} value={cat.key}>

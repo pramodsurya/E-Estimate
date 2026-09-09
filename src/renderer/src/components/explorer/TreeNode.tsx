@@ -1,8 +1,8 @@
-import { memo, useEffect, useRef, useState, type DragEvent } from 'react'
-import { ChevronDown, ChevronRight, GripVertical, Pencil, Plus, Ruler, Trash2 } from 'lucide-react'
+import { memo, useEffect, useRef, useState } from 'react'
+import { ChevronDown, ChevronRight, ChevronUp, Pencil, Plus, Ruler, Trash2 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { ProjectNode } from '../../types/project'
-import { canReorderBetween, findNode, isComponentLike } from '../../lib/tree'
+import { canMoveNode, isComponentLike } from '../../lib/tree'
 import { guideWallDetailId } from '../../lib/guideWall'
 import { bundDetailId } from '../../lib/bund'
 import { miSluiceNewDetailId } from '../../lib/miSluiceNew'
@@ -18,9 +18,8 @@ const TreeNode = memo(function TreeNode({
   const selected = useStore((s) => s.selectedId === node.id)
   const renaming = useStore((s) => s.renamingId === node.id)
   const expandedFlag = useStore((s) => s.expanded[node.id])
+  const root = useStore((s) => s.project?.root)
   const actions = useStore.getState()
-  // 'above' / 'below' shows which side of this row the dragged node will land on.
-  const [dropEdge, setDropEdge] = useState<'above' | 'below' | null>(null)
 
   // Template-generated items (e.g. the Guide Wall CCDW items) are driven by the
   // component's Detailed dashboard, so they are not shown as tree nodes.
@@ -36,40 +35,16 @@ const TreeNode = memo(function TreeNode({
   const displayName = nodeDisplayName(node)
   // The pinned Front Page / Introduction and template-generated items are fixed.
   const pinnedPage = Boolean(node.pageTemplate)
-  const draggable = node.kind !== 'title' && !pinnedPage && !node.templateGenerated
-
-  /** True when the node currently being dragged may swap places with this row. */
-  const acceptsDrag = (dragId: string): boolean => {
-    if (!dragId || dragId === node.id) return false
-    const root = useStore.getState().project?.root
-    const dragged = root ? findNode(root, dragId) : null
-    return Boolean(dragged && canReorderBetween(dragged, node))
-  }
-
-  const handleDragOver = (event: DragEvent<HTMLDivElement>): void => {
-    // dataTransfer payloads are unreadable during dragover, so the type marker
-    // gates the highlight and the drop handler re-checks the node itself.
-    if (!event.dataTransfer.types.includes('application/x-eestimate-node')) return
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'move'
-    const bounds = event.currentTarget.getBoundingClientRect()
-    setDropEdge(event.clientY < bounds.top + bounds.height / 2 ? 'above' : 'below')
-  }
-
-  const handleDrop = (event: DragEvent<HTMLDivElement>): void => {
-    const dragId = event.dataTransfer.getData('application/x-eestimate-node')
-    const edge = dropEdge ?? 'above'
-    setDropEdge(null)
-    if (!acceptsDrag(dragId)) return
-    event.preventDefault()
-    event.stopPropagation()
-    actions.reorderNode(dragId, node.id, edge)
-  }
+  // Only ordinary rows can be reordered; the arrows show on hover like the rest
+  // of the row actions and are greyed out when there is no neighbour to swap.
+  const reorderable = node.kind !== 'title' && !pinnedPage && !node.templateGenerated
+  const canUp = reorderable && Boolean(root && canMoveNode(root, node.id, 'up'))
+  const canDown = reorderable && Boolean(root && canMoveNode(root, node.id, 'down'))
 
   return (
     <>
       <div
-        className={`tree-row ${selected ? 'selected' : ''} ${dropEdge ? `drop-${dropEdge}` : ''}`}
+        className={`tree-row ${selected ? 'selected' : ''}`}
         // Lets the tutorial point at "the component" or "the item" without
         // knowing what the user called it — names here are entirely theirs.
         data-tour={`tree-${node.kind}`}
@@ -81,23 +56,9 @@ const TreeNode = memo(function TreeNode({
         // — the reader is free to rename either.
         data-tour-page={node.pageTemplate || undefined}
         style={{ paddingLeft: 6 + depth * 12 }}
-        draggable={draggable}
-        onDragStart={(event) => {
-          event.dataTransfer.setData('application/x-eestimate-node', node.id)
-          event.dataTransfer.effectAllowed = 'move'
-        }}
-        onDragOver={handleDragOver}
-        onDragLeave={() => setDropEdge(null)}
-        onDrop={handleDrop}
-        onDragEnd={() => setDropEdge(null)}
         onClick={() => actions.select(node.id)}
         onDoubleClick={() => renamable && actions.beginRename(node.id)}
       >
-        {draggable && (
-          <span className="tree-grip" title="Drag to reorder">
-            <GripVertical size={11} />
-          </span>
-        )}
         <span
           className="twisty"
           onClick={(e) => {
@@ -126,6 +87,32 @@ const TreeNode = memo(function TreeNode({
         )}
         {!renaming && (
           <span className="node-actions">
+            {reorderable && (
+              <>
+                <button
+                  className="node-iconbtn tree-move"
+                  title="Move up"
+                  disabled={!canUp}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    actions.moveNodeUp(node.id)
+                  }}
+                >
+                  <ChevronUp size={14} />
+                </button>
+                <button
+                  className="node-iconbtn tree-move"
+                  title="Move down"
+                  disabled={!canDown}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    actions.moveNodeDown(node.id)
+                  }}
+                >
+                  <ChevronDown size={14} />
+                </button>
+              </>
+            )}
             {node.kind === 'title' && (
               <button
                 className="node-iconbtn"

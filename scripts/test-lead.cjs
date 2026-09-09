@@ -565,6 +565,22 @@ function calculate(input) {
 }
 
 {
+  const refs = materialRefsForLeadInfo(
+    parseLeadInfo({
+      classes: ['CEMENT', 'EARTH', 'STONE'],
+      earthwork: true,
+      materials: {
+        Cement: 'CEMENT',
+        'Coarse aggregate': 'STONE',
+        'Sand (Un-Screened)': 'EARTH'
+      }
+    })
+  )
+  assert.ok(refs.some((ref) => ref.name === 'Sand' && ref.conveyanceClass === 'EARTH'))
+  assert.ok(!refs.some((ref) => ref.name === 'Earth'))
+}
+
+{
   const info = parseLeadInfo({
     classes: ['CEMENT', 'STONE'],
     materials: {

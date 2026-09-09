@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import {
   ChevronRight,
+  FileCog,
+  FileCode,
   FilePlus2,
   Gem,
   Landmark,
@@ -8,8 +10,6 @@ import {
   ListPlus,
   MapPin,
   Pencil,
-  Eye,
-  LayoutDashboard,
   Plus,
   RefreshCw,
   ReceiptIndianRupee,
@@ -35,8 +35,18 @@ import { syncProjectDashboardSnapshot } from '../../lib/dashboardSync'
 import { resolveTemplateDashboardMaterials } from '../../lib/templateDashboardSync'
 import SignatureFooterCard from '../signature/SignatureFooterCard'
 import { PROJECT_SIGNATURE_SCOPE } from '../../lib/signatureFooter'
+import ProjectDocumentSettingsModal from '../typst/ProjectDocumentSettingsModal'
+import EEstimatePrintStudio from '../typst/EEstimatePrintStudio'
+import {
+  PROJECT_ABSTRACT_SCOPE,
+  buildProjectRenderData,
+  projectCompileInputs,
+  projectCompilePrelude,
+  projectTypstTemplate,
+  resolveProjectAbstractDocumentSettings
+} from '../../lib/typist-output/projectTypst'
+import { assembleProjectBookCompileWithAssets } from '../../lib/typist-output/projectPrintBook'
 
-const ProjectPrintView = lazy(() => import('../print/ProjectPrintView'))
 // Both years are priced on demand, so nothing here is worth loading until asked for.
 const ComparativeStatementPanel = lazy(
   () => import('../comparative/ComparativeStatementPanel')
@@ -62,7 +72,6 @@ function EstimateCostSync({ value }: { value: number | null }): null {
 
 export default function TitleDashboard(): JSX.Element | null {
   const [editingProject, setEditingProject] = useState(false)
-  const [printView, setPrintView] = useState(false)
   const [comparativeOpen, setComparativeOpen] = useState(false)
   /**
    * Once opened, the panel stays mounted and is only hidden.
@@ -74,6 +83,8 @@ export default function TitleDashboard(): JSX.Element | null {
   const [comparativeMounted, setComparativeMounted] = useState(false)
   const [miscOpen, setMiscOpen] = useState(false)
   const [earthworkOpen, setEarthworkOpen] = useState(false)
+  const [documentSettingsOpen, setDocumentSettingsOpen] = useState(false)
+  const [printStudioOpen, setPrintStudioOpen] = useState(false)
   const [miscName, setMiscName] = useState('')
   const [miscCost, setMiscCost] = useState('')
   const [loading, setLoading] = useState(false)
@@ -87,11 +98,11 @@ export default function TitleDashboard(): JSX.Element | null {
   const openSeigniorage = useStore((state) => state.openSeigniorage)
   const updateMeta = useStore((state) => state.updateMeta)
   const updateChargeSettings = useStore((state) => state.updateChargeSettings)
-  const updateProjectPrintSettings = useStore((state) => state.updateProjectPrintSettings)
   const addMiscellaneousItem = useStore((state) => state.addMiscellaneousItem)
   const removeMiscellaneousItem = useStore((state) => state.removeMiscellaneousItem)
   const setEarthworkOverride = useStore((state) => state.setEarthworkOverride)
   const setDashboardSnapshot = useStore((state) => state.setDashboardSnapshot)
+  const updatePrintStudioDocument = useStore((state) => state.updatePrintStudioDocument)
   const setGuideWallMaterial = useStore((state) => state.setGuideWallMaterial)
   const resolveBundMaterials = useStore((state) => state.resolveBundMaterials)
   const resolveMiSluiceNewMaterials = useStore((state) => state.resolveMiSluiceNewMaterials)
@@ -107,7 +118,6 @@ export default function TitleDashboard(): JSX.Element | null {
   const pages = root.children.filter((child) => child.kind === 'page')
   const dashboardReady = projectDashboardIsReady(project, allItems)
   const snapshot = project.dashboardSnapshot
-  // Shared with the View Print View and the PDF export, so all three agree.
   const printInputs = computeProjectPrintInputs(project, allItems)
   const {
     recipes,
@@ -152,8 +162,6 @@ export default function TitleDashboard(): JSX.Element | null {
     mode: 'automatic' as const,
     recipientType: 'CENTRAL_STATE_UT_LOCAL' as const
   }
-  const printSettings = printInputs.settings
-
   const chargeAmount = (key: string): number =>
     abstract.chargeLines.find((line) => line.key === key)?.amount ?? 0
 
@@ -201,9 +209,15 @@ export default function TitleDashboard(): JSX.Element | null {
           <button className="btn ghost" onClick={() => openAddPage(root.id)}>
             <FilePlus2 size={15} /> Add Page
           </button>
-          <button className="btn ghost" onClick={() => setPrintView((value) => !value)}>
-            {printView ? <LayoutDashboard size={15} /> : <Eye size={15} />}
-            {printView ? 'Dashboard View' : 'View Print View'}
+          <button className="btn ghost" onClick={() => setDocumentSettingsOpen(true)}>
+            <FileCog size={15} /> Document Settings
+          </button>
+          <button
+            className="btn ghost"
+            title="Open Project Print Studio — preview the full book; edit General Abstract and book chrome"
+            onClick={() => setPrintStudioOpen(true)}
+          >
+            <FileCode size={15} /> Open Print Studio
           </button>
           <button
             className="btn ghost"
@@ -249,18 +263,7 @@ export default function TitleDashboard(): JSX.Element | null {
           </Suspense>
         </div>
       )}
-      {comparativeOpen ? null : printView ? (
-        <Suspense fallback={<div className="workarea-loading">Loading print view…</div>}>
-          <ProjectPrintView
-            project={project}
-            abstract={abstract}
-            seigniorage={seigniorage}
-            settings={printSettings}
-            rateOf={rateOf}
-            recipes={recipes}
-          />
-        </Suspense>
-      ) : (
+      {comparativeOpen ? null : (
         <>
       {loadError && (
         <div className="project-load-warning">Dashboard sync failed: {loadError}</div>
@@ -583,6 +586,50 @@ export default function TitleDashboard(): JSX.Element | null {
             onSaved={() => setEditingProject(false)}
           />
         </Modal>
+      )}
+      {documentSettingsOpen && (
+        <ProjectDocumentSettingsModal onClose={() => setDocumentSettingsOpen(false)} />
+      )}
+      {printStudioOpen && (
+        <EEstimatePrintStudio
+          scopeKey={PROJECT_ABSTRACT_SCOPE}
+          key={project.id + PROJECT_ABSTRACT_SCOPE}
+          title="Project Estimate — Typst Print Studio"
+          subtitle="Edit General Abstract and book chrome. Preview compiles the full estimate book."
+          defaultTypstSource={projectTypstTemplate()}
+          savedTypstSource={project.printStudioDocuments?.[PROJECT_ABSTRACT_SCOPE]}
+          compileInputs={projectCompileInputs(project)}
+          compilePrelude={projectCompilePrelude()}
+          runtimeData={buildProjectRenderData(project)}
+          visualize={false}
+          projectDocumentSettings={resolveProjectAbstractDocumentSettings(project)}
+          savedDocumentSettings={project.printStudioDocumentSettings?.[PROJECT_ABSTRACT_SCOPE]}
+          assembleCompile={async (abstractSource) => {
+            const current = useStore.getState().project
+            if (!current || current.id !== project.id) {
+              throw new Error('The active project has changed.')
+            }
+            const book = await assembleProjectBookCompileWithAssets(current, abstractSource)
+            return {
+              mainContent: book.mainContent,
+              inputs: book.inputs,
+              shadowFiles: book.shadowFiles
+            }
+          }}
+          onSync={async () => {
+            await syncDashboard()
+            const current = useStore.getState().project
+            if (!current || current.id !== project.id) {
+              throw new Error('The active project has changed.')
+            }
+            return projectCompileInputs(current)
+          }}
+          onSave={async (source, settings) => {
+            updatePrintStudioDocument(PROJECT_ABSTRACT_SCOPE, source, settings)
+            await useStore.getState().saveProject({ requireSaved: true })
+          }}
+          onClose={() => setPrintStudioOpen(false)}
+        />
       )}
       {miscOpen && (
         <Modal

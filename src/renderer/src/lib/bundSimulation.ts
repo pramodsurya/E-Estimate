@@ -12,15 +12,17 @@ import type {
   BundSimulationWaterInputs
 } from '../types/bundSimulation'
 import { BUND_SIMULATION_CASES } from '../types/bundSimulation'
+import { applySoilPreset } from './bundSoilPresets'
 import {
-  BUND_ROCKTOE_FILTER_BEHIND_M,
-  BUND_ROCKTOE_FILTER_BELOW_M,
   downstreamDesignToePointAt,
   downstreamToeFaceSlope,
   heartingTrenchEnabled,
   heartingTrenchTopWidth,
+  resolvedHeartingTrenchDepth,
   projectedProfile,
   rockToeBaseWidth,
+  rockToeFilterBehindThicknessM,
+  rockToeFilterBelowThicknessM,
   rockToeHeightAt
 } from './bund'
 
@@ -188,7 +190,7 @@ export function simulationMaterialsForBund(
         : role === 'rocktoe-filter'
         ? data.rockToeFilterMaterial
         : null
-    return {
+    const material: BundSimulationMaterial = {
       ...defaults,
       ...(!saved && designReference
         ? {
@@ -200,6 +202,20 @@ export function simulationMaterialsForBund(
       ...(saved ?? {}),
       role
     }
+    const selectedPresetId =
+      zoned && role === 'embankment'
+        ? data.casingSoilType
+        : !zoned && role === 'embankment'
+          ? data.homogeneousSoilType
+        : zoned && (role === 'hearting' || role === 'cutoff-trench')
+          ? data.heartingSoilType
+          : null
+    return selectedPresetId &&
+      (!saved ||
+        (saved.propertiesSource === 'preliminary-default' &&
+          saved.soilPresetId !== selectedPresetId))
+      ? applySoilPreset(material, selectedPresetId, role)
+      : material
   })
 }
 
@@ -240,7 +256,7 @@ export function normalizeBundSimulationData(
   const base = stored ?? defaultBundSimulationData()
   return {
     schemaVersion: 1,
-    materials: simulationMaterialsForBund(data, base.materials),
+    materials: simulationMaterialsForBund(data, stored ? base.materials : []),
     foundationThicknessM:
       Number.isFinite(base.foundationThicknessM)
         ? base.foundationThicknessM
@@ -470,6 +486,8 @@ export function simulationRockToeZones(
   let filterBehind: [number, number][] | null = null
   let filterBelow: [number, number][] | null = null
   if (data.rockToeFilterMaterial) {
+    const behindThickness = rockToeFilterBehindThicknessM(data)
+    const belowThickness = rockToeFilterBelowThicknessM(data)
     // Offset the inner face normally into the embankment so its area is the
     // design thickness times the true sloping-face length.
     const dx = crestInnerX - innerX
@@ -478,8 +496,8 @@ export function simulationRockToeZones(
     if (faceLength > GEOMETRY_EPSILON) {
       const nx = -dy / faceLength
       const ny = dx / faceLength
-      const ox = nx * BUND_ROCKTOE_FILTER_BEHIND_M
-      const oy = ny * BUND_ROCKTOE_FILTER_BEHIND_M
+      const ox = nx * behindThickness
+      const oy = ny * behindThickness
       filterBehind = [
         [round3(innerX + ox), round3(toe.rl + oy)],
         [round3(crestInnerX + ox), round3(crestRl + oy)],
@@ -488,10 +506,10 @@ export function simulationRockToeZones(
       ]
     }
     filterBelow = [
-      [round3(innerX), round3(toe.rl - BUND_ROCKTOE_FILTER_BELOW_M)],
+      [round3(innerX), round3(toe.rl - belowThickness)],
       [round3(innerX), round3(toe.rl)],
       [round3(outerX), round3(toe.rl)],
-      [round3(outerX), round3(toe.rl - BUND_ROCKTOE_FILTER_BELOW_M)]
+      [round3(outerX), round3(toe.rl - belowThickness)]
     ]
   }
 
@@ -925,7 +943,7 @@ export function simulationMaterialPolygons(
 
   if (trenchOn) {
     if (trenchIndex < 0) return null
-    const depth = Math.max(0, data.heartingTrench.depth)
+    const depth = resolvedHeartingTrenchDepth(data)
     const halfTop = heartingTrenchTopWidth(data) / 2
     const leftTop = data.heartingDesign.centerOffset - halfTop
     const rightTop = data.heartingDesign.centerOffset + halfTop

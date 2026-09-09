@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
   Calculator,
-  Eye,
-  LayoutDashboard,
   Pencil,
   Printer,
   RefreshCw,
@@ -44,9 +42,9 @@ import { useStore } from '../../store/useStore'
 import { nodeDisplayName } from '../nodeVisual'
 import type { LeadApplication, LeadVariant } from '../../types/project'
 import type { RateAnalysisRecipe } from '../../types/rateAnalysis'
+import { dataTypstTemplate, rateAnalysisCompileInputs } from '../../lib/typist-output/dataTypst'
 import RateAnalysisTable from './RateAnalysisTable'
-import SignatureFooterPrint from '../signature/SignatureFooterPrint'
-import { resolveSignatureFooter } from '../../lib/signatureFooter'
+import PdfPageStack from '../print/PdfPageStack'
 
 const auditMoney = new Intl.NumberFormat('en-IN', {
   minimumFractionDigits: 2,
@@ -132,8 +130,43 @@ export default function RateAnalysisDashboard(): JSX.Element {
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [printView, setPrintView] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [printPreview, setPrintPreview] = useState(false)
+  const [printPdfUrl, setPrintPdfUrl] = useState<string | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const printFrameRef = useRef<HTMLIFrameElement>(null)
+
+  useEffect(() => {
+    return () => {
+      if (printPdfUrl) URL.revokeObjectURL(printPdfUrl)
+    }
+  }, [printPdfUrl])
+
+  const handlePrintPreview = async (): Promise<void> => {
+    const recipeToPrint = draft ?? current
+    if (!recipeToPrint) return
+    setPreviewLoading(true)
+    setPreviewError(null)
+    setPrintPreview(true)
+    try {
+      const typstSource = dataTypstTemplate()
+      const res = await window.api.typst.compile(typstSource, rateAnalysisCompileInputs(recipeToPrint, project, leadApplications, leadVariants))
+      if (!res.ok || !res.data) {
+        throw new Error(res.error || 'Failed to compile Typst PDF')
+      }
+      const binary = atob(res.data)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+      const blob = new Blob([bytes], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      setPrintPdfUrl(url)
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
 
   const groups = useMemo(
     () => (project ? projectItemGroups(project.root) : []),
@@ -455,7 +488,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
   }
 
   return (
-    <div className={`rate-dashboard ${printView ? 'dashboard-print-view' : ''}`}>
+    <div className="rate-dashboard">
       <div className="rate-toolbar">
         <button className="btn ghost" data-tour="rate-back" onClick={closeRateAnalysis}>
           <ArrowLeft size={15} /> Back
@@ -487,16 +520,10 @@ export default function RateAnalysisDashboard(): JSX.Element {
           </button>
           <button
             className="btn ghost"
-            onClick={() => {
-              setPrintView(true)
-              window.setTimeout(() => window.print(), 0)
-            }}
+            disabled={previewLoading || (!draft && !current)}
+            onClick={() => void handlePrintPreview()}
           >
-            <Printer size={14} /> Print Preview
-          </button>
-          <button className="btn ghost" onClick={() => setPrintView((value) => !value)}>
-            {printView ? <LayoutDashboard size={14} /> : <Eye size={14} />}
-            {printView ? 'Dashboard View' : 'View Print View'}
+            <Printer size={14} /> {previewLoading ? 'Compiling PDF…' : 'Print Preview'}
           </button>
           {!editing ? (
             <button className="btn" data-tour="rate-edit" onClick={startEdit} disabled={!current}>
@@ -611,11 +638,39 @@ export default function RateAnalysisDashboard(): JSX.Element {
               </div>
             </section>
           )}
-          {printView && itemNode && (
-            <SignatureFooterPrint
-              settings={resolveSignatureFooter(project, itemNode.id)}
-              repeatEveryPage
-            />
+          {printPreview && (
+            <div className="aggregate-print-overlay" role="dialog" aria-modal="true">
+              <div className="aggregate-print-shell">
+                <div className="aggregate-print-toolbar">
+                  <strong>{(draft ?? current)?.itemCode || 'Rate Analysis'} — Typst Print Preview</strong>
+                  <div>
+                    <button
+                      className="btn ghost"
+                      disabled={!printPdfUrl}
+                      onClick={() => printFrameRef.current?.contentWindow?.print()}
+                    >
+                      <Printer size={14} /> Print
+                    </button>
+                    <button className="btn ghost" onClick={() => setPrintPreview(false)}>
+                      Close
+                    </button>
+                  </div>
+                </div>
+                {previewError && <div className="data-dashboard-print-message error">{previewError}</div>}
+                {previewLoading && <div className="data-dashboard-print-message">Compiling Typst PDF in real time…</div>}
+                {printPdfUrl && !previewLoading && (
+                  <div className="aggregate-print-view">
+                    <PdfPageStack src={printPdfUrl} zoom={100} />
+                    <iframe
+                      ref={printFrameRef}
+                      className="data-dashboard-print-source"
+                      title="Rate Analysis PDF"
+                      src={printPdfUrl}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </>
       )}

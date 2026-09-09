@@ -6,7 +6,7 @@ import type { TutorialTarget } from './types'
  * Two strategies, in order: an explicit selector (`[data-tour="…"]` where the
  * markup was worth annotating), then the control's own visible text. Text
  * matching is what keeps this file small — the dashboards label their buttons
- * "Sync", "Add Item", "View Print View", and those labels are the contract the
+ * "Sync", "Add Item", and "Print Studio", and those labels are the contract the
  * user already reads, so they are a fair thing to point at.
  */
 

@@ -208,8 +208,21 @@ function parseCellRef(ref: string): [row: number, column: number] | null {
  * Returns null when the sheet is empty, which callers should read as "no opinion"
  * and fall back to whatever they did before.
  */
-export function usedCellRange(spreadsheet: SpreadsheetDocument | undefined): CellRange | null {
-  if (!spreadsheet) return null
+export function usedCellRange(
+  spreadsheet: SpreadsheetDocument | undefined,
+  finalCell?: { row: number; column: number } | null
+): CellRange | null {
+  if (!spreadsheet) {
+    if (finalCell) {
+      return {
+        startRow: 0,
+        startColumn: 0,
+        endRow: finalCell.row,
+        endColumn: finalCell.column
+      }
+    }
+    return null
+  }
 
   const raw = spreadsheet as unknown as {
     sheets?: Record<string, { cellData?: Record<string, Record<string, CellLike>> }>
@@ -227,6 +240,10 @@ export function usedCellRange(spreadsheet: SpreadsheetDocument | undefined): Cel
     if (column < startColumn) startColumn = column
     if (row > endRow) endRow = row
     if (column > endColumn) endColumn = column
+  }
+
+  if (finalCell) {
+    note(finalCell.row, finalCell.column)
   }
 
   if (raw.sheets) {

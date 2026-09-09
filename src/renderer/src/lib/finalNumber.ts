@@ -2,7 +2,7 @@
 // the component dashboard (quantity, and amount when a rate is available).
 
 import type { IWorkbookData } from '@univerjs/core'
-import type { EestimateProject, ProjectNode } from '../types/project'
+import type { CellRange, EestimateProject, ProjectNode } from '../types/project'
 import { isUniverWorkbookData } from './univerSpreadsheet'
 import { resolveDocumentFinal } from './documentFinal'
 import {
@@ -154,3 +154,41 @@ export function componentItemsTotal(
   node.children.forEach(visit)
   return total
 }
+
+/** Checks whether a fixed final cell is enclosed within the given print range. Returns true if no final cell is set. */
+export function isFinalCellInPrintRange(
+  range: CellRange | null | undefined,
+  finalCell: { row: number; column: number } | null | undefined
+): boolean {
+  if (!finalCell) return true
+  if (!range) return true
+  return (
+    finalCell.row >= range.startRow &&
+    finalCell.row <= range.endRow &&
+    finalCell.column >= range.startColumn &&
+    finalCell.column <= range.endColumn
+  )
+}
+
+/** Expands a print range bounding box so that it encompasses the fixed final cell. */
+export function expandRangeToIncludeFinalCell(
+  range: CellRange | null | undefined,
+  finalCell: { row: number; column: number } | null | undefined
+): CellRange | null {
+  if (!finalCell) return range ?? null
+  if (!range) {
+    return {
+      startRow: 0,
+      startColumn: 0,
+      endRow: finalCell.row,
+      endColumn: finalCell.column
+    }
+  }
+  return {
+    startRow: Math.min(range.startRow, finalCell.row),
+    startColumn: Math.min(range.startColumn, finalCell.column),
+    endRow: Math.max(range.endRow, finalCell.row),
+    endColumn: Math.max(range.endColumn, finalCell.column)
+  }
+}
+

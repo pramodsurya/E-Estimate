@@ -33,6 +33,7 @@ export interface NormalizedLeadPrintSettings {
   mapBoxHeightMm: number
   mapBoxWidthPercent: number
   mapView: { lat: number; lon: number; zoom: number } | null
+  mapLayoutSaved: boolean
 }
 
 /** Below this the box stops being a map and starts being a stamp. */
@@ -148,10 +149,11 @@ export const DEFAULT_LEAD_PRINT_SETTINGS: NormalizedLeadPrintSettings = {
   showMapScale: true,
   showMapHeader: true,
   mapTitle: 'Lead Route Map',
-  mapSubtitle: 'Printed route schematic for points and applied Lead variant directions.',
+  mapSubtitle: 'Printed route schematic for points and applied Lead Material directions.',
   mapBoxHeightMm: 0,
   mapBoxWidthPercent: 100,
-  mapView: null
+  mapView: null,
+  mapLayoutSaved: false
 }
 
 export function normalizeLeadPrintSettings(
@@ -191,11 +193,19 @@ export function normalizeLeadPrintSettings(
     mapTitle: settings?.mapTitle ?? 'Lead Route Map',
     mapSubtitle:
       settings?.mapSubtitle ??
-      'Printed route schematic for points and applied Lead variant directions.',
+      'Printed route schematic for points and applied Lead Material directions.',
     mapBoxHeightMm: clampBoxHeight(settings?.mapBoxHeightMm),
     mapBoxWidthPercent: clampBoxWidth(settings?.mapBoxWidthPercent),
-    mapView: normalizeMapView(settings?.mapView)
+    mapView: normalizeMapView(settings?.mapView),
+    mapLayoutSaved: Boolean(settings?.mapLayoutSaved)
   }
+}
+
+export function isLeadMapLayoutSaved(
+  settings?: LeadPrintSettings | null,
+  hasStoredMapImage = false
+): boolean {
+  return Boolean(settings?.mapLayoutSaved) || hasStoredMapImage
 }
 
 function clampBoxHeight(value: number | undefined): number {

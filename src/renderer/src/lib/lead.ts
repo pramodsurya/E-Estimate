@@ -571,6 +571,8 @@ function headLoadRate(
     calculation: leadCalculation([
       {
         label: totalLeadM <= 100 ? 'Head-load lead up to 100 m' : 'Head-load lead up to 150 m',
+        quantity: 1,
+        unitRate: row.rate,
         expression: formatMoney(row.rate),
         amount: row.rate
       }
@@ -608,12 +610,16 @@ function mechanicalLeadRate(
   const calculationRows: LeadRateCalculationLine[] = [
     {
       label: 'Lead up to 5 km',
+      quantity: 1,
+      unitRate: upto5.rate,
       expression: formatMoney(upto5.rate),
       amount: upto5.rate
     },
     {
       label: 'Lead from 5 to 30 km',
       expression: `${firstIncrementKm} x ${formatMoney(per5To30.rate)}`,
+      quantity: firstIncrementKm,
+      unitRate: per5To30.rate,
       amount: per5To30.rate * firstIncrementKm
     }
   ]
@@ -621,6 +627,8 @@ function mechanicalLeadRate(
     calculationRows.push({
       label: 'Lead beyond 30 km',
       expression: `${beyond30Km} x ${formatMoney(perBeyond30.rate)}`,
+      quantity: beyond30Km,
+      unitRate: perBeyond30.rate,
       amount: perBeyond30.rate * beyond30Km
     })
   }
@@ -794,6 +802,8 @@ function withLeadMultiplier(
       ...calculation.rows,
       {
         label: `${multiplier} haul legs`,
+        quantity: multiplier,
+        unitRate: calculation.netLeadRate,
         expression: `${multiplier} x ${formatMoney(calculation.netLeadRate)}`,
         amount: netLeadRate
       }

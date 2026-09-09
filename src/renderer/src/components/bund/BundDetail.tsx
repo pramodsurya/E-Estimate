@@ -3,9 +3,8 @@ import { useStore } from '../../store/useStore'
 import type { ProjectNode } from '../../types/project'
 import { migrateBundData } from '../../lib/bund'
 import BundSetup from './BundSetup'
-import BundDashboard from './BundDashboard'
 import BundSimulationTab from './BundSimulationTab'
-import ZonedBundRepairDashboard from './ZonedBundRepairDashboard'
+import BundDashboardV2 from './v2/BundDashboardV2'
 
 /**
  * The "Detailed" view for a Bund component (opened from its tree row): the
@@ -59,14 +58,8 @@ export default function BundDetail({ node }: { node: ProjectNode }): JSX.Element
           </div>
           {tab === 'simulation' ? (
             <BundSimulationTab node={node} data={data} />
-          ) : data.embankmentType === 'zoned' ? (
-            <ZonedBundRepairDashboard
-              node={node}
-              data={data}
-              onEditSetup={(step) => setEditingSetup({ open: true, step })}
-            />
           ) : (
-            <BundDashboard
+            <BundDashboardV2
               node={node}
               data={data}
               onEditSetup={(step) => setEditingSetup({ open: true, step })}

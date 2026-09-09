@@ -151,16 +151,4 @@ for (const relative of detailedFiles) {
   )
 }
 
-for (const relative of [
-  'components/print/DocumentPrintPreviewStack.tsx',
-  'components/print/PrintLayoutModal.tsx',
-  'lib/projectExport.tsx'
-]) {
-  const printPath = fs.readFileSync(path.join(root, 'src/renderer/src', relative), 'utf8')
-  assert.ok(
-    printPath.includes('resolveDocumentSignatureFooter(project, node)'),
-    `${relative} must apply the shared Front Page signature exception`
-  )
-}
-
 console.log('signature/footer inheritance and print placement tests passed')
