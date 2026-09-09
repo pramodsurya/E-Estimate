@@ -8,6 +8,7 @@ use tauri_plugin_opener::OpenerExt;
 
 const PDF_FILTER: (&str, &[&str]) = ("PDF Document", &["pdf"]);
 const WORKBOOK_FILTER: (&str, &[&str]) = ("Excel Workbook", &["xlsx"]);
+const PNG_FILTER: (&str, &[&str]) = ("PNG Image", &["png"]);
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -71,6 +72,20 @@ pub async fn export_workbook(
             .unwrap_or_else(|| format!("{}.xlsx", sanitize(&payload.name))),
         WORKBOOK_FILTER,
         ".xlsx",
+        &payload.data,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn export_png(app: tauri::AppHandle, payload: ExportPayload) -> Result<ExportResult, String> {
+    save_binary_export(
+        &app,
+        "Export PNG Image",
+        payload.default_path
+            .unwrap_or_else(|| format!("{}.png", sanitize(&payload.name))),
+        PNG_FILTER,
+        ".png",
         &payload.data,
     )
     .await

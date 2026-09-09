@@ -48,6 +48,7 @@ pub fn run() {
             image::image_embed_remote,
             export::export_pdf,
             export::export_workbook,
+            export::export_png,
             export::export_reveal,
             update::update_status,
             update::update_check,
