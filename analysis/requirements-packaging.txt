@@ -1,4 +1,18 @@
 # Reproducible Windows sidecar toolchain. Install into the Python selected by
 # EESTIMATE_PYTHON before running `npm run build:analysis-engine`.
+#
+# Versions are pinned to the exact set that builds the engine locally. Do not
+# relax them: newer scipy vendors `scipy._external.array_api_compat` whose
+# `numpy.fft` submodule PyInstaller 6.14.2 cannot bundle, which fails the build.
 PyInstaller==6.14.2
 xslope[fem]==0.3.0
+gmsh==4.15.2
+lxml==6.1.2
+matplotlib==3.10.3
+numpy==2.2.6
+openpyxl==3.1.5
+pandas==2.3.0
+python-docx==1.2.0
+scipy==1.16.0
+shapely==2.1.1
+tabulate==0.10.0
