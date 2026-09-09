@@ -7,6 +7,31 @@ const ts = require('typescript')
 const root = path.resolve(__dirname, '..')
 
 /**
+ * A minimal chainable Supabase query builder. `fetchOverheadPercent` (and other
+ * SOR fetch paths) call `.from(...).select(...).eq(...)....maybeSingle()`
+ * unconditionally, so the client must expose a query builder or those calls
+ * throw `supabase.from is not a function`. Every terminal resolves to empty, so
+ * the code falls back to its default (e.g. the 13.615% overhead constant).
+ */
+const supabaseStub = (() => {
+  const query = {
+    select: () => query,
+    eq: () => query,
+    neq: () => query,
+    in: () => query,
+    like: () => query,
+    ilike: () => query,
+    order: () => query,
+    limit: () => query,
+    range: () => query,
+    returns: () => query,
+    single: async () => ({ data: null }),
+    maybeSingle: async () => ({ data: null })
+  }
+  return { from: () => query }
+})()
+
+/**
  * Resolve a relative import the way the module itself would see it.
  *
  * The loaded module's `require` used to hand every unmocked request to this
@@ -52,7 +77,7 @@ function loadTsModule(filePath, mocks = {}) {
       // CommonJS - Node then detects ESM and refuses the module. Nothing under
       // test wants a live client, so it is always the stub unless a caller
       // mocked it with something richer above.
-      if (resolved && resolved.endsWith(`${path.sep}supabase.ts`)) return { supabase: {} }
+      if (resolved && resolved.endsWith(`${path.sep}supabase.ts`)) return { supabase: supabaseStub }
       if (resolved) return loadTsModule(resolved, mocks)
     }
     return require(request)
@@ -122,7 +147,7 @@ async function main() {
   const rateAnalysis = loadTsModule(
     path.join(root, 'src/renderer/src/lib/rateAnalysis.ts'),
     {
-      './supabase': { supabase: {} },
+      './supabase': { supabase: supabaseStub },
       './dataVariants': {
         applyDataVariantToRecipe: (recipe) => recipe,
         buildDataVariantSpec: () => ({})

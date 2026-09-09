@@ -320,24 +320,21 @@ function leanSnapshotRecipe(recipe: RateAnalysisRecipe): RateAnalysisRecipe {
 }
 
 function dashboardRateFromRecipe(recipe: RateAnalysisRecipe): number | null {
-  if (recipe.itemSource === 'SOR') {
-    const rate = calculateRateAnalysis(recipe).ratePerUnit
-    return Number.isFinite(rate) ? rate : null
-  }
   const usesAdjustedInputs = recipe.sections.some((section) =>
     section.lines.some((line) => Boolean(line.linkedRate || line.rateOverride))
   )
-  if (
+  const isUnadjusted =
     !usesAdjustedInputs &&
     !(typeof recipe.areaAllowancePercent === 'number' && recipe.areaAllowancePercent > 0) &&
     !recipe.dataVariant?.postRate &&
     !(
       recipe.dataVariant?.kind === 'optional_addition' &&
       recipe.dataVariant.additionAnalysis !== undefined
-    ) &&
-    typeof recipe.publishedRate === 'number' &&
-    Number.isFinite(recipe.publishedRate)
-  ) {
+    )
+  // A published rate is authoritative when nothing adjusts the recipe (no linked
+  // rates, overrides, area allowance, add-ons or data variants). Preferring it
+  // avoids recomputing the abstract and keeps SOR catalogue and SSR consistent.
+  if (isUnadjusted && typeof recipe.publishedRate === 'number' && Number.isFinite(recipe.publishedRate)) {
     return recipe.publishedRate
   }
   try {
