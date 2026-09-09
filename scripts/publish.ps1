@@ -75,7 +75,26 @@ if ($conf.plugins.updater.pubkey -ne $pubContent) {
 }
 
 # ----------------------------------------------------------------------------
-# 4. Version bump (package.json + tauri.conf.json + Cargo.toml)
+# 4. Commit any uncommitted source so the release builds the latest code.
+#    Only project source paths are staged — generated/tooling/temp dirs
+#    (tmp/, outputs/, scratch/, vendor/, node_modules/, .env, etc.) are left.
+# ----------------------------------------------------------------------------
+$sourcePaths = @(
+    '.gitignore', '.github', 'analysis', 'BUND_SIMULATION_PLAN.md', 'docs',
+    'package.json', 'package-lock.json', 'README.md', 'scripts', 'src',
+    'src-tauri', 'supabase', 'tsconfig.node.json', 'tsconfig.web.json', 'vite.config.ts'
+)
+git add -A -- $sourcePaths
+git diff --cached --quiet
+if ($LASTEXITCODE -ne 0) {
+    git commit -q -m "chore: commit working tree before releasing"
+    Write-Host "[OK] Committed uncommitted project source so the tag builds it" -ForegroundColor Green
+} else {
+    Write-Host "[OK] No uncommitted project source (or only generated/untracked dirs)" -ForegroundColor Green
+}
+
+# ----------------------------------------------------------------------------
+# 5. Version bump (package.json + tauri.conf.json + Cargo.toml)
 # ----------------------------------------------------------------------------
 $pkgPath = Join-Path $root "package.json"
 $pkg = Get-Content -LiteralPath $pkgPath -Raw | ConvertFrom-Json
