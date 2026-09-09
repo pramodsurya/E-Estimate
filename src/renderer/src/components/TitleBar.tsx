@@ -27,6 +27,7 @@ import { isRenamable } from './nodeVisual'
 import EstimateMark from './tutorial/EstimateMark'
 import HelpMenu from './tutorial/HelpMenu'
 import { isTauriRuntime } from '../lib/platformApi'
+import { LEAD_MAP_IMAGE_PATH } from '../lib/leadMapGeometry'
 
 type MenuName = 'file' | 'component' | 'help' | null
 
@@ -295,6 +296,16 @@ function NotificationPanel(): JSX.Element {
     }
   }
 
+  const downloadRouteMap = async (): Promise<void> => {
+    const project = useStore.getState().project
+    const dataUrl = project?.printStudioShadowFiles?.[LEAD_MAP_IMAGE_PATH]
+    if (!dataUrl) return
+    await window.api.export.png(
+      dataUrl.replace(/^data:image\/png;base64,/, ''),
+      `${project?.meta.name || 'Lead Route Map'} - route map`
+    )
+  }
+
   return (
     <aside
       className="tb-notification-panel"
@@ -304,7 +315,7 @@ function NotificationPanel(): JSX.Element {
       <header className="tb-notification-header">
         <div>
           <strong>Notifications</strong>
-          <small>Simulations and application updates</small>
+          <small>Background work, simulations, and application updates</small>
         </div>
         {canClear && (
           <button type="button" className="tb-notification-text-button" onClick={clearFinished}>
@@ -370,9 +381,14 @@ function NotificationPanel(): JSX.Element {
                 )}
 
                 <div className="tb-notification-actions">
-                  {notification.status === 'running' && (
+                  {notification.kind === 'simulation' && notification.status === 'running' && (
                     <button type="button" className="btn ghost" onClick={() => handleCancel(notification)}>
                       Cancel simulation
+                    </button>
+                  )}
+                  {notification.kind === 'map' && notification.status === 'complete' && (
+                    <button type="button" className="btn primary" onClick={() => void downloadRouteMap()}>
+                      <Download size={14} /> Download image
                     </button>
                   )}
                   {notification.status === 'cancelling' && (
@@ -437,6 +453,13 @@ function NotificationIcon({ notification }: { notification: AppNotification }): 
   if (notification.kind === 'update') {
     return (
       <span className="tb-notification-status is-update" aria-hidden="true">
+        <Download size={17} />
+      </span>
+    )
+  }
+  if (notification.kind === 'map') {
+    return (
+      <span className="tb-notification-status" aria-hidden="true">
         <Download size={17} />
       </span>
     )

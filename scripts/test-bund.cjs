@@ -832,6 +832,19 @@ near(
   0.1,
   'auto-sized rock toe volume = mean section × length'
 )
+const grossFormationWithToe = bund.rowsTotal(bund.grossFormationRows(extrasData))
+near(
+  bund.rowsTotal(bund.formationRows(extrasData)),
+  grossFormationWithToe - bund.rowsTotal(bund.rockToeRows(extrasData)),
+  0.001,
+  'homogeneous embankment deducts the separately measured rock toe'
+)
+near(
+  bund.rowsTotal(bund.formationRows({ ...extrasData, rockToeMaterial: null })),
+  grossFormationWithToe,
+  0.001,
+  'homogeneous embankment remains gross when the rock toe is disabled'
+)
 
 const rockToeWithFilter = {
   ...extrasData,

@@ -1069,6 +1069,9 @@ function SorDataSheet({
   const numericRate = recipe.publishedRate ?? sourceLine?.rate
   const hasNumericRate = typeof numericRate === 'number' && Number.isFinite(numericRate)
   const rate = hasNumericRate ? numericRate : 0
+  const profitPercent = Math.max(0, recipe.overheadPercent || 0)
+  const profitAmount = Math.round(rate * profitPercent) / 100
+  const adoptedRate = Math.round((rate + profitAmount) * 100) / 100
   const rateText = recipe.publishedRateText?.trim() ?? ''
   const catalogueSource = recipe.sorCatalogueSource
   const outputQuantity = recipe.outputQuantity || 1
@@ -1110,6 +1113,15 @@ function SorDataSheet({
             : line
         )
       })),
+      recalculation: undefined,
+      calculationStale: false
+    })
+  }
+
+  const deleteContractorProfit = (): void => {
+    onChange({
+      ...recipe,
+      overheadPercent: 0,
       recalculation: undefined,
       calculationStale: false
     })
@@ -1180,6 +1192,25 @@ function SorDataSheet({
               )}
             </td>
           </tr>
+          {hasNumericRate && profitPercent > 0 ? (
+            <tr className="sor-profit-row">
+              <td>
+                <span>Contractor's profit and overheads ({formatPercent(profitPercent)}%)</span>
+                {editing ? (
+                  <button type="button" className="btn-mini danger" onClick={deleteContractorProfit}>
+                    Delete contractor profit
+                  </button>
+                ) : null}
+              </td>
+              <td>Rs. {formatMoney(profitAmount)} / {recipe.unit || 'unit'}</td>
+            </tr>
+          ) : null}
+          {hasNumericRate ? (
+            <tr className="sor-final-rate-row">
+              <td><strong>Rate</strong></td>
+              <td><strong>Rs. {formatMoney(adoptedRate)} / {recipe.unit || 'unit'}</strong></td>
+            </tr>
+          ) : null}
         </tbody>
       </table>
       {catalogueSource ? (
@@ -1226,8 +1257,8 @@ function SorDataSheet({
           applications={leadApplications}
           variants={leadVariants}
           outputQuantity={outputQuantity}
-          baseFinalAmount={rate * outputQuantity}
-          baseRate={rate}
+          baseFinalAmount={adoptedRate * outputQuantity}
+          baseRate={adoptedRate}
           editing={editing}
           onQuantityChange={onLeadApplicationQuantityChange}
         />

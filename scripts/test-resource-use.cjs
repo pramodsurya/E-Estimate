@@ -156,4 +156,17 @@ assert.ok(
   'the observer must watch whichever element actually scrolls the list'
 )
 
+const printStudio = read('src/renderer/src/components/typst/EEstimatePrintStudio.tsx')
+const downloadPdfHandler = /const handleDownloadPdf = async[\s\S]*?\n  \}/.exec(printStudio)?.[0] ?? ''
+assert.match(
+  downloadPdfHandler,
+  /window\.api\.export\.pdf\(compiledPdfBase64, fileName\)/,
+  'Print Studio PDF download must use the native desktop save dialog'
+)
+assert.doesNotMatch(
+  downloadPdfHandler,
+  /document\.createElement\(['"]a['"]\)|compiledPdfUrl/,
+  'Print Studio must not download a temporary blob URL through a WebView anchor'
+)
+
 console.log('resource use: all assertions passed')

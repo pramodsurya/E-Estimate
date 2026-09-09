@@ -68,9 +68,12 @@ export function createTauriApi(): EestimateApi {
       embedRemote: (url) => invoke('image_embed_remote', { payload: { url } })
     },
     export: {
-      pdf: (data, name, defaultPath) => invoke('export_pdf', { data, name, defaultPath }),
+      pdf: (data, name, defaultPath) =>
+        invoke('export_pdf', { payload: { data, name, defaultPath } }),
       workbook: (data, name, defaultPath) =>
-        invoke('export_workbook', { data, name, defaultPath }),
+        invoke('export_workbook', { payload: { data, name, defaultPath } }),
+      png: (data, name, defaultPath) =>
+        invoke('export_png', { payload: { data, name, defaultPath } }),
       reveal: (path) => invoke('export_reveal', { path })
     },
     update: {

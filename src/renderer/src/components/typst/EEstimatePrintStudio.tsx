@@ -260,6 +260,7 @@ export default function EEstimatePrintStudio({
   const [documentSettings, setDocumentSettings] = useState(initialDocumentSettings)
   const [usesProjectDocumentSettings, setUsesProjectDocumentSettings] = useState(!savedDocumentSettings)
   const [compiledPdfUrl, setCompiledPdfUrl] = useState<string | null>(null)
+  const [compiledPdfBase64, setCompiledPdfBase64] = useState<string | null>(null)
   const [compileLoading, setCompileLoading] = useState(false)
   const [compileError, setCompileError] = useState<string | null>(null)
   const [compileTimeMs, setCompileTimeMs] = useState<number | null>(null)
@@ -274,6 +275,7 @@ export default function EEstimatePrintStudio({
     savedDocumentSettings ? JSON.stringify(savedDocumentSettings) : 'project-defaults'
   )
   const [saving, setSaving] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   const mediaCount = useMemo(() => {
     if (!runtimeData || typeof runtimeData !== 'object') return 0
@@ -370,6 +372,7 @@ export default function EEstimatePrintStudio({
       const duration = Math.round(performance.now() - start)
       setCompileTimeMs(duration)
       setLastCompiledSource(sourceToCompile)
+      setCompiledPdfBase64(res.data)
 
       const binary = atob(res.data)
       const bytes = new Uint8Array(binary.length)
@@ -578,6 +581,7 @@ export default function EEstimatePrintStudio({
       'Restore software defaults?\n\nYour current Typst script, including all manual and AI edits, will be completely replaced by the software default template and layout settings. Your project items and calculated values will not be deleted.\n\nAre you sure you want to replace the current script?'
     )) return
     setCompiledPdfUrl(null)
+    setCompiledPdfBase64(null)
     setLastCompiledSource(null)
     setCompileError(null)
     setDocumentSettings(normalizeDocumentSettings(projectDocumentSettings))
@@ -674,12 +678,18 @@ export default function EEstimatePrintStudio({
     URL.revokeObjectURL(url)
   }
 
-  const handleDownloadPdf = (): void => {
-    if (!compiledPdfUrl) return
-    const a = document.createElement('a')
-    a.href = compiledPdfUrl
-    a.download = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'e-estimate'}.pdf`
-    a.click()
+  const handleDownloadPdf = async (): Promise<void> => {
+    if (!compiledPdfBase64 || exportingPdf) return
+    const fileName = title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'e-estimate'
+    setExportingPdf(true)
+    setSaveError(null)
+    try {
+      await window.api.export.pdf(compiledPdfBase64, fileName)
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setExportingPdf(false)
+    }
   }
 
   // Code = raw Typst source (syntax highlighting + folding/lint). Visual = the SAME
@@ -753,11 +763,11 @@ export default function EEstimatePrintStudio({
             <button
               className="btn ghost"
               type="button"
-              disabled={!compiledPdfUrl || compileLoading || !!compileError || lastCompiledSource !== code}
-              onClick={handleDownloadPdf}
+              disabled={!compiledPdfBase64 || compileLoading || exportingPdf || !!compileError || lastCompiledSource !== code}
+              onClick={() => void handleDownloadPdf()}
               title="Download the current compiled PDF"
             >
-              <Download size={14} /> Download PDF
+              <Download size={14} /> {exportingPdf ? 'Saving PDF…' : 'Download PDF'}
             </button>
             {closable && (
               <button className="btn ghost" onClick={onClose} title="Close Studio">
@@ -1182,7 +1192,7 @@ export default function EEstimatePrintStudio({
                 <b>Compilation Error:</b> {compileError}
               </div>
             )}
-            {saveError && <div className="typst-error-banner" role="alert">Save failed: {saveError}</div>}
+            {saveError && <div className="typst-error-banner" role="alert">Action failed: {saveError}</div>}
 
             {/* Smooth Scrollable Preview Area */}
             <div ref={scrollContainerRef} className="typst-preview-scroll-area">

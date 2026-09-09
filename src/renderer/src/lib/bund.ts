@@ -2788,7 +2788,11 @@ export function zonedRepairAreas(
   data: BundData,
   section: BundSection
 ): BundZonedRepairAreas {
-  const totalFormation = sectionAreas(data, section).formation
+  const totalFormation = round3(Math.max(
+    0,
+    sectionAreas(data, section).formation -
+      (data.rockToeMaterial ? rockToeAreaAt(section, data) : 0)
+  ))
   const hearting = round3(profileBandsArea(heartingRepairBands(data, section)))
   return {
     totalFormation,
@@ -3059,8 +3063,23 @@ export function strippingRows(data: BundData): BundQtyRow[] {
   return quantityRows(data, (a) => a.stripping)
 }
 
-export function formationRows(data: BundData): BundQtyRow[] {
+/** Gross formation before separately measured material zones are displaced. */
+export function grossFormationRows(data: BundData): BundQtyRow[] {
   return quantityRows(data, (a) => a.formation)
+}
+
+/**
+ * Net homogeneous/casing formation after deducting an enabled rubble rock toe.
+ * Deduction is per chainage before MSA averaging.
+ */
+export function formationRows(data: BundData): BundQtyRow[] {
+  return quantityRowsBySection(data, (section) =>
+    round3(Math.max(
+      0,
+      sectionAreas(data, section).formation -
+        (data.rockToeMaterial ? rockToeAreaAt(section, data) : 0)
+    ))
+  )
 }
 
 /** Formation rows for the plain bund body, excluding every berm widening. */
@@ -3080,6 +3099,27 @@ export function bermFillRows(data: BundData, berm: BundBerm): BundQtyRow[] {
     design: { ...data.design, berms: data.design.berms.slice(0, index) }
   })
   const after = formationRows({
+    ...data,
+    design: { ...data.design, berms: data.design.berms.slice(0, index + 1) }
+  })
+  return after.map((row, rowIndex) => {
+    const prior = before[rowIndex]
+    const areaFrom = round3(row.areaFrom - (prior?.areaFrom ?? 0))
+    const areaTo = round3(row.areaTo - (prior?.areaTo ?? 0))
+    const meanArea = round3((areaFrom + areaTo) / 2)
+    return { ...row, areaFrom, areaTo, meanArea, qty: round3(meanArea * row.lengthM) }
+  })
+}
+
+/** Gross incremental berm fill, used to expose the printed rock-toe deduction. */
+export function grossBermFillRows(data: BundData, berm: BundBerm): BundQtyRow[] {
+  const index = (data.design.berms ?? []).findIndex((candidate) => candidate.id === berm.id)
+  if (index < 0) return []
+  const before = grossFormationRows({
+    ...data,
+    design: { ...data.design, berms: data.design.berms.slice(0, index) }
+  })
+  const after = grossFormationRows({
     ...data,
     design: { ...data.design, berms: data.design.berms.slice(0, index + 1) }
   })

@@ -75,6 +75,8 @@ export interface EestimateApi {
     pdf: (data: string, name: string, defaultPath?: string) => Promise<SaveResult>
     /** Same, for the workbook the comparative statement is also issued as. */
     workbook: (data: string, name: string, defaultPath?: string) => Promise<SaveResult>
+    /** Ask where to save, then write a PNG image there. */
+    png: (data: string, name: string, defaultPath?: string) => Promise<SaveResult>
     reveal: (path: string) => Promise<void>
   }
   update: {

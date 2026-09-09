@@ -53,6 +53,7 @@ function resolveSorDataPrintRate(
   const hasNumericRate =
     typeof numericRate === 'number' && Number.isFinite(numericRate)
   const baseRate = hasNumericRate ? numericRate : 0
+  const profitRate = Math.round(baseRate * Math.max(0, recipe.overheadPercent || 0)) / 100
   const outputQuantity = recipe.outputQuantity || 1
   const leadAmount = applications.reduce(
     (total, application) => total + application.grossAmount,
@@ -63,7 +64,7 @@ function resolveSorDataPrintRate(
     hasNumericRate,
     baseRate,
     leadRate,
-    finalRate: baseRate + leadRate,
+    finalRate: baseRate + profitRate + leadRate,
     hasLead: leadAmount > 0,
     rateText: recipe.publishedRateText?.trim() ?? ''
   }
@@ -91,7 +92,6 @@ export function adoptSavedRecipe(
           ...merged,
           areaAllowancePercent: undefined,
           areaAllowanceLabel: undefined,
-          overheadPercent: 0,
           recalculation: undefined,
           calculationStale: false
         }

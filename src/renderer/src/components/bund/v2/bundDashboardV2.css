@@ -262,32 +262,12 @@
   white-space: nowrap;
 }
 
-.bund-v2-setup-actions .btn.is-reference.active {
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
 .bund-v2-content {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 4px;
-}
-
-.bund-v2-reference-dashboard {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-
-.bund-v2-reference-note {
-  padding: 11px 13px;
-  border: 1px solid color-mix(in srgb, var(--bund-v2-warning) 55%, var(--border));
-  border-radius: 7px;
-  color: var(--text-dim);
-  background: color-mix(in srgb, var(--bund-v2-warning) 8%, var(--bg-elevated));
 }
 
 .bund-v2-section {

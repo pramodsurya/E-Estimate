@@ -51,8 +51,8 @@ assert.match(
 )
 assert.match(
   rateTableSource,
-  /<LeadAdditions[\s\S]*?applications=\{leadApplications\}[\s\S]*?baseFinalAmount=\{rate \* outputQuantity\}/,
-  'SOR DATA sheets must render applied Lead separately from the published base rate'
+  /<LeadAdditions[\s\S]*?applications=\{leadApplications\}[\s\S]*?baseFinalAmount=\{adoptedRate \* outputQuantity\}/,
+  'SOR DATA sheets must render applied Lead separately from the rate including contractor profit'
 )
 const sorSheetStart = rateTableSource.indexOf('function SorDataSheet(')
 const sorSheetEnd = rateTableSource.indexOf('function PublishedRateBlocks', sorSheetStart)
@@ -114,6 +114,40 @@ const {
       sourceContextTitle: () => null
     }
   }
+)
+
+const sorWithProfit = {
+  schemaVersion: 1,
+  itemKey: 'SOR:labour:ELEC',
+  itemSource: 'SOR',
+  categoryKey: 'labour',
+  itemCode: 'ELEC',
+  description: 'Electrician (Licensed)',
+  unit: 'Day',
+  outputQuantity: 1,
+  year: '2026-27',
+  overheadPercent: 13.615,
+  sections: [{
+    key: 'labour', label: 'Labour', lines: [{
+      id: 'labour-0', slNo: '1', description: 'Electrician (Licensed)', unit: 'Day',
+      quantity: 1, rate: 815, amount: 815
+    }]
+  }],
+  publishedRate: 815
+}
+assert.deepEqual(
+  {
+    cost: calculateRateAnalysis(sorWithProfit).baseCost,
+    profit: calculateRateAnalysis(sorWithProfit).overheadAmount,
+    rate: calculateRateAnalysis(sorWithProfit).ratePerUnit
+  },
+  { cost: 815, profit: 110.96, rate: 925.96 },
+  'SOR contractor profit must be added to cost to form the adopted rate'
+)
+assert.equal(
+  calculateRateAnalysis({ ...sorWithProfit, overheadPercent: 0 }).ratePerUnit,
+  815,
+  'Deleting the SOR contractor-profit line must make cost the adopted rate'
 )
 
 const abstract = [

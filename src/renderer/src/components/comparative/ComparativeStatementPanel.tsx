@@ -69,9 +69,10 @@ const PRINT_MARGIN_MM = { top: 12, bottom: 12, left: 10, right: 10 }
 const PRINT_CSS = `
   .cs-page{width:auto!important;min-height:0!important;padding:0!important;
     border:none!important;box-shadow:none!important}
-  /* Each sheet was planned against measured rows, so it starts a page and is
-     never split again — the engine re-breaking them would undo the plan. */
-  .cs-page + .cs-page{break-before:page;page-break-before:always}
+  /* Planned blocks are useful preview groupings, not forced paper boundaries.
+     Let the print engine use the remaining space and continue naturally. */
+  .cs-page + .cs-page{break-before:auto;page-break-before:auto}
+  .cs-table thead{display:table-header-group}
   .cs-table tr{break-inside:avoid;page-break-inside:avoid}
   .cs-page-head{break-after:avoid;page-break-after:avoid}
   .cs-component-total{break-before:avoid;page-break-before:avoid}

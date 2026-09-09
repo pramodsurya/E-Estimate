@@ -132,16 +132,24 @@ function payableComponentTerms(
       label: measurement.bermSourceLabel(berm),
       quantity: bermQuantity(berm)
     }))
-  ].filter(term => term.quantity > 1e-9)
+  ].filter(term => Math.abs(term.quantity) > 1e-9)
 }
 
 function expandPayableTerms(data: BundData, item: measurement.BundRequiredItem) {
   if (item.role === 'formation' || item.role === 'rolling') {
     return payableComponentTerms(
       data,
-      { role: 'bund', label: 'Bund', quantity: measurement.rowsTotal(measurement.plainFormationRows(data)) },
-      berm => measurement.rowsTotal(measurement.bermFillRows(data, berm))
-    )
+      {
+        role: 'bund',
+        label: 'Bund',
+        quantity: measurement.rowsTotal(measurement.grossFormationRows(withLeadingBerms(data, [])))
+      },
+      berm => measurement.rowsTotal(measurement.grossBermFillRows(data, berm))
+    ).concat(data.rockToeMaterial ? [{
+      role: 'rocktoe-deduction',
+      label: 'Less: Rock toe',
+      quantity: -measurement.rowsTotal(measurement.rockToeRows(data))
+    }] : [])
   }
   if (item.role === 'casing' || item.role === 'casing-rolling') {
     return payableComponentTerms(
@@ -149,10 +157,16 @@ function expandPayableTerms(data: BundData, item: measurement.BundRequiredItem) 
       {
         role: 'casing',
         label: 'Casing',
-        quantity: measurement.rowsTotal(measurement.casingRows(withLeadingBerms(data, [])))
+        quantity:
+          measurement.rowsTotal(measurement.grossFormationRows(withLeadingBerms(data, []))) -
+          measurement.rowsTotal(measurement.heartingRows(withLeadingBerms(data, [])))
       },
-      berm => measurement.rowsTotal(measurement.bermFillRows(data, berm))
-    )
+      berm => measurement.rowsTotal(measurement.grossBermFillRows(data, berm))
+    ).concat(data.rockToeMaterial ? [{
+      role: 'rocktoe-deduction',
+      label: 'Less: Rock toe',
+      quantity: -measurement.rowsTotal(measurement.rockToeRows(data))
+    }] : [])
   }
   if (item.role === 'turfing') {
     return payableComponentTerms(
@@ -637,7 +651,7 @@ export function bundVariablesPrelude(): string {
  * component typ renders only its banner + Abstract of Estimate: the per-item
  * "every item on its own page" section is removed, the bund layout is inserted
  * after the abstract, and any externally-added (non-template) items are then
- * reprinted each on its own page. One signature block is kept at the very end
+ * allowed to flow after it. One signature block is kept at the very end
  * (the component typ's), so the bund layout's own signature is stripped.
  */
 export function injectBundLayout(
@@ -668,7 +682,7 @@ export function injectBundLayout(
   // Externally-added items (not template-generated) follow the bund layout.
   const hasExternal = (renderData?.items ?? []).some((item) => !item.templateGenerated)
   const itemsLoop = hasExternal
-    ? '\n\n#for item in EE.items [\n  #if not item.at("templateGenerated", default: false) [\n    #pagebreak()\n    #render-component-item(item)\n  ]\n]\n'
+    ? '\n\n#for item in EE.items [\n  #if not item.at("templateGenerated", default: false) [\n    #render-component-item(item)\n    #v(12pt)\n  ]\n]\n'
     : ''
 
   return `${section1.trimEnd()}\n\n#pagebreak(weak: true)\n${bundLayout.trimEnd()}${itemsLoop}\n\n${section3.trimStart()}`

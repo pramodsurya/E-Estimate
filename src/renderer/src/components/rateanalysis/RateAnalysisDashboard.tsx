@@ -427,7 +427,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
     setEditing(true)
     setNotice(
       current.itemSource === 'SOR'
-        ? 'Edit the SOR description or adopted rate. SSR calculations are not applied to this sheet.'
+        ? "Edit the SOR cost, or delete the contractor profit line to adopt cost as the rate."
         : 'Published Supabase values stay unchanged. Edits are recalculated automatically.'
     )
   }
@@ -452,7 +452,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
     if (next.itemSource === 'SSR' && next.calculationStale) {
       setNotice('Inputs changed. Recalculation updated automatically.')
     } else if (next.itemSource === 'SOR') {
-      setNotice('SOR description/rate updated. Save to adopt it in this project.')
+      setNotice('SOR cost/profit updated. Save to adopt the resulting rate in this project.')
     }
   }
 

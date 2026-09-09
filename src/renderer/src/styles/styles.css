@@ -1708,10 +1708,9 @@ textarea {
 }
 .project-hero {
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(0, 990px);
-  justify-content: space-between;
+  grid-template-columns: minmax(0, 1fr);
   align-items: flex-start;
-  gap: 12px 20px;
+  gap: 10px;
   margin-bottom: 14px;
 }
 .project-identity {
@@ -1728,10 +1727,16 @@ textarea {
 .project-identity .dash-title {
   margin: 0;
   min-width: 0;
-  white-space: nowrap;
+  line-height: 1.15;
+}
+.project-identity .dash-title > svg {
+  flex: 0 0 auto;
+}
+.project-identity .dash-title > span {
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 .project-meta-chips {
-  grid-column: 1 / -1;
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
@@ -1750,8 +1755,10 @@ textarea {
   white-space: nowrap;
 }
 .project-dashboard .dash-actions {
-  max-width: 990px;
+  width: 100%;
+  max-width: none;
   gap: 6px;
+  justify-content: flex-end;
 }
 .project-dashboard .dash-actions .btn {
   min-height: 32px;
@@ -6046,6 +6053,12 @@ textarea {
   border-radius: 9px;
   background: #f0f4f8;
 }
+.lead-print-map.static .leaflet-container {
+  pointer-events: none;
+}
+.lead-print-map.static .leaflet-control-zoom {
+  display: none;
+}
 .lead-print-map.editing {
   outline: 2px solid #0e639c;
 }
@@ -6843,6 +6856,23 @@ textarea {
   font-size: 18px;
   line-height: 1.4;
   vertical-align: top;
+}
+.sor-data-table .sor-profit-row td {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  font-size: 16px;
+}
+.sor-profit-row td:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.sor-data-table .sor-final-rate-row td {
+  border-top: 3px solid var(--reconstruction-navy);
+  background: #f3f8fa;
+  padding-top: 13px;
+  padding-bottom: 13px;
 }
 .sor-data-table textarea {
   width: 100%;

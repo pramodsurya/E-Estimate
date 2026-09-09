@@ -563,7 +563,7 @@ export type AppNotificationStatus =
 /** Ephemeral notification-centre row. It is never written into a project file. */
 export interface AppNotification {
   id: string
-  kind: 'simulation' | 'update'
+  kind: 'simulation' | 'update' | 'map'
   status: AppNotificationStatus
   title: string
   message: string

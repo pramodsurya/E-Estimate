@@ -316,7 +316,7 @@ export function guideWallVariablesPrelude(): string {
  * The component typ renders only its banner + Abstract of Estimate; the per-item
  * "every item on its own page" section is removed, the guide-wall layout is
  * inserted after the abstract, and any externally-added (non-template) items are
- * then reprinted each on its own page. One signature block is kept at the very end
+ * then allowed to flow after it. One signature block is kept at the very end
  * (the component typ's), so the guide-wall layout's own signature is stripped.
  */
 export function injectGuideWallLayout(
@@ -343,7 +343,7 @@ export function injectGuideWallLayout(
 
   const hasExternal = (renderData?.items ?? []).some((item) => !item.templateGenerated)
   const itemsLoop = hasExternal
-    ? '\n\n#for item in EE.items [\n  #if not item.at("templateGenerated", default: false) [\n    #pagebreak()\n    #render-component-item(item)\n  ]\n]\n'
+    ? '\n\n#for item in EE.items [\n  #if not item.at("templateGenerated", default: false) [\n    #render-component-item(item)\n    #v(12pt)\n  ]\n]\n'
     : ''
 
   return `${section1.trimEnd()}\n\n#pagebreak(weak: true)\n${layout.trimEnd()}${itemsLoop}\n\n${section3.trimStart()}`

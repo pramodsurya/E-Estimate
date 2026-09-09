@@ -258,9 +258,9 @@ assert.ok(
   'a total belongs to the rows above it and may not open a sheet'
 )
 assert.ok(
-  /\.cs-page \+ \.cs-page\{break-before:page/.test(panel) &&
-    !/\.cs-table thead\{display:table-header-group\}/.test(panel),
-  'planned sheets must not be paginated a second time by the engine'
+  /\.cs-page \+ \.cs-page\{break-before:auto;page-break-before:auto\}/.test(panel) &&
+    /\.cs-table thead\{display:table-header-group\}/.test(panel),
+  'comparative sections must flow into available paper space and repeat headers after natural page breaks'
 )
 assert.ok(
   /if \(!measured\) return \[rows\]/.test(panel),

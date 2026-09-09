@@ -19,6 +19,10 @@ const layers = fs.readFileSync(
   path.join(root, 'src/renderer/src/components/map/MapLayers.tsx'),
   'utf8'
 )
+const styles = fs.readFileSync(
+  path.join(root, 'src/renderer/src/styles/styles.css'),
+  'utf8'
+)
 
 assert.match(studio, /const mapFixed = storedMapImage/)
 assert.match(studio, /const editorLocked = mapFixed \|\| busy/)
@@ -27,6 +31,11 @@ assert.doesNotMatch(studio, /Save changes/)
 assert.match(studio, /locked=\{editorLocked\}/)
 assert.match(studio, /onUpdatePrintSettings=\{editorLocked \? undefined : onUpdatePrintSettings\}/)
 assert.match(studio, /interactive=\{!editorLocked\}/)
+assert.match(studio, /for \(const handler of handlers\)[\s\S]*?handler\.disable\(\)/, 'fixed state must disable already-created Leaflet handlers')
+assert.match(studio, /disabled=\{downloading\}[\s\S]*?<X size=\{14\} \/> Close/, 'Close becomes available after capture finishes')
+assert.match(studio, /kind: 'map'[\s\S]*?status: 'complete'/, 'background map completion must reach notifications')
+assert.match(studio, /window\.api\.export\.png/, 'fixed map image must be downloadable')
+assert.match(styles, /\.lead-print-map\.static \.leaflet-container[\s\S]*?pointer-events: none/, 'fixed map must reject pointer and wheel input at the DOM boundary')
 
 for (const interaction of [
   'zoomControl',

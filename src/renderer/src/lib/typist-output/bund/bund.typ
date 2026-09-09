@@ -585,7 +585,7 @@
   }
 }
 
-#heading(level: 2)[Payable quantities of Excavation.]
+#heading(level: 2)[Total quantities of Excavation.]
 #v(1pt)
 #note[Each excavation DATA code is shown once, followed by the works contributing to its total.]
 #v(4pt)
@@ -611,12 +611,12 @@
 }
 
 // --------------------------------------------------------------------------
-// Payable quantities (excluding excavation DATA already listed above)
+// Total quantities (excluding excavation DATA already listed above)
 // --------------------------------------------------------------------------
 #if payable-by-code.len() > 0 [
-  #heading(level: 2)[Payable quantities]
+  #heading(level: 2)[Total quantities]
   #v(1pt)
-  #note[Each work code is shown once, followed by the components that add to its total. Excavation quantities are in Payable quantities of Excavation above and are not repeated here. Distinct operations can share a measured volume; their quantities must not be added to obtain geometric fill.]
+  #note[Each work code is shown once, followed by the components that add to its total. Excavation quantities are in Total quantities of Excavation above and are not repeated here. Distinct operations can share a measured volume; their quantities must not be added to obtain geometric fill.]
   #v(4pt)
   #for payable-code in payable-by-code {
     block(breakable: false, below: 12pt)[
@@ -632,7 +632,7 @@
         ..payable-code.terms.map(term => [#term.label]),
         [*Total*],
         ..payable-code.terms.enumerate().map(((index, term)) => [
-          #if index > 0 { text("+"); h(3pt) }#metadata(term.at("_ee_print_id", default: ""))#number(term.quantity)
+          #if index > 0 and term.quantity >= 0 { text("+"); h(3pt) }#metadata(term.at("_ee_print_id", default: ""))#number(term.quantity)
         ]),
         [#text("=") #metadata(payable-code.at("_ee_print_id", default: ""))#underline(strong(number(payable-code.total))) #payable-code.unit],
       )

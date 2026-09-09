@@ -34,6 +34,26 @@ const univerComponent = fs.readFileSync(
   path.join(root, 'src/renderer/src/lib/typist-output/univerComponent.typ'),
   'utf8'
 )
+const componentTypstSource = fs.readFileSync(
+  path.join(root, 'src/renderer/src/lib/typist-output/componentTypst.ts'),
+  'utf8'
+)
+assert.match(
+  componentTypstSource,
+  /\(isBund \|\| isGuideWall\) && savedTypstSource[\s\S]*?ensureTemplateExternalItems\(source, renderData\)/,
+  'saved component templates must dynamically include external items added later'
+)
+assert.match(
+  componentTypstSource,
+  /not item\.at\("templateGenerated", default: false\)[\s\S]*?#render-component-item\(item\)/,
+  'the template external-item loop must exclude generated measurement items'
+)
+const externalItemsLoop = /const EXTERNAL_ITEMS_LOOP = `[\s\S]*?`/.exec(componentTypstSource)?.[0] ?? ''
+assert.doesNotMatch(
+  externalItemsLoop,
+  /#pagebreak/,
+  'external component items must flow instead of forcing every item onto a new page'
+)
 
 const prelude = `
 #let signature-cells(rows) = {

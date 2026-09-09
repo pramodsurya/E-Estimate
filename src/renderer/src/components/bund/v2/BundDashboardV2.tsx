@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { History, Mountain, Pencil, Settings2 } from 'lucide-react'
+import { Mountain, Pencil, Settings2 } from 'lucide-react'
 import { useStore } from '../../../store/useStore'
 import { findNode } from '../../../lib/tree'
 import type {
@@ -29,7 +29,6 @@ import CrossSectionsBermDesign from './chapters/CrossSectionsBermDesign'
 import FoundationExcavationClearance from './chapters/FoundationExcavationClearance'
 import CutOffTrenchChapter from './chapters/CutOffTrenchChapter'
 import OptionalProtectionDrainage from './chapters/OptionalProtectionDrainage'
-import BundDashboard from '../BundDashboard'
 import './bundDashboardV2.css'
 
 /**
@@ -398,18 +397,6 @@ export default function BundDashboardV2({
         </div>
 
         <div className="bund-v2-setup-actions">
-          <button
-            type="button"
-            className={`btn ghost${activeChapter === 'old-bund-dashboard' ? ' active is-reference' : ''}`}
-            onClick={() =>
-              setActiveChapter((prev) =>
-                prev === 'old-bund-dashboard' ? 'proposed-bund-design' : 'old-bund-dashboard'
-              )
-            }
-            title="Toggle classic reference dashboard"
-          >
-            <History size={14} /> {activeChapter === 'old-bund-dashboard' ? 'Exit classic view' : 'Classic view'}
-          </button>
           <button type="button" className="btn ghost" onClick={() => onEditSetup(1)}>
             <Settings2 size={14} /> Edit setup
           </button>
@@ -426,30 +413,6 @@ export default function BundDashboardV2({
       />
 
       <main className="bund-v2-content">
-        {activeChapter === 'old-bund-dashboard' && (
-          <div className="bund-v2-reference-dashboard">
-            <div className="bund-v2-reference-note" role="note">
-              <span>
-                Viewing classic reference dashboard. Compare inputs and quantities with the modern workflow.
-              </span>
-              <button
-                type="button"
-                className="btn small primary"
-                onClick={() => setActiveChapter('proposed-bund-design')}
-                style={{ marginLeft: '12px' }}
-              >
-                Return to design workflow
-              </button>
-            </div>
-            <BundDashboard
-              node={node}
-              data={data}
-              onEditSetup={onEditSetup}
-              template={isZoned ? 'zoned' : 'homogeneous'}
-            />
-          </div>
-        )}
-
         {/* Chapter 1: Proposed Bund Design */}
         {activeChapter === 'proposed-bund-design' && (
           <ProposedBundDesign

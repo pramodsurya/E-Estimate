@@ -248,17 +248,19 @@ export function calculateOptionalAddition(
 /** The DATA analysis before a selected post-rate percentage is applied. */
 export function calculateBaseRateAnalysis(recipe: RateAnalysisRecipe): RateAnalysisSummary {
   if (recipe.itemSource === 'SOR') {
-    const rate = numberValue(
+    const baseRate = numberValue(
       recipe.publishedRate ?? recipe.sections.flatMap((section) => section.lines)[0]?.rate
     )
+    const overheadAmount = roundMoney((baseRate * numberValue(recipe.overheadPercent)) / 100)
+    const rate = roundMoney(baseRate + overheadAmount)
     return {
       sectionTotals: { materials: 0, machinery: 0, labour: 0 },
       labourBaseCost: 0,
       areaAllowancePercent: 0,
       areaAllowanceAmount: 0,
       labourCostWithAreaAllowance: 0,
-      baseCost: rate,
-      overheadAmount: 0,
+      baseCost: baseRate,
+      overheadAmount,
       totalCost: rate,
       ratePerUnit: rate,
       labourUnitBase: 0,
@@ -730,7 +732,6 @@ export function recalculateRateAnalysis(recipe: RateAnalysisRecipe): RateAnalysi
       ...recipe,
       areaAllowancePercent: undefined,
       areaAllowanceLabel: undefined,
-      overheadPercent: 0,
       recalculation: undefined,
       calculationStale: false
     }
@@ -2607,6 +2608,7 @@ async function fetchSorRecipe(
   options: RateAnalysisFetchOptions = {}
 ): Promise<RateAnalysisRecipe> {
   const category = node.categoryKey ?? ''
+  const overheadPercent = await fetchOverheadPercent(year)
   if (category === SOR_CATALOGUE_CATEGORY) {
     const selection = node.sorCatalogue
     if (!selection) throw new Error('This item does not contain a saved SOR catalogue selection.')
@@ -2666,7 +2668,7 @@ async function fetchSorRecipe(
       unit,
       outputQuantity: 1,
       year,
-      overheadPercent: 0,
+      overheadPercent,
       sections,
       layout: parseRateAnalysisVisibility(undefined, description),
       publishedRate: rate ?? undefined,
@@ -2762,7 +2764,7 @@ async function fetchSorRecipe(
     outputQuantity: 1,
     year,
     zone,
-    overheadPercent: 0,
+    overheadPercent,
     sections,
     layout: parseRateAnalysisVisibility(item.visibility, textValue(item[config.nameCol])),
     publishedRate: rate,
@@ -2836,6 +2838,9 @@ export async function fetchItemRate(
   try {
     const recipe = await fetchRateAnalysis(node, year, options)
     if (recipe.itemSource === 'SOR') {
+      // Resource pickers need the raw SOR cost. An enclosing SSR DATA adds its
+      // own contractor profit, so returning the adopted direct-item rate here
+      // would apply profit twice.
       const rate = numberValue(recipe.publishedRate, Number.NaN)
       return Number.isFinite(rate) ? rate : null
     }

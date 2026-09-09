@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
-import { Eraser, LoaderCircle, LockKeyhole, Printer, X } from 'lucide-react'
+import { Download, Eraser, LoaderCircle, LockKeyhole, Printer, X } from 'lucide-react'
 import L from 'leaflet'
 import {
   MapContainer,
@@ -129,7 +129,7 @@ export default function LeadMapPrintStudio({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape' || busy) return
+      if (event.key !== 'Escape' || downloading) return
       if (previewUrl) {
         setPreviewUrl(null)
         return
@@ -138,18 +138,26 @@ export default function LeadMapPrintStudio({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [busy, onClose, previewUrl])
+  }, [downloading, onClose, previewUrl])
 
   const fixMap = async (): Promise<void> => {
     if (busy || downloading) return
     setBusy(true)
     setDownloading(true)
     const epoch = ++captureEpochRef.current
+    const notificationId = 'lead-map-image'
     let committed = false
     try {
       setStatus('Capturing map for the project…')
       const current = useStore.getState().project
       if (!current) throw new Error('No project is open.')
+      useStore.getState().upsertAppNotification({
+        id: notificationId,
+        kind: 'map',
+        status: 'running',
+        title: 'Fixing route map',
+        message: 'Capturing the adjusted map image.'
+      })
       await prepareLeadMapForCapture(pageRef.current)
       if (epoch !== captureEpochRef.current) return
       const capture = await captureLeadMapPng(
@@ -173,16 +181,54 @@ export default function LeadMapPrintStudio({
         tileFiles: capture.tileFiles
       })
       committed = true
+      setDownloading(false)
       setStatus('Storing fixed map inside the project…')
+      useStore.getState().upsertAppNotification({
+        id: notificationId,
+        kind: 'map',
+        status: 'running',
+        title: 'Route map fixed',
+        message: 'The map is locked. Saving continues in the background; you can close Map Print Studio.'
+      })
       await useStore.getState().saveProject({ requireSaved: true })
       if (epoch !== captureEpochRef.current) return
       setStatus('Map fixed and stored inside the project.')
+      useStore.getState().upsertAppNotification({
+        id: notificationId,
+        kind: 'map',
+        status: 'complete',
+        title: 'Route map image ready',
+        message: 'The fixed image is stored in the project and is ready to download.'
+      }, true)
     } catch (error) {
       if (committed) useStore.getState().clearLeadMapPrint()
-      setStatus(formatMapCaptureError(error))
+      const message = formatMapCaptureError(error)
+      setStatus(message)
+      useStore.getState().upsertAppNotification({
+        id: notificationId,
+        kind: 'map',
+        status: 'error',
+        title: 'Route map could not be fixed',
+        message
+      }, true)
     } finally {
       setDownloading(false)
       setBusy(false)
+    }
+  }
+
+  const downloadMapImage = async (): Promise<void> => {
+    const current = useStore.getState().project
+    const dataUrl = current?.printStudioShadowFiles?.[LEAD_MAP_IMAGE_PATH]
+    if (!dataUrl) return
+    try {
+      const result = await window.api.export.png(
+        dataUrl.replace(/^data:image\/png;base64,/, ''),
+        `${current?.meta.name || 'Lead Route Map'} - route map`
+      )
+      if (!result.canceled) setStatus('Fixed map image downloaded.')
+    } catch (error) {
+      setStatus(formatMapCaptureError(error))
     }
   }
 
@@ -252,7 +298,12 @@ export default function LeadMapPrintStudio({
               {downloading ? <LoaderCircle className="spin" size={14} /> : <Printer size={14} />}
               Print Map
             </button>
-            <button className="btn ghost" type="button" disabled={busy} onClick={onClose}>
+            {mapFixed && (
+              <button className="btn ghost" type="button" onClick={() => void downloadMapImage()}>
+                <Download size={14} /> Download Image
+              </button>
+            )}
+            <button className="btn ghost" type="button" disabled={downloading} onClick={onClose}>
               <X size={14} /> Close
             </button>
           </div>
@@ -519,6 +570,21 @@ function MapViewport({
       }
     }
   }, [bounds, interactive, map, savedView])
+
+  useEffect(() => {
+    const handlers = [
+      map.scrollWheelZoom,
+      map.doubleClickZoom,
+      map.dragging,
+      map.touchZoom,
+      map.boxZoom,
+      map.keyboard
+    ]
+    for (const handler of handlers) {
+      if (interactive) handler.enable()
+      else handler.disable()
+    }
+  }, [interactive, map])
 
   const record = (): void => {
     if (!interactive || !userAction.current) return

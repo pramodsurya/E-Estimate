@@ -321,9 +321,8 @@ function leanSnapshotRecipe(recipe: RateAnalysisRecipe): RateAnalysisRecipe {
 
 function dashboardRateFromRecipe(recipe: RateAnalysisRecipe): number | null {
   if (recipe.itemSource === 'SOR') {
-    return typeof recipe.publishedRate === 'number' && Number.isFinite(recipe.publishedRate)
-      ? recipe.publishedRate
-      : null
+    const rate = calculateRateAnalysis(recipe).ratePerUnit
+    return Number.isFinite(rate) ? rate : null
   }
   const usesAdjustedInputs = recipe.sections.some((section) =>
     section.lines.some((line) => Boolean(line.linkedRate || line.rateOverride))

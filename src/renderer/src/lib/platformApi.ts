@@ -55,6 +55,7 @@ export function createBrowserApi(): EestimateApi {
     export: {
       pdf: canceled,
       workbook: canceled,
+      png: canceled,
       reveal: async () => undefined
     },
     update: {

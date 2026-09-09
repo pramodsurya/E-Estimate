@@ -191,7 +191,8 @@ export default function TitleDashboard(): JSX.Element | null {
         <div className="project-identity">
           <div className="dash-eyebrow">Project dashboard</div>
           <h1 className="dash-title">
-            <NodeIcon node={root} size={23} /> {meta.name || root.name}
+            <NodeIcon node={root} size={23} />
+            <span>{meta.name || root.name}</span>
           </h1>
         </div>
         <div className="dash-actions">

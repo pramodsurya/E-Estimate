@@ -61,15 +61,15 @@ for (const mode of ['new', 'restoration']) for (const embankmentType of ['homoge
   assert(render.payable_items.some(item => excavationRoles.has(item.role)), 'payable_items still include excavation roles for the dedicated excavation section')
   assert(render.payable_items.some(item => !excavationRoles.has(item.role) && !excavationCodes.has(item.code)), 'non-excavation payable items must remain available')
   assert.equal(render.excavation.filter(item => item.role === 'berm-drain-exc').length, 1, 'berm catch-water drain excavation must be classified once')
-  assert.match(source, /other-payable-items/, 'print must filter excavation items out of the general payable list')
+  assert.match(source, /other-payable-items/, 'print must filter excavation items out of the general quantity list')
   assert.match(source, /payable-by-code/, 'non-excavation payables must reuse the excavation-by-code addition layout')
   assert.match(source, /excavation-payable-roles/, 'print exclusion must use BundExcavationRole roles')
   assert.match(
     source,
-    /Payable quantities of Excavation[\s\S]*?#heading\(level: 2\)\[Payable quantities\]\s[\s\S]*?\[Component details\][\s\S]*?\[Phreatic-line comparison\]/,
-    'non-excavation payables must sit immediately after excavation payables, before component details and phreatic'
+    /Total quantities of Excavation[\s\S]*?#heading\(level: 2\)\[Total quantities\]\s[\s\S]*?\[Component details\][\s\S]*?\[Phreatic-line comparison\]/,
+    'non-excavation totals must sit immediately after excavation totals, before component details and phreatic'
   )
-  assert.equal((source.match(/#heading\(level: 2\)\[Payable quantities\]\s/g) || []).length, 1, 'payable quantities table must appear once')
+  assert.equal((source.match(/#heading\(level: 2\)\[Total quantities\]\s/g) || []).length, 1, 'total quantities table must appear once')
   const fillPayable = render.payable_by_code.find(item =>
     embankmentType === 'zoned' ? item.terms.some(term => term.label === 'Casing') : item.code === bund.BUND_DEFAULT_FORMATION_CODE
   )
@@ -77,6 +77,7 @@ for (const mode of ['new', 'restoration']) for (const embankmentType of ['homoge
   assert(fillPayable.terms.some(term => term.label === 'Bund' || term.label === 'Casing'), 'fill addition must start with the bund/casing body')
   assert(fillPayable.terms.some(term => term.label.includes('u/s Berm (RL')), 'fill addition must include the u/s berm')
   assert(fillPayable.terms.some(term => term.label.includes('d/s Berm (RL')), 'fill addition must include the d/s berm')
+  assert(fillPayable.terms.some(term => term.label === 'Less: Rock toe' && term.quantity < 0), 'fill addition must visibly deduct the rock toe')
   assert.equal(
     Math.round(fillPayable.terms.reduce((sum, term) => sum + term.quantity, 0) * 1000) / 1000,
     Math.round(fillPayable.total * 1000) / 1000

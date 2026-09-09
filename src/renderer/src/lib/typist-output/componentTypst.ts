@@ -403,6 +403,39 @@ export interface ComponentPrintPart {
   savedDocumentSettings: DocumentSettings | null
 }
 
+const EXTERNAL_ITEMS_LOOP = `
+
+#for item in EE.items [
+  #if not item.at("templateGenerated", default: false) [
+    #render-component-item(item)
+    #v(12pt)
+  ]
+]
+`
+
+/**
+ * Template layouts own their generated measurement items, but an estimator may
+ * add normal item sheets at any time after that layout was saved. Keep those
+ * external sheets dynamic instead of requiring the saved Typst source to be
+ * reset whenever a child is added.
+ */
+export function ensureTemplateExternalItems(
+  source: string,
+  renderData: ComponentRenderData
+): string {
+  const hasExternal = renderData.items.some((item) => !item.templateGenerated)
+  const alreadyPrintsItems =
+    /#for\s+(?:\([^)]*\)|[A-Za-z_][\w-]*)\s+in\s+EE\.items\b/.test(source) &&
+    /#render-component-item\s*\(/.test(source)
+  if (!hasExternal || alreadyPrintsItems) return source
+
+  const signatureMarker = '// Section 3: Signatures'
+  const signatureIndex = source.indexOf(signatureMarker)
+  return signatureIndex >= 0
+    ? `${source.slice(0, signatureIndex).trimEnd()}${EXTERNAL_ITEMS_LOOP}\n${source.slice(signatureIndex)}`
+    : `${source.trimEnd()}${EXTERNAL_ITEMS_LOOP}`
+}
+
 /**
  * The exact Typst payload Component Print Studio compiles: saved source if the
  * estimator edited it, otherwise the default component (or bund/guide-wall) layout.
@@ -438,8 +471,11 @@ export function resolveComponentPrintPart(
   const savedDocumentSettings = savedTypstSource
     ? parseDocumentSettingsFromTypst(savedTypstSource)
     : null
-  const source = savedTypstSource
+  let source = savedTypstSource
     ?? applyDocumentSettingsToTypst(defaultTypst, projectDocumentSettings)
+  if ((isBund || isGuideWall) && savedTypstSource) {
+    source = ensureTemplateExternalItems(source, renderData)
+  }
 
   return {
     scopeKey,

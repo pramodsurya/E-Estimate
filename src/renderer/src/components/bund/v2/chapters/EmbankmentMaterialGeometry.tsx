@@ -298,7 +298,7 @@ export default function EmbankmentMaterialGeometry({
             <span className="bund-v2-section-kicker">Homogeneous embankment</span>
             <h3 id="bund-v2-earthwork-title">Operations to be billed</h3>
             <p>
-              Both operations use the same computed embankment volume. The selected combination
+              Both operations use the same computed embankment volume after deducting any enabled rock toe. The selected combination
               determines the SSR code.
             </p>
           </div>
