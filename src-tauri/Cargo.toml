@@ -1,4 +1,4 @@
-﻿[workspace]
+[workspace]
 members = [".", "estimate-core"]
 resolver = "2"
 
