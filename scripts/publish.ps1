@@ -1,25 +1,20 @@
-# E-Estimate One-Click Release (signing + analysis engine + auto-update manifest).
+# E-Estimate Release trigger (CI builds in the cloud).
 #
 # Usage: .\scripts\publish.ps1            # patch bump
 #        .\scripts\publish.ps1 minor      # or major / an explicit version
+#        .\scripts\publish.ps1 patch -Local   # build on THIS machine instead
 #
-# It wires the full release end-to-end so running it IS the release:
-#   1. Ensures the signing keypair exists in ~/.tauri (generates if missing).
-#   2. Mounts the private key + pushes it to GitHub Secrets (so CI runs match).
-#   3. Writes the public key into src-tauri/tauri.conf.json.
-#   4. Bumps package.json + tauri.conf.json + Cargo.toml to the same version.
-#   5. Pre-flights the analysis-engine Python deps.
-#   6. Builds the Python analysis engine + the signed Tauri installer.
-#   7. Verifies the bund-analysis.exe sidecar was bundled (simulation tab).
-#   8. Commits the version bump, tags it, pushes, creates the GitHub release.
-#   9. Uploads installer + signature + latest.json for auto-update.
+# DEFAULT (recommended): keys/secrets/version are prepared, then the version
+# commit + tag are pushed — the GitHub Actions `release.yml` workflow builds the
+# analysis engine + signed installer IN THE CLOUD and uploads it to the release.
+# You can close this window immediately; it completes on GitHub.
 #
-# Build runs before tagging so a failed build never leaves a broken release.
-# Requires: GitHub CLI (`gh`) logged in with push access, and a Python that can
-# build the bund-analysis sidecar (see step 5).
+# -Local: builds + uploads on this machine (needs the Python deps + Rust). Note
+#         it still pushes the tag, so the cloud workflow will also run on it.
 
 param(
-    [string]$bumpType = "patch"
+    [string]$bumpType = "patch",
+    [switch]$Local
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,7 +24,7 @@ Set-Location $root
 $repoSlug = "pramodsurya/E-Estimate"
 
 Write-Host "====================================" -ForegroundColor Cyan
-Write-Host "  E-Estimate - One-Click Release" -ForegroundColor Cyan
+Write-Host "  E-Estimate - Release" -ForegroundColor Cyan
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -53,7 +48,7 @@ $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
 $env:TAURI_SIGNING_PRIVATE_KEY_PATH = $keyFile
 
 # ----------------------------------------------------------------------------
-# 3. GitHub CLI + secrets + public key sync
+# 3. GitHub CLI + publish the signing key as a repo secret
 # ----------------------------------------------------------------------------
 $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
 $userPath    = [System.Environment]::GetEnvironmentVariable("Path", "User")
@@ -66,9 +61,8 @@ try { $env:GH_TOKEN = & $gh auth token 2>$null } catch { }
 if (-not $env:GH_TOKEN) { Write-Host "ERROR: run 'gh auth login' first" -ForegroundColor Red; exit 1 }
 Write-Host "[OK] GitHub authenticated" -ForegroundColor Green
 
-# Mirror the signing key to repo secrets so future CI releases reproduce it.
 & $gh secret set TAURI_SIGNING_PRIVATE_KEY --repo $repoSlug --body $privateKeyContent
-Write-Host "[OK] TAURI_SIGNING_PRIVATE_KEY secret updated" -ForegroundColor Green
+Write-Host "[OK] TAURI_SIGNING_PRIVATE_KEY secret updated (CI will sign)" -ForegroundColor Green
 
 # Keep tauri.conf.json's public key in sync with the keypair.
 $pubContent = (Get-Content -LiteralPath $pubFile -Raw).Trim()
@@ -109,53 +103,7 @@ Set-Content -LiteralPath $cargoPath -Value $cargo -Encoding utf8
 Write-Host "[OK] Version synced across package.json, tauri.conf.json, Cargo.toml" -ForegroundColor Green
 
 # ----------------------------------------------------------------------------
-# 5. Analysis-engine Python deps pre-flight
-# ----------------------------------------------------------------------------
-$python = if ($env:EESTIMATE_PYTHON) { $env:EESTIMATE_PYTHON } else { 'python' }
-& $python -c "import PyInstaller, xslope, numpy, scipy, shapely, openpyxl, gmsh" 2>$null
-if ($LASTEXITCODE -ne 0) {
-    Write-Host @"
-
-ERROR: The analysis-engine build Python is missing solver deps. Install them:
-
-  python -m pip install -r analysis/requirements-packaging.txt
-
-(or set EESTIMATE_PYTHON to an interpreter that has them.)
-
-"@ -ForegroundColor Red
-    exit 1
-}
-Write-Host "[OK] Analysis-engine Python deps present" -ForegroundColor Green
-
-# ----------------------------------------------------------------------------
-# 6. Build the analysis engine + signed Tauri installer
-# ----------------------------------------------------------------------------
-Write-Host ""
-Write-Host "Building analysis engine + Tauri bundle (10-60+ min)..." -ForegroundColor Cyan
-npm run publish:win
-if ($LASTEXITCODE -ne 0) { Write-Host "ERROR: build failed — no tag/release created" -ForegroundColor Red; exit 1 }
-
-# ----------------------------------------------------------------------------
-# 7. Verify the analysis engine sidecar exists (simulation tab depends on it)
-# ----------------------------------------------------------------------------
-$engine = Join-Path $root "vendor\bund-analysis\bund-analysis.exe"
-if (-not (Test-Path -LiteralPath $engine)) {
-    Write-Host "ERROR: bund-analysis.exe not produced — the simulation tab would ship broken." -ForegroundColor Red
-    exit 1
-}
-Write-Host "[OK] Analysis engine present: $engine" -ForegroundColor Green
-
-$nsisDir = Join-Path $root "src-tauri\target\release\bundle\nsis"
-$installer = Get-ChildItem $nsisDir -Filter "*-setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $installer) { Write-Host "ERROR: NSIS installer not found under $nsisDir" -ForegroundColor Red; exit 1 }
-$sigFile = "$($installer.FullName).sig"
-if (-not (Test-Path -LiteralPath $sigFile)) {
-    Write-Host "ERROR: installer signature not produced (createUpdaterArtifacts / signing key?)" -ForegroundColor Red; exit 1
-}
-Write-Host "[OK] Built signed installer: $($installer.Name)" -ForegroundColor Green
-
-# ----------------------------------------------------------------------------
-# 8. Commit version bump, tag, push, ensure release
+# 5. Commit + tag + push (this triggers the cloud release)
 # ----------------------------------------------------------------------------
 git config user.name "github-actions[bot]"
 git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -167,41 +115,61 @@ git tag -f $tagName
 git push --force origin $tagName
 Write-Host "[OK] Pushed v$newVersion tag" -ForegroundColor Green
 
+if (-not $Local) {
+    Write-Host ""
+    Write-Host "=====================================================" -ForegroundColor Green
+    Write-Host "  Cloud release triggered for v$newVersion" -ForegroundColor Green
+    Write-Host "=====================================================" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "GitHub Actions is now building the analysis engine + installer" -ForegroundColor Cyan
+    Write-Host "in the cloud. You can close this window and walk away." -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Watch:  https://github.com/$repoSlug/actions" -ForegroundColor Cyan
+    Write-Host "Result: https://github.com/$repoSlug/releases/tag/$tagName" -ForegroundColor Cyan
+    exit 0
+}
+
+# ============================================================================
+# -Local: build and upload from this machine (CI will also run on the tag).
+# ============================================================================
+$python = if ($env:EESTIMATE_PYTHON) { $env:EESTIMATE_PYTHON } else { 'python' }
+& $python -c "import PyInstaller, xslope, numpy, scipy, shapely, openpyxl, gmsh" 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "ERROR: analysis-engine Python deps missing. Run: python -m pip install -r analysis/requirements-packaging.txt" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "Building analysis engine + Tauri installer locally (10-60+ min)..." -ForegroundColor Cyan
+npm run publish:win
+if ($LASTEXITCODE -ne 0) { Write-Host "ERROR: build failed" -ForegroundColor Red; exit 1 }
+
+$engine = Join-Path $root "vendor\bund-analysis\bund-analysis.exe"
+if (-not (Test-Path -LiteralPath $engine)) { Write-Host "ERROR: bund-analysis.exe not produced" -ForegroundColor Red; exit 1 }
+$nsisDir = Join-Path $root "src-tauri\target\release\bundle\nsis"
+$installer = Get-ChildItem $nsisDir -Filter "*-setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $installer) { Write-Host "ERROR: NSIS installer not found" -ForegroundColor Red; exit 1 }
+$sigFile = "$($installer.FullName).sig"
+if (-not (Test-Path -LiteralPath $sigFile)) { Write-Host "ERROR: installer signature not produced" -ForegroundColor Red; exit 1 }
+
 & $gh release view $tagName --repo $repoSlug *> $null
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Creating GitHub release $tagName..." -ForegroundColor Cyan
     & $gh release create $tagName --repo $repoSlug --target master --title $tagName --notes "Automated release $tagName" *> $null
 }
-Write-Host "[OK] Release $tagName ready" -ForegroundColor Green
-
-# ----------------------------------------------------------------------------
-# 9. Upload installer + signature + latest.json (auto-update)
-# ----------------------------------------------------------------------------
 $installerName = $installer.Name
 $sigContent = (Get-Content -LiteralPath $sigFile -Raw).Trim()
 $assetUrl = "https://github.com/$repoSlug/releases/download/$tagName/$installerName"
 $pubDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-
 $latest = [ordered]@{
-    version  = $newVersion
-    notes    = ""
-    pub_date = $pubDate
-    platforms = [ordered]@{
-        "windows-x86_64" = [ordered]@{ signature = $sigContent; url = $assetUrl }
-    }
+    version = $newVersion; notes = ""; pub_date = $pubDate
+    platforms = [ordered]@{ "windows-x86_64" = [ordered]@{ signature = $sigContent; url = $assetUrl } }
 }
 $latestPath = Join-Path $root "latest.json"
 $latest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $latestPath -Encoding utf8
-
-Write-Host "Uploading installer, signature and latest.json..." -ForegroundColor Cyan
 & $gh release upload $tagName $installer.FullName $sigFile $latestPath --repo $repoSlug --clobber
 if ($LASTEXITCODE -ne 0) { Write-Host "ERROR: upload failed" -ForegroundColor Red; exit 1 }
 Remove-Item -LiteralPath $latestPath -Force
 
 Write-Host ""
 Write-Host "====================================" -ForegroundColor Green
-Write-Host "  RELEASED v$newVersion (auto-update ready)" -ForegroundColor Green
+Write-Host "  RELEASED v$newVersion (local build)" -ForegroundColor Green
 Write-Host "====================================" -ForegroundColor Green
-Write-Host ""
-Write-Host "Release:  https://github.com/$repoSlug/releases/tag/$tagName" -ForegroundColor Cyan
-Write-Host "Installer: $installerName (includes the bundled analysis engine)" -ForegroundColor Cyan
