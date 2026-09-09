@@ -5,7 +5,7 @@
 #        .\scripts\publish.ps1 patch -Local   # build on THIS machine instead
 #
 # DEFAULT (recommended): keys/secrets/version are prepared, then the version
-# commit + tag are pushed — the GitHub Actions `release.yml` workflow builds the
+# commit + tag are pushed â€” the GitHub Actions `release.yml` workflow builds the
 # analysis engine + signed installer IN THE CLOUD and uploads it to the release.
 # You can close this window immediately; it completes on GitHub.
 #
@@ -22,6 +22,12 @@ $root = $PSScriptRoot | Split-Path -Parent
 Set-Location $root
 
 $repoSlug = "pramodsurya/E-Estimate"
+
+# PS 5.1 `Set-Content -Encoding utf8` writes a UTF-8 BOM, which breaks Vite's
+# PostCSS config read of package.json. Always write UTF-8 without a BOM.
+function Write-Utf8NoBom([string]$Path, [string]$Content) {
+  [System.IO.File]::WriteAllText($Path, $Content, [System.Text.UTF8Encoding]::new($false))
+}
 
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "  E-Estimate - Release" -ForegroundColor Cyan
@@ -70,13 +76,13 @@ $confPath = Join-Path $root "src-tauri\tauri.conf.json"
 $conf = Get-Content -LiteralPath $confPath -Raw | ConvertFrom-Json
 if ($conf.plugins.updater.pubkey -ne $pubContent) {
     $conf.plugins.updater.pubkey = $pubContent
-    $conf | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $confPath -Encoding utf8
+    Write-Utf8NoBom $confPath ($conf | ConvertTo-Json -Depth 12)
     Write-Host "[OK] Sync'd public key into src-tauri/tauri.conf.json" -ForegroundColor Green
 }
 
 # ----------------------------------------------------------------------------
 # 4. Commit any uncommitted source so the release builds the latest code.
-#    Only project source paths are staged — generated/tooling/temp dirs
+#    Only project source paths are staged â€” generated/tooling/temp dirs
 #    (tmp/, outputs/, scratch/, vendor/, node_modules/, .env, etc.) are left.
 # ----------------------------------------------------------------------------
 $sourcePaths = @(
@@ -112,13 +118,13 @@ switch ($bumpType) {
 Write-Host "New version:     $newVersion" -ForegroundColor Green
 
 $pkg.version = $newVersion
-$pkg | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $pkgPath -Encoding utf8
+Write-Utf8NoBom $pkgPath ($pkg | ConvertTo-Json -Depth 20)
 $conf.version = $newVersion
-$conf | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $confPath -Encoding utf8
+Write-Utf8NoBom $confPath ($conf | ConvertTo-Json -Depth 12)
 $cargoPath = Join-Path $root "src-tauri\Cargo.toml"
 $cargo = Get-Content -LiteralPath $cargoPath -Raw
 $cargo = $cargo -replace '(?m)^version = ".*"$', "version = `"$newVersion`""
-Set-Content -LiteralPath $cargoPath -Value $cargo -Encoding utf8
+Write-Utf8NoBom $cargoPath $cargo
 Write-Host "[OK] Version synced across package.json, tauri.conf.json, Cargo.toml" -ForegroundColor Green
 
 # ----------------------------------------------------------------------------
@@ -183,7 +189,7 @@ $latest = [ordered]@{
     platforms = [ordered]@{ "windows-x86_64" = [ordered]@{ signature = $sigContent; url = $assetUrl } }
 }
 $latestPath = Join-Path $root "latest.json"
-$latest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $latestPath -Encoding utf8
+Write-Utf8NoBom $latestPath ($latest | ConvertTo-Json -Depth 6)
 & $gh release upload $tagName $installer.FullName $sigFile $latestPath --repo $repoSlug --clobber
 if ($LASTEXITCODE -ne 0) { Write-Host "ERROR: upload failed" -ForegroundColor Red; exit 1 }
 Remove-Item -LiteralPath $latestPath -Force
@@ -192,3 +198,4 @@ Write-Host ""
 Write-Host "====================================" -ForegroundColor Green
 Write-Host "  RELEASED v$newVersion (local build)" -ForegroundColor Green
 Write-Host "====================================" -ForegroundColor Green
+
