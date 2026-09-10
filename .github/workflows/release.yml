@@ -60,6 +60,19 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      # Reuse the ~780 compiled crates (typst/krilla/tauri) between releases.
+      # Cold build is ~18-24 min; a cache hit is typically a few minutes.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: analysis/requirements-packaging.txt
+
       - run: npm ci
 
       - name: Bump version and tag
