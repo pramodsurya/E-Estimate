@@ -123,7 +123,7 @@ $conf.version = $newVersion
 Write-Utf8NoBom $confPath ($conf | ConvertTo-Json -Depth 12)
 $cargoPath = Join-Path $root "src-tauri\Cargo.toml"
 $cargo = Get-Content -LiteralPath $cargoPath -Raw
-$cargo = $cargo -replace '(?m)^version = ".*"$', "version = `"$newVersion`""
+$cargo = $cargo -replace '(?m)^version\s*=\s*".*?"', "version = `"$newVersion`""
 Write-Utf8NoBom $cargoPath $cargo
 Write-Host "[OK] Version synced across package.json, tauri.conf.json, Cargo.toml" -ForegroundColor Green
 

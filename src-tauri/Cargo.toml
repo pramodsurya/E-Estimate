@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "e-estimate"
-version = "0.1.13"
+version = "0.1.14"
 description = "E-Estimate desktop shell (Tauri 2)"
 authors = ["E-Estimate"]
 edition = "2021"

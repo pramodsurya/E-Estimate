@@ -35,9 +35,9 @@
                    "icon":  [
                                 "icons/icon.ico"
                             ],
-                   "resources":  {
-                                     "../vendor/bund-analysis/*":  "analysis-engine/"
-                                 },
+    "resources": {
+      "../vendor/bund-analysis/": "analysis-engine/"
+    },
                    "windows":  {
                                    "nsis":  {
                                                 "installMode":  "both"
