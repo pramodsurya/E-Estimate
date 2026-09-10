@@ -26,18 +26,25 @@ npm run build:analysis-engine
 npm run build
 ```
 
-The NSIS installer is written under `src-tauri/target/release/bundle/nsis/`.
+The NSIS installer is written under `src-tauri/target/release/bundle/nsis/` (or, when `CARGO_TARGET_DIR` points elsewhere, under that target's `release/bundle/nsis/`).
 
 ## Download the latest release
 
-Current version: v0.1.8
+**Latest: v0.1.15** — [github.com/pramodsurya/E-Estimate/releases/latest](https://github.com/pramodsurya/E-Estimate/releases/latest)
 
-- Releases page: https://github.com/pramodsurya/E-Estimate/releases
-- Windows installer: https://github.com/pramodsurya/E-Estimate/releases/download/v0.1.8/E-Estimate-0.1.8-windows-x64.exe
+- **Windows installer (64-bit):** `E-Estimate_<version>_x64-setup.exe` — grab it from the latest release page.
+- Direct link to this version: [E-Estimate_0.1.15_x64-setup.exe](https://github.com/pramodsurya/E-Estimate/releases/download/v0.1.15/E-Estimate_0.1.15_x64-setup.exe)
+
+The installer bundles the XSLOPE bund-analysis engine (the bund Simulation tab needs it), and every release is signed. Installed builds **auto-update** — they check the latest release on launch.
 
 ## Release notes
 
-The app uses GitHub Releases for distribution. Auto-update via `tauri-plugin-updater` is planned but not wired yet — see `src-tauri/src/update.rs`.
+The app ships through GitHub Releases. Auto-update is wired via `tauri-plugin-updater`:
+
+- The app reads `latest.json` from the newest release and updates itself when a newer, signed version is available.
+- Each release publishes the installer, its `.sig` signature, and `latest.json`.
+
+Maintainers: see `scripts/publish.ps1` (one-command release) and `.github/workflows/release.yml` (cloud build).
 
 ## Configuration
 
