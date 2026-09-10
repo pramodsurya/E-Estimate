@@ -170,8 +170,13 @@ if ($LASTEXITCODE -ne 0) { Write-Host "ERROR: build failed" -ForegroundColor Red
 
 $engine = Join-Path $root "vendor\bund-analysis\bund-analysis.exe"
 if (-not (Test-Path -LiteralPath $engine)) { Write-Host "ERROR: bund-analysis.exe not produced" -ForegroundColor Red; exit 1 }
-$nsisDir = Join-Path $root "src-tauri\target\release\bundle\nsis"
-$installer = Get-ChildItem $nsisDir -Filter "*-setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+$nsisDirs = @(
+  (Join-Path $root "src-tauri\target\release\bundle\nsis"),
+  (Join-Path $env:LOCALAPPDATA "e-estimate\cargo-target\release\bundle\nsis")
+) | Where-Object { Test-Path -LiteralPath $_ }
+$installer = $nsisDirs |
+  ForEach-Object { Get-ChildItem -LiteralPath $_ -Filter "*-setup.exe" -ErrorAction SilentlyContinue } |
+  Select-Object -First 1
 if (-not $installer) { Write-Host "ERROR: NSIS installer not found" -ForegroundColor Red; exit 1 }
 $sigFile = "$($installer.FullName).sig"
 if (-not (Test-Path -LiteralPath $sigFile)) { Write-Host "ERROR: installer signature not produced" -ForegroundColor Red; exit 1 }
