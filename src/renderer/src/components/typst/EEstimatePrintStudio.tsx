@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { startTransition, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
@@ -292,9 +292,9 @@ export default function EEstimatePrintStudio({
   const [lastSavedSettingsKey, setLastSavedSettingsKey] = useState(
     savedDocumentSettings ? JSON.stringify(savedDocumentSettings) : 'project-defaults'
   )
-  const [saving, setSaving] = useState(false)
-  const [exportingPdf, setExportingPdf] = useState(false)
-  const [exportingExcel, setExportingExcel] = useState(false)
+  const [saving, startSave] = useTransition()
+  const [exportingPdf, startExportPdf] = useTransition()
+  const [exportingExcel, startExportExcel] = useTransition()
   const [excelError, setExcelError] = useState<string | null>(null)
 
   const mediaCount = useMemo(() => {
@@ -435,13 +435,14 @@ export default function EEstimatePrintStudio({
       // studio error panel so a broken fast path is always visible.
       const assetUrl = convertFileSrc(res.pdfPath)
       const bytes = new Uint8Array(await (await fetch(assetUrl)).arrayBuffer())
-      setCompiledPdfPath(res.pdfPath)
       const blob = new Blob([bytes], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
-
-      setCompiledPdfUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev)
-        return url
+      startTransition(() => {
+        setCompiledPdfPath(res.pdfPath ?? null)
+        setCompiledPdfUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev)
+          return url
+        })
       })
     } catch (err) {
       if (generation !== compileGenerationRef.current) return
@@ -680,24 +681,23 @@ export default function EEstimatePrintStudio({
     )
   }
 
-  const handleSave = async (): Promise<void> => {
+  const handleSave = (): void => {
     const settingsKey = usesProjectDocumentSettings
       ? 'project-defaults'
       : JSON.stringify(documentSettings)
     const liveCode = editorRef.current?.view?.state.doc.toString() ?? code
     if (liveCode !== code) setCode(liveCode)
     if (!onSave || saving || (liveCode === lastSavedSource && settingsKey === lastSavedSettingsKey)) return
-    setSaving(true)
     setSaveError(null)
-    try {
-      await onSave(liveCode, usesProjectDocumentSettings ? null : documentSettings)
-      setLastSavedSource(liveCode)
-      setLastSavedSettingsKey(settingsKey)
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setSaving(false)
-    }
+    startSave(async () => {
+      try {
+        await onSave(liveCode, usesProjectDocumentSettings ? null : documentSettings)
+        setLastSavedSource(liveCode)
+        setLastSavedSettingsKey(settingsKey)
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : String(err))
+      }
+    })
   }
 
   // Copy prompt for AI with live variables, images, and document settings
@@ -747,33 +747,31 @@ export default function EEstimatePrintStudio({
     URL.revokeObjectURL(url)
   }
 
-  const handleDownloadPdf = async (): Promise<void> => {
+  const handleDownloadPdf = (): void => {
     if (!compiledPdfPath || exportingPdf) return
     const fileName = title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'e-estimate'
-    setExportingPdf(true)
     setSaveError(null)
-    try {
-      // No base64 fallback: the backend copies the cached file, or the save
-      // fails loudly in the studio error panel.
-      await window.api.export.pdf('', fileName, undefined, { sourcePath: compiledPdfPath })
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : String(error))
-    } finally {
-      setExportingPdf(false)
-    }
+    startExportPdf(async () => {
+      try {
+        // No base64 fallback: the backend copies the cached file, or the save
+        // fails loudly in the studio error panel.
+        await window.api.export.pdf('', fileName, undefined, { sourcePath: compiledPdfPath })
+      } catch (error) {
+        setSaveError(error instanceof Error ? error.message : String(error))
+      }
+    })
   }
 
-  const handleExportExcel = async (): Promise<void> => {
+  const handleExportExcel = (): void => {
     if (!onExportExcel || exportingExcel) return
-    setExportingExcel(true)
     setExcelError(null)
-    try {
-      await onExportExcel()
-    } catch (error) {
-      setExcelError(error instanceof Error ? error.message : String(error))
-    } finally {
-      setExportingExcel(false)
-    }
+    startExportExcel(async () => {
+      try {
+        await onExportExcel()
+      } catch (error) {
+        setExcelError(error instanceof Error ? error.message : String(error))
+      }
+    })
   }
 
   // Code = raw Typst source (syntax highlighting + folding/lint). Visual = the SAME
