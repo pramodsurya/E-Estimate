@@ -290,3 +290,99 @@ assert(chartSvg.includes('Lead Chart'), 'Source chart heading appears')
 assert(chartSvg.includes('COM-LDLFT-2'), 'Charge code appears in source chart')
 assert(chartSvg.includes('119.70'), 'Chart rate appears')
 console.log('Lead source chart tables compiled into Typst output')
+
+// Verify Avg Lead and Weighted Lead Typst compilation
+const advancedLeadProject = {
+  ...project,
+  leadChart: {
+    variants: [
+      {
+        id: 'v-avg',
+        materialName: 'Sand for Canal Lining',
+        handlingMode: 'none',
+        leadKm: 15.0,
+        liftM: 0,
+        conveyanceClass: 'SAND',
+        avgLead: {
+          mode: 'line',
+          componentName: 'Canal Reach 1 Alignment',
+          pointCount: 3,
+          avgKm: 15.0,
+          routes: [
+            { chainageM: 0, routeKm: 14.0, startPointId: 'p1' },
+            { chainageM: 500, routeKm: 15.0, startPointId: 'p1' },
+            { chainageM: 1000, routeKm: 16.0, startPointId: 'p1' }
+          ]
+        }
+      },
+      {
+        id: 'v-wt',
+        materialName: 'Coarse Aggregate 40mm',
+        handlingMode: 'none',
+        leadKm: 28.5,
+        liftM: 0,
+        conveyanceClass: 'AGGREGATE',
+        weightedLead: {
+          entries: [
+            { variantId: 'sub-1', variantName: 'North Quarry', leadKm: 20.0, quantity: 100, unit: 'cum' },
+            { variantId: 'sub-2', variantName: 'South Quarry', leadKm: 37.0, quantity: 100, unit: 'cum' }
+          ],
+          totalQuantity: 200,
+          weightedAvgKm: 28.5,
+          createdAt: '2026-09-18'
+        }
+      }
+    ]
+  }
+}
+const advancedLeadEntries = [
+  {
+    variantId: 'v-avg',
+    materialName: 'Sand for Canal Lining',
+    conveyanceClass: 'SAND',
+    leadKm: 15.0,
+    liftM: 0,
+    variantRate: 245.0,
+    rateUnit: 'cum',
+    applications: [{ id: 'app-1' }]
+  },
+  {
+    variantId: 'v-wt',
+    materialName: 'Coarse Aggregate 40mm',
+    conveyanceClass: 'AGGREGATE',
+    leadKm: 28.5,
+    liftM: 0,
+    variantRate: 380.0,
+    rateUnit: 'cum',
+    applications: [{ id: 'app-2' }]
+  }
+]
+const raw0 = compiler.svg({
+  mainFileContent: leadTypstTemplate(),
+  inputs: leadCompileInputs(advancedLeadProject, advancedLeadEntries),
+  pageIndex: 0
+})
+const raw1 = compiler.svg({
+  mainFileContent: leadTypstTemplate(),
+  inputs: leadCompileInputs(advancedLeadProject, advancedLeadEntries),
+  pageIndex: 1
+})
+const text0 = raw0.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&')
+const text1 = raw1.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&')
+const advancedSvg = text0 + ' ' + text1
+
+assert(advancedSvg.includes('Avg Lead (Line sampling)'), 'Avg Lead tag rendered in Typst')
+assert(advancedSvg.includes('Average Lead Survey & Sampling Audit'), 'Avg Lead audit section rendered')
+assert(advancedSvg.includes('Canal Reach 1 Alignment'), 'Component name rendered in audit table')
+assert(advancedSvg.includes('Weighted Avg · Whole Project'), 'Weighted Avg tag rendered in Typst')
+assert(leadTypstTemplate().includes('Chainage along line'), 'sampling header must read as chainage along the line')
+assert(advancedSvg.includes('Weighted Average Lead Calculation (Project-wide)'), 'Weighted Lead audit section rendered')
+assert(advancedSvg.includes('North Quarry'), 'Contributing source name rendered')
+assert(advancedSvg.includes('28.50 km'), 'Weighted average km rendered')
+
+const advancedPdf = compiler.pdf({
+  mainFileContent: leadTypstTemplate(),
+  inputs: leadCompileInputs(advancedLeadProject, advancedLeadEntries)
+})
+assert(advancedPdf && advancedPdf.length > 50000, 'PDF with Avg Lead and Weighted Lead compiled successfully')
+console.log(`Avg Lead and Weighted Lead Typst compilation: SUCCESS (${advancedPdf.length} bytes PDF)`)

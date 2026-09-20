@@ -764,3 +764,63 @@ function isFineAggregate(text: string): boolean {
 function isCoarseAggregate(text: string): boolean {
   return /\b(?:coarse|c\.?\s*a\.?)\s+(?:aggregate|aggt)\b/.test(text)
 }
+
+/**
+ * Fallback Lead applicability for standard SSR items (e.g. guide wall/bund concrete, excavation)
+ * when not yet synced in the project's dashboardSnapshot.
+ */
+export function fallbackLeadApplicability(code: string, description = ''): Record<string, unknown> | null {
+  const normCode = (code || '').toUpperCase().trim()
+  const normDesc = (description || '').toLowerCase()
+  if (
+    normCode.startsWith('IRR-CCDW-2-') ||
+    normCode.startsWith('IRR-BR-2-') ||
+    /\b(?:cement\s+concrete|pcc|rcc|m\d{1,2}|vrcc)\b/.test(normDesc)
+  ) {
+    return {
+      classes: ['CEMENT', 'SAND', 'STONE'],
+      materials: {
+        Cement: 'CEMENT',
+        Sand: 'SAND',
+        Stone: 'STONE'
+      },
+      builtin: {
+        builtin_lead_km: null,
+        initial_lead_m: 50,
+        initial_lift_m: 3,
+        all_leads: false
+      }
+    }
+  }
+  if (
+    normCode.startsWith('IRR-CCDW-1-') ||
+    normCode.startsWith('IRR-EW-') ||
+    normCode.startsWith('IRR-DAW-1-') ||
+    /\b(?:excavation|earthwork)\b/.test(normDesc)
+  ) {
+    return {
+      classes: ['EARTH'],
+      materials: {},
+      earthwork: true,
+      builtin: {
+        builtin_lead_km: null,
+        initial_lead_m: 50,
+        initial_lift_m: 3,
+        all_leads: false
+      },
+      lead_policy: {
+        purpose: 'EXCAVATED_DISPOSAL',
+        included_lead_m: 50,
+        included_lift_m: 3,
+        includes_all_lifts: false,
+        quantity_basis: 'PARENT_CUM',
+        allow_loading: false,
+        allow_unloading: false,
+        scrutiny_required: false,
+        default_conveyance_class: 'EARTH',
+        policy_version: 'fallback'
+      }
+    }
+  }
+  return null
+}

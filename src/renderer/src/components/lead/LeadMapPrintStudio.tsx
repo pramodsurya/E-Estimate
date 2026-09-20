@@ -603,6 +603,77 @@ function MapViewport({
   return null
 }
 
+/**
+ * Draws a weighted lead through its member routes so the average basis stays
+ * visible even when a member is no longer applied directly. Members that
+ * already draw their own route are skipped to avoid duplicates.
+ */
+function pushWeightedMemberRoutes(
+  routes: RouteLine[],
+  variant: LeadVariant,
+  entries: { variantId: string }[],
+  variantsById: Map<string, LeadVariant>,
+  context: {
+    pointsById: Map<string, LeadPoint>
+    assignmentsById: Map<string, LeadAssignment>
+    work: RoutePoint | null
+    appliedIds: Set<string>
+  },
+  index: number
+): void {
+  const labelPrefix = `${variant.materialName} · Weighted Avg · `
+  entries.forEach((entry, memberIndex) => {
+    if (context.appliedIds.has(entry.variantId)) return
+    const member = variantsById.get(entry.variantId)
+    if (!member) return
+    const color = leadRouteColor(member, index + memberIndex + 1)
+    const memberAvgRoutes = (member.avgLead?.routes ?? []).filter(
+      (route) => (route.geometry?.length ?? 0) >= 2
+    )
+    if (memberAvgRoutes.length > 0) {
+      memberAvgRoutes.forEach((route, routeIndex) => {
+        const geometry = validGeometry(route.geometry) ?? []
+        if (geometry.length < 2) return
+        routes.push({
+          id: `variant:${variant.id}:weighted-${member.id}-${routeIndex}`,
+          label: `${labelPrefix}${member.materialName} avg P${routeIndex + 1} ${km.format(route.routeKm)} km`,
+          color,
+          from: coordinatePoint(`${variant.id}:weighted-${member.id}-${routeIndex}:from`, 'Avg route start', {
+            lat: geometry[0][0],
+            lon: geometry[0][1]
+          }),
+          to: coordinatePoint(`${variant.id}:weighted-${member.id}-${routeIndex}:to`, 'Avg route end', {
+            lat: geometry.at(-1)![0],
+            lon: geometry.at(-1)![1]
+          }),
+          geometry,
+          variantId: variant.id
+        })
+      })
+      return
+    }
+    const assignedPoint = member.assignmentId
+      ? context.pointsById.get(context.assignmentsById.get(member.assignmentId)?.pointId ?? '')
+      : undefined
+    let from = pointFromLeadPoint(context.pointsById.get(member.startPointId || '') ?? assignedPoint) ?? context.work
+    const to = pointFromLeadPoint(context.pointsById.get(member.endPointId || '')) ?? context.work
+    if (from && to && from.id === to.id && context.work && context.work.id !== to.id) from = context.work
+    if (!from || !to || from.id === to.id) return
+    const geometry = validGeometry(member.routeGeometry) ?? [[from.lat, from.lon], [to.lat, to.lon]]
+    routes.push({
+      id: `variant:${variant.id}:weighted-${member.id}`,
+      label: `${labelPrefix}${member.materialName} ${km.format(member.leadKm)} km`,
+      color,
+      from,
+      to,
+      geometry,
+      variantId: variant.id
+    })
+    addConnector(routes, variant, color, 'first', member.firstMileGeometry)
+    addConnector(routes, variant, color, 'last', member.lastMileGeometry)
+  })
+}
+
 function buildRouteLines(
   variants: LeadVariant[],
   applications: LeadApplication[],
@@ -651,7 +722,44 @@ function buildRouteLines(
     if (from && to && from.id === to.id && work && work.id !== to.id) from = work
     if (!from || !to) return
     const color = leadRouteColor(variant, index)
-    const geometry = validGeometry(variant.routeGeometry) ?? [[from.lat, from.lon], [to.lat, to.lon]]
+    const weightedEntries = variant.weightedLead?.entries ?? []
+    if (weightedEntries.length > 0) {
+      pushWeightedMemberRoutes(routes, variant, weightedEntries, variantsById, {
+        pointsById,
+        assignmentsById,
+        work,
+        appliedIds
+      }, index)
+      return
+    }
+    const avgRoutes = (variant.avgLead?.routes ?? []).filter(
+      (route) => (route.geometry?.length ?? 0) >= 2
+    )
+    if (avgRoutes.length > 0) {
+      avgRoutes.forEach((route, routeIndex) => {
+        const geometry = validGeometry(route.geometry) ?? []
+        if (geometry.length < 2) return
+        routes.push({
+          id: `variant:${variant.id}:avg-${routeIndex}`,
+          label: `${variant.materialName} avg P${routeIndex + 1} ${km.format(route.routeKm)} km`,
+          color,
+          from: coordinatePoint(`${variant.id}:avg-${routeIndex}:from`, 'Avg route start', {
+            lat: geometry[0][0],
+            lon: geometry[0][1]
+          }),
+          to: coordinatePoint(`${variant.id}:avg-${routeIndex}:to`, 'Avg route end', {
+            lat: geometry.at(-1)![0],
+            lon: geometry.at(-1)![1]
+          }),
+          geometry,
+          variantId: variant.id
+        })
+      })
+      return
+    }
+    const directGeometry = validGeometry(variant.routeGeometry)
+    if (!directGeometry && from.id === to.id) return
+    const geometry = directGeometry ?? [[from.lat, from.lon], [to.lat, to.lon]]
     routes.push({
       id: `variant:${variant.id}`,
       label: `${variant.materialName} ${km.format(variant.leadKm)} km`,

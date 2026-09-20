@@ -185,13 +185,15 @@ export function collectProjectItemGroups(root: ProjectNode): ProjectItemGroup[] 
     const displayName = projectItemDisplayName(node)
     let group = groups.get(key)
     if (!group) {
+      const code = node.itemCode?.trim() || node.name
+      const isSsrCode = code.startsWith('IRR-')
       group = {
         key,
-        code: node.itemCode?.trim() || node.name,
+        code,
         displayName,
         description: node.itemDescription ?? node.name,
-        source: node.itemSource ?? 'OTHERS',
-        categoryKey: node.categoryKey ?? 'custom',
+        source: node.itemSource ?? (isSsrCode ? 'SSR' : 'OTHERS'),
+        categoryKey: node.categoryKey ?? (isSsrCode ? 'ssr_item' : 'custom'),
         usages: [],
         branches: []
       }

@@ -264,9 +264,19 @@ export default function LeadDashboard(): JSX.Element | null {
       {error && <div className="rate-warning">Lead sync failed: {error}</div>}
       {!compiled && !error && (
         <div className="rate-notice">
-          {entries.length
-            ? 'Lead materials or their rates have changed. Click Sync Lead to recompile.'
-            : 'Click Sync Lead to compile all Lead materials, routes, and conveyance rates.'}
+          <span>
+            {entries.length
+              ? 'Lead materials or their rates have changed. Click Sync Lead to recompile.'
+              : 'Click Sync Lead to compile all Lead materials, routes, and conveyance rates.'}
+          </span>
+          <button
+            type="button"
+            className="btn-mini secondary"
+            disabled={syncing}
+            onClick={() => void syncDashboard()}
+          >
+            {syncing ? 'Syncing…' : 'Sync Lead'}
+          </button>
         </div>
       )}
 

@@ -7,8 +7,12 @@ import type { BundSimulationProgressUpdate } from '../store/useStore'
 
 export interface TypstCompileResult {
   ok: boolean
-  /** base64-encoded PDF when ok. */
+  /** base64-encoded PDF when ok (absent when pdfPath is returned). */
   data?: string
+  /** Session cache file path when preferPath was requested. Missing on older engines. */
+  pdfPath?: string
+  /** True when the bytes came from the server result cache. Missing on older engines. */
+  cacheHit?: boolean
   error?: string
   durationMs?: number
   /** Invisible metadata emitted beside rendered project content. Missing on older engines. */
@@ -47,6 +51,14 @@ export interface EestimateApi {
     open: () => Promise<OpenResult>
     openPath: (path: string) => Promise<OpenResult>
   }
+  cluster: {
+    /** Save cluster JSON to its current file (same writer as projects). */
+    save: (data: unknown, currentPath: string | null, name: string) => Promise<SaveResult>
+    /** Save cluster JSON with a `.eestimate-cluster` picker. */
+    saveAs: (data: unknown, name: string) => Promise<SaveResult>
+    /** Open a `.eestimate-cluster` file with a cluster-filtered picker. */
+    open: () => Promise<OpenResult>
+  }
   recent: {
     list: () => Promise<RecentEntry[]>
     clear: () => Promise<RecentEntry[]>
@@ -63,20 +75,31 @@ export interface EestimateApi {
     compile: (
       mainContent: string,
       inputs?: Record<string, string>,
-      shadowFiles?: Record<string, string>
+      shadowFiles?: Record<string, string>,
+      opts?: { contentHash?: string; preferPath?: boolean }
     ) => Promise<TypstCompileResult>
+  }
+  excel: {
+    compile: (payload: unknown) => Promise<{
+      ok: boolean
+      data?: string
+      /** Session cache file path when preferPath was requested. Missing on older engines. */
+      filePath?: string
+      error?: string
+      durationMs?: number
+    }>
   }
   image: {
     /** Download an http(s) image in the shell and return a portable data URL. */
     embedRemote: (url: string) => Promise<{ ok: boolean; data?: string; error?: string }>
   }
   export: {
-    /** Ask where to save, then write the base64 PDF there. */
-    pdf: (data: string, name: string, defaultPath?: string) => Promise<SaveResult>
+    /** Ask where to save, then write the base64 PDF there (or copy sourcePath when given). */
+    pdf: (data: string, name: string, defaultPath?: string, opts?: { sourcePath?: string }) => Promise<SaveResult>
     /** Same, for the workbook the comparative statement is also issued as. */
-    workbook: (data: string, name: string, defaultPath?: string) => Promise<SaveResult>
+    workbook: (data: string, name: string, defaultPath?: string, opts?: { sourcePath?: string }) => Promise<SaveResult>
     /** Ask where to save, then write a PNG image there. */
-    png: (data: string, name: string, defaultPath?: string) => Promise<SaveResult>
+    png: (data: string, name: string, defaultPath?: string, opts?: { sourcePath?: string }) => Promise<SaveResult>
     reveal: (path: string) => Promise<void>
   }
   update: {

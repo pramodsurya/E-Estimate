@@ -63,6 +63,40 @@ export interface LeadBreakdownStep {
   amount: string
 }
 
+export interface AvgLeadTypstData {
+  mode: string
+  mode_label: string
+  component_name: string
+  point_count: number
+  avg_km: number
+  avg_km_text: string
+  routes: Array<{
+    index: number
+    chainage_m: number
+    chainage_text: string
+    route_km: number
+    route_km_text: string
+  }>
+}
+
+export interface WeightedLeadTypstData {
+  total_quantity: number
+  total_quantity_text: string
+  weighted_avg_km: number
+  weighted_avg_km_text: string
+  formula: string
+  entries: Array<{
+    name: string
+    quantity: number
+    quantity_text: string
+    unit: string
+    lead_km: number
+    lead_km_text: string
+    product: number
+    product_text: string
+  }>
+}
+
 export interface LeadBreakdownItem {
   sl: string
   name: string
@@ -81,6 +115,9 @@ export interface LeadBreakdownItem {
   loading_rate: string
   unloading_rate: string
   lift_rate: string
+  lead_type_tag?: string
+  avg_lead?: AvgLeadTypstData | null
+  weighted_lead?: WeightedLeadTypstData | null
 }
 
 export interface LeadRenderRow {
@@ -93,6 +130,9 @@ export interface LeadRenderRow {
   rate: string
   rate_unit: string
   uses: string
+  lead_type_tag?: string
+  avg_lead?: AvgLeadTypstData | null
+  weighted_lead?: WeightedLeadTypstData | null
 }
 
 export interface LeadMapVariable {
@@ -331,7 +371,7 @@ export function resolveLeadMaterialPrintName(
   if (!entry) return ''
   const custom = project?.leadPrintOverrides?.variantNames?.[entry.variantId]
   if (custom && custom.trim()) return custom.trim()
-  return entry.variantName || entry.materialName
+  return entry.variantName || entry.materialName || 'Material'
 }
 
 /** Build the runtime data from the compiled lead entries. */
@@ -360,7 +400,54 @@ export function buildLeadRenderData(
     project: project.meta.name || project.root.name || '',
     rows: entries.map((entry, index) => {
       const variant = variantsById.get(entry.variantId)
-      const route = variant
+      let leadTypeTag = ''
+      let avgLeadData: AvgLeadTypstData | null = null
+      let weightedLeadData: WeightedLeadTypstData | null = null
+
+      if (variant?.weightedLead) {
+        leadTypeTag = 'Weighted Avg · Whole Project'
+        const entries = variant.weightedLead.entries || []
+        const parts = entries
+          .map((e) => `${fmtQty(e.quantity)} × ${e.leadKm.toFixed(2)} km`)
+          .join(' + ')
+        const totalQty = fmtQty(variant.weightedLead.totalQuantity)
+        weightedLeadData = {
+          total_quantity: variant.weightedLead.totalQuantity,
+          total_quantity_text: totalQty,
+          weighted_avg_km: variant.weightedLead.weightedAvgKm,
+          weighted_avg_km_text: fmtQty(variant.weightedLead.weightedAvgKm),
+          formula: `(${parts}) ÷ ${totalQty} = ${variant.weightedLead.weightedAvgKm.toFixed(2)} km`,
+          entries: entries.map((e) => ({
+            name: e.variantName,
+            quantity: e.quantity,
+            quantity_text: fmtQty(e.quantity),
+            unit: e.unit,
+            lead_km: e.leadKm,
+            lead_km_text: fmtQty(e.leadKm),
+            product: e.quantity * e.leadKm,
+            product_text: fmtMoney(e.quantity * e.leadKm)
+          }))
+        }
+      } else if (variant?.avgLead) {
+        leadTypeTag = variant.avgLead.mode === 'line' ? 'Avg Lead (Line sampling)' : 'Avg Lead (Table)'
+        avgLeadData = {
+          mode: variant.avgLead.mode,
+          mode_label: variant.avgLead.mode === 'line' ? 'Line sampling' : 'Table',
+          component_name: variant.avgLead.componentName || 'Component',
+          point_count: variant.avgLead.pointCount,
+          avg_km: variant.avgLead.avgKm,
+          avg_km_text: fmtQty(variant.avgLead.avgKm),
+          routes: (variant.avgLead.routes || []).map((r, i) => ({
+            index: i + 1,
+            chainage_m: r.chainageM,
+            chainage_text: `${fmtQty(r.chainageM)} m`,
+            route_km: r.routeKm,
+            route_km_text: `${fmtQty(r.routeKm)} km`
+          }))
+        }
+      }
+
+      let route = variant
         ? routeLabelForVariant(
             variant,
             chart.assignments ?? [],
@@ -368,6 +455,11 @@ export function buildLeadRenderData(
             project.meta.location ?? null
           )
         : 'Quarry / Source'
+      if (variant?.weightedLead) {
+        route = `Weighted average across ${variant.weightedLead.entries.length} sources`
+      } else if (variant?.avgLead) {
+        route = `Average Lead along ${variant.avgLead.componentName || 'component'} (${variant.avgLead.pointCount} points)`
+      }
 
       return {
         sl: String(index + 1),
@@ -380,12 +472,62 @@ export function buildLeadRenderData(
           ? `Rs. ${fmtMoney(entry.variantRate)} / ${entry.rateUnit || 'unit'}`
           : '—',
         rate_unit: entry.rateUnit || 'unit',
-        uses: String(entry.applications.length)
+        uses: String(entry.applications.length),
+        lead_type_tag: leadTypeTag,
+        avg_lead: avgLeadData,
+        weighted_lead: weightedLeadData
       }
     }),
     breakdowns: entries.map((entry, index) => {
       const variant = variantsById.get(entry.variantId)
-      const route = variant
+      let leadTypeTag = ''
+      let avgLeadData: AvgLeadTypstData | null = null
+      let weightedLeadData: WeightedLeadTypstData | null = null
+
+      if (variant?.weightedLead) {
+        leadTypeTag = 'Weighted Avg · Whole Project'
+        const entries = variant.weightedLead.entries || []
+        const parts = entries
+          .map((e) => `${fmtQty(e.quantity)} × ${e.leadKm.toFixed(2)} km`)
+          .join(' + ')
+        const totalQty = fmtQty(variant.weightedLead.totalQuantity)
+        weightedLeadData = {
+          total_quantity: variant.weightedLead.totalQuantity,
+          total_quantity_text: totalQty,
+          weighted_avg_km: variant.weightedLead.weightedAvgKm,
+          weighted_avg_km_text: fmtQty(variant.weightedLead.weightedAvgKm),
+          formula: `(${parts}) ÷ ${totalQty} = ${variant.weightedLead.weightedAvgKm.toFixed(2)} km`,
+          entries: entries.map((e) => ({
+            name: e.variantName,
+            quantity: e.quantity,
+            quantity_text: fmtQty(e.quantity),
+            unit: e.unit,
+            lead_km: e.leadKm,
+            lead_km_text: fmtQty(e.leadKm),
+            product: e.quantity * e.leadKm,
+            product_text: fmtMoney(e.quantity * e.leadKm)
+          }))
+        }
+      } else if (variant?.avgLead) {
+        leadTypeTag = variant.avgLead.mode === 'line' ? 'Avg Lead (Line sampling)' : 'Avg Lead (Table)'
+        avgLeadData = {
+          mode: variant.avgLead.mode,
+          mode_label: variant.avgLead.mode === 'line' ? 'Line sampling' : 'Table',
+          component_name: variant.avgLead.componentName || 'Component',
+          point_count: variant.avgLead.pointCount,
+          avg_km: variant.avgLead.avgKm,
+          avg_km_text: fmtQty(variant.avgLead.avgKm),
+          routes: (variant.avgLead.routes || []).map((r, i) => ({
+            index: i + 1,
+            chainage_m: r.chainageM,
+            chainage_text: `${fmtQty(r.chainageM)} m`,
+            route_km: r.routeKm,
+            route_km_text: `${fmtQty(r.routeKm)} km`
+          }))
+        }
+      }
+
+      let route = variant
         ? routeLabelForVariant(
             variant,
             chart.assignments ?? [],
@@ -393,6 +535,11 @@ export function buildLeadRenderData(
             project.meta.location ?? null
           )
         : 'Quarry / Source → Project Site'
+      if (variant?.weightedLead) {
+        route = `Weighted average across ${variant.weightedLead.entries.length} sources`
+      } else if (variant?.avgLead) {
+        route = `Average Lead along ${variant.avgLead.componentName || 'component'} (${variant.avgLead.pointCount} points)`
+      }
 
       const calculation = entry.chargeBreakdown ?? null
       const chargedLiftM = calculation ? (calculation.liftRate > 0 ? Math.max(0, Math.ceil(entry.liftM - 3)) : 0) : null
@@ -434,7 +581,10 @@ export function buildLeadRenderData(
         material_rate: calculation ? fmtMoney(calculation.leadRate) : '—',
         loading_rate: calculation ? fmtMoney(calculation.loadingRate) : '—',
         unloading_rate: calculation ? fmtMoney(calculation.unloadingRate) : '—',
-        lift_rate: calculation ? fmtMoney(calculation.liftRate) : '—'
+        lift_rate: calculation ? fmtMoney(calculation.liftRate) : '—',
+        lead_type_tag: leadTypeTag,
+        avg_lead: avgLeadData,
+        weighted_lead: weightedLeadData
       }
     }),
     signature: signature?.enabled

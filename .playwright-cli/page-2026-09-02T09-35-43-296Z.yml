@@ -1,0 +1,94 @@
+- dialog [ref=f1e3]:
+  - generic [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - generic [ref=f1e6]:
+        - generic [ref=f1e7]: main.typ
+        - generic [ref=f1e13]: Visual Wiring QA
+      - generic [ref=f1e14]:
+        - button "Reset" [ref=f1e15] [cursor=pointer]
+        - button "Copy .typ" [ref=f1e19] [cursor=pointer]
+        - button "Download .typ" [ref=f1e23] [cursor=pointer]
+        - button "Print" [disabled] [ref=f1e27]
+        - button "Close Studio" [ref=f1e32] [cursor=pointer]
+    - generic [ref=f1e36]:
+      - generic [ref=f1e37]:
+        - generic [ref=f1e38]:
+          - generic [ref=f1e39]:
+            - button "Bold (*text* / Ctrl+B)" [ref=f1e40] [cursor=pointer]
+            - button "Italic (_text_ / Ctrl+I)" [ref=f1e43] [cursor=pointer]
+            - button "Underline (#underline[...] / Ctrl+U)" [ref=f1e46] [cursor=pointer]
+            - button "Strikethrough (#strike[...])" [ref=f1e49] [cursor=pointer]
+            - button "Highlight Selection (Ctrl+H)" [ref=f1e54] [cursor=pointer]
+            - button "Text Color" [ref=f1e59] [cursor=pointer]
+          - generic [ref=f1e66]:
+            - button "Size" [ref=f1e68] [cursor=pointer]
+            - button "Heading" [ref=f1e72] [cursor=pointer]
+          - generic [ref=f1e73]:
+            - button "Align Left" [ref=f1e74] [cursor=pointer]
+            - button "Align Center" [ref=f1e76] [cursor=pointer]
+            - button "Align Right" [ref=f1e78] [cursor=pointer]
+          - generic [ref=f1e80]:
+            - button "Insert Page Break" [ref=f1e81] [cursor=pointer]
+            - button "Insert Horizontal Rule" [ref=f1e85] [cursor=pointer]
+            - button "+ Box" [ref=f1e87] [cursor=pointer]
+            - button "+ Note" [ref=f1e88] [cursor=pointer]
+            - button "Table" [ref=f1e90] [cursor=pointer]
+          - generic [ref=f1e93]:
+            - button "Code" [ref=f1e94] [cursor=pointer]
+            - button "Visual" [ref=f1e95] [cursor=pointer]
+          - button "Find & Replace (Ctrl+F)" [ref=f1e96] [cursor=pointer]
+        - generic [active] [ref=f1e457]:
+          - generic "Switch to Code mode to edit this source-preserved block" [ref=f1e458]: Document setup
+          - heading "Test Document" [level=1] [ref=f1e459]
+          - heading "Teal Summary" [level=2] [ref=f1e460]
+          - table [ref=f1e462]:
+            - rowgroup [ref=f1e467]:
+              - row [ref=f1e468]:
+                - columnheader [ref=f1e469]:
+                  - paragraph [ref=f1e470]:
+                    - strong [ref=f1e471]: Item
+                - columnheader [ref=f1e472]:
+                  - paragraph [ref=f1e473]:
+                    - strong [ref=f1e474]: Description
+                - columnheader [ref=f1e475]:
+                  - paragraph [ref=f1e476]:
+                    - strong [ref=f1e477]: Amount
+              - row [ref=f1e478]:
+                - cell [ref=f1e479]:
+                  - paragraph [ref=f1e480]: "1"
+                - cell [ref=f1e481]:
+                  - paragraph [ref=f1e482]: Sand
+                - cell [ref=f1e483]:
+                  - paragraph [ref=f1e484]: "100"
+          - heading "Light Calculation" [level=2] [ref=f1e485]
+          - table [ref=f1e487]:
+            - rowgroup [ref=f1e492]:
+              - row [ref=f1e493]:
+                - columnheader [ref=f1e494]:
+                  - paragraph [ref=f1e495]:
+                    - strong [ref=f1e496]: Step
+                - columnheader [ref=f1e497]:
+                  - paragraph [ref=f1e498]:
+                    - strong [ref=f1e499]: Mode
+                - columnheader [ref=f1e500]:
+                  - paragraph [ref=f1e501]:
+                    - strong [ref=f1e502]: Amount
+              - row [ref=f1e503]:
+                - cell [ref=f1e504]:
+                  - paragraph [ref=f1e505]: Lead
+                - cell [ref=f1e506]:
+                  - paragraph [ref=f1e507]: 5 km
+                - cell [ref=f1e508]:
+                  - paragraph [ref=f1e509]: "120"
+          - paragraph [ref=f1e512]: Card content here
+          - paragraph [ref=f1e510]
+      - generic [ref=f1e155]:
+        - generic [ref=f1e156]:
+          - button "Recompile" [ref=f1e157] [cursor=pointer]
+          - generic [ref=f1e160]: Press Recompile to preview
+          - generic [ref=f1e162]:
+            - button [ref=f1e163] [cursor=pointer]
+            - generic [ref=f1e167]: 100%
+            - button [ref=f1e168] [cursor=pointer]
+            - button "100%" [ref=f1e172] [cursor=pointer]
+        - generic [ref=f1e173]: "Compilation Error: Preview intentionally disabled in UI harness"

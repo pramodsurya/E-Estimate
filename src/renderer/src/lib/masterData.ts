@@ -465,7 +465,7 @@ export interface VillageLocationDetails {
   district: string | null
 }
 
-interface AllowanceRuleRow {
+export interface AllowanceRuleRow {
   allowance_type: string
   value: number | string
   value_type: string
@@ -476,7 +476,7 @@ interface AllowanceRuleRow {
   applies_to: string[] | null
 }
 
-function allowanceTypeLabel(type: string): string {
+export function allowanceTypeLabel(type: string): string {
   if (type === 'GHMC') return 'Greater Hyderabad (GHMC) area allowance'
   if (type === 'CORPORATION') return 'Municipal Corporation area allowance'
   if (type === 'MUNICIPALITY') return 'Municipality / District HQ area allowance'

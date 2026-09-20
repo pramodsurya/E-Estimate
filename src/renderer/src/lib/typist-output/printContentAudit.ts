@@ -115,18 +115,17 @@ export function preparePrintAudit(inputs: Record<string, string> = {}) {
   return { inputs: annotated, obligations }
 }
 
-/** Project books read shadow JSON files; keep them identical to the annotated sys.inputs. */
+/** Project books read the canonical root JSON files; keep them identical to the annotated sys.inputs. */
 export function auditShadowFiles(inputs: Record<string, string>, files?: Record<string, string>) {
   if (!files) return files
   const result = { ...files }
   for (const [key, json] of Object.entries(inputs)) {
-    for (const path of [`${key}.json`, `parts/${key}.json`]) {
-      if (!(path in result)) continue
-      const bytes = new TextEncoder().encode(json)
-      let binary = ''
-      for (const byte of bytes) binary += String.fromCharCode(byte)
-      result[path] = btoa(binary)
-    }
+    const path = `${key}.json`
+    if (!(path in result)) continue
+    const bytes = new TextEncoder().encode(json)
+    let binary = ''
+    for (const byte of bytes) binary += String.fromCharCode(byte)
+    result[path] = btoa(binary)
   }
   return result
 }

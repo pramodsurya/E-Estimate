@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/components/modals/AddItemModal.tsx",
+    "src/renderer/src/components/modals/AddStructureModal.tsx",
+    "src/renderer/src/components/modals/SettingsModal.tsx",
+    "src/renderer/src/components/dashboard/TitleDashboard.tsx"
+  ]
+}

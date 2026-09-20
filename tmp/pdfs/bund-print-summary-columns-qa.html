@@ -1,0 +1,182 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+    *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    html,body{margin:0;padding:0;color:#111;background:#fff;font-family:"Times New Roman",serif}
+    body{font-size:13px;line-height:1.4}
+
+    /* Break hints. Everything below exists so the engine can fill a sheet
+       without splitting something that has to stay whole. */
+    h3,h4{break-after:avoid;page-break-after:avoid}
+    .bp-fig,.bp-ssr,.bp-sec,.bp-xcode,.bp-fam,.bp-keep{break-inside:avoid;page-break-inside:avoid}
+    table{break-inside:auto}
+    .bp-keep table{break-inside:avoid;page-break-inside:avoid}
+    thead{display:table-header-group}
+    tr{break-inside:avoid;page-break-inside:avoid}
+
+    .section-banner{margin:0 0 5mm;padding:6px 9px;border-left:4px solid #447a9c;background:#edf5fa;font-family:Arial}
+    .section-banner small{display:block;color:#4e6675;font-size:10.14px;text-transform:uppercase;letter-spacing:.6px}
+    .section-banner strong{display:block;margin-top:2px;color:#163f57;font-size:16.900000000000002px}
+    .section-banner .m{display:block;margin-top:2px;color:#4e6675;font-size:11.049999999999999px;font-family:"Times New Roman",serif}
+    h3{font-size:15.079999999999998px;font-weight:700;border-bottom:1px solid #bbb;padding-bottom:3px;margin:9px 0 6px;font-family:Arial}
+    h3:first-of-type{margin-top:0}
+    h4{font-size:13.65px;margin:9px 0 4px;font-family:Arial}
+    .bp-lead{margin:0 0 5px}
+    .bp-note{margin:0 0 5px;color:#4e6675;font-style:italic}
+    .bp-ssr{margin:6px 0 3px}
+    .bp-ssr-h{font-family:Arial;display:flex;align-items:baseline;gap:10px}
+    .bp-ssr-h b{color:#14364b}
+    .bp-code{color:#2b6fa8;font-weight:600}
+    .bp-unit{margin-left:auto;color:#8a9aa5;font-size:11.049999999999999px}
+    .bp-desc{margin:2px 0 3px;text-align:justify}
+    .bp-t{width:auto;border-collapse:collapse;font-size:11.96px;margin-bottom:6px;font-variant-numeric:tabular-nums}
+    .bp-t.wide{width:100%}
+    .bp-t th,.bp-t td{border:1px solid #999;padding:2.5px 6px;text-align:right}
+    .bp-t th{background:#eee;font-weight:600}
+    .bp-t th.grp{text-align:center;background:#e5edf3;color:#14364b}
+    .bp-t th.grp .add{display:block;font-weight:400;font-style:italic;color:#5c788a}
+    .bp-t .l{text-align:left}
+    .bp-t .n{text-align:right}
+    .bp-t .u{color:#777;text-align:left}
+    .bp-t .q{background:#f7fafc;font-weight:700}
+    .bp-t .tot td{font-weight:700;background:#f6f6f0}
+    .bp-t .bp-warn td{background:#fdeceb;color:#902b22}
+    .bp-fig{width:100%;max-width:176mm;display:block;border:1px solid #ccc;background:#fbfbfa;margin-bottom:5px}
+    .bp-fam-cols{display:flex;gap:7mm;margin-top:4px}
+    .bp-fam{flex:1;min-width:0;border:1px solid #b9c4cc;padding:5px 7px}
+    .bp-fam-h{font-family:Arial;border-bottom:1px solid #b9c4cc;padding-bottom:3px;margin-bottom:4px}
+    .bp-fam-h b{color:#14364b}
+    .bp-fam-h span{display:block;color:#8a9aa5;font-size:11.049999999999999px}
+    .bp-fam-list{margin:0 0 5px;padding-left:14px}
+    .bp-fam-list li span{float:right;font-weight:600}
+    .bp-xcode{margin:0 0 5px}
+    .bp-xcode-h{font-family:Arial;display:flex;align-items:baseline;gap:8px}
+    .bp-xcode-h b{color:#14364b}
+    .bp-xcode-q{margin-left:auto;font-weight:700;color:#10303f}
+    .bp-xcode .bp-desc{margin:2px 0 0;font-size:11.44px}
+
+    /* Each section is one full-width exhibit; its body is split into the
+       chart on the left and the calculation table on the right. */
+    .bp-secs{display:flex;flex-wrap:wrap;gap:4mm}
+    .bp-sec{flex:1 1 100%;min-width:0;border-top:1px solid #ccd;padding-top:3px}
+    .bp-sec-h{font-family:Arial;font-weight:700;color:#14364b;margin:0 0 2px}
+    .bp-sec-body{display:grid;grid-template-columns:minmax(0,50%) minmax(0,50%);gap:0;align-items:start}
+    .bp-sec-left{min-width:0}
+    .bp-sec-right{min-width:0}
+    .bp-sec-fig{min-width:0;padding-right:2mm}
+    /* Without min-width:0 the SVG's intrinsic width becomes the section's
+       min-content width, and a section can no longer share a row. */
+    .bp-sec-fig .bp-fig{max-width:none;min-width:0;width:100%}
+    .bp-levels{min-width:0;width:100%;margin:0;padding-left:2mm}
+    .bp-table-title{caption-side:top;text-align:left;font-family:Arial,sans-serif;font-size:10.14px;font-weight:700;color:#14364b;padding:0 0 2px}
+    .bp-calc-levels{table-layout:fixed}
+    .bp-calc-levels th,.bp-calc-levels td{padding:2px 3px;vertical-align:top;overflow-wrap:anywhere}
+    .bp-calc-levels th{white-space:nowrap}
+    .bp-calc-levels .n{white-space:nowrap}
+    .bp-calc-levels .bp-col-ch{width:12%}
+    .bp-calc-levels .bp-col-level{width:14%}
+    .bp-calc-levels .bp-col-calc{width:44%}
+    .bp-calc-levels .bp-col-qty{width:16%}
+    .bp-hearting-levels .bp-col-heart-level{width:20%}
+    .bp-hearting-levels .bp-col-calc{width:38%}
+    .bp-calc{font-family:Arial,sans-serif;font-size:8.84px;line-height:1.15;text-align:left!important;white-space:normal;overflow-wrap:anywhere;color:#354b59}
+    .bp-levels-cols{display:flex;gap:2mm;align-items:flex-start}
+    .bp-sec-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:2mm;margin-top:2mm;border-top:1px solid #ccd;padding-top:2mm}
+    .bp-sec-summary-repair{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .bp-sec-summary-in-column{grid-template-columns:repeat(2,minmax(0,1fr));padding-right:2mm}
+    .bp-sec-summary-in-column.bp-sec-summary-three{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .bp-sec-summary>div{display:flex;justify-content:space-between;gap:2mm;padding:2px 5px;background:#f4f7f9;border:1px solid #d2d9de}
+    .bp-sec-summary span{font-family:Arial,sans-serif;color:#496170;font-size:10.14px}
+    .bp-sec-summary b{font-variant-numeric:tabular-nums;color:#14364b;white-space:nowrap}
+    .bp-sec-zone-table{margin:2mm 0 0;width:auto;font-size:10.66px}
+    .bp-stmt{width:100%;font-size:11.049999999999999px}
+  </style></head><body><div class="section-banner"><small>Earth Work Excavation &amp; Component Details</small><strong>Bund</strong><span class="m">Impervious zone · repair of existing bund · 1 surveyed section · crest 6.00 m · U/S 1:2.00 · D/S 1:2.00 · TBL 100.00</span></div><h4>Bund arrangement</h4><p class="bp-lead">Diagrammatic section at the tallest chainage, Ch 0, showing every element that is switched on and where it sits. It is a sketch of the assembly — each element is dimensioned on its own detail in the pages that follow.</p><svg viewBox="0 0 780 330" xmlns="http://www.w3.org/2000/svg" class="bp-fig"><defs><marker id="bfArrow" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="8" refX="8" refY="3" orient="auto-start-reverse"><path d="M0,0 L8,3 L0,6 Z" fill="#1a4a7a"/></marker><pattern id="bfStone" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><rect width="9" height="9" fill="#dfe6ea"/><line x1="0" y1="0" x2="0" y2="9" stroke="#8fa3b0" stroke-width="1.1"/></pattern><pattern id="bfMurum" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#f0e4cf"/><circle cx="3" cy="3" r="0.9" fill="#c2a06a"/></pattern><pattern id="bfRubble" width="13" height="13" patternUnits="userSpaceOnUse"><rect width="13" height="13" fill="#e6e9e5"/><path d="M2 7 L6 2 L10 7 L6 11 Z" fill="none" stroke="#7c8b78" stroke-width="1"/></pattern><pattern id="bfFilter" width="7" height="7" patternUnits="userSpaceOnUse"><rect width="7" height="7" fill="#eef3e8"/><circle cx="2" cy="2" r="0.8" fill="#8aa06a"/><circle cx="5" cy="5" r="0.8" fill="#8aa06a"/></pattern></defs><path d="M 98.2 150.8 L 299.4 50.1 L 359.8 50.1 L 420.2 50.1 L 520.8 100.4 L 581.2 100.4 L 681.8 150.8 L 681.8 166.9 L 98.2 166.9 Z" fill="#efe9df" stroke="none"/><line x1="74.0" y1="90.4" x2="359.8" y2="90.4" stroke="#4a90b8" stroke-width="1" stroke-dasharray="6 3"/><text x="77.0" y="85.4" text-anchor="start" fill="#4a90b8" font-size="10.5" font-family="Arial">MWL 98.00</text><line x1="74.0" y1="110.5" x2="299.4" y2="110.5" stroke="#4a8f7d" stroke-width="1" stroke-dasharray="3 3"/><text x="77.0" y="122.5" text-anchor="start" fill="#4a8f7d" font-size="10.5" font-family="Arial">FTL 97.00</text><polygon points="299.4,150.8 339.7,70.3 379.9,70.3 420.2,150.8 420.2,150.8 359.8,150.8 299.4,150.8" fill="url(#bfMurum)" stroke="#b8558c" stroke-width="1.4"/><path d="M 98.2 150.8 L 299.4 50.1 L 359.8 50.1 L 420.2 50.1 L 520.8 100.4 L 581.2 100.4 L 681.8 150.8" fill="none" stroke="#6b5a44" stroke-width="1.8"/><line x1="420.2" y1="100.4" x2="706.0" y2="100.4" stroke="#c19a3d" stroke-width="1.1" stroke-dasharray="5 3"/><text x="359.8" y="41.1" text-anchor="middle" fill="#33505f" font-size="11" font-family="Arial">TBL 100.00</text><line x1="299.4" y1="21.1" x2="299.4" y2="31.1" stroke="#1a4a7a" stroke-width="0.7"/><line x1="420.2" y1="21.1" x2="420.2" y2="31.1" stroke="#1a4a7a" stroke-width="0.7"/><line x1="299.4" y1="26.1" x2="420.2" y2="26.1" stroke="#1a4a7a" stroke-width="0.9" marker-start="url(#bfArrow)" marker-end="url(#bfArrow)"/><text x="359.8" y="21.1" text-anchor="middle" fill="#1a4a7a" font-size="11" font-family="Arial">6.00</text><text x="98.2" y="165.8" text-anchor="middle" fill="#5a7a90" font-size="10.5" font-family="Arial">1:2.00</text><text x="681.8" y="165.8" text-anchor="middle" fill="#5a7a90" font-size="10.5" font-family="Arial">1:2.00</text><text x="77.0" y="34.0" text-anchor="start" fill="#8a9aa5" font-size="10" font-family="Arial">Diagrammatic — enabled elements only</text><rect x="74.0" y="312" width="20.1" height="5.5" fill="#222" stroke="#222" stroke-width="0.7"/><rect x="94.1" y="312" width="20.1" height="5.5" fill="#fff" stroke="#222" stroke-width="0.7"/><rect x="114.3" y="312" width="20.1" height="5.5" fill="#222" stroke="#222" stroke-width="0.7"/><text x="74.0" y="308.0" text-anchor="start" fill="#555" font-size="10.5" font-family="Arial">0</text><text x="134.4" y="308.0" text-anchor="middle" fill="#555" font-size="10.5" font-family="Arial">3 m</text><text x="774.0" y="317.0" text-anchor="end" fill="#8a9aa5" font-size="10" font-family="Arial">All dimensions in metres</text></svg><div class="bp-ssr"><div class="bp-ssr-h"><b>Jungle clearance</b><span class="bp-code">IRR-PMW-1-2</span></div></div><table class="bp-t wide"><tr class="tot"><td class="l">Total quantity</td><td class="n">0.00</td><td class="u">sq.m</td></tr></table><h4>Zoned embankment</h4><p class="bp-lead">The section is placed in two zones — an impervious hearting core carrying the water load, and the outer casing around it. Each is measured and billed separately; together they make up the formation volume for the section.</p><div class="bp-ssr"><div class="bp-ssr-h"><b>Casing zone</b><span class="bp-code">IRR-DAW-5-6</span></div></div><table class="bp-t wide"><tr class="tot"><td class="l">Total quantity</td><td class="n">0.00</td><td class="u">cum</td></tr></table><div class="bp-ssr"><div class="bp-ssr-h"><b>Hearting zone (impervious)</b><span class="bp-code">IRR-PMW-3-8</span></div></div><table class="bp-t wide"><tr class="tot"><td class="l">Total quantity</td><td class="n">0.00</td><td class="u">cum</td></tr></table><h4>Berm — D/S berm at RL 97.500</h4><p class="bp-note">A berm generates no earthwork item of its own: the shelf is part of the proposed design face, so the fill that forms it is already measured inside the formation quantity. Only what is placed on the shelf is billed here.</p><div class="bp-keep"><svg viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg" class="bp-fig"><defs><marker id="bfArrow" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="8" refX="8" refY="3" orient="auto-start-reverse"><path d="M0,0 L8,3 L0,6 Z" fill="#1a4a7a"/></marker><pattern id="bfStone" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><rect width="9" height="9" fill="#dfe6ea"/><line x1="0" y1="0" x2="0" y2="9" stroke="#8fa3b0" stroke-width="1.1"/></pattern><pattern id="bfMurum" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#f0e4cf"/><circle cx="3" cy="3" r="0.9" fill="#c2a06a"/></pattern><pattern id="bfRubble" width="13" height="13" patternUnits="userSpaceOnUse"><rect width="13" height="13" fill="#e6e9e5"/><path d="M2 7 L6 2 L10 7 L6 11 Z" fill="none" stroke="#7c8b78" stroke-width="1"/></pattern><pattern id="bfFilter" width="7" height="7" patternUnits="userSpaceOnUse"><rect width="7" height="7" fill="#eef3e8"/><circle cx="2" cy="2" r="0.8" fill="#8aa06a"/><circle cx="5" cy="5" r="0.8" fill="#8aa06a"/></pattern></defs><path d="M 74.0 59.3 L 223.6 123.9 L 311.6 126.1 L 467.1 203.8 L 467.1 206.0 L 74.0 206.0 Z" fill="#efe9df" stroke="#6b5a44" stroke-width="1.7"/><line x1="223.6" y1="98.9" x2="223.6" y2="108.9" stroke="#1a4a7a" stroke-width="0.7"/><line x1="311.6" y1="98.9" x2="311.6" y2="108.9" stroke="#1a4a7a" stroke-width="0.7"/><line x1="223.6" y1="103.9" x2="311.6" y2="103.9" stroke="#1a4a7a" stroke-width="0.9" marker-start="url(#bfArrow)" marker-end="url(#bfArrow)"/><text x="267.6" y="98.9" text-anchor="middle" fill="#1a4a7a" font-size="11" font-family="Arial">3.00</text><line x1="74.0" y1="123.9" x2="223.6" y2="123.9" stroke="#9aa8b2" stroke-width="0.8" stroke-dasharray="4 3"/><text x="217.6" y="115.9" text-anchor="end" fill="#33505f" font-size="10.5" font-family="Arial">Shelf RL 97.50</text><text x="267.6" y="152.1" text-anchor="middle" fill="#5a7a90" font-size="10.5" font-family="Arial">cross-fall 1 in 40.00</text><text x="320.4" y="115.9" text-anchor="start" fill="#7a6a52" font-size="10.5" font-family="Arial">shelf is part of the design face</text><rect x="74.0" y="242" width="29.3" height="5.5" fill="#222" stroke="#222" stroke-width="0.7"/><rect x="103.3" y="242" width="29.3" height="5.5" fill="#fff" stroke="#222" stroke-width="0.7"/><rect x="132.7" y="242" width="29.3" height="5.5" fill="#222" stroke="#222" stroke-width="0.7"/><text x="74.0" y="238.0" text-anchor="start" fill="#555" font-size="10.5" font-family="Arial">0</text><text x="162.0" y="238.0" text-anchor="middle" fill="#555" font-size="10.5" font-family="Arial">3 m</text><text x="694.0" y="247.0" text-anchor="end" fill="#8a9aa5" font-size="10" font-family="Arial">All dimensions in metres</text></svg><table class="bp-t"><tbody><tr><td class="l">Shelf RL</td><td class="n">97.500</td><td class="u"></td></tr><tr><td class="l">Shelf width</td><td class="n">3.00</td><td class="u">m</td></tr><tr><td class="l">Cross-fall</td><td class="n">1 in 40.00</td><td class="u"></td></tr></tbody></table></div></body></html>
+<!doctype html><html><head><meta charset="utf-8"><style>
+    *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    html,body{margin:0;padding:0;color:#111;background:#fff;font-family:"Times New Roman",serif}
+    body{font-size:13px;line-height:1.4}
+
+    /* Break hints. Everything below exists so the engine can fill a sheet
+       without splitting something that has to stay whole. */
+    h3,h4{break-after:avoid;page-break-after:avoid}
+    .bp-fig,.bp-ssr,.bp-sec,.bp-xcode,.bp-fam,.bp-keep{break-inside:avoid;page-break-inside:avoid}
+    table{break-inside:auto}
+    .bp-keep table{break-inside:avoid;page-break-inside:avoid}
+    thead{display:table-header-group}
+    tr{break-inside:avoid;page-break-inside:avoid}
+
+    .section-banner{margin:0 0 5mm;padding:6px 9px;border-left:4px solid #447a9c;background:#edf5fa;font-family:Arial}
+    .section-banner small{display:block;color:#4e6675;font-size:10.14px;text-transform:uppercase;letter-spacing:.6px}
+    .section-banner strong{display:block;margin-top:2px;color:#163f57;font-size:16.900000000000002px}
+    .section-banner .m{display:block;margin-top:2px;color:#4e6675;font-size:11.049999999999999px;font-family:"Times New Roman",serif}
+    h3{font-size:15.079999999999998px;font-weight:700;border-bottom:1px solid #bbb;padding-bottom:3px;margin:9px 0 6px;font-family:Arial}
+    h3:first-of-type{margin-top:0}
+    h4{font-size:13.65px;margin:9px 0 4px;font-family:Arial}
+    .bp-lead{margin:0 0 5px}
+    .bp-note{margin:0 0 5px;color:#4e6675;font-style:italic}
+    .bp-ssr{margin:6px 0 3px}
+    .bp-ssr-h{font-family:Arial;display:flex;align-items:baseline;gap:10px}
+    .bp-ssr-h b{color:#14364b}
+    .bp-code{color:#2b6fa8;font-weight:600}
+    .bp-unit{margin-left:auto;color:#8a9aa5;font-size:11.049999999999999px}
+    .bp-desc{margin:2px 0 3px;text-align:justify}
+    .bp-t{width:auto;border-collapse:collapse;font-size:11.96px;margin-bottom:6px;font-variant-numeric:tabular-nums}
+    .bp-t.wide{width:100%}
+    .bp-t th,.bp-t td{border:1px solid #999;padding:2.5px 6px;text-align:right}
+    .bp-t th{background:#eee;font-weight:600}
+    .bp-t th.grp{text-align:center;background:#e5edf3;color:#14364b}
+    .bp-t th.grp .add{display:block;font-weight:400;font-style:italic;color:#5c788a}
+    .bp-t .l{text-align:left}
+    .bp-t .n{text-align:right}
+    .bp-t .u{color:#777;text-align:left}
+    .bp-t .q{background:#f7fafc;font-weight:700}
+    .bp-t .tot td{font-weight:700;background:#f6f6f0}
+    .bp-t .bp-warn td{background:#fdeceb;color:#902b22}
+    .bp-fig{width:100%;max-width:176mm;display:block;border:1px solid #ccc;background:#fbfbfa;margin-bottom:5px}
+    .bp-fam-cols{display:flex;gap:7mm;margin-top:4px}
+    .bp-fam{flex:1;min-width:0;border:1px solid #b9c4cc;padding:5px 7px}
+    .bp-fam-h{font-family:Arial;border-bottom:1px solid #b9c4cc;padding-bottom:3px;margin-bottom:4px}
+    .bp-fam-h b{color:#14364b}
+    .bp-fam-h span{display:block;color:#8a9aa5;font-size:11.049999999999999px}
+    .bp-fam-list{margin:0 0 5px;padding-left:14px}
+    .bp-fam-list li span{float:right;font-weight:600}
+    .bp-xcode{margin:0 0 5px}
+    .bp-xcode-h{font-family:Arial;display:flex;align-items:baseline;gap:8px}
+    .bp-xcode-h b{color:#14364b}
+    .bp-xcode-q{margin-left:auto;font-weight:700;color:#10303f}
+    .bp-xcode .bp-desc{margin:2px 0 0;font-size:11.44px}
+
+    /* Each section is one full-width exhibit; its body is split into the
+       chart on the left and the calculation table on the right. */
+    .bp-secs{display:flex;flex-wrap:wrap;gap:4mm}
+    .bp-sec{flex:1 1 100%;min-width:0;border-top:1px solid #ccd;padding-top:3px}
+    .bp-sec-h{font-family:Arial;font-weight:700;color:#14364b;margin:0 0 2px}
+    .bp-sec-body{display:grid;grid-template-columns:minmax(0,50%) minmax(0,50%);gap:0;align-items:start}
+    .bp-sec-left{min-width:0}
+    .bp-sec-right{min-width:0}
+    .bp-sec-fig{min-width:0;padding-right:2mm}
+    /* Without min-width:0 the SVG's intrinsic width becomes the section's
+       min-content width, and a section can no longer share a row. */
+    .bp-sec-fig .bp-fig{max-width:none;min-width:0;width:100%}
+    .bp-levels{min-width:0;width:100%;margin:0;padding-left:2mm}
+    .bp-table-title{caption-side:top;text-align:left;font-family:Arial,sans-serif;font-size:10.14px;font-weight:700;color:#14364b;padding:0 0 2px}
+    .bp-calc-levels{table-layout:fixed}
+    .bp-calc-levels th,.bp-calc-levels td{padding:2px 3px;vertical-align:top;overflow-wrap:anywhere}
+    .bp-calc-levels th{white-space:nowrap}
+    .bp-calc-levels .n{white-space:nowrap}
+    .bp-calc-levels .bp-col-ch{width:12%}
+    .bp-calc-levels .bp-col-level{width:14%}
+    .bp-calc-levels .bp-col-calc{width:44%}
+    .bp-calc-levels .bp-col-qty{width:16%}
+    .bp-hearting-levels .bp-col-heart-level{width:20%}
+    .bp-hearting-levels .bp-col-calc{width:38%}
+    .bp-calc{font-family:Arial,sans-serif;font-size:8.84px;line-height:1.15;text-align:left!important;white-space:normal;overflow-wrap:anywhere;color:#354b59}
+    .bp-levels-cols{display:flex;gap:2mm;align-items:flex-start}
+    .bp-sec-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:2mm;margin-top:2mm;border-top:1px solid #ccd;padding-top:2mm}
+    .bp-sec-summary-repair{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .bp-sec-summary-in-column{grid-template-columns:repeat(2,minmax(0,1fr));padding-right:2mm}
+    .bp-sec-summary-in-column.bp-sec-summary-three{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .bp-sec-summary>div{display:flex;justify-content:space-between;gap:2mm;padding:2px 5px;background:#f4f7f9;border:1px solid #d2d9de}
+    .bp-sec-summary span{font-family:Arial,sans-serif;color:#496170;font-size:10.14px}
+    .bp-sec-summary b{font-variant-numeric:tabular-nums;color:#14364b;white-space:nowrap}
+    .bp-sec-zone-table{margin:2mm 0 0;width:auto;font-size:10.66px}
+    .bp-stmt{width:100%;font-size:11.049999999999999px}
+  </style></head><body><div class="section-banner"><small>Cross-sections</small><strong>Bund</strong><span class="m">Impervious zone · repair of existing bund · 1 surveyed section · crest 6.00 m · U/S 1:2.00 · D/S 1:2.00 · TBL 100.00</span></div><h3>Cross-sections</h3><div class="bp-secs"><div class="bp-sec"><div class="bp-sec-h">Ch 0</div><div class="bp-sec-body"><div class="bp-sec-left"><div class="bp-sec-fig"><svg viewBox="0 0 470 210" xmlns="http://www.w3.org/2000/svg" class="bp-fig"><defs><pattern id="bpf0" width="5" height="5" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="5" stroke="#4ea1e0" stroke-width="0.8"/></pattern><pattern id="bpc0" width="5" height="5" patternTransform="rotate(-45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="5" stroke="#c9862f" stroke-width="0.8"/></pattern><pattern id="bph0" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="#fdf1f7"/><line x1="0" y1="0" x2="4" y2="4" stroke="#b8558c" stroke-width="0.7"/><line x1="4" y1="0" x2="0" y2="4" stroke="#b8558c" stroke-width="0.7"/></pattern></defs><line x1="46" y1="131.3" x2="456.0" y2="131.3" stroke="#e0e5ea" stroke-width="0.6"/><text x="42" y="134.3" text-anchor="end" fill="#8a9aa5" font-size="8" font-family="Arial">95.0</text><line x1="46" y1="117.2" x2="456.0" y2="117.2" stroke="#e0e5ea" stroke-width="0.6"/><text x="42" y="120.2" text-anchor="end" fill="#8a9aa5" font-size="8" font-family="Arial">96.0</text><line x1="46" y1="103.1" x2="456.0" y2="103.1" stroke="#e0e5ea" stroke-width="0.6"/><text x="42" y="106.1" text-anchor="end" fill="#8a9aa5" font-size="8" font-family="Arial">97.0</text><line x1="46" y1="88.9" x2="456.0" y2="88.9" stroke="#e0e5ea" stroke-width="0.6"/><text x="42" y="91.9" text-anchor="end" fill="#8a9aa5" font-size="8" font-family="Arial">98.0</text><line x1="46" y1="74.8" x2="456.0" y2="74.8" stroke="#e0e5ea" stroke-width="0.6"/><text x="42" y="77.8" text-anchor="end" fill="#8a9aa5" font-size="8" font-family="Arial">99.0</text><line x1="46" y1="60.7" x2="456.0" y2="60.7" stroke="#e0e5ea" stroke-width="0.6"/><text x="42" y="63.7" text-anchor="end" fill="#8a9aa5" font-size="8" font-family="Arial">100.0</text><line x1="46.0" y1="60.7" x2="46.0" y2="131.3" stroke="#e0e5ea" stroke-width="0.6"/><text x="46.0" y="142.3" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">0</text><line x1="116.7" y1="60.7" x2="116.7" y2="131.3" stroke="#e0e5ea" stroke-width="0.6"/><text x="116.7" y="142.3" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">5</text><line x1="187.4" y1="60.7" x2="187.4" y2="131.3" stroke="#e0e5ea" stroke-width="0.6"/><text x="187.4" y="142.3" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">10</text><line x1="258.1" y1="60.7" x2="258.1" y2="131.3" stroke="#e0e5ea" stroke-width="0.6"/><text x="258.1" y="142.3" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">15</text><line x1="328.8" y1="60.7" x2="328.8" y2="131.3" stroke="#e0e5ea" stroke-width="0.6"/><text x="328.8" y="142.3" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">20</text><line x1="399.4" y1="60.7" x2="399.4" y2="131.3" stroke="#e0e5ea" stroke-width="0.6"/><text x="399.4" y="142.3" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">25</text><path d="M 46.0 131.3 L 187.4 131.3 L 187.4 135.6 L 46.0 135.6 Z" fill="url(#bpc0)"/><path d="M 187.4 131.3 L 229.8 131.3 L 229.8 135.6 L 187.4 135.6 Z" fill="url(#bpc0)"/><path d="M 229.8 131.3 L 272.2 131.3 L 272.2 135.6 L 229.8 135.6 Z" fill="url(#bpc0)"/><path d="M 272.2 131.3 L 342.9 131.3 L 342.9 135.6 L 272.2 135.6 Z" fill="url(#bpc0)"/><path d="M 342.9 131.3 L 385.3 131.3 L 385.3 135.6 L 342.9 135.6 Z" fill="url(#bpc0)"/><path d="M 385.3 131.3 L 456.0 131.3 L 456.0 135.6 L 385.3 135.6 Z" fill="url(#bpc0)"/><path d="M 46.0 131.3 L 187.4 60.7 L 187.4 131.3 L 46.0 131.3 Z" fill="url(#bpf0)"/><path d="M 187.4 60.7 L 229.8 60.7 L 229.8 131.3 L 187.4 131.3 Z" fill="url(#bpf0)"/><path d="M 229.8 60.7 L 272.2 60.7 L 272.2 131.3 L 229.8 131.3 Z" fill="url(#bpf0)"/><path d="M 272.2 60.7 L 342.9 96.0 L 342.9 131.3 L 272.2 131.3 Z" fill="url(#bpf0)"/><path d="M 342.9 96.0 L 385.3 96.0 L 385.3 131.3 L 342.9 131.3 Z" fill="url(#bpf0)"/><path d="M 385.3 96.0 L 456.0 131.3 L 456.0 131.3 L 385.3 131.3 Z" fill="url(#bpf0)"/><path d="M 187.4 131.3 L 215.7 74.8 L 215.7 131.3 L 187.4 131.3 Z" fill="url(#bph0)"/><path d="M 215.7 74.8 L 229.8 74.8 L 229.8 131.3 L 215.7 131.3 Z" fill="url(#bph0)"/><path d="M 229.8 74.8 L 243.9 74.8 L 243.9 131.3 L 229.8 131.3 Z" fill="url(#bph0)"/><path d="M 243.9 74.8 L 272.2 131.3 L 272.2 131.3 L 243.9 131.3 Z" fill="url(#bph0)"/><path d="M 46.0 131.3 L 229.8 131.3 L 456.0 131.3" fill="none" stroke="#8a6a3a" stroke-width="1.4"/><path d="M 46.0 131.3 L 187.4 60.7 L 229.8 60.7 L 272.2 60.7 L 342.9 96.0 L 385.3 96.0 L 456.0 131.3" fill="none" stroke="#2b6fa8" stroke-width="1.7"/><path d="M 187.4 131.3 L 215.7 74.8 L 243.9 74.8 L 272.2 131.3" fill="none" stroke="#b8558c" stroke-width="1.4"/><rect x="372.0" y="14" width="8" height="7" fill="url(#bph0)" stroke="#b8558c" stroke-width="0.6"/><text x="383.0" y="20" fill="#8a4a72" font-size="7.5" font-family="Arial">Hearting</text><rect x="372.0" y="24" width="8" height="7" fill="url(#bpf0)" stroke="#4ea1e0" stroke-width="0.6"/><text x="383.0" y="30" fill="#2b6fa8" font-size="7.5" font-family="Arial">Casing</text><text x="46" y="206" fill="#9aa8b2" font-size="8" font-family="Arial">Ch from start (m)</text></svg></div><table class="bp-t bp-levels bp-calc-levels bp-hearting-levels" style="font-size:14.0px"><caption class="bp-table-title">Hearting quantity</caption><colgroup><col class="bp-col-ch"><col class="bp-col-level"><col class="bp-col-heart-level"><col class="bp-col-calc"><col class="bp-col-qty"></colgroup><thead><tr><th>Ch</th><th>EL</th><th>RL (Hearting)</th><th>Calculation</th><th>Quantity</th></tr></thead><tbody><tr><td class="n">10.00</td><td class="n">95.000</td><td class="n">95.000</td><td class="bp-calc">Start point</td><td class="n">—</td></tr><tr><td class="n">12.00</td><td class="n">95.000</td><td class="n">99.000</td><td class="bp-calc">2 × [0 + 4] ÷ 2</td><td class="n">4.000</td></tr><tr><td class="n">13.00</td><td class="n">95.000</td><td class="n">99.000</td><td class="bp-calc">1 × [4 + 4] ÷ 2</td><td class="n">4.000</td></tr><tr><td class="n">14.00</td><td class="n">95.000</td><td class="n">99.000</td><td class="bp-calc">1 × [4 + 4] ÷ 2</td><td class="n">4.000</td></tr><tr><td class="n">16.00</td><td class="n">95.000</td><td class="n">95.000</td><td class="bp-calc">2 × [4 + 0] ÷ 2</td><td class="n">4.000</td></tr><tr class="tot"><td colspan="4" class="l">Total Hearting Quantity</td><td class="n">16.000 m²</td></tr></tbody></table></div><div class="bp-sec-right"><table class="bp-t bp-levels bp-calc-levels" style="font-size:14.0px"><colgroup><col class="bp-col-ch"><col class="bp-col-level"><col class="bp-col-level"><col class="bp-col-calc"><col class="bp-col-qty"></colgroup><thead><tr><th>Ch</th><th>EL</th><th>RL</th><th>Calculation</th><th>Quantity</th></tr></thead><tbody><tr><td class="n">0.00</td><td class="n">95.000</td><td class="n">95.000</td><td class="bp-calc">Start point</td><td class="n">—</td></tr><tr><td class="n">10.00</td><td class="n">95.000</td><td class="n">100.000</td><td class="bp-calc">10 × [(95 - 95) + (100 - 95)] ÷ 2</td><td class="n">25.000</td></tr><tr><td class="n">13.00</td><td class="n">95.000</td><td class="n">100.000</td><td class="bp-calc">3 × [(100 - 95) + (100 - 95)] ÷ 2</td><td class="n">15.000</td></tr><tr><td class="n">16.00</td><td class="n">95.000</td><td class="n">100.000</td><td class="bp-calc">3 × [(100 - 95) + (100 - 95)] ÷ 2</td><td class="n">15.000</td></tr><tr><td class="n">21.00</td><td class="n">95.000</td><td class="n">97.500</td><td class="bp-calc">5 × [(100 - 95) + (97.5 - 95)] ÷ 2</td><td class="n">18.750</td></tr><tr><td class="n">24.00</td><td class="n">95.000</td><td class="n">97.500</td><td class="bp-calc">3 × [(97.5 - 95) + (97.5 - 95)] ÷ 2</td><td class="n">7.500</td></tr><tr><td class="n">29.00</td><td class="n">95.000</td><td class="n">95.000</td><td class="bp-calc">5 × [(97.5 - 95) + (95 - 95)] ÷ 2</td><td class="n">6.250</td></tr><tr class="tot"><td colspan="4" class="l">Total Formation Quantity</td><td class="n">87.500 m²</td></tr></tbody></table><div class="bp-sec-summary bp-sec-summary-repair bp-sec-summary-in-column bp-sec-summary-three"><div><span>Perimeter</span><b>29.000 m</b></div><div><span>Slope - U/S</span><b>11.180 m</b></div><div><span>Slope - D/S</span><b>11.180 m</b></div><div><span>Stripping Area</span><b>8.700 m²</b></div><div><span>Casing</span><b>71.500 m²</b></div><div><span>Hearting</span><b>16.000 m²</b></div></div></div></div></div></div></body></html>

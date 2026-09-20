@@ -30,6 +30,61 @@ export function buildOsrmRouteUrl(points: LeadMapCoordinate[]): string {
   return `${routingBaseUrl()}/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`
 }
 
+interface OsrmTableResponse {
+  code?: string
+  message?: string
+  distances?: Array<Array<number | null>>
+}
+
+function buildOsrmTableUrl(
+  sources: LeadMapCoordinate[],
+  destinations: LeadMapCoordinate[],
+  sourceIndexes: number[],
+  destinationIndexes: number[]
+): string {
+  const coordinates = [...sources, ...destinations]
+    .map((point) => `${point.lon},${point.lat}`)
+    .join(';')
+  return (
+    `${routingBaseUrl()}/table/v1/driving/${coordinates}` +
+    `?annotations=distance&sources=${sourceIndexes.join(';')}` +
+    `&destinations=${destinationIndexes.join(';')}`
+  )
+}
+
+/**
+ * Road distances in km, rows = sources, columns = destinations. Null marks
+ * an unroutable pair. OSRM caps a request at 100 coordinates; callers chunk.
+ */
+export async function fetchOsrmTableKm(
+  sources: LeadMapCoordinate[],
+  destinations: LeadMapCoordinate[],
+  signal?: AbortSignal
+): Promise<(number | null)[][]> {
+  if (sources.length === 0 || destinations.length === 0) return []
+  const sourceIndexes = sources.map((_, index) => index)
+  const destinationIndexes = destinations.map(
+    (_, index) => sources.length + index
+  )
+  const response = await fetch(
+    buildOsrmTableUrl(sources, destinations, sourceIndexes, destinationIndexes),
+    { signal }
+  )
+  if (!response.ok) throw new Error(`Road table failed (${response.status}).`)
+  const payload = (await response.json()) as OsrmTableResponse
+  if (payload.code !== 'Ok' || !payload.distances) {
+    throw new Error(payload.message || 'No road table was returned for these points.')
+  }
+  return payload.distances.map((row) =>
+    destinationIndexes.map((_, column) => {
+      const metres = row[column]
+      return typeof metres === 'number' && Number.isFinite(metres) && metres >= 0
+        ? metres / 1000
+        : null
+    })
+  )
+}
+
 export async function calculateRoadRoute(
   stops: LeadMapCoordinate[],
   signal?: AbortSignal

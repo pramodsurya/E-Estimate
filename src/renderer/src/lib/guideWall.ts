@@ -19,6 +19,24 @@ export const GUIDE_WALL_DEFAULT_WALL_CODE = 'IRR-CCDW-2-9'
 export const GUIDE_WALL_DEFAULT_BASE_CODE = 'IRR-CCDW-2-3'
 export const GUIDE_WALL_DEFAULT_EXCAVATION_CODE = 'IRR-CCDW-1-2'
 
+/** Short human length: whole metres under 1 km, km with 2 decimals above. */
+export function formatLengthM(meters: number): string {
+  if (!Number.isFinite(meters) || meters < 0) return '—'
+  if (meters < 1000) return `${Math.round(meters)} m`
+  return `${(meters / 1000).toFixed(2)} km`
+}
+
+/** Running total at each vertex: totals[i] covers vertices 0..i. */
+export function cumulativeLengthsM(vertices: { lat: number; lng: number }[]): number[] {
+  const totals: number[] = []
+  let run = 0
+  vertices.forEach((vertex, index) => {
+    if (index > 0) run += polylineLengthM([vertices[index - 1], vertex])
+    totals.push(run)
+  })
+  return totals
+}
+
 // The "Detailed" tree row under a Guide Wall component is a synthetic selection
 // (not a real node): the component id with this suffix. WorkArea detects it and
 // shows the guide-wall design dashboard instead of a node editor.
@@ -60,8 +78,20 @@ export function defaultGuideWallData(): GuideWallData {
     intervalM: 25,
     breaks: [],
     sections: [],
-    wallMaterial: { code: GUIDE_WALL_DEFAULT_WALL_CODE },
-    baseMaterial: { code: GUIDE_WALL_DEFAULT_BASE_CODE },
+    wallMaterial: {
+      code: GUIDE_WALL_DEFAULT_WALL_CODE,
+      description: 'Plain cement concrete (1:2:4) for guide wall',
+      unit: 'CUM',
+      side: 'SSR',
+      categoryKey: 'ssr_item'
+    },
+    baseMaterial: {
+      code: GUIDE_WALL_DEFAULT_BASE_CODE,
+      description: 'Plain cement concrete (1:3:6) for base slab',
+      unit: 'CUM',
+      side: 'SSR',
+      categoryKey: 'ssr_item'
+    },
     excavationMaterial: null,
     excavationRows: [],
     materialItems: []
@@ -547,6 +577,22 @@ export function migrateGuideWallData(raw: GuideWallData): GuideWallData {
     })
     data = base
   }
+  if (data.lengthM > 0 && (!data.sections || data.sections.length === 0)) {
+    data = { ...data, configured: true, sections: materializeSections(data, []) }
+  }
+  // Ensure default wall and base materials have complete SSR metadata
+  if (!data.wallMaterial.side) data.wallMaterial.side = 'SSR'
+  if (!data.wallMaterial.unit) data.wallMaterial.unit = 'CUM'
+  if (!data.wallMaterial.categoryKey) data.wallMaterial.categoryKey = 'ssr_item'
+  if (!data.wallMaterial.description) {
+    data.wallMaterial.description = 'Plain cement concrete (1:2:4) for guide wall'
+  }
+  if (!data.baseMaterial.side) data.baseMaterial.side = 'SSR'
+  if (!data.baseMaterial.unit) data.baseMaterial.unit = 'CUM'
+  if (!data.baseMaterial.categoryKey) data.baseMaterial.categoryKey = 'ssr_item'
+  if (!data.baseMaterial.description) {
+    data.baseMaterial.description = 'Plain cement concrete (1:3:6) for base slab'
+  }
   // Backfill the (role, code) → item registry from the earlier single-item links.
   if (!Array.isArray(data.materialItems)) {
     const items: GuideWallMaterialItem[] = []
@@ -594,8 +640,19 @@ function requiredItems(data: GuideWallData): RequiredItem[] {
 /** Create/update/remove the component's generated items to match the codes in use. */
 export function syncGuideWallItems(root: ProjectNode, componentId: string): ProjectNode {
   const component = findNode(root, componentId)
-  const data = component?.guideWall
-  if (!component || !data) return root
+  const raw = component?.guideWall
+  if (!component || !raw) return root
+
+  let data = migrateGuideWallData(raw)
+  if (data.lengthM <= 0) {
+    const line = (data.alignment && data.alignment.length >= 2) ? data.alignment : (component.workingLine ?? [])
+    if (line.length >= 2) {
+      data = { ...data, alignment: line, lengthM: Math.round(polylineLengthM(line)) }
+    }
+  }
+  if (data.lengthM > 0 && (!data.sections || data.sections.length === 0)) {
+    data = { ...data, configured: true, sections: materializeSections(data, []) }
+  }
 
   const required = requiredItems(data)
   const registry = data.materialItems ?? []
@@ -609,14 +666,21 @@ export function syncGuideWallItems(root: ProjectNode, componentId: string): Proj
     const key = keyOf(req.role, req.ref.code)
     if (usedKeys.has(key)) continue
     usedKeys.add(key)
+    const isSsr = req.ref.side === 'SSR' || req.ref.code.startsWith('IRR-')
     const patch = {
       name: req.ref.code,
-      itemSource: req.ref.side,
+      itemSource: req.ref.side ?? (isSsr ? 'SSR' : 'SSR'),
       itemCode: req.ref.code,
-      itemDescription: req.ref.description,
+      itemDescription:
+        req.ref.description ??
+        (req.role === 'wall'
+          ? 'Plain cement concrete (1:2:4) for guide wall'
+          : req.role === 'base'
+            ? 'Plain cement concrete (1:3:6) for base slab'
+            : req.ref.code),
       itemEditorType: 'spreadsheet' as const,
-      unit: req.ref.unit,
-      categoryKey: req.ref.categoryKey,
+      unit: req.ref.unit ?? 'CUM',
+      categoryKey: req.ref.categoryKey ?? (isSsr ? 'ssr_item' : 'custom'),
       dataVariant: req.ref.dataVariant,
       computedQuantity: req.quantity,
       spreadsheet: undefined,

@@ -85,29 +85,35 @@ export default function SeignioragePanel(): JSX.Element {
             onClick={() => void syncDashboard()}
             title={syncError || 'Sync Seigniorage materials'}
             aria-label="Sync Seigniorage materials"
-            aria-busy={syncing}
           >
             <RefreshCw className={syncing ? 'spin' : undefined} size={14} />
           </button>
         </div>
       </div>
 
+      {syncError && <div className="rate-warning panel-sync-warning">{syncError}</div>}
+      {!snapshotValid && !syncError && (
+        <div className="rate-notice panel-sync-notice">
+          <span>Seigniorage data is not synced for this project.</span>
+          <button
+            type="button"
+            className="btn-mini secondary"
+            disabled={syncing}
+            onClick={() => void syncDashboard()}
+          >
+            {syncing ? 'Syncing…' : 'Sync'}
+          </button>
+        </div>
+      )}
+
       <label className="seig-search">
-        <Search size={12} />
+        <Search size={14} />
         <input
+          placeholder="Filter seigniorage materials…"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search material..."
+          onChange={(e) => setQuery(e.target.value)}
         />
       </label>
-
-      {filtered.length === 0 ? (
-        <div className="lead-panel-empty">
-          {snapshotValid
-            ? 'No seigniorage materials found in DATA.'
-            : 'Sync the total Seigniorage or Project Dashboard to populate materials.'}
-        </div>
-      ) : null}
 
       <div className="seig-list">
         {filtered.map((group) => {

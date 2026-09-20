@@ -118,6 +118,20 @@ export default function EstimateLeadPanel(): JSX.Element {
           </button>
         </div>
       </div>
+      {syncError && <div className="rate-warning panel-sync-warning">{syncError}</div>}
+      {!snapshotValid && !syncError && (
+        <div className="rate-notice panel-sync-notice">
+          <span>Lead data is not synced for this project.</span>
+          <button
+            type="button"
+            className="btn-mini secondary"
+            disabled={syncing}
+            onClick={() => void syncDashboard()}
+          >
+            {syncing ? 'Syncing…' : 'Sync'}
+          </button>
+        </div>
+      )}
       {items.length === 0 ? (
         <div className="lead-panel-empty">
           Add DATA items with lead-applicable materials to show Cement, Steel, Earth, and other Lead groups.

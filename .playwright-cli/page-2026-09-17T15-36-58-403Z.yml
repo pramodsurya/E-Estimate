@@ -1,0 +1,34 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img "E-Estimate" [ref=e7]
+        - text: E-Estimate
+      - button "File" [ref=e10] [cursor=pointer]
+      - button "Component" [ref=e12] [cursor=pointer]
+      - button "Help" [ref=e14] [cursor=pointer]
+      - button "Undo" [disabled] [ref=e15]
+      - button "Redo" [disabled] [ref=e19]
+    - textbox "Search…" [ref=e28]
+    - button "Notifications, 1 unread" [ref=e31] [cursor=pointer]:
+      - generic [ref=e35]: "1"
+  - generic [ref=e38]:
+    - generic [ref=e39]:
+      - img "E-Estimate" [ref=e41]
+      - generic [ref=e43]: E-Estimate
+    - generic [ref=e44]: Construction cost estimation · Telangana SOR / SSR
+    - generic [ref=e45]:
+      - generic [ref=e46]: FIRST TIME HERE
+      - heading "Let’s build your first estimate together." [level=2] [ref=e49]
+      - paragraph [ref=e50]: Chapter 1 covers a whole estimate — project details, a component, items, measurement sheets, final numbers and print areas. I’ll point at what to press and explain why. About 10 minutes; you can stop after the first step.
+      - generic [ref=e51]:
+        - button "→ Start guided setup" [ref=e52] [cursor=pointer]
+        - button "Open an existing project" [ref=e53] [cursor=pointer]
+    - generic [ref=e56]:
+      - generic [ref=e57]:
+        - heading "Start" [level=3] [ref=e58]
+        - button "New Project…" [ref=e59] [cursor=pointer]
+        - button "Open Project…" [ref=e63] [cursor=pointer]
+      - generic [ref=e66]:
+        - heading "Recent" [level=3] [ref=e67]
+        - generic [ref=e68]: No recent projects yet.

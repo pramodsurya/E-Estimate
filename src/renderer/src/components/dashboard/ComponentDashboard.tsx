@@ -1,17 +1,22 @@
 import {
   ChevronRight,
+  ClipboardList,
   FileCode,
   FilePlus2,
   IndianRupee,
   Layers,
   ListPlus,
+
   Plus,
   RefreshCw,
+
   Settings
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useStore } from '../../store/useStore'
 import { resolveComponentPrintPart } from '../../lib/typist-output/componentTypst'
+import { resolveBoqPrintPart } from '../../lib/typist-output/boqTypst'
+import { boqFileName, buildBoqData } from '../../lib/boq'
 import EEstimatePrintStudio from '../typst/EEstimatePrintStudio'
 import type { EestimateProject, ProjectNode } from '../../types/project'
 import { NodeIcon, nodeDisplayName } from '../nodeVisual'
@@ -27,6 +32,11 @@ import {
 import { findNode } from '../../lib/tree'
 import { resolveTemplateDashboardMaterials } from '../../lib/templateDashboardSync'
 import SignatureFooterCard from '../signature/SignatureFooterCard'
+import { effectiveAllowanceForNode, workingLineCentroid } from '../../lib/componentAllowance'
+import { resolveManualAreaAllowance } from '../../lib/manualAreaAllowance'
+import { resolveAreaAllowance } from '../../lib/masterData'
+import { ALLOWANCE_TYPES } from '../newproject/NewProjectForm'
+
 
 const money = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 })
 const qtyFmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 3 })
@@ -43,10 +53,10 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
   const setDashboardSnapshot = useStore((s) => s.setDashboardSnapshot)
   const setGuideWallMaterial = useStore((s) => s.setGuideWallMaterial)
   const resolveBundMaterials = useStore((s) => s.resolveBundMaterials)
-  const resolveMiSluiceNewMaterials = useStore((s) => s.resolveMiSluiceNewMaterials)
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
   const [printStudioOpen, setPrintStudioOpen] = useState(false)
+  const [boqOpen, setBoqOpen] = useState(false)
   const updatePrintStudioDocument = useStore((s) => s.updatePrintStudioDocument)
 
   const subcomponents = node.children.filter((c) => c.kind === 'subcomponent')
@@ -87,7 +97,6 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
       await resolveTemplateDashboardMaterials(node, {
         setGuideWallMaterial,
         resolveBundMaterials,
-        resolveMiSluiceNewMaterials
       })
       const current = useStore.getState().project
       if (!current || current.id !== project.id) return
@@ -142,6 +151,49 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
     if (!project || !printStudioOpen) return null
     return resolveComponentPrintPart(project, node, recipes, rateOf)
   }, [project, node, recipes, rates, printStudioOpen, rateOf])
+
+  const boqPrintStudio = useMemo(() => {
+    if (!project || !boqOpen) return null
+    return resolveBoqPrintPart(project, node, rateOf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project, node, snapshot, boqOpen])
+
+  const exportBoqExcel = async (): Promise<void> => {
+    const current = useStore.getState().project
+    if (!current) throw new Error('No active project.')
+    const section = findNode(current.root, node.id) ?? node
+    const boq = buildBoqData(current, section, rateOf)
+    const payload = {
+      kind: 'boq',
+      preferPath: true,
+      boq: {
+        projectName: boq.projectName,
+        componentName: boq.componentName,
+        isSubcomponent: boq.isSubcomponent,
+        rows: boq.rows.map((row) => ({
+          sl: row.sl,
+          code: row.code,
+          heading: row.heading,
+          description: row.description,
+          quantity: row.quantity,
+          unit: row.unit,
+          rate: row.rate,
+          amount: row.amount
+        })),
+        totalCost: boq.totalCost
+      }
+    }
+    const result = await window.api.excel.compile(payload)
+    // No base64 fallback: a missing path or save channel fails loudly.
+    if (!result || !result.ok || !result.filePath) {
+      throw new Error(result?.error || 'Excel engine did not return a workbook path.')
+    }
+    if (typeof window.api.export.workbook !== 'function') {
+      throw new Error('Excel export channel is unavailable.')
+    }
+    const fileName = boqFileName(boq.projectName, boq.componentName)
+    await window.api.export.workbook('', fileName, undefined, { sourcePath: result.filePath })
+  }
   return (
     <div className="dashboard component-dashboard">
       <div className="dash-header">
@@ -181,6 +233,13 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
           </button>
           <button
             className="btn ghost"
+            onClick={() => setBoqOpen(true)}
+            title="Bill of Quantities"
+          >
+            <ClipboardList size={15} /> BOQ
+          </button>
+          <button
+            className="btn ghost"
             title="Open Component Print Studio"
             onClick={() => setPrintStudioOpen(true)}
           >
@@ -198,6 +257,7 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
             This dashboard has not been synced for the current SOR settings. Click Sync to populate it.
           </div>
         )}
+        {project && <ComponentAllowanceCard project={project} node={node} />}
         <SignatureFooterCard scopeKey={node.id} />
         <section className="component-cost-overview">
           <div className="component-cost-primary">
@@ -373,12 +433,199 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
           onClose={() => setPrintStudioOpen(false)}
         />
       ) : null}
+      {boqOpen && project && boqPrintStudio ? (
+        <EEstimatePrintStudio
+          scopeKey={boqPrintStudio.scopeKey}
+          key={boqPrintStudio.scopeKey}
+          title="BOQ — Bill of Quantities"
+          subtitle={node.name}
+          defaultTypstSource={boqPrintStudio.defaultTypstSource}
+          savedTypstSource={boqPrintStudio.savedTypstSource}
+          compileInputs={boqPrintStudio.compileInputs}
+          compilePrelude={boqPrintStudio.compilePrelude}
+          runtimeData={boqPrintStudio.runtimeData}
+          projectDocumentSettings={boqPrintStudio.projectDocumentSettings}
+          savedDocumentSettings={boqPrintStudio.savedDocumentSettings ?? undefined}
+          excelExportLabel="Download the BOQ as an Excel workbook"
+          onExportExcel={() => exportBoqExcel()}
+          onSave={async (source, settings) => {
+            updatePrintStudioDocument(boqPrintStudio.scopeKey, source, settings)
+            await useStore.getState().saveProject({ requireSaved: true })
+          }}
+          onClose={() => setBoqOpen(false)}
+        />
+      ) : null}
     </div>
   )
 }
 
+function decodeBase64(b64: string): Uint8Array {
+  const binary = atob(b64)
+  const len = binary.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
+
+function encodeBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  }
+  return btoa(binary)
+}
+
 function formatMoney(value: number): string {
   return Number.isFinite(value) ? `Rs. ${money.format(value)}` : '-'
+}
+
+/**
+ * Working location and labour allowance for one component/sub-component.
+ * Items under the nearest ancestor carrying an explicit allowance are priced
+ * with it; otherwise the project allowance applies. Changing the allowance
+ * marks this dashboard stale until the next Sync.
+ */
+function ComponentAllowanceCard({
+  project,
+  node
+}: {
+  project: EestimateProject
+  node: ProjectNode
+}): JSX.Element {
+  const setNodeAreaAllowance = useStore((s) => s.setNodeAreaAllowance)
+  const openEditGeometry = useStore((s) => s.openEditGeometry)
+  const [editing, setEditing] = useState(false)
+  const [pending, setPending] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const effective = effectiveAllowanceForNode(project, node.id)
+  const explicit = node.areaAllowance ?? null
+  const isCustom = !node.templateId
+  const templateLengthM = node.bund?.lengthM ?? node.canal?.lengthM ?? node.guideWall?.lengthM ?? null
+  const workLookup =
+    node.location ?? (node.workingLine?.length ? workingLineCentroid(node.workingLine) : null)
+
+  const applyAutomatic = (): void => {
+    if (pending || !workLookup) return
+    setPending('__automatic')
+    setError(null)
+    void resolveAreaAllowance({ lat: workLookup.lat, lng: workLookup.lng }, project.meta.sorYear)
+      .then((resolved) => setNodeAreaAllowance(node.id, resolved))
+      .catch((reason: unknown) =>
+        setError(reason instanceof Error ? reason.message : 'Could not determine area allowance.')
+      )
+      .finally(() => setPending(null))
+  }
+  const isSub = node.kind === 'subcomponent'
+
+  const applyType = (type: string): void => {
+    if (pending) return
+    setPending(type)
+    setError(null)
+    void resolveManualAreaAllowance(type || null, project.meta.sorYear)
+      .then((resolved) => setNodeAreaAllowance(node.id, resolved))
+      .catch((reason: unknown) =>
+        setError(reason instanceof Error ? reason.message : 'Could not update the allowance.')
+      )
+      .finally(() => setPending(null))
+  }
+
+  const locationText = node.location
+    ? `${node.location.lat.toFixed(6)}, ${node.location.lng.toFixed(6)}${
+        node.location.label ? ` · ${node.location.label}` : ''
+      }`
+    : 'Not set'
+  const lineText = node.workingLine?.length
+    ? ` · line of ${node.workingLine.length} vertices`
+    : ''
+  const storedLengthText =
+    templateLengthM != null && templateLengthM > 0 ? ` · ${Math.round(templateLengthM)} m` : ''
+
+  return (
+    <section className="component-panel">
+      <div className="component-panel-heading">
+        <div>
+          <span className="component-section-label">Working location &amp; allowance</span>
+          <h2>
+            {effective.label} · {effective.percent.toFixed(2)}%
+          </h2>
+          <p>
+            {effective.source === 'component'
+              ? `${explicit?.source === 'manual' ? 'Manual classification' : 'Automatic from the map'} on ${effective.ownerName ?? 'this section'}. Every item under it is priced with this allowance.`
+              : `Using the project allowance. Every item under this ${isSub ? 'sub-component' : 'component'} is priced with it until an explicit one is set.`}
+          </p>
+        </div>
+        <button className="btn ghost" style={{ marginRight: 8 }} onClick={() => openEditGeometry(node.id)}>
+          {isCustom ? 'Edit location' : 'Edit length'}
+        </button>
+        <button className="btn ghost" onClick={() => setEditing((value) => !value)}>
+          {editing ? 'Done' : 'Change'}
+        </button>
+      </div>
+      <div className="component-cost-breakdown">
+        <div>
+          <span>Work point</span>
+          <strong>{locationText}</strong>
+          <small>{`${lineText ? lineText.trim() : explicit ? 'Explicit allowance' : 'Inherited allowance'}${storedLengthText}`}</small>
+        </div>
+        <div>
+          <span>Rule source</span>
+          <strong>{effective.allowance?.ruleYear ?? project.meta.sorYear}</strong>
+          <small>{effective.allowance?.goReference ?? 'Project year'}</small>
+        </div>
+      </div>
+      {editing && (
+        <div className="field" style={{ marginTop: 12 }}>
+          <p className="settings-note" style={{ marginTop: 0 }}>
+            Automatic reads the allowance rule at the stored work
+            {node.workingLine?.length ? ' line middle' : ' point'}
+            {workLookup ? ` (${workLookup.lat.toFixed(6)}, ${workLookup.lng.toFixed(6)})` : ''};
+            manual fixes a classification instead.
+          </p>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+            <button
+              type="button"
+              className="btn ghost compact"
+              disabled={pending !== null || !workLookup}
+              onClick={applyAutomatic}
+              title={workLookup ? 'Resolve the allowance from the stored work location' : 'No work point or line is stored on this section'}
+            >
+              {pending === '__automatic' ? 'Resolving…' : explicit?.source === 'automatic' ? 'Refresh automatic' : 'Apply automatic'}
+            </button>
+          </div>
+          <div className="allowance-flags" aria-label="Component area classification">
+            {ALLOWANCE_TYPES.map((option) => (
+              <button
+                type="button"
+                key={option.value || 'none'}
+                className={(explicit?.type ?? '') === option.value ? 'selected' : ''}
+                disabled={pending !== null}
+                onClick={() => applyType(option.value)}
+              >
+                {pending === option.value ? 'Saving…' : option.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+            <button
+              type="button"
+              className="btn ghost compact"
+              disabled={pending !== null || !explicit}
+              onClick={() => setNodeAreaAllowance(node.id, null)}
+            >
+              Use project allowance
+            </button>
+          </div>
+          {error && <div className="rate-warning" style={{ marginTop: 8 }}>{error}</div>}
+          <p className="settings-note" style={{ marginTop: 8 }}>
+            Sync this dashboard afterwards so the new allowance flows into every rate.
+          </p>
+        </div>
+      )}
+    </section>
+  )
 }
 
 function countDescendantItems(node: ProjectNode): number {

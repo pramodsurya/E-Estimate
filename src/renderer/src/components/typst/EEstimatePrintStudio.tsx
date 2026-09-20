@@ -11,6 +11,7 @@ import {
   Check,
   CornerDownLeft,
   Download,
+  FileSpreadsheet,
   Heading1,
   Heading2,
   Heading3,
@@ -51,6 +52,8 @@ import './eEstimatePrintStudio.css'
 import './documentSettings.css'
 import { useStore } from '../../store/useStore'
 import { preparePrintAudit, auditPrintContent, auditShadowFiles, printIssuesForAi, type PrintIssue } from '../../lib/typist-output/printContentAudit'
+import { contentHash } from '../../lib/typist-output/compileCache'
+import { convertFileSrc } from '@tauri-apps/api/core'
 
 export interface EEstimatePrintStudioProps {
   title: string
@@ -95,6 +98,12 @@ export interface EEstimatePrintStudioProps {
   managePageSetup?: boolean
   /** Shown above the preview when the document needs an action outside this studio. */
   notice?: string
+  /**
+   * When set, the studio header offers an Excel download built from the same
+   * live data as the preview (used by the BOQ schedule).
+   */
+  onExportExcel?: () => Promise<void>
+  excelExportLabel?: string
 }
 
 const HIGHLIGHT_COLORS = [
@@ -117,6 +126,13 @@ const FONT_SIZES = ['8', '9', '9.5', '10', '11', '12', '14', '16', '18']
 
 /** Book compiles can be large; never leave the preview on “Compiling…” forever. */
 const COMPILE_TIMEOUT_MS = 90_000
+
+/**
+ * Rapid successive compiles (spam-clicked Recompile, back-to-back refreshes) are
+ * coalesced: a request that arrives while a compile is in flight is debounced and
+ * only the latest generation ever reaches the Rust compiler.
+ */
+const COMPILE_DEBOUNCE_MS = 180
 
 /**
  * High-contrast dark theme for Typst source. The default One Dark palette has
@@ -246,7 +262,9 @@ export default function EEstimatePrintStudio({
   assembleCompile,
   visualize = true,
   managePageSetup = true,
-  notice
+  notice,
+  onExportExcel,
+  excelExportLabel = 'Download Excel'
 }: EEstimatePrintStudioProps): JSX.Element {
   const initialDocumentSettings = normalizeDocumentSettings(
     savedDocumentSettings ?? projectDocumentSettings,
@@ -260,7 +278,7 @@ export default function EEstimatePrintStudio({
   const [documentSettings, setDocumentSettings] = useState(initialDocumentSettings)
   const [usesProjectDocumentSettings, setUsesProjectDocumentSettings] = useState(!savedDocumentSettings)
   const [compiledPdfUrl, setCompiledPdfUrl] = useState<string | null>(null)
-  const [compiledPdfBase64, setCompiledPdfBase64] = useState<string | null>(null)
+  const [compiledPdfPath, setCompiledPdfPath] = useState<string | null>(null)
   const [compileLoading, setCompileLoading] = useState(false)
   const [compileError, setCompileError] = useState<string | null>(null)
   const [compileTimeMs, setCompileTimeMs] = useState<number | null>(null)
@@ -276,6 +294,8 @@ export default function EEstimatePrintStudio({
   )
   const [saving, setSaving] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [exportingExcel, setExportingExcel] = useState(false)
+  const [excelError, setExcelError] = useState<string | null>(null)
 
   const mediaCount = useMemo(() => {
     if (!runtimeData || typeof runtimeData !== 'object') return 0
@@ -305,6 +325,8 @@ export default function EEstimatePrintStudio({
   const loadedInputsRef = useRef(compileInputs)
   const inputsReadyRef = useRef(!onSync)
   const compileGenerationRef = useRef(0)
+  const compileActiveRef = useRef(false)
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputKey = JSON.stringify(compileInputs ?? {})
   const previousInputKey = useRef(inputKey)
   useEffect(() => {
@@ -318,9 +340,26 @@ export default function EEstimatePrintStudio({
     setIssues([])
   }, [inputKey])
 
-  // Compiler function
-  const runCompile = async (sourceToCompile = code, refreshData = true): Promise<void> => {
+  // Compiler function: debounced entry point. A request that arrives while a
+  // compile is in flight supersedes it — only the latest generation runs next.
+  const runCompile = (sourceToCompile = code, refreshData = true): Promise<void> => {
     const generation = ++compileGenerationRef.current
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+      debounceTimerRef.current = null
+    }
+    if (compileActiveRef.current) {
+      return new Promise<void>((resolve) => {
+        debounceTimerRef.current = setTimeout(() => {
+          debounceTimerRef.current = null
+          void executeCompile(sourceToCompile, refreshData, generation).then(resolve, resolve)
+        }, COMPILE_DEBOUNCE_MS)
+      })
+    }
+    return executeCompile(sourceToCompile, refreshData, generation)
+  }
+
+  const executeCompile = async (sourceToCompile: string, refreshData: boolean, generation: number): Promise<void> => {
     if (!sourceToCompile.trim()) {
       setCompileError('The saved template is empty. Add Typst code or choose Use default.')
       setCompileLoading(false)
@@ -328,6 +367,7 @@ export default function EEstimatePrintStudio({
       setIssues([])
       return
     }
+    compileActiveRef.current = true
     setCompileLoading(true)
     setCompileError(null)
     setIssues([])
@@ -347,36 +387,55 @@ export default function EEstimatePrintStudio({
           const assembled = await assembleCompile(sourceToCompile)
           audit = preparePrintAudit(assembled.inputs)
           if (generation !== compileGenerationRef.current) return null
+          const auditedShadowFiles = auditShadowFiles(audit.inputs, assembled.shadowFiles)
           res = await window.api.typst.compile(
             assembled.mainContent,
             audit.inputs,
-            auditShadowFiles(audit.inputs, assembled.shadowFiles)
+            auditedShadowFiles,
+            {
+              contentHash: contentHash({
+                mainContent: assembled.mainContent,
+                inputs: audit.inputs,
+                shadowFiles: auditedShadowFiles ?? {}
+              }),
+              preferPath: true
+            }
           )
         } else {
           const inputs = onSync ? loadedInputsRef.current : compileInputs
           audit = preparePrintAudit(inputs)
+          if (generation !== compileGenerationRef.current) return null
+          const mainContent = (compilePrelude ?? '') + sourceToCompile
           res = await window.api.typst.compile(
-            (compilePrelude ?? '') + sourceToCompile,
+            mainContent,
             audit.inputs,
-            shadowFiles
+            shadowFiles,
+            {
+              contentHash: contentHash({
+                mainContent,
+                inputs: audit.inputs,
+                shadowFiles: shadowFiles ?? {}
+              }),
+              preferPath: true
+            }
           )
         }
-        if (!res.ok || !res.data) {
-          throw new Error(res.error || 'Failed to compile Typst document')
+        if (!res.ok || !res.pdfPath) {
+          throw new Error(res.error || 'Typst engine did not return a PDF path.')
         }
         if (generation === compileGenerationRef.current) setIssues(auditPrintContent(audit.obligations, res.printedContent))
         return res
       })()
       const res = await withTimeout(work, COMPILE_TIMEOUT_MS, 'Typst compile')
-      if (generation !== compileGenerationRef.current || !res?.data) return
+      if (generation !== compileGenerationRef.current || !res?.pdfPath) return
       const duration = Math.round(performance.now() - start)
       setCompileTimeMs(duration)
       setLastCompiledSource(sourceToCompile)
-      setCompiledPdfBase64(res.data)
-
-      const binary = atob(res.data)
-      const bytes = new Uint8Array(binary.length)
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+      // No base64 fallback: a missing or unreadable path throws into the
+      // studio error panel so a broken fast path is always visible.
+      const assetUrl = convertFileSrc(res.pdfPath)
+      const bytes = new Uint8Array(await (await fetch(assetUrl)).arrayBuffer())
+      setCompiledPdfPath(res.pdfPath)
       const blob = new Blob([bytes], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
 
@@ -388,7 +447,10 @@ export default function EEstimatePrintStudio({
       if (generation !== compileGenerationRef.current) return
       setCompileError(err instanceof Error ? err.message : String(err))
     } finally {
-      if (generation === compileGenerationRef.current) setCompileLoading(false)
+      if (generation === compileGenerationRef.current) {
+        compileActiveRef.current = false
+        setCompileLoading(false)
+      }
     }
   }
 
@@ -408,6 +470,13 @@ export default function EEstimatePrintStudio({
       if (compiledPdfUrl) URL.revokeObjectURL(compiledPdfUrl)
     }
   }, [compiledPdfUrl])
+
+  // A pending debounced compile must never fire after unmount.
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    }
+  }, [])
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -581,7 +650,7 @@ export default function EEstimatePrintStudio({
       'Restore software defaults?\n\nYour current Typst script, including all manual and AI edits, will be completely replaced by the software default template and layout settings. Your project items and calculated values will not be deleted.\n\nAre you sure you want to replace the current script?'
     )) return
     setCompiledPdfUrl(null)
-    setCompiledPdfBase64(null)
+    setCompiledPdfPath(null)
     setLastCompiledSource(null)
     setCompileError(null)
     setDocumentSettings(normalizeDocumentSettings(projectDocumentSettings))
@@ -679,16 +748,31 @@ export default function EEstimatePrintStudio({
   }
 
   const handleDownloadPdf = async (): Promise<void> => {
-    if (!compiledPdfBase64 || exportingPdf) return
+    if (!compiledPdfPath || exportingPdf) return
     const fileName = title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'e-estimate'
     setExportingPdf(true)
     setSaveError(null)
     try {
-      await window.api.export.pdf(compiledPdfBase64, fileName)
+      // No base64 fallback: the backend copies the cached file, or the save
+      // fails loudly in the studio error panel.
+      await window.api.export.pdf('', fileName, undefined, { sourcePath: compiledPdfPath })
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : String(error))
     } finally {
       setExportingPdf(false)
+    }
+  }
+
+  const handleExportExcel = async (): Promise<void> => {
+    if (!onExportExcel || exportingExcel) return
+    setExportingExcel(true)
+    setExcelError(null)
+    try {
+      await onExportExcel()
+    } catch (error) {
+      setExcelError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setExportingExcel(false)
     }
   }
 
@@ -763,12 +847,23 @@ export default function EEstimatePrintStudio({
             <button
               className="btn ghost"
               type="button"
-              disabled={!compiledPdfBase64 || compileLoading || exportingPdf || !!compileError || lastCompiledSource !== code}
+              disabled={!compiledPdfPath || compileLoading || exportingPdf || !!compileError || lastCompiledSource !== code}
               onClick={() => void handleDownloadPdf()}
               title="Download the current compiled PDF"
             >
               <Download size={14} /> {exportingPdf ? 'Saving PDF…' : 'Download PDF'}
             </button>
+            {onExportExcel && (
+              <button
+                className="btn ghost"
+                type="button"
+                disabled={exportingExcel}
+                onClick={() => void handleExportExcel()}
+                title={excelExportLabel}
+              >
+                <FileSpreadsheet size={14} /> {exportingExcel ? 'Saving Excel…' : 'Excel'}
+              </button>
+            )}
             {closable && (
               <button className="btn ghost" onClick={onClose} title="Close Studio">
                 <X size={15} /> Close
@@ -1193,6 +1288,7 @@ export default function EEstimatePrintStudio({
               </div>
             )}
             {saveError && <div className="typst-error-banner" role="alert">Action failed: {saveError}</div>}
+            {excelError && <div className="typst-error-banner" role="alert">Excel export failed: {excelError}</div>}
 
             {/* Smooth Scrollable Preview Area */}
             <div ref={scrollContainerRef} className="typst-preview-scroll-area">

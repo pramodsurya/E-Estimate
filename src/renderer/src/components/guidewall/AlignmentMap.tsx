@@ -10,7 +10,7 @@ import {
 } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import MapLayers from '../map/MapLayers'
-import type { GuideWallPoint } from '../../types/project'
+import type { BundWaterSide, CanalFlowDirection, GuideWallPoint } from '../../types/project'
 import {
   bearingAtChainage,
   chainageAtPoint,
@@ -36,6 +36,16 @@ interface Props {
   highlight?: { fromCh: number; toCh: number } | null
   /** Fallback centre before any point exists (component/project location). */
   fallbackCenter?: { lat: number; lng: number } | null
+  /**
+   * Water-flow direction along the drawn line. When set, arrows point the way
+   * water moves instead of the single chainage-direction arrow.
+   */
+  flowDirection?: CanalFlowDirection | null
+  /**
+   * Tank-water side of the drawn line (bund). When set, blue water markers
+   * are drawn offset to that side of the chainage direction.
+   */
+  waterSide?: BundWaterSide | null
 }
 
 const TELANGANA_CENTER: [number, number] = [17.9, 79.6]
@@ -54,6 +64,15 @@ function arrowIcon(bearing: number): L.DivIcon {
     html: `<span style="transform: rotate(${bearing}deg)">▲</span>`,
     iconSize: [18, 18],
     iconAnchor: [9, 9]
+  })
+}
+
+function flowArrowIcon(bearing: number): L.DivIcon {
+  return L.divIcon({
+    className: 'gw-flow-arrow',
+    html: `<span style="transform: rotate(${bearing}deg)">▲</span>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
   })
 }
 
@@ -95,7 +114,9 @@ export default function AlignmentMap({
   onPlaceBreak,
   ticks = [],
   highlight,
-  fallbackCenter
+  fallbackCenter,
+  flowDirection,
+  waterSide
 }: Props): JSX.Element {
   const positions = useMemo(() => points.map((p) => [p.lat, p.lng] as [number, number]), [points])
   const hasLine = points.length >= 2
@@ -126,14 +147,43 @@ export default function AlignmentMap({
   }, [hasLine, points, totalLengthM])
 
   const arrow = useMemo(() => {
-    if (!hasLine) return null
+    if (!hasLine || flowDirection) return null
     const midCh = polyMid(totalLengthM)
     const at = pointAtChainage(points, midCh)
     const bearing = bearingAtChainage(points, midCh)
     if (!at || bearing == null) return null
     return { at, bearing }
-  }, [hasLine, points, totalLengthM])
+  }, [hasLine, points, totalLengthM, flowDirection])
 
+  const flowArrows = useMemo(() => {
+    if (!hasLine || !flowDirection || totalLengthM <= 0) return []
+    const flip = flowDirection === 'end-to-start' ? 180 : 0
+    return [0.25, 0.5, 0.75]
+      .map((fraction, index) => {
+        const ch = totalLengthM * fraction
+        const at = pointAtChainage(points, ch)
+        const bearing = bearingAtChainage(points, ch)
+        if (!at || bearing == null) return null
+        return { key: `flow-${index}`, at, bearing: bearing + flip }
+      })
+      .filter(
+        (marker): marker is { key: string; at: GuideWallPoint; bearing: number } => marker !== null
+      )
+  }, [hasLine, points, totalLengthM, flowDirection])
+
+  const water = useMemo(() => {
+    if (!hasLine || !waterSide || totalLengthM <= 0) return { markers: [], labelAt: null }
+    const markers = [0.25, 0.5, 0.75]
+      .map((fraction, index) => {
+        const pair = perpendicularTick(points, totalLengthM * fraction, 30)
+        if (!pair) return null
+        return { key: `water-${index}`, at: waterSide === 'left' ? pair[0] : pair[1] }
+      })
+      .filter(
+        (marker): marker is { key: string; at: GuideWallPoint } => marker !== null
+      )
+    return { markers, labelAt: markers[1]?.at ?? markers[0]?.at ?? null }
+  }, [hasLine, points, totalLengthM, waterSide])
   const center: [number, number] = hasLine
     ? positions[0]
     : fallbackCenter
@@ -178,6 +228,30 @@ export default function AlignmentMap({
           <Marker
             position={[arrow.at.lat, arrow.at.lng]}
             icon={arrowIcon(arrow.bearing)}
+            interactive={false}
+          />
+        )}
+        {flowArrows.map((marker) => (
+          <Marker
+            key={marker.key}
+            position={[marker.at.lat, marker.at.lng]}
+            icon={flowArrowIcon(marker.bearing)}
+            interactive={false}
+          />
+        ))}
+        {water.markers.map((marker) => (
+          <CircleMarker
+            key={marker.key}
+            center={[marker.at.lat, marker.at.lng]}
+            radius={6}
+            pathOptions={{ color: '#ffffff', fillColor: '#2e9bd6', fillOpacity: 0.9, weight: 1.5 }}
+          />
+        ))}
+        {water.labelAt && (
+          <Marker
+            key="water-label"
+            position={[water.labelAt.lat, water.labelAt.lng]}
+            icon={chLabelIcon('Water')}
             interactive={false}
           />
         )}

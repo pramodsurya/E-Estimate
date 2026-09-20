@@ -1,0 +1,623 @@
+{
+  "projectName": "Test Irrigation Project",
+  "sorYear": "2026-27",
+  "sorZone": "ZONE-3",
+  "recipes": [
+    {
+      "code": "IRR-PMW-2-11",
+      "unit": "Nos.",
+      "description": "Providing and fixing 20 x 20 x 75 cm size temporary bench mark stone in CC 1 : 4 : 8",
+      "description_runs": [
+        {
+          "text": "Providing and fixing 20 x 20 x 75 cm size temporary bench mark stone in CC 1 : 4 : 8",
+          "bold": false,
+          "italic": false,
+          "underline": false
+        }
+      ],
+      "section_heading": "PRELIMINARY MAINTENANCE WORKS",
+      "document_title": "",
+      "scope_label": "Canal / Reach 1",
+      "visibility": {
+        "code": true,
+        "description": true,
+        "unit_quantity": true,
+        "materials": true,
+        "machinery": true,
+        "labour": true,
+        "labour_summary": true,
+        "abstract": true
+      },
+      "labour_summary_rows": [
+        {
+          "label": "labour component/unit qty",
+          "percent": "",
+          "qualifier": "",
+          "amount": "565.00",
+          "kind": "component"
+        },
+        {
+          "label": "Add contractor's profit and overhead charges",
+          "percent": "13.615%",
+          "qualifier": "",
+          "amount": "76.92",
+          "kind": "component"
+        },
+        {
+          "label": "labour component/unit qty (including contractor's profit)",
+          "percent": "",
+          "qualifier": "",
+          "amount": "641.92",
+          "kind": "final"
+        }
+      ],
+      "abstract_rows": [],
+      "dual_measurement": null,
+      "published_blocks": [],
+      "multi_rate_note": null,
+      "rate_variant": null,
+      "materials": [
+        {
+          "sl": "1",
+          "description": "Rough stone 20x20x75 cm",
+          "unit": "Each",
+          "quantity": 10,
+          "rate": 49,
+          "amount": 490,
+          "qty_text": "10.00",
+          "rate_text": "49.00",
+          "amount_text": "490.00",
+          "user_added": false,
+          "edited": {
+            "sl_no": false,
+            "description": false,
+            "unit": false,
+            "quantity": false,
+            "rate": false,
+            "amount": false
+          },
+          "source": {
+            "rate": "",
+            "resource_code": "",
+            "amount": ""
+          }
+        },
+        {
+          "sl": "2",
+          "description": "Cement for CC & top finishing",
+          "unit": "kg",
+          "quantity": 91,
+          "rate": 5.1,
+          "amount": 464.1,
+          "qty_text": "91.00",
+          "rate_text": "5.10",
+          "amount_text": "464.10",
+          "user_added": false,
+          "edited": {
+            "sl_no": false,
+            "description": false,
+            "unit": false,
+            "quantity": false,
+            "rate": false,
+            "amount": false
+          },
+          "source": {
+            "rate": "",
+            "resource_code": "",
+            "amount": ""
+          }
+        },
+        {
+          "sl": "3",
+          "description": "Coarse aggregate 40-20 mm",
+          "unit": "cum",
+          "quantity": 0.25,
+          "rate": 1107,
+          "amount": 276.75,
+          "qty_text": "0.25",
+          "rate_text": "1,107.00",
+          "amount_text": "276.75",
+          "user_added": false,
+          "edited": {
+            "sl_no": false,
+            "description": false,
+            "unit": false,
+            "quantity": false,
+            "rate": false,
+            "amount": false
+          },
+          "source": {
+            "rate": "",
+            "resource_code": "",
+            "amount": ""
+          }
+        },
+        {
+          "sl": "4",
+          "description": "Sand (Un-Screened )",
+          "unit": "cum",
+          "quantity": 0.25,
+          "rate": 777,
+          "amount": 194.25,
+          "qty_text": "0.25",
+          "rate_text": "777.00",
+          "amount_text": "194.25",
+          "user_added": false,
+          "edited": {
+            "sl_no": false,
+            "description": false,
+            "unit": false,
+            "quantity": false,
+            "rate": false,
+            "amount": false
+          },
+          "source": {
+            "rate": "",
+            "resource_code": "",
+            "amount": ""
+          }
+        }
+      ],
+      "machinery": [],
+      "labour": [
+        {
+          "sl": "1",
+          "description": "work inspector",
+          "unit": "Day",
+          "quantity": 1,
+          "rate": 845,
+          "amount": 845,
+          "qty_text": "1.00",
+          "rate_text": "845.00",
+          "amount_text": "845.00",
+          "user_added": false,
+          "edited": {
+            "sl_no": false,
+            "description": false,
+            "unit": false,
+            "quantity": false,
+            "rate": false,
+            "amount": false
+          },
+          "source": {
+            "rate": "",
+            "resource_code": "",
+            "amount": ""
+          }
+        },
+        {
+          "sl": "2",
+          "description": "Stone chiseller Cl- I",
+          "unit": "Day",
+          "quantity": 3,
+          "rate": 755,
+          "amount": 2265,
+          "qty_text": "3.00",
+          "rate_text": "755.00",
+          "amount_text": "2,265.00",
+          "user_added": false,
+          "edited": {
+            "sl_no": false,
+            "description": false,
+            "unit": false,
+            "quantity": false,
+            "rate": false,
+            "amount": false
+          },
+          "source": {
+            "rate": "",
+            "resource_code": "",
+            "amount": ""
+          }
+        },
+        {
+          "sl": "3",
+          "description": "mazdoor",
+          "unit": "Day",
+          "quantity": 4,
+          "rate": 635,
+          "amount": 2540,
+          "qty_text": "4.00",
+          "rate_text": "635.00",
+          "amount_text": "2,540.00",
+          "user_added": false,
+          "edited": {
+            "sl_no": false,
+            "description": false,
+            "unit": false,
+            "quantity": false,
+            "rate": false,
+            "amount": false
+          },
+          "source": {
+            "rate": "",
+            "resource_code": "",
+            "amount": ""
+          }
+        }
+      ],
+      "totals": {
+        "material_total": 1609.6,
+        "labour_total": 5650,
+        "machinery_total": 0,
+        "base_cost": 7259.6,
+        "overhead_percent": 13.615,
+        "overhead_amount": 988.3945400000001,
+        "area_allowance_percent": 25,
+        "area_allowance_amount": 1412.5,
+        "labour_unit_base": 706.25,
+        "labour_unit_profit": 96.1559375,
+        "labour_unit_total": 802.4059374999999,
+        "lead_total": 61.25,
+        "total_cost": 9660.49454,
+        "rate_per_unit": 966.049454,
+        "output_quantity": 10
+      },
+      "display": {
+        "material_total": "1,609.60",
+        "labour_total": "5,650.00",
+        "machinery_total": "0.00",
+        "base_cost": "7,259.60",
+        "overhead_percent": "13.62",
+        "overhead_amount": "988.39",
+        "area_allowance_percent": "25.00",
+        "area_allowance_amount": "1,412.50",
+        "labour_unit_base": "706.25",
+        "labour_unit_profit": "96.16",
+        "labour_unit_total": "802.41",
+        "lead_total": "61.25",
+        "total_cost": "9,660.49",
+        "rate_per_unit": "966.05",
+        "output_quantity": "10.00"
+      },
+      "area_allowance_label": "ITDA Agency Area Allowance (+25%)",
+      "leads": [
+        {
+          "material": "Sand from approved quarry",
+          "distance_km": 15,
+          "lift_m": 0,
+          "lead_type_tag": "Avg Lead (Line sampling)",
+          "lead_formula": "Average of 12 points along Canal Reach 1 Alignment = 15.00 km",
+          "quantity": 0.25,
+          "quantity_source": "",
+          "quantity_edited": false,
+          "unit": "cum",
+          "rate": 245,
+          "amount": 61.25,
+          "qty_text": "0.25",
+          "rate_text": "245.00",
+          "amount_text": "61.25",
+          "deduction": {
+            "label": "Rate of Lead after removing included Initial Lead",
+            "full_rate_text": "285.00",
+            "deducted_rate_text": "40.00",
+            "net_rate_text": "245.00",
+            "unit": "cum",
+            "rows": []
+          },
+          "warnings": []
+        }
+      ],
+      "lead_summary": {
+        "base_amount_text": "9,660.49",
+        "lead_total_text": "61.25",
+        "final_amount_text": "9,721.74",
+        "final_rate_text": "972.17",
+        "disposal_only": false
+      },
+      "optional_addition": null
+    },
+    {
+      "code": "IRR-PMW-2-11",
+      "unit": "Nos.",
+      "description": "Providing and fixing 20 x 20 x 75 cm size temporary bench mark stone in CC 1 : 4 : 8",
+      "description_runs": [
+        {
+          "text": "Providing and fixing 20 x 20 x 75 cm size temporary bench mark stone in CC 1 : 4 : 8",
+          "bold": false,
+          "italic": false,
+          "underline": false
+        }
+      ],
+      "section_heading": "PRELIMINARY MAINTENANCE WORKS",
+      "document_title": "",
+      "scope_label": "Canal / Reach 2",
+      "visibility": {
+        "code": true,
+        "description": true,
+        "unit_quantity": true,
+        "materials": true,
+        "machinery": true,
+        "labour": true,
+        "labour_summary": true,
+        "abstract": true
+      },
+      "labour_summary_rows": [
+        {
+          "label": "labour component/unit qty",
+          "percent": "",
+          "qualifier": "",
+          "amount": "565.00",
+          "kind": "component"
+        },
+        {
+          "label": "Add contractor's profit and overhead charges",
+          "percent": "13.615%",
+          "qualifier": "",
+          "amount": "76.92",
+          "kind": "component"
+        },
+        {
+          "label": "labour component/unit qty (including contractor's profit)",
+          "percent": "",
+          "qualifier": "",
+          "amount": "641.92",
+          "kind": "final"
+        }
+      ],
+      "abstract_rows": [],
+      "dual_measurement": null,
+      "published_blocks": [],
+      "multi_rate_note": null,
+      "rate_variant": null,
+      "materials": [
+        {
+          "sl": "1",
+          "description": "Rough stone 20x20x75 cm",
+          "unit": "Each",
+          "quantity": 10,
+          "rate": 49,
+          "amount": 490,
+          "qty_text": "10.00",
+          "rate_text": "49.00",
+          "amount_text": "490.00",
+          "user_added": false,
+          "edited": {
+            "sl_no": false,
+            "description": false,
+            "unit": false,
+            "quantity": false,
+            "rate": false,
+            "amount": false
+          },
+          "source": {
+            "rate": "",
+            "resource_code": "",
+            "amount": ""
+          }
+        },
+        {
+          "sl": "2",
+          "description": "Cement for CC & top finishing",
+          "unit": "kg",
+          "quantity": 91,
+          "rate": 5.1,
+          "amount": 464.1,
+          "qty_text": "91.00",
+          "rate_text": "5.10",
+          "amount_text": "464.10",
+          "user_added": false,
+          "edited": {
+            "sl_no": false,
+            "description": false,
+            "unit": false,
+            "quantity": false,
+            "rate": false,
+            "amount": false
+          },
+          "source": {
+            "rate": "",
+            "resource_code": "",
+            "amount": ""
+          }
+        },
+        {
+          "sl": "3",
+          "description": "Coarse aggregate 40-20 mm",
+          "unit": "cum",
+          "quantity": 0.25,
+          "rate": 1107,
+          "amount": 276.75,
+          "qty_text": "0.25",
+          "rate_text": "1,107.00",
+          "amount_text": "276.75",
+          "user_added": false,
+          "edited": {
+            "sl_no": false,
+            "description": false,
+            "unit": false,
+            "quantity": false,
+            "rate": false,
+            "amount": false
+          },
+          "source": {
+            "rate": "",
+            "resource_code": "",
+            "amount": ""
+          }
+        },
+        {
+          "sl": "4",
+          "description": "Sand (Un-Screened )",
+          "unit": "cum",
+          "quantity": 0.25,
+          "rate": 777,
+          "amount": 194.25,
+          "qty_text": "0.25",
+          "rate_text": "777.00",
+          "amount_text": "194.25",
+          "user_added": false,
+          "edited": {
+            "sl_no": false,
+            "description": false,
+            "unit": false,
+            "quantity": false,
+            "rate": false,
+            "amount": false
+          },
+          "source": {
+            "rate": "",
+            "resource_code": "",
+            "amount": ""
+          }
+        }
+      ],
+      "machinery": [],
+      "labour": [
+        {
+          "sl": "1",
+          "description": "work inspector",
+          "unit": "Day",
+          "quantity": 1,
+          "rate": 845,
+          "amount": 845,
+          "qty_text": "1.00",
+          "rate_text": "845.00",
+          "amount_text": "845.00",
+          "user_added": false,
+          "edited": {
+            "sl_no": false,
+            "description": false,
+            "unit": false,
+            "quantity": false,
+            "rate": false,
+            "amount": false
+          },
+          "source": {
+            "rate": "",
+            "resource_code": "",
+            "amount": ""
+          }
+        },
+        {
+          "sl": "2",
+          "description": "Stone chiseller Cl- I",
+          "unit": "Day",
+          "quantity": 3,
+          "rate": 755,
+          "amount": 2265,
+          "qty_text": "3.00",
+          "rate_text": "755.00",
+          "amount_text": "2,265.00",
+          "user_added": false,
+          "edited": {
+            "sl_no": false,
+            "description": false,
+            "unit": false,
+            "quantity": false,
+            "rate": false,
+            "amount": false
+          },
+          "source": {
+            "rate": "",
+            "resource_code": "",
+            "amount": ""
+          }
+        },
+        {
+          "sl": "3",
+          "description": "mazdoor",
+          "unit": "Day",
+          "quantity": 4,
+          "rate": 635,
+          "amount": 2540,
+          "qty_text": "4.00",
+          "rate_text": "635.00",
+          "amount_text": "2,540.00",
+          "user_added": false,
+          "edited": {
+            "sl_no": false,
+            "description": false,
+            "unit": false,
+            "quantity": false,
+            "rate": false,
+            "amount": false
+          },
+          "source": {
+            "rate": "",
+            "resource_code": "",
+            "amount": ""
+          }
+        }
+      ],
+      "totals": {
+        "material_total": 1609.6,
+        "labour_total": 5650,
+        "machinery_total": 0,
+        "base_cost": 7259.6,
+        "overhead_percent": 13.615,
+        "overhead_amount": 988.3945400000001,
+        "area_allowance_percent": 25,
+        "area_allowance_amount": 1412.5,
+        "labour_unit_base": 706.25,
+        "labour_unit_profit": 96.1559375,
+        "labour_unit_total": 802.4059374999999,
+        "lead_total": 95,
+        "total_cost": 9660.49454,
+        "rate_per_unit": 966.049454,
+        "output_quantity": 10
+      },
+      "display": {
+        "material_total": "1,609.60",
+        "labour_total": "5,650.00",
+        "machinery_total": "0.00",
+        "base_cost": "7,259.60",
+        "overhead_percent": "13.62",
+        "overhead_amount": "988.39",
+        "area_allowance_percent": "25.00",
+        "area_allowance_amount": "1,412.50",
+        "labour_unit_base": "706.25",
+        "labour_unit_profit": "96.16",
+        "labour_unit_total": "802.41",
+        "lead_total": "95.00",
+        "total_cost": "9,660.49",
+        "rate_per_unit": "966.05",
+        "output_quantity": "10.00"
+      },
+      "area_allowance_label": "ITDA Agency Area Allowance (+25%)",
+      "leads": [
+        {
+          "material": "Sand from approved quarry",
+          "distance_km": 28.5,
+          "lift_m": 0,
+          "lead_type_tag": "Weighted Avg · Whole Project",
+          "lead_formula": "(100.00 × 20.00 km + 100.00 × 37.00 km) ÷ 200.00 = 28.50 km",
+          "quantity": 0.25,
+          "quantity_source": "",
+          "quantity_edited": false,
+          "unit": "cum",
+          "rate": 380,
+          "amount": 95,
+          "qty_text": "0.25",
+          "rate_text": "380.00",
+          "amount_text": "95.00",
+          "deduction": {
+            "label": "Rate of Lead after removing included Initial Lead",
+            "full_rate_text": "420.00",
+            "deducted_rate_text": "40.00",
+            "net_rate_text": "380.00",
+            "unit": "cum",
+            "rows": []
+          },
+          "warnings": []
+        }
+      ],
+      "lead_summary": {
+        "base_amount_text": "9,660.49",
+        "lead_total_text": "95.00",
+        "final_amount_text": "9,755.49",
+        "final_rate_text": "975.55",
+        "disposal_only": false
+      },
+      "optional_addition": null
+    }
+  ],
+  "sor": [
+    {
+      "sl": 1,
+      "description": "Ordinary Portland Cement (43/53 Grade)",
+      "unit": "tonne",
+      "rate": 5600
+    }
+  ]
+}

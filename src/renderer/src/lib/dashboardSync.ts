@@ -40,6 +40,11 @@ import {
 } from './seigniorage'
 import { componentItemsTotal, readFinalValueFromSnapshot } from './finalNumber'
 import {
+  allowanceGroupKey,
+  componentAllowanceAudit,
+  effectiveAllowanceForNode
+} from './componentAllowance'
+import {
   fetchPipeLeadQuote,
   fetchPipeLeadQuoteForMaterial,
   pipeLeadQuoteBreakdown
@@ -191,18 +196,30 @@ export async function fetchDashboardItemData(
   items: ProjectNode[]
 ): Promise<DashboardItemData> {
   const context = dashboardContext(project)
-  const sourceGroups = new Map<string, ProjectNode[]>()
+  const sourceGroups = new Map<string, { items: ProjectNode[]; percent: number; label: string }>()
   for (const item of items) {
-    const sourceKey = dashboardItemSignature(item)
-    const group = sourceGroups.get(sourceKey) ?? []
-    group.push(item)
+    const effective = effectiveAllowanceForNode(project, item.id)
+    const sourceKey = `${dashboardItemSignature(item)}::allowance:${allowanceGroupKey(effective)}`
+    const group = sourceGroups.get(sourceKey) ?? {
+      items: [],
+      percent: effective.percent,
+      label: effective.label
+    }
+    group.items.push(item)
     sourceGroups.set(sourceKey, group)
   }
   const groups = Array.from(sourceGroups.values())
-  const groupedRows = await mapWithConcurrency<ProjectNode[], DashboardItemFetchRow[]>(
+  const groupedRows = await mapWithConcurrency<
+    { items: ProjectNode[]; percent: number; label: string },
+    DashboardItemFetchRow[]
+  >(
     groups,
     8,
-    (group) => fetchDashboardSourceGroup(project, context, group)
+    (group) =>
+      fetchDashboardSourceGroup(project, context, group.items, {
+        percent: group.percent,
+        label: group.label
+      })
   )
   const rows = groupedRows.flat()
   assertDashboardSourcesLoaded(rows, context.sorYear)
@@ -219,7 +236,8 @@ export async function fetchDashboardItemData(
 async function fetchDashboardSourceGroup(
   project: EestimateProject,
   context: DashboardDataSnapshot['context'],
-  group: ProjectNode[]
+  group: ProjectNode[],
+  allowance: { percent: number; label: string }
 ): Promise<DashboardItemFetchRow[]> {
   const representative = group[0]
   const projectData = projectDataForNode(project.projectData, representative)
@@ -242,7 +260,8 @@ async function fetchDashboardSourceGroup(
           item,
           context.sorYear,
           context.sorZone,
-          project.meta.materialRateOverrides
+          project.meta.materialRateOverrides,
+          { percent: allowance.percent, label: allowance.label }
         )
         return {
           id: item.id,
@@ -257,8 +276,8 @@ async function fetchDashboardSourceGroup(
   try {
     fetchedRecipe = await fetchRateAnalysis(representative, context.sorYear, {
       zone: context.sorZone,
-      areaAllowancePercent: context.areaAllowancePercent,
-      areaAllowanceLabel: context.areaAllowanceLabel,
+      areaAllowancePercent: allowance.percent,
+      areaAllowanceLabel: allowance.label,
       materialRateOverrides: project.meta.materialRateOverrides
     })
   } catch (reason) {
@@ -458,6 +477,7 @@ export function dashboardDataCompileSignature(
       }))
       .sort((a, b) => a.id.localeCompare(b.id)),
     shared: project.rateAnalysisOverrides ?? {},
+    componentAllowances: componentAllowanceAudit(project),
     scoped: project.rateAnalysisScopedOverrides ?? {},
     lead: (project.leadChart?.applications ?? [])
       .map((application) => ({

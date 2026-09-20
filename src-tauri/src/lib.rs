@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod bund;
+pub mod excel_compile;
 mod export;
 mod image;
 mod project;
@@ -40,11 +41,14 @@ pub fn run() {
             project::project_save_as,
             project::project_open,
             project::project_open_path,
+            project::cluster_save_as,
+            project::cluster_open,
             recent::recent_list,
             recent::recent_clear,
             bund::bund_simulate,
             bund::bund_cancel,
             typst_compile::typst_compile,
+            excel_compile::excel_compile,
             image::image_embed_remote,
             export::export_pdf,
             export::export_workbook,

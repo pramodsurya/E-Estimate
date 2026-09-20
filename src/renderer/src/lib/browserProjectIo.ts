@@ -228,3 +228,152 @@ export async function browserSaveProjectAs(data: unknown, name: string): Promise
   writeRecent(path)
   return { canceled: false, path }
 }
+
+/**
+ * Browser-session cluster support. Cluster files use `browser:<name>` paths
+ * like projects, distinguished by the `.eestimate-cluster` extension.
+ */
+
+function toBrowserClusterPath(name: string): string {
+  const fileName = name.replace(/^.*[/\\]/, '') || 'Cluster.eestimate-cluster'
+  const withExt = fileName.endsWith('.eestimate-cluster')
+    ? fileName
+    : `${fileName}.eestimate-cluster`
+  return `${PATH_PREFIX}${withExt}`
+}
+
+function isClusterShape(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object') return false
+  const record = value as Record<string, unknown>
+  return Array.isArray(record.members) && Boolean(record.meta)
+}
+
+async function pickClusterFileWithInput(): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.eestimate-cluster,application/json'
+    input.style.display = 'none'
+    input.addEventListener('change', () => {
+      const file = input.files?.[0] ?? null
+      input.remove()
+      resolve(file)
+    })
+    document.body.appendChild(input)
+    input.click()
+  })
+}
+
+async function parseClusterFile(file: File): Promise<Record<string, unknown>> {
+  const text = await file.text()
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    throw new Error('That file is not valid JSON.')
+  }
+  if (!isClusterShape(parsed)) {
+    throw new Error('That file is not an E-Estimate cluster project.')
+  }
+  return parsed
+}
+
+export async function browserOpenCluster(): Promise<OpenResult> {
+  try {
+    const picker = window.showOpenFilePicker
+    let file: File | null = null
+    let handle: FileSystemFileHandle | undefined
+    if (typeof picker === 'function') {
+      try {
+        const [picked] = await picker.call(window, {
+          multiple: false,
+          types: [
+            {
+              description: 'E-Estimate Cluster Project',
+              accept: { 'application/json': ['.eestimate-cluster'] }
+            }
+          ]
+        })
+        handle = picked
+        file = await picked.getFile()
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return { canceled: true }
+      }
+    }
+    file ??= await pickClusterFileWithInput()
+    if (!file) return { canceled: true }
+    const data = await parseClusterFile(file)
+    const path = toBrowserClusterPath(file.name)
+    if (handle) handles.set(path, handle)
+    writeRecent(path)
+    return { canceled: false, path, data: data as unknown as OpenResult['data'] }
+  } catch (error) {
+    return {
+      canceled: false,
+      error: error instanceof Error ? error.message : String(error)
+    }
+  }
+}
+
+function downloadCluster(data: unknown, fileName: string): void {
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName.endsWith('.eestimate-cluster')
+    ? fileName
+    : `${fileName}.eestimate-cluster`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+export async function browserSaveCluster(
+  data: unknown,
+  currentPath: string | null,
+  name: string
+): Promise<SaveResult> {
+  const path =
+    currentPath && currentPath.startsWith(PATH_PREFIX)
+      ? currentPath
+      : toBrowserClusterPath(name)
+  const handle = handles.get(path)
+  if (handle) {
+    try {
+      await writeHandle(handle, data)
+      writeRecent(path)
+      return { canceled: false, path }
+    } catch {
+      // Permission or handle lost — ask for a new file.
+    }
+  }
+  return browserSaveClusterAs(data, displayName(path).replace(/\.eestimate-cluster$/i, '') || name)
+}
+
+export async function browserSaveClusterAs(data: unknown, name: string): Promise<SaveResult> {
+  const suggested = name.replace(/[\\/:*?"<>|]/g, '_') || 'Cluster'
+  const picker = window.showSaveFilePicker
+  if (typeof picker === 'function') {
+    try {
+      const handle = await picker.call(window, {
+        suggestedName: `${suggested}.eestimate-cluster`,
+        types: [
+          {
+            description: 'E-Estimate Cluster Project',
+            accept: { 'application/json': ['.eestimate-cluster'] }
+          }
+        ]
+      })
+      await writeHandle(handle, data)
+      const path = toBrowserClusterPath(handle.name || `${suggested}.eestimate-cluster`)
+      handles.set(path, handle)
+      writeRecent(path)
+      return { canceled: false, path }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return { canceled: true }
+    }
+  }
+  downloadCluster(data, `${suggested}.eestimate-cluster`)
+  const path = toBrowserClusterPath(`${suggested}.eestimate-cluster`)
+  writeRecent(path)
+  return { canceled: false, path }
+}

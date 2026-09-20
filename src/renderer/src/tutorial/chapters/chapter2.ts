@@ -66,11 +66,11 @@ const chapter2: TutorialChapter = {
       id: 'open-point-dialog',
       rail: 'New point',
       section: 'sand',
-      actionLabel: 'Create Point',
+      actionLabel: 'Create Source',
       title: 'A point is where the sand comes from',
       body:
         'A sand reach, a quarry, a borrow area — a place on the map the material is hauled from. Press Create ' +
-        'Point above the map to open the dialog.',
+        'Source above the map to open the dialog.',
       primary: 'Opened it',
       screen: 'the Sand material page',
       target: { selector: '[data-tour="lead-point-open"]', placement: 'left' }
@@ -79,15 +79,15 @@ const chapter2: TutorialChapter = {
       id: 'create-point',
       rail: 'The point',
       section: 'sand',
-      actionLabel: 'Create Point in the dialog',
-      title: 'Fill it in, then Create Point',
+      actionLabel: 'Create Source in the dialog',
+      title: 'Fill it in, then Create Source',
       body:
         'It is all one dialog. Give it a short code (SR-1) and a name you will recognise (“Sand reach, left ' +
         'bank”), leave the role as the starting point, then click the spot on the map: the coordinates fill ' +
-        'themselves in, and there is no separate pick button to press first. Create Point saves it. This card ' +
+        'themselves in, and there is no separate pick button to press first. Create Source saves it. This card ' +
         'waits for a new point — closing the dialog, or points already on the chart, do not count.',
-      primary: 'Create Point',
-      screen: 'the Create Point dialog',
+      primary: 'Create Source',
+      screen: 'the Create Source dialog',
       target: { selector: '[data-tour="lead-point-create"]', placement: 'top' }
     },
     {
@@ -185,7 +185,7 @@ const chapter2: TutorialChapter = {
       assignment: true,
       title: 'Same three moves, no more hand-holding',
       body:
-        'Press Back, open Rough stone from the same list, and give it what you gave Sand: Create Point for the ' +
+        'Press Back, open Rough stone from the same list, and give it what you gave Sand: Create Source for the ' +
         'quarry, Create Lead from it to site, then tick its usages and Apply Checked. This card moves on when ' +
         'a stone route is actually applied — not before.',
       primary: 'Got it — set it aside',

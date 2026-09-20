@@ -17,6 +17,7 @@ import {
 } from '../../lib/bund'
 import { polylineLengthM } from '../../lib/guideWall'
 import AlignmentMap from '../guidewall/AlignmentMap'
+import AlignmentUploadButton from '../guidewall/AlignmentUploadButton'
 
 interface Props {
   node: ProjectNode
@@ -279,7 +280,8 @@ const withSelectedTemplateDefaults = (data: BundData, previous: BundData): BundD
 
 /**
  * Pre-dashboard setup, deliberately the same two steps as the Guide Wall:
- * 1) what kind of bund and how long, 2) where the sections sit. Everything
+ * 1) what kind of bund, 2) which side holds the water and where the sections
+ * sit. The length (and usually the alignment) arrives from component creation. Everything
  * about how quantities are billed is left to the dashboard, where the numbers
  * are visible while the choice is made.
  */
@@ -304,6 +306,9 @@ export default function BundSetup({
       : draft.lengthM
 
   const unit = draft.chainageUnit
+  // Length (and usually the alignment) arrives from component creation, so
+  // step 2 no longer asks for it — only the water side and the sections.
+  const hasPresetLength = data.lengthM > 0 || data.alignment.length >= 2
   const unitLabel = chainageUnitLabel(unit)
   const activeMapAction =
     draft.sectionMode === 'discontinuous' && draft.alignment.length >= 2 ? mapAction : 'draw'
@@ -359,7 +364,7 @@ export default function BundSetup({
             <Mountain size={15} /> Small earthen bund setup — {node.name}
           </span>
           <h2>
-            Step {step} of 2 · {step === 1 ? 'Bund type' : 'Length and sections'}
+            Step {step} of 2 · {step === 1 ? 'Bund type' : hasPresetLength ? 'Water side and sections' : 'Length and sections'}
           </h2>
         </div>
         {onCancel && (
@@ -440,29 +445,43 @@ export default function BundSetup({
         <div className={`gw-setup-body${draft.source === 'map' ? '' : ' is-single'}`}>
           <div className="gw-setup-fields">
             <div className="field">
-              <label className="field-label">Length source</label>
+              <label className="field-label">{hasPresetLength ? 'Which side holds the tank water (u/s)?' : 'Length source'}</label>
               <label className="gw-radio">
                 <input
                   type="radio"
-                  checked={draft.source === 'map'}
-                  onChange={() => patch({ source: 'map' })}
+                  checked={hasPresetLength ? draft.waterSide !== 'right' : draft.source === 'map'}
+                  onChange={() => patch(hasPresetLength ? { waterSide: 'left' } : { source: 'map' })}
                 />
-                Draw the bund alignment on the map
+                {hasPresetLength ? 'Left of the chainage direction (Ch 0 → end)' : 'Draw the bund alignment on the map'}
               </label>
               <label className="gw-radio">
                 <input
                   type="radio"
-                  checked={draft.source === 'manual'}
-                  onChange={() => patch({ source: 'manual' })}
+                  checked={hasPresetLength ? draft.waterSide === 'right' : draft.source === 'manual'}
+                  onChange={() => patch(hasPresetLength ? { waterSide: 'right' } : { source: 'manual' })}
                 />
-                Enter the length manually (no map)
+                {hasPresetLength ? 'Right of the chainage direction (Ch 0 → end)' : 'Enter the length manually (no map)'}
               </label>
             </div>
 
-            {draft.source === 'map' ? (
+            {hasPresetLength ? (
+              <>
+                <div className="latlng-display">
+                  {`Length: ${Math.round(effectiveLength).toLocaleString('en-IN')} m — from component creation`}
+                </div>
+                <div className="settings-note">
+                  {draft.alignment.length >= 2
+                    ? `Ch 0 is the first point of the drawn line. The tank water (u/s) lies on the ${draft.waterSide === 'right' ? 'right' : 'left'} of the Ch 0 → end direction, shown in blue on the map.`
+                    : 'Manual length — no alignment on the map. The water-side choice is stored with the setup.'}
+                </div>
+              </>
+            ) : draft.source === 'map' ? (
               <>
                 <div className="settings-note">
-                  Click the map to add points along the bund. Ch 0 is the first point you click —
+                  Click the map to add points along the bund — or upload a line file instead.
+                  <AlignmentUploadButton
+                    onAlignment={(points) => patch({ alignment: points, lengthM: 0, source: 'map' })}
+                  />
                   the arrow on the line shows the chainage direction.
                 </div>
                 <div className="map-tools">
@@ -647,6 +666,7 @@ export default function BundSetup({
                 onPlaceBreak={(ch) => addBreak(toDisplayChainage(ch, unit))}
                 ticks={activeMapAction === 'mark' ? draft.breaks : []}
                 fallbackCenter={node.location ?? null}
+                waterSide={draft.alignment.length >= 2 ? draft.waterSide : null}
               />
             </div>
           )}

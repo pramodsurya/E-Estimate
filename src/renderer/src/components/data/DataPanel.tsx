@@ -1,7 +1,12 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight, Database, Timer, Truck } from 'lucide-react'
+import { ChevronDown, ChevronRight, Database, RefreshCw, Timer, Truck } from 'lucide-react'
 import { projectItemGroups, type ItemUsageBranch } from '../../lib/projectItems'
 import { useStore } from '../../store/useStore'
+import {
+  dashboardContextMatches,
+  dashboardDataCompileSignature,
+  syncDataDashboardSnapshot
+} from '../../lib/dashboardSync'
 import EstimateLeadPanel from './EstimateLeadPanel'
 import SeignioragePanel from './SeignioragePanel'
 
@@ -12,12 +17,42 @@ export default function DataPanel(): JSX.Element | null {
   const selection = useStore((state) => state.analysisSelection)
   const openRateAnalysis = useStore((state) => state.openRateAnalysis)
   const openSeigniorage = useStore((state) => state.openSeigniorage)
+  const setDashboardSnapshot = useStore((state) => state.setDashboardSnapshot)
   const [tab, setTab] = useState<BottomTab>('data')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState('')
+
   const groups = useMemo(
     () => (project ? projectItemGroups(project.root) : []),
     [project]
   )
+
+  const snapshotValid = project
+    ? dashboardContextMatches(project.dashboardSnapshot, project)
+    : false
+  const currentSignature = useMemo(
+    () => (project ? dashboardDataCompileSignature(project) : ''),
+    [project]
+  )
+  const compiled =
+    snapshotValid &&
+    Boolean(project?.dashboardSnapshot?.dataSyncedAt) &&
+    project?.dashboardSnapshot?.dataCompileSignature === currentSignature
+
+  const syncDashboard = async (): Promise<void> => {
+    if (syncing || !project) return
+    setSyncing(true)
+    setSyncError('')
+    try {
+      const next = await syncDataDashboardSnapshot(project)
+      if (useStore.getState().project?.id === project.id) setDashboardSnapshot(next)
+    } catch (reason: unknown) {
+      setSyncError(reason instanceof Error ? reason.message : 'Unable to sync DATA items.')
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   if (!project) return null
 
@@ -61,6 +96,20 @@ export default function DataPanel(): JSX.Element | null {
         <SeignioragePanel />
       ) : (
         <div className="data-tree">
+          {syncError && <div className="rate-warning panel-sync-warning">{syncError}</div>}
+          {groups.length > 0 && !compiled && !syncError && (
+            <div className="rate-notice panel-sync-notice">
+              <span>DATA rates are not synced.</span>
+              <button
+                type="button"
+                className="btn-mini secondary"
+                disabled={syncing}
+                onClick={() => void syncDashboard()}
+              >
+                {syncing ? 'Syncing…' : 'Sync'}
+              </button>
+            </div>
+          )}
           {groups.length === 0 ? (
             <div className="tree-empty">Items added in Explorer will appear here.</div>
           ) : (

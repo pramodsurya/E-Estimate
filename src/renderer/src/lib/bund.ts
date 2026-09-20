@@ -644,6 +644,7 @@ export function defaultBundData(): BundData {
     source: 'map',
     alignment: [],
     lengthM: 0,
+    waterSide: 'left',
     chainageUnit: 'm',
     includePhreaticInPrint: true,
     sectionMode: 'continuous',
@@ -860,6 +861,7 @@ export function migrateBundData(raw: BundData): BundData {
     zonedSoilSource,
     zonedSsrVersion: 1,
     fillBasis: strippingExcavationFamily === 'foundation' ? 'stripped' : 'existing',
+    waterSide: raw.waterSide === 'right' ? 'right' : 'left',
     formationMaterial:
       migrateZonedCasing
         ? { code: zonedCodes.casing }

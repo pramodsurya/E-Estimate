@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Check, Eraser, Ruler, Undo2, X } from 'lucide-re
 import type { GuideWallData, ProjectNode } from '../../types/project'
 import { formatChainage, materializeSections, polylineLengthM } from '../../lib/guideWall'
 import AlignmentMap from './AlignmentMap'
+import AlignmentUploadButton from './AlignmentUploadButton'
 
 interface Props {
   node: ProjectNode
@@ -17,8 +18,9 @@ interface Props {
 type Step = 1 | 2
 
 /**
- * Pre-dashboard setup: 1) length (drawn on map or typed), 2) sections
- * (continuous interval or discontinuous marks). Which side(s) carry a wall is
+ * Pre-dashboard setup: sections (continuous interval or discontinuous marks).
+ * Length and alignment arrive from component creation (step 1 survives only to
+ * acquire a missing length). Which side(s) carry a wall is
  * edited any time on the dashboard. "Edit setup" returns here with everything
  * preserved.
  */
@@ -29,7 +31,9 @@ export default function GuideWallSetup({
   onCancel,
   initialStep
 }: Props): JSX.Element {
-  const [step, setStep] = useState<Step>(initialStep ?? 1)
+  // Length and alignment arrive from component creation, so the setup opens
+  // straight at sections; step 1 survives only to acquire a missing length.
+  const [step, setStep] = useState<Step>(data.lengthM > 0 ? 2 : (initialStep ?? 1))
   const [draft, setDraft] = useState<GuideWallData>(data)
   const [manualBreak, setManualBreak] = useState('')
 
@@ -85,7 +89,7 @@ export default function GuideWallSetup({
             <Ruler size={15} /> Guide wall setup — {node.name}
           </span>
           <h2>
-            Step {step} of 2 · {stepTitle}
+            {data.lengthM > 0 ? 'Sections' : `Step ${step} of 2 · ${stepTitle}`}
           </h2>
         </div>
         {onCancel && (
@@ -121,7 +125,10 @@ export default function GuideWallSetup({
             {draft.source === 'map' ? (
               <>
                 <div className="settings-note">
-                  Click the map to add points along the wall. Ch 0 is the first point you click —
+                  Click the map to add points along the wall — or upload a line file instead.
+                  <AlignmentUploadButton
+                    onAlignment={(points) => patch({ alignment: points, lengthM: 0, source: 'map' })}
+                  />
                   the arrow on the line shows the chainage direction.
                 </div>
                 <div className="map-tools">
@@ -189,6 +196,11 @@ export default function GuideWallSetup({
         <div className="gw-setup-body">
           <div className="gw-setup-fields">
             <div className="field">
+              {data.lengthM > 0 && (
+                <div className="latlng-display">
+                  {`Length: ${Math.round(effectiveLength).toLocaleString('en-IN')} m — from component creation`}
+                </div>
+              )}
               <label className="field-label">Section spacing</label>
               <label className="gw-radio">
                 <input
@@ -290,7 +302,7 @@ export default function GuideWallSetup({
       )}
 
       <div className="gw-setup-footer">
-        <button className="btn ghost" disabled={step === 1} onClick={() => setStep(1)}>
+        <button className="btn ghost" disabled={step === 1 || data.lengthM > 0} onClick={() => setStep(1)}>
           <ArrowLeft size={14} /> Back
         </button>
         <button className="btn" disabled={!canNext} onClick={goNext}>

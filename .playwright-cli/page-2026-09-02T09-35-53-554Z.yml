@@ -1,0 +1,118 @@
+- dialog [ref=f1e3]:
+  - generic [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - generic [ref=f1e6]:
+        - generic [ref=f1e7]: main.typ
+        - generic [ref=f1e13]: Visual Wiring QA
+      - generic [ref=f1e14]:
+        - button "Reset" [ref=f1e15] [cursor=pointer]
+        - button "Copy .typ" [ref=f1e19] [cursor=pointer]
+        - button "Download .typ" [ref=f1e23] [cursor=pointer]
+        - button "Print" [disabled] [ref=f1e27]
+        - button "Close Studio" [ref=f1e32] [cursor=pointer]
+    - generic [ref=f1e36]:
+      - generic [ref=f1e37]:
+        - generic [ref=f1e38]:
+          - generic [ref=f1e39]:
+            - button "Bold (*text* / Ctrl+B)" [ref=f1e40] [cursor=pointer]
+            - button "Italic (_text_ / Ctrl+I)" [ref=f1e43] [cursor=pointer]
+            - button "Underline (#underline[...] / Ctrl+U)" [ref=f1e46] [cursor=pointer]
+            - button "Strikethrough (#strike[...])" [ref=f1e49] [cursor=pointer]
+            - button "Highlight Selection (Ctrl+H)" [ref=f1e54] [cursor=pointer]
+            - button "Text Color" [ref=f1e59] [cursor=pointer]
+          - generic [ref=f1e66]:
+            - button "Size" [ref=f1e68] [cursor=pointer]
+            - button "Heading" [ref=f1e72] [cursor=pointer]
+          - generic [ref=f1e73]:
+            - button "Align Left" [ref=f1e74] [cursor=pointer]
+            - button "Align Center" [ref=f1e76] [cursor=pointer]
+            - button "Align Right" [ref=f1e78] [cursor=pointer]
+          - generic [ref=f1e80]:
+            - button "Insert Page Break" [ref=f1e81] [cursor=pointer]
+            - button "Insert Horizontal Rule" [ref=f1e85] [cursor=pointer]
+            - button "+ Box" [ref=f1e87] [cursor=pointer]
+            - button "+ Note" [ref=f1e88] [cursor=pointer]
+            - button "Table" [ref=f1e90] [cursor=pointer]
+          - generic [ref=f1e93]:
+            - button "Code" [active] [ref=f1e94] [cursor=pointer]
+            - button "Visual" [ref=f1e95] [cursor=pointer]
+          - button "Find & Replace (Ctrl+F)" [ref=f1e96] [cursor=pointer]
+        - generic [ref=f1e289]:
+          - generic [ref=f1e515]:
+            - generic [ref=f1e516]: "1"
+            - generic [ref=f1e517]: "2"
+            - generic [ref=f1e518]: "3"
+            - generic [ref=f1e519]: "4"
+            - generic [ref=f1e520]: "5"
+            - generic [ref=f1e521]: "6"
+            - generic [ref=f1e522]: "7"
+            - generic [ref=f1e523]: "8"
+            - generic [ref=f1e524]: "9"
+            - generic [ref=f1e525]: "10"
+            - generic [ref=f1e526]: "11"
+            - generic [ref=f1e527]: "12"
+            - generic [ref=f1e528]: "13"
+            - generic [ref=f1e529]: "14"
+            - generic [ref=f1e530]: "15"
+            - generic [ref=f1e531]: "16"
+            - generic [ref=f1e532]: "17"
+            - generic [ref=f1e533]: "18"
+            - generic [ref=f1e534]: "19"
+            - generic [ref=f1e535]: "20"
+            - generic [ref=f1e536]: "21"
+            - generic [ref=f1e537]: "22"
+            - generic [ref=f1e538]: "23"
+            - generic [ref=f1e539]: "24"
+            - generic [ref=f1e540]: "25"
+            - generic [ref=f1e541]: "26"
+            - generic [ref=f1e542]: "27"
+            - generic [ref=f1e543]: "28"
+            - generic [ref=f1e544]: "29"
+            - generic [ref=f1e545]: "30"
+            - generic [ref=f1e546]: "31"
+            - generic [ref=f1e547]: "32"
+            - generic [ref=f1e548]: "33"
+            - generic [ref=f1e549]: "34"
+            - generic [ref=f1e550]: "35"
+            - generic [ref=f1e551]: "36"
+            - generic [ref=f1e552]: "37"
+          - textbox [ref=f1e326]:
+            - generic [ref=f1e555]: "#set text(size: 9.5pt)"
+            - generic [ref=f1e557]: = Test Document
+            - generic [ref=f1e559]: == Teal Summary
+            - generic [ref=f1e561]: "#table("
+            - generic [ref=f1e562]: "columns: (1fr, 1fr, 1fr),"
+            - generic [ref=f1e563]: "fill: (col, row) => if row == 0 { rgb(\"#007791\") } else { none },"
+            - generic [ref=f1e564]: table.header(
+            - generic [ref=f1e565]: "[*Item*], [*Description*], [*Amount*],"
+            - generic [ref=f1e566]: ),
+            - generic [ref=f1e567]: "[1], [Sand], [100],"
+            - generic [ref=f1e568]: )
+            - generic [ref=f1e570]: == Light Calculation
+            - generic [ref=f1e572]: "#table("
+            - generic [ref=f1e573]: "columns: (1fr, 1fr, 1fr),"
+            - generic [ref=f1e574]: "fill: (col, row) => if row == 0 { rgb(\"#f1f5f9\") } else { none },"
+            - generic [ref=f1e575]: table.header(
+            - generic [ref=f1e576]: "[*Step*], [*Mode*], [*Amount*],"
+            - generic [ref=f1e577]: ),
+            - generic [ref=f1e578]: "[Lead], [5 km], [120],"
+            - generic [ref=f1e579]: )
+            - generic [ref=f1e581]: // e-estimate:visual-box
+            - generic [ref=f1e582]: "#rect(width: 100%, fill: rgb(\"#f8fafc\"), stroke: 0.5pt + luma(180), inset: 8pt, radius: 1pt)["
+            - generic [ref=f1e583]: Card content here
+            - generic [ref=f1e584]: "]"
+            - generic [ref=f1e586]: // e-estimate:visual-note
+            - generic [ref=f1e587]: "#rect(width: 100%, fill: rgb(\"#edf7f6\"), stroke: (left: 3pt + rgb(\"#087e8b\")), inset: 8pt)["
+            - generic [ref=f1e588]: "#text(9.5pt, weight: \"bold\", fill: rgb(\"#087e8b\"))[Note:] Enter official note or certificate remarks here"
+            - generic [ref=f1e589]: "]"
+        - text: "Note:"
+      - generic [ref=f1e155]:
+        - generic [ref=f1e156]:
+          - button "Recompile" [ref=f1e157] [cursor=pointer]
+          - generic [ref=f1e160]: Press Recompile to preview
+          - generic [ref=f1e162]:
+            - button [ref=f1e163] [cursor=pointer]
+            - generic [ref=f1e167]: 100%
+            - button [ref=f1e168] [cursor=pointer]
+            - button "100%" [ref=f1e172] [cursor=pointer]
+        - generic [ref=f1e173]: "Compilation Error: Preview intentionally disabled in UI harness"

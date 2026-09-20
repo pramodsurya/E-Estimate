@@ -49,6 +49,13 @@ export function createTauriApi(): EestimateApi {
       open: () => invoke<OpenResult>('project_open'),
       openPath: (path) => invoke<OpenResult>('project_open_path', { path })
     },
+    cluster: {
+      save: (data, currentPath, name) =>
+        invoke<SaveResult>('project_save', { payload: { data, currentPath, name } }),
+      saveAs: (data, name) =>
+        invoke<SaveResult>('cluster_save_as', { payload: { data, name } }),
+      open: () => invoke<OpenResult>('cluster_open')
+    },
     recent: {
       list: () => invoke<RecentEntry[]>('recent_list'),
       clear: () => invoke<RecentEntry[]>('recent_clear')
@@ -61,19 +68,30 @@ export function createTauriApi(): EestimateApi {
       onProgress: (cb) => subscribe('bund:simulation-progress', cb)
     },
     typst: {
-      compile: (mainContent, inputs, shadowFiles) =>
-        invoke('typst_compile', { req: { mainContent, inputs, shadowFiles } })
+      compile: (mainContent, inputs, shadowFiles, opts?: { contentHash?: string; preferPath?: boolean }) =>
+        invoke('typst_compile', {
+          req: {
+            mainContent,
+            inputs,
+            shadowFiles,
+            contentHash: opts?.contentHash,
+            preferPath: opts?.preferPath
+          }
+        })
+    },
+    excel: {
+      compile: (payload) => invoke('excel_compile', { payload })
     },
     image: {
       embedRemote: (url) => invoke('image_embed_remote', { payload: { url } })
     },
     export: {
-      pdf: (data, name, defaultPath) =>
-        invoke('export_pdf', { payload: { data, name, defaultPath } }),
-      workbook: (data, name, defaultPath) =>
-        invoke('export_workbook', { payload: { data, name, defaultPath } }),
-      png: (data, name, defaultPath) =>
-        invoke('export_png', { payload: { data, name, defaultPath } }),
+      pdf: (data, name, defaultPath?, opts?: { sourcePath?: string }) =>
+        invoke('export_pdf', { payload: { data, name, defaultPath, sourcePath: opts?.sourcePath } }),
+      workbook: (data, name, defaultPath?, opts?: { sourcePath?: string }) =>
+        invoke('export_workbook', { payload: { data, name, defaultPath, sourcePath: opts?.sourcePath } }),
+      png: (data, name, defaultPath?, opts?: { sourcePath?: string }) =>
+        invoke('export_png', { payload: { data, name, defaultPath, sourcePath: opts?.sourcePath } }),
       reveal: (path) => invoke('export_reveal', { path })
     },
     update: {

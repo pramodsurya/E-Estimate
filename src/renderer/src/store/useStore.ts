@@ -11,8 +11,6 @@ import type {
   BundItemRole,
   GuideWallData,
   GuideWallMaterialRef,
-  MiSluiceMaterialRole,
-  MiSluiceNewData,
   TemplateMaterialRef,
   LeadApplication,
   ItemEditorType,
@@ -34,7 +32,9 @@ import type {
   ProjectChargeSettings,
   DocumentFinalNumber,
   DocumentPrintArea,
-  SpreadsheetDocument
+  SpreadsheetDocument,
+  CanalData,
+  ProjectAreaAllowance
 } from '../types/project'
 import type { MasterItem } from '../lib/masterData'
 import {
@@ -74,7 +74,12 @@ import {
   uniqueChildName,
   type ReorderEdge
 } from '../lib/tree'
-import { defaultGuideWallData, syncGuideWallItems } from '../lib/guideWall'
+import {
+  defaultGuideWallData,
+  materializeSections,
+  polylineLengthM,
+  syncGuideWallItems
+} from '../lib/guideWall'
 import {
   applyBundMasterMetadata,
   defaultBundData,
@@ -82,13 +87,8 @@ import {
   unresolvedBundMaterialCodes,
   type BundMasterMetadata
 } from '../lib/bund'
-import {
-  applyMiSluiceNewMasterMetadata,
-  defaultMiSluiceNewData,
-  syncMiSluiceNewItems,
-  unresolvedMiSluiceNewMaterialCodes,
-  type MiSluiceMasterMetadata
-} from '../lib/miSluiceNew'
+import { defaultCanalData } from '../lib/canal'
+import type { ImportedComponentSpec } from '../lib/geometryImport'
 import { foldsIntoPreviousEntry, MAX_HISTORY, type HistoryRun } from './history'
 import { compactProjectForSave, expandLoadedProject } from '../lib/projectFile'
 import { mergeBundSimulationRuns } from '../lib/bundSimulation'
@@ -332,18 +332,6 @@ function nextProjectDataCode(definitions: ProjectDataDefinition[]): string {
   return `DATA-SOR-${String(highest + 1).padStart(3, '0')}`
 }
 
-function miSluiceNewWithVariant(
-  data: MiSluiceNewData,
-  code: string,
-  selection: DataVariantSelection
-): MiSluiceNewData {
-  const materials = { ...data.materials }
-  for (const role of Object.keys(materials) as MiSluiceMaterialRole[]) {
-    materials[role] = materialWithVariant(materials[role], code, selection)
-  }
-  return { ...data, materials }
-}
-
 function normalizeLeadVariant(variant: LeadVariant): LeadVariant {
   const materialName = /\b(?:mur+um|mor+um)\b/i.test(variant.materialName)
     ? 'Earth'
@@ -428,11 +416,41 @@ function ensurePinnedPages(root: ProjectNode): ProjectNode {
   return children === root.children ? root : { ...root, children }
 }
 
+export function ensureTemplateComponentsSynced(root: ProjectNode): ProjectNode {
+  let next = root
+  const visit = (node: ProjectNode): void => {
+    if (node.templateId === 'guide-wall' || node.guideWall) {
+      const gw = node.guideWall
+      const hasLength =
+        (gw?.lengthM ?? 0) > 0 ||
+        (node.workingLine && node.workingLine.length >= 2) ||
+        (gw?.alignment && gw.alignment.length >= 2)
+      const hasItems = node.children.some((c) => c.kind === 'item')
+      if (hasLength && (!hasItems || !gw?.sections?.length)) {
+        next = syncGuideWallItems(next, node.id)
+      }
+    } else if (node.templateId === 'bund' || node.bund) {
+      const bund = node.bund
+      const hasLength =
+        (bund?.lengthM ?? 0) > 0 ||
+        (node.workingLine && node.workingLine.length >= 2) ||
+        (bund?.alignment && bund.alignment.length >= 2)
+      const hasItems = node.children.some((c) => c.kind === 'item')
+      if (hasLength && !hasItems) {
+        next = syncBundItems(next, node.id)
+      }
+    }
+    node.children.forEach(visit)
+  }
+  visit(root)
+  return next
+}
+
 function normalizeLoaded(rawData: EestimateProject): EestimateProject {
   // Files written compacted carry their recipe indexes as id lists; put the
   // maps back before anything reads the snapshot.
   const data = expandLoadedProject(rawData)
-  const normalizedRoot = normalizeNode(data.root)
+  const normalizedRoot = ensureTemplateComponentsSynced(normalizeNode(data.root))
   return ensureProjectHasCoverEmblem({
     ...data,
     meta: {
@@ -459,7 +477,7 @@ function normalizeLoaded(rawData: EestimateProject): EestimateProject {
   })
 }
 
-export type AppView = 'home' | 'newproject' | 'project'
+export type AppView = 'home' | 'newproject' | 'project' | 'cluster'
 export type ActivityView =
   | 'explorer'
   | 'search'
@@ -483,6 +501,7 @@ interface AddStructureState {
   open: boolean
   kind: 'component' | 'subcomponent'
   parentId: string | null
+  editNodeId?: string | null
 }
 
 interface SettingsState {
@@ -641,7 +660,12 @@ interface StoreState {
   createStructureNode: (
     name: string,
     location: ProjectLocation | null,
-    templateId?: ComponentTemplateId
+    templateId?: ComponentTemplateId,
+    extra?: {
+      areaAllowance?: ProjectAreaAllowance | null
+      workingLine?: { lat: number; lng: number }[] | null
+      manualLengthM?: number | null
+    }
   ) => void
   setGuideWall: (nodeId: string, data: GuideWallData) => void
   setGuideWallMaterial: (
@@ -684,13 +708,21 @@ interface StoreState {
     runs: BundSimulationRun[]
   ) => boolean
   setBundMaterial: (nodeId: string, role: BundItemRole, item: MasterItem) => void
-  setMiSluiceNew: (nodeId: string, data: MiSluiceNewData) => void
-  setMiSluiceNewMaterial: (
+  setCanal: (nodeId: string, data: CanalData) => void
+  setNodeAreaAllowance: (nodeId: string, allowance: ProjectAreaAllowance | null) => void
+  setNodeWorkingLocation: (
     nodeId: string,
-    role: MiSluiceMaterialRole,
-    item: MasterItem
+    location: { lat: number; lng: number; label?: string } | null,
+    workingLine?: { lat: number; lng: number }[] | null,
+    allowance?: ProjectAreaAllowance | null
   ) => void
-  resolveMiSluiceNewMaterials: (nodeId: string, masters: MasterItem[]) => string[]
+  openEditGeometry: (nodeId: string) => void
+  createComponentsFromImport: (parentId: string, proposals: ImportedComponentSpec[]) => void
+  createTemplatedComponentsFromImport: (
+    parentId: string,
+    templateId: ComponentTemplateId,
+    proposals: ImportedComponentSpec[]
+  ) => void
   /**
    * Fill in master metadata for every bund material still held as a bare code.
    * Returns the codes that remain unresolved so the caller can retry rather
@@ -720,6 +752,7 @@ interface StoreState {
   setNodeRate: (id: string, rate: number | null) => void
   updateMeta: (patch: Partial<ProjectMeta>) => void
   setDashboardSnapshot: (snapshot: DashboardDataSnapshot) => void
+  syncTemplateComponents: () => void
   setSeigniorageSlabThickness: (itemNodeId: string, thicknessMm: number | null) => void
   addMiscellaneousItem: (item: Omit<ProjectMiscellaneousItem, 'id' | 'createdAt'>) => void
   removeMiscellaneousItem: (id: string) => void
@@ -969,7 +1002,7 @@ export const useStore = create<StoreState>((set, get) => {
 
     restoreLastSession: async () => {
       const path = localStorage.getItem(LAST_PROJECT_KEY)
-      if (!path || get().project) return
+      if (!path || get().project || path.toLowerCase().endsWith('.eestimate-cluster')) return
       await get().openRecent(path)
     },
 
@@ -1064,7 +1097,7 @@ export const useStore = create<StoreState>((set, get) => {
 
     openRecent: async (path) => {
       if (!confirmProjectReplacementWhileSimulation('Opening another project')) return
-      const res = await window.api.project.openPath(path)
+      if (path.toLowerCase().endsWith('.eestimate-cluster')) return; const res = await window.api.project.openPath(path)
       if (res.error || !res.data) {
         if (localStorage.getItem(LAST_PROJECT_KEY) === path) {
           localStorage.removeItem(LAST_PROJECT_KEY)
@@ -1206,7 +1239,7 @@ export const useStore = create<StoreState>((set, get) => {
       set({ addStructure: { open: true, kind: 'subcomponent', parentId } })
     },
 
-    createStructureNode: (name, location, templateId) => {
+    createStructureNode: (name, location, templateId, extra) => {
       const p = get().project
       if (!p) return
       const { kind, parentId } = get().addStructure
@@ -1214,17 +1247,75 @@ export const useStore = create<StoreState>((set, get) => {
       const trimmed = name.trim() || (kind === 'component' ? 'New Component' : 'New Sub-component')
       const resolvedName = uniqueChildName(findNode(p.root, parent), trimmed)
       const fallbackLocation = location ?? p.meta.location ?? null
+
+      const drawnLine = (extra?.workingLine ?? []).map((vertex) => ({
+        lat: vertex.lat,
+        lng: vertex.lng
+      }))
+      const hasDrawnLine = drawnLine.length >= 2
+      const manualLengthM = Math.max(0, Math.round(extra?.manualLengthM ?? 0))
+      const presetLengthM = hasDrawnLine
+        ? Math.round(polylineLengthM(drawnLine))
+        : manualLengthM
+      const hasGeometryPreset = hasDrawnLine || manualLengthM > 0
+      const presetSource = hasDrawnLine ? ('map' as const) : ('manual' as const)
+
       const node = createNode(kind, resolvedName, {
         location: fallbackLocation,
+        areaAllowance: extra?.areaAllowance ?? null,
+        workingLine: hasDrawnLine ? drawnLine : (extra?.workingLine ?? null),
         ...(templateId === 'guide-wall'
-          ? { templateId, guideWall: defaultGuideWallData() }
+          ? {
+              templateId,
+              guideWall: hasGeometryPreset
+                ? {
+                    ...defaultGuideWallData(),
+                    alignment: drawnLine,
+                    source: presetSource,
+                    lengthM: presetLengthM,
+                    configured: true,
+                    sections: materializeSections(
+                      { ...defaultGuideWallData(), lengthM: presetLengthM },
+                      []
+                    )
+                  }
+                : defaultGuideWallData()
+            }
           : templateId === 'bund'
-            ? { templateId, bund: defaultBundData() }
-            : templateId === 'mi-sluice-new'
-              ? { templateId, miSluiceNew: defaultMiSluiceNewData() }
+            ? {
+                templateId,
+                bund: hasGeometryPreset
+                  ? {
+                      ...defaultBundData(),
+                      alignment: drawnLine,
+                      source: presetSource,
+                      lengthM: presetLengthM
+                    }
+                  : defaultBundData()
+              }
+            : templateId === 'canal'
+              ? {
+                  templateId,
+                  canal: hasGeometryPreset
+                    ? {
+                        ...defaultCanalData(),
+                        alignment: drawnLine,
+                        source: presetSource,
+                        lengthM: presetLengthM
+                      }
+                    : defaultCanalData()
+                }
             : {})
       })
-      mutate((root) => addChild(root, parent, node))
+      mutate((root) => {
+        let next = addChild(root, parent, node)
+        if (templateId === 'guide-wall' && hasGeometryPreset) {
+          next = syncGuideWallItems(next, node.id)
+        } else if (templateId === 'bund' && hasGeometryPreset) {
+          next = syncBundItems(next, node.id)
+        }
+        return next
+      })
       set((s) => ({
         selectedId: node.id,
         expanded: { ...s.expanded, [parent]: true },
@@ -1448,10 +1539,131 @@ export const useStore = create<StoreState>((set, get) => {
       return true
     },
 
-    setMiSluiceNew: (nodeId, data) => {
+    setCanal: (nodeId, data) => {
+      mutate((root) => patchNode(root, nodeId, { canal: data }))
+    },
+
+    setNodeAreaAllowance: (nodeId, allowance) => {
+      mutate((root) => patchNode(root, nodeId, { areaAllowance: allowance }))
+    },
+
+    setNodeWorkingLocation: (nodeId, location, workingLine, allowance) => {
       mutate((root) =>
-        syncMiSluiceNewItems(patchNode(root, nodeId, { miSluiceNew: data }), nodeId)
+        patchNode(root, nodeId, {
+          location: location ? { lat: location.lat, lng: location.lng, label: location.label } : null,
+          workingLine: workingLine ?? null,
+          ...(allowance !== undefined ? { areaAllowance: allowance } : {})
+        })
       )
+    },
+
+    openEditGeometry: (nodeId) => {
+      const project = get().project
+      if (!project) return
+      const node = findNode(project.root, nodeId)
+      if (!node) return
+      const parent = findParent(project.root, nodeId)
+      set({
+        addStructure: {
+          open: true,
+          kind: node.kind === 'subcomponent' ? 'subcomponent' : 'component',
+          parentId: parent?.id ?? null,
+          editNodeId: nodeId
+        }
+      })
+    },
+
+    createComponentsFromImport: (parentId, proposals) => {
+      const p = get().project
+      if (!p || proposals.length === 0) return
+      mutate((root) => {
+        let next = root
+        const keyToId = new Map<string, string>()
+        for (const spec of proposals) {
+          const parentNodeId =
+            spec.parentKey && keyToId.has(spec.parentKey)
+              ? keyToId.get(spec.parentKey)!
+              : parentId
+          const node = createNode(spec.kind, spec.name, {
+            location: spec.location ? { lat: spec.location.lat, lng: spec.location.lng, label: spec.name } : null,
+            areaAllowance: spec.allowance ?? null,
+            workingLine: spec.workingLine ?? null
+          })
+          keyToId.set(spec.key, node.id)
+          next = addChild(next, parentNodeId, node)
+        }
+        return next
+      })
+      set({ addStructure: { open: false, kind: 'component', parentId: null } })
+    },
+
+    createTemplatedComponentsFromImport: (parentId, templateId, proposals) => {
+      const p = get().project
+      if (!p || proposals.length === 0) return
+      const createdIds: { id: string; hasAlignment: boolean }[] = []
+      mutate((root) => {
+        let next = root
+        const keyToId = new Map<string, string>()
+        for (const spec of proposals) {
+          const parentNodeId =
+            spec.parentKey && keyToId.has(spec.parentKey)
+              ? keyToId.get(spec.parentKey)!
+              : parentId
+          const alignment =
+            spec.alignment && spec.alignment.length >= 2
+              ? spec.alignment
+              : spec.workingLine && spec.workingLine.length >= 2
+                ? spec.workingLine
+                : []
+          const hasAlignment = alignment.length >= 2
+          const lengthM = hasAlignment ? Math.round(polylineLengthM(alignment)) : 0
+
+          let templateData: Partial<ProjectNode> = {}
+          if (templateId === 'guide-wall') {
+            templateData = {
+              templateId,
+              guideWall: hasAlignment
+                ? { ...defaultGuideWallData(), alignment, source: 'map', lengthM }
+                : defaultGuideWallData()
+            }
+          } else if (templateId === 'bund') {
+            templateData = {
+              templateId,
+              bund: hasAlignment
+                ? { ...defaultBundData(), alignment, source: 'map', lengthM }
+                : defaultBundData()
+            }
+          } else if (templateId === 'canal') {
+            templateData = {
+              templateId,
+              canal: hasAlignment
+                ? { ...defaultCanalData(), alignment, source: 'map', lengthM }
+                : defaultCanalData()
+            }
+          }
+
+          const node = createNode(spec.kind, spec.name, {
+            location: spec.location ? { lat: spec.location.lat, lng: spec.location.lng, label: spec.name } : null,
+            areaAllowance: spec.allowance ?? null,
+            workingLine: alignment.length >= 2 ? alignment : (spec.workingLine ?? null),
+            ...templateData
+          })
+          keyToId.set(spec.key, node.id)
+          createdIds.push({ id: node.id, hasAlignment })
+          next = addChild(next, parentNodeId, node)
+        }
+
+        for (const { id, hasAlignment } of createdIds) {
+          if (templateId === 'guide-wall' && hasAlignment) {
+            next = syncGuideWallItems(next, id)
+          } else if (templateId === 'bund' && hasAlignment) {
+            next = syncBundItems(next, id)
+          }
+        }
+
+        return next
+      })
+      set({ addStructure: { open: false, kind: 'component', parentId: null } })
     },
 
     setTemplateCodeVariant: (nodeId, code, selection) => {
@@ -1470,47 +1682,6 @@ export const useStore = create<StoreState>((set, get) => {
         mutate((root) => syncBundItems(patchNode(root, nodeId, { bund }), nodeId))
         return
       }
-      if (component.miSluiceNew) {
-        const miSluiceNew = miSluiceNewWithVariant(component.miSluiceNew, code, selection)
-        mutate((root) =>
-          syncMiSluiceNewItems(patchNode(root, nodeId, { miSluiceNew }), nodeId)
-        )
-      }
-    },
-
-    setMiSluiceNewMaterial: (nodeId, role, master) => {
-      const p = get().project
-      const component = p ? findNode(p.root, nodeId) : null
-      const data = component?.miSluiceNew
-      if (!data) return
-      const ref: TemplateMaterialRef = {
-        code: master.code,
-        description: master.description,
-        unit: master.dataVariant?.unit ?? master.unit,
-        categoryKey: master.category,
-        side: master.side,
-        dataVariant: master.dataVariant
-      }
-      const miSluiceNew = { ...data, materials: { ...data.materials, [role]: ref } }
-      mutate((root) =>
-        syncMiSluiceNewItems(patchNode(root, nodeId, { miSluiceNew }), nodeId)
-      )
-    },
-
-    resolveMiSluiceNewMaterials: (nodeId, masters) => {
-      const p = get().project
-      const component = p ? findNode(p.root, nodeId) : null
-      const data = component?.miSluiceNew
-      if (!data) return []
-      const miSluiceNew = applyMiSluiceNewMasterMetadata(
-        data,
-        masters as MiSluiceMasterMetadata[]
-      )
-      const remaining = unresolvedMiSluiceNewMaterialCodes(miSluiceNew)
-      mutate((root) =>
-        syncMiSluiceNewItems(patchNode(root, nodeId, { miSluiceNew }), nodeId)
-      )
-      return remaining
     },
 
     setBundMaterial: (nodeId, role, master) => {
@@ -1982,6 +2153,23 @@ export const useStore = create<StoreState>((set, get) => {
                 }
               : state.project.leadChart,
             dashboardSnapshot: snapshot,
+            updatedAt: new Date().toISOString()
+          },
+          dirty: true
+        }
+      })
+    },
+
+    syncTemplateComponents: () => {
+      set((state) => {
+        if (!state.project) return state
+        const nextRoot = ensureTemplateComponentsSynced(state.project.root)
+        if (nextRoot === state.project.root) return state
+        return {
+          ...state,
+          project: {
+            ...state.project,
+            root: nextRoot,
             updatedAt: new Date().toISOString()
           },
           dirty: true

@@ -46,6 +46,7 @@ import type {
   ProjectNode
 } from '../../types/project'
 import type { RateAnalysisRecipe, RateAnalysisTextRun } from '../../types/rateAnalysis'
+import { sortScheduleItems } from '../itemOrder'
 import { bundCompileInputs, bundVariablesPrelude, injectBundLayout } from './bund/bundTypst'
 import {
   guideWallCompileInputs,
@@ -204,7 +205,8 @@ export function buildComponentRenderData(
 ): ComponentRenderData {
   const freshNode = project?.root ? findNode(project.root, node.id) ?? node : node
   const isSub = freshNode.kind === 'subcomponent'
-  const directItems = directComponentItems(freshNode)
+  // Abstract schedule flow: clearance → excavation → any → SOR.
+  const directItems = sortScheduleItems(directComponentItems(freshNode))
   const subcomponents = isSub ? [] : freshNode.children.filter((c) => c.kind === 'subcomponent')
   const total = componentItemsTotal(project, freshNode, rateOf, true)
   const availableShadowFiles = componentShadowFiles(project, freshNode)

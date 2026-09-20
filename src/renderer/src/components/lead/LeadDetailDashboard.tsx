@@ -1770,30 +1770,19 @@ export default function LeadDetailDashboard(): JSX.Element {
               </label>
               </div>
             </fieldset>
-            <div className={`lead-point-picker-shell ${pointPicking ? 'picking' : ''}`}>
+            <div className="lead-point-picker-shell">
               <div className="lead-point-picker-heading">
                 <span>
-                  {pointPicking
-                    ? 'Click the required position on the map'
-                    : pointLocationPicked
-                      ? 'Location confirmed'
-                      : 'Location is required'}
+                  {pointLocationPicked
+                    ? 'Location confirmed — click map to change'
+                    : 'Click directly on the map to set location'}
                 </span>
-                {pointPicking && (
-                  <button
-                    className="btn ghost"
-                    type="button"
-                    onClick={() => setPointPicking(false)}
-                  >
-                    Cancel picking
-                  </button>
-                )}
               </div>
               <PointPickerMap
                 site={site}
                 points={materialMapPoints}
                 value={mapCoordinateFromDraft(sourceDraft)}
-                active={pointPicking}
+                active={true}
                 onReady={() => {
                   window.setTimeout(
                     () => pointCodeRef.current?.focus({ preventScroll: true }),
@@ -1807,22 +1796,10 @@ export default function LeadDetailDashboard(): JSX.Element {
                     lon: lon.toFixed(6)
                   }))
                   setPointLocationPicked(true)
-                  setPointPicking(false)
                   setError('')
                 }}
               />
             </div>
-            <button
-              className="btn ghost lead-point-map-picker"
-              type="button"
-              disabled={pointPicking}
-              onClick={() => {
-                setPointPicking(true)
-                setError('')
-              }}
-            >
-              <MapPin size={15} /> {pointLocationPicked ? 'Change map location' : 'Pick location on the map'}
-            </button>
             {error && <div className="rate-warning">{error}</div>}
             <div className="lead-split-actions">
               <button
@@ -1832,7 +1809,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                   setSourceDraft((current) => ({ ...current, lat: '', lon: '' }))
                   setPointLocationPicked(false)
                 }}
-                disabled={pointPicking || !pointLocationPicked}
+                disabled={!pointLocationPicked}
               >
                 Clear Location
               </button>
@@ -1841,7 +1818,6 @@ export default function LeadDetailDashboard(): JSX.Element {
                 type="button"
                 onClick={addSource}
                 disabled={
-                  pointPicking ||
                   !pointLocationPicked ||
                   !sourceDraft.code.trim() ||
                   !validMapCoordinate(sourceDraft)
@@ -3309,7 +3285,7 @@ function PointPickerMap({
           </Marker>
         )}
       </MapContainer>
-      {active && <div className="lead-point-picker-overlay">Click map to confirm location</div>}
+      {active && !value && <div className="lead-point-picker-overlay">Click map to place point</div>}
     </div>
   )
 }

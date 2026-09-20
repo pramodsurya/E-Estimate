@@ -5,7 +5,7 @@ import type { ProjectNode } from '../../types/project'
 import { canMoveNode, isComponentLike } from '../../lib/tree'
 import { guideWallDetailId } from '../../lib/guideWall'
 import { bundDetailId } from '../../lib/bund'
-import { miSluiceNewDetailId } from '../../lib/miSluiceNew'
+import { canalDetailId } from '../../lib/canal'
 import { NodeIcon, isRenamable, nodeDisplayName } from '../nodeVisual'
 
 const TreeNode = memo(function TreeNode({
@@ -28,7 +28,7 @@ const TreeNode = memo(function TreeNode({
   const isTemplate =
     node.templateId === 'guide-wall' ||
     node.templateId === 'bund' ||
-    node.templateId === 'mi-sluice-new'
+    node.templateId === 'canal'
   const hasChildren = visibleChildren.length > 0 || isTemplate
   const isOpen = expandedFlag ?? (node.kind === 'title' || isTemplate)
   const renamable = isRenamable(node)
@@ -206,8 +206,8 @@ const TreeNode = memo(function TreeNode({
           detailId={
             node.templateId === 'bund'
               ? bundDetailId(node.id)
-              : node.templateId === 'mi-sluice-new'
-                ? miSluiceNewDetailId(node.id)
+              : node.templateId === 'canal'
+                ? canalDetailId(node.id)
                 : guideWallDetailId(node.id)
           }
           depth={depth + 1}

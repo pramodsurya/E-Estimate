@@ -24,10 +24,10 @@ import {
 } from '../store/useStore'
 import { isComponentLike } from '../lib/tree'
 import { isRenamable } from './nodeVisual'
-import EstimateMark from './tutorial/EstimateMark'
+import EstimateMark from './tutorial/EstimateMark'; import ClusterMark from './tutorial/ClusterMark'
 import HelpMenu from './tutorial/HelpMenu'
 import { isTauriRuntime } from '../lib/platformApi'
-import { LEAD_MAP_IMAGE_PATH } from '../lib/leadMapGeometry'
+import { LEAD_MAP_IMAGE_PATH } from '../lib/leadMapGeometry'; import { useClusterStore } from '../store/useClusterStore'; import { isClusterPath } from '../lib/cluster'
 
 type MenuName = 'file' | 'component' | 'help' | null
 
@@ -37,7 +37,7 @@ export default function TitleBar(): JSX.Element {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [maximized, setMaximized] = useState(false)
 
-  const view = useStore((s) => s.view)
+  const view = useStore((s) => s.view); const cluster = useClusterStore((s) => s.cluster); const clusterDirty = useClusterStore((s) => s.clusterDirty)
   const project = useStore((s) => s.project)
   const dirty = useStore((s) => s.dirty)
   const recent = useStore((s) => s.recent)
@@ -75,7 +75,7 @@ export default function TitleBar(): JSX.Element {
     <div className="menu-dropdown" onClick={(e) => e.stopPropagation()}>
       <MenuItem label="Home" onClick={() => act(() => useStore.getState().goHome())} />
       <MenuItem label="New Project" shortcut="Ctrl+N" onClick={() => act(() => useStore.getState().startNewProject())} />
-      <MenuItem label="Open Project…" shortcut="Ctrl+O" onClick={() => act(() => void useStore.getState().openProjectFromDisk())} />
+      <MenuItem label="Open Project…" shortcut="Ctrl+O" onClick={() => act(() => void useStore.getState().openProjectFromDisk())} /><MenuItem label="New Cluster Project" onClick={() => act(() => useClusterStore.getState().startNewCluster())} /><MenuItem label="Open Cluster Project…" onClick={() => act(() => void useClusterStore.getState().openClusterFromDialog())} />
       <div
         className="menu-dd-item"
         onMouseEnter={() => setRecentOpen(true)}
@@ -88,7 +88,7 @@ export default function TitleBar(): JSX.Element {
           <div className="menu-dropdown" style={{ top: -4, left: '100%', maxHeight: 320, overflow: 'auto' }}>
             {recent.length === 0 && <div className="menu-dd-item" style={{ pointerEvents: 'none' }}>No recent projects</div>}
             {recent.map((r) => (
-              <button key={r.path} className="menu-dd-item" title={r.path} onClick={() => act(() => void useStore.getState().openRecent(r.path))}>
+              <button key={r.path} className="menu-dd-item" title={r.path} onClick={() => act(() => { if (isClusterPath(r.path)) void useClusterStore.getState().openClusterPath(r.path); else void useStore.getState().openRecent(r.path) })}>
                 <span className="sc-label" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
                   {r.name}
                 </span>
@@ -100,7 +100,7 @@ export default function TitleBar(): JSX.Element {
       <div className="menu-sep" />
       <MenuItem label="Save" shortcut="Ctrl+S" disabled={!hasProject} onClick={() => act(() => void useStore.getState().saveProject())} />
       <MenuItem label="Save As…" disabled={!hasProject} onClick={() => act(() => void useStore.getState().saveProjectAs())} />
-      <MenuItem label="Close Project" disabled={!hasProject} onClick={() => act(() => useStore.getState().closeProject())} />
+      <MenuItem label="Close Project" disabled={!hasProject} onClick={() => act(() => useStore.getState().closeProject())} /><MenuItem label="Save Cluster" disabled={!cluster} onClick={() => act(() => void useClusterStore.getState().saveCluster())} /><MenuItem label="Save Cluster As…" disabled={!cluster} onClick={() => act(() => void useClusterStore.getState().saveClusterAs())} /><MenuItem label="Close Cluster" disabled={!cluster} onClick={() => act(() => useClusterStore.getState().closeCluster())} />
     </div>
   )
 
@@ -141,7 +141,7 @@ export default function TitleBar(): JSX.Element {
       {(menu || notificationsOpen) && <div className="menu-backdrop" onClick={close} />}
       <div className="titlebar-left" onClick={(e) => e.stopPropagation()}>
         <div className="tb-brand">
-          <EstimateMark size={16} />
+          {view === 'cluster' ? <ClusterMark size={16} /> : <EstimateMark size={16} />}
           E-Estimate
         </div>
 
@@ -210,10 +210,10 @@ export default function TitleBar(): JSX.Element {
       </div>
 
       <div className="titlebar-right" onClick={(e) => e.stopPropagation()}>
-        {hasProject && (
+        {(hasProject || view === 'cluster') && (
           <span style={{ color: 'var(--text-faint)', fontSize: 11, marginRight: 10 }}>
-            {project!.meta.name || 'Untitled'}
-            {dirty ? ' •' : ''}
+            {view === 'cluster' ? cluster?.meta.name || 'Untitled Cluster' : project!.meta.name || 'Untitled'}
+            {(dirty || clusterDirty) ? ' •' : ''}
             {view === 'newproject' ? ' (new)' : ''}
           </span>
         )}

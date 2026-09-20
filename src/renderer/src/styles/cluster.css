@@ -1,0 +1,302 @@
+/* Cluster Project — plain VS Code-dark styling that reuses the app palette. */
+
+.cluster-crumbbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.cluster-crumb-logo {
+  display: inline-flex;
+  margin-right: 4px;
+}
+
+.cluster-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cluster-crumb-sep {
+  color: var(--text-faint);
+}
+
+.cluster-crumb-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.cluster-crumb-label.current {
+  color: var(--text-strong);
+}
+
+.cluster-crumb-back {
+  margin-left: 8px;
+}
+
+.cluster-dashboard {
+  padding: 16px 20px 32px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.cluster-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cluster-head-logo {
+  display: inline-flex;
+}
+
+.cluster-head-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.cluster-head-text h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text-strong);
+  cursor: text;
+}
+
+.cluster-head-sub {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.cluster-head-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.cluster-name-edit {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.cluster-name-edit input {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-strong);
+  border-radius: var(--radius);
+  padding: 2px 8px;
+  font-size: 16px;
+}
+
+.unsaved-cluster-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cluster);
+  border-radius: var(--radius);
+}
+
+.cluster-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cluster);
+  border-radius: var(--radius);
+  font-size: 12px;
+}
+
+.cluster-status > span {
+  flex: 1;
+}
+
+.cluster-columns {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.cluster-col {
+  flex: 1 1 280px;
+  min-width: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.cluster-col h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-strong);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cluster-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.cluster-member-list,
+.cluster-lead-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.cluster-member {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+
+.cluster-member-icon {
+  display: inline-flex;
+  color: var(--component);
+}
+
+.cluster-member-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cluster-member-name {
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cluster-member-path {
+  color: var(--text-faint);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cluster-member-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.cluster-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 0 6px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  width: fit-content;
+}
+
+.cluster-badge.ready {
+  color: #7ee2a8;
+  border-color: #2d7d46;
+}
+
+.cluster-badge.missing {
+  color: var(--cluster);
+  border-color: var(--cluster);
+}
+
+.cluster-badge.error {
+  color: #f1948a;
+  border-color: #c0392b;
+}
+
+.cluster-add-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.cluster-add-row input {
+  flex: 1;
+  min-width: 140px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-strong);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+}
+
+.cluster-lead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+
+.cluster-lead-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.cluster-lead-name {
+  color: var(--text-strong);
+}
+
+.cluster-lead-avg {
+  color: var(--cluster);
+  font-size: 12px;
+}
+
+.cluster-lead-detail {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.cluster-total-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 12px;
+}
+
+.cluster-total-row strong {
+  color: var(--text-strong);
+}
+
+.tree-row.cluster-title-row .node-label {
+  color: var(--cluster);
+  font-weight: 600;
+}
+
+.home-cluster-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

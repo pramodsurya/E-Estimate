@@ -107,7 +107,13 @@
 #for RateAnalysis in DataBook.at("recipes", default: ()) [
   #metadata(RateAnalysis.at("_ee_print_id", default: ""))
   #let visible = RateAnalysis.at("visibility", default: (:))
-  #if visible.at("code", default: true) [#text(weight: "bold")[#RateAnalysis.code] #linebreak()]
+  #if visible.at("code", default: true) [
+    #text(weight: "bold")[#RateAnalysis.code]
+    #if RateAnalysis.at("scope_label", default: "") != "" [
+      #h(6pt) #box(fill: rgb("#f1f5f9"), stroke: 0.5pt + rgb("#cbd5e1"), inset: (x: 4.5pt, y: 1.5pt), radius: 2pt)[#text(size: 0.78em, fill: rgb("#475569"), weight: "bold")[#RateAnalysis.scope_label]]
+    ]
+    #linebreak()
+  ]
   #if RateAnalysis.document_title != "" [*#RateAnalysis.document_title* #linebreak()]
   #if RateAnalysis.section_heading != "" [#RateAnalysis.section_heading #linebreak()]
   #if visible.at("description", default: true) [#render-runs(RateAnalysis.at("description_runs", default: ())) #linebreak()]
@@ -226,8 +232,11 @@
           [#text(font: "DejaVu Sans Mono", size: 0.82em)[Rs. #lead_charge.deduction.full_rate_text − Rs. #lead_charge.deduction.deducted_rate_text]],
           [*Rs. #lead_charge.deduction.net_rate_text/#lead_charge.deduction.unit*]
         ) } else { () }),
-        [*#lead_charge.material* #linebreak() #text(size: 0.78em, fill: luma(90))[
+        [*#lead_charge.material* #if lead_charge.at("lead_type_tag", default: "") != "" [
+          #h(3pt) #box(fill: rgb("#e0f2fe"), inset: (x: 4pt, y: 1.5pt), radius: 2pt)[#text(size: 0.72em, fill: rgb("#0369a1"), weight: "bold")[#lead_charge.lead_type_tag]]
+        ] #linebreak() #text(size: 0.78em, fill: luma(90))[
           #lead_charge.quantity_source#if lead_charge.distance_km != none [ | #lead_charge.distance_km km]#if lead_charge.lift_m > 0 [, lift #lead_charge.lift_m m]
+          #if lead_charge.at("lead_formula", default: "") != "" [#linebreak() #text(fill: rgb("#0369a1"))[#lead_charge.lead_formula]]
         ]],
         [#edited-cell([#metadata(lead_charge.at("_ee_print_id", default: ""))#lead_charge.qty_text #lead_charge.unit], edited: lead_charge.quantity_edited)],
         [Rs. #lead_charge.rate_text], [*Rs. #lead_charge.amount_text*],

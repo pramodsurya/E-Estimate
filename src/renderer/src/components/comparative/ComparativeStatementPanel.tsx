@@ -12,7 +12,7 @@ import {
   type HandTypedRate,
   type RateAnswers
 } from '../../lib/comparativeStatement'
-import { buildComparativeWorkbook } from '../../lib/comparativeExcel'
+
 import { nodeDisplayName } from '../nodeVisual'
 import type { ComparativeRow } from '../../lib/comparativeRows'
 import { fetchSorYears } from '../../lib/masterData'
@@ -87,6 +87,16 @@ function amountCell(value: number | null): string {
 function percentCell(value: number | null): string {
   // A blank is the honest answer where there is no base to compare against.
   return value === null ? '—' : `${percentFormat.format(value)}%`
+}
+
+function decodeBase64(b64: string): Uint8Array {
+  const binary = atob(b64)
+  const len = binary.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
 }
 
 function encodeBase64(bytes: Uint8Array): string {
@@ -425,7 +435,58 @@ export default function ComparativeStatementPanel({
     setSaving(true)
     setError(null)
     try {
-      const bytes = await buildComparativeWorkbook(project, statement)
+      const toNativeRow = (row: ComparativeRow) => ({
+        slNo: row.slNo,
+        label: row.label,
+        description: row.description ?? null,
+        unit: row.unit ?? null,
+        quantity: row.quantity ?? null,
+        leftRate: row.leftRate ?? null,
+        rightRate: row.rightRate ?? null,
+        left: row.left,
+        right: row.right,
+        difference: row.difference,
+        percent: row.percent,
+        kind: row.kind
+      })
+      const payload = {
+        kind: 'comparative',
+        preferPath: true,
+        comparative: {
+          projectName: project.meta.name || project.root.name,
+          leftYear: statement.leftYear,
+          rightYear: statement.rightYear,
+          wholeEstimate: statement.wholeEstimate,
+          warnings: statement.warnings.map((warning) => ({
+            message: warning.message,
+            detail: warning.detail ?? null
+          })),
+          abstractRows: statement.abstractRows.map(toNativeRow),
+          components: statement.components.map((component) => ({
+            name: component.name,
+            rows: component.rows.map(toNativeRow),
+            leftTotal: component.leftTotal,
+            rightTotal: component.rightTotal,
+            difference: component.difference,
+            percent: component.percent
+          })),
+          leadRows: statement.leadRows.map(toNativeRow)
+        }
+      }
+      const result = await window.api.excel.compile(payload)
+      if (!result || !result.ok || !result.filePath || typeof window.api.export.workbook !== 'function') {
+        throw new Error(result?.error || 'Native Excel compilation failed via rust_xlsxwriter.')
+      }
+      const fileNameFast = `${project.meta.name || 'Estimate'} — Comparative Statement.xlsx`
+      // Fast path: the backend copies the cached workbook to the picked location.
+      if (result.filePath && typeof window.api.export.workbook === 'function') {
+        await window.api.export.workbook('', fileNameFast, undefined, { sourcePath: result.filePath })
+        return
+      }
+      if (!result.data) {
+        throw new Error('Native Excel compilation returned no workbook.')
+      }
+      const bytes: Uint8Array = await Promise.reject(new Error('Removed fallback: Excel engine must return a workbook path.'))
       const fileName = `${project.meta.name || 'Estimate'} — Comparative Statement.xlsx`
       // The save channel lives in the preload bundle, which only reloads when
       // Electron restarts — a running app updated in place has not got it yet.

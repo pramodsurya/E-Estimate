@@ -303,7 +303,8 @@ export async function projectDataRecipe(
   node: ProjectNode,
   year: string,
   zone: 'zone_1' | 'zone_2' | 'zone_3',
-  materialRateOverrides?: Record<string, MaterialRateOverride>
+  materialRateOverrides?: Record<string, MaterialRateOverride>,
+  allowance?: { percent: number; label: string }
 ): Promise<RateAnalysisRecipe> {
   if (definition.kind === 'sor') {
     return withProjectMaterialRateOverrides(
@@ -349,6 +350,10 @@ export async function projectDataRecipe(
     leadApplicability: projectDataLeadApplicability(definition),
     seigniorageApplicability: projectDataSeigniorageApplicability(definition),
     unresolvedLines: 0
+  }
+  if (allowance && allowance.percent > 0) {
+    recipe.areaAllowancePercent = Math.max(0, allowance.percent)
+    recipe.areaAllowanceLabel = allowance.label
   }
   return withProjectMaterialRateOverrides(recalculateRateAnalysis(recipe), materialRateOverrides)
 }

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import {
   ChevronRight,
+  ClipboardList,
   FileCog,
   FileCode,
   FilePlus2,
@@ -46,6 +47,8 @@ import {
   resolveProjectAbstractDocumentSettings
 } from '../../lib/typist-output/projectTypst'
 import { assembleProjectBookCompileWithAssets } from '../../lib/typist-output/projectPrintBook'
+import { resolveProjectBoqPrintPart } from '../../lib/typist-output/boqTypst'
+import { boqFileName, buildProjectBoqData } from '../../lib/boq'
 
 // Both years are priced on demand, so nothing here is worth loading until asked for.
 const ComparativeStatementPanel = lazy(
@@ -85,6 +88,7 @@ export default function TitleDashboard(): JSX.Element | null {
   const [earthworkOpen, setEarthworkOpen] = useState(false)
   const [documentSettingsOpen, setDocumentSettingsOpen] = useState(false)
   const [printStudioOpen, setPrintStudioOpen] = useState(false)
+  const [boqOpen, setBoqOpen] = useState(false)
   const [miscName, setMiscName] = useState('')
   const [miscCost, setMiscCost] = useState('')
   const [loading, setLoading] = useState(false)
@@ -105,7 +109,6 @@ export default function TitleDashboard(): JSX.Element | null {
   const updatePrintStudioDocument = useStore((state) => state.updatePrintStudioDocument)
   const setGuideWallMaterial = useStore((state) => state.setGuideWallMaterial)
   const resolveBundMaterials = useStore((state) => state.resolveBundMaterials)
-  const resolveMiSluiceNewMaterials = useStore((state) => state.resolveMiSluiceNewMaterials)
 
   const allItems = useMemo(
     () => (project ? collectProjectItems(project.root) : []),
@@ -134,6 +137,50 @@ export default function TitleDashboard(): JSX.Element | null {
     nacPercent
   } = printInputs
 
+  const boqPrintStudio = useMemo(() => {
+    if (!boqOpen) return null
+    return resolveProjectBoqPrintPart(project, allItems, rateOf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project, allItems, snapshot, boqOpen])
+
+  const exportBoqExcel = async (): Promise<void> => {
+    const current = useStore.getState().project
+    if (!current) throw new Error('No active project.')
+    const items = collectProjectItems(current.root)
+    const freshRateOf = computeProjectPrintInputs(current, items).rateOf
+    const boq = buildProjectBoqData(current, items, freshRateOf)
+    const payload = {
+      kind: 'boq',
+      preferPath: true,
+      boq: {
+        projectName: boq.projectName,
+        componentName: boq.componentName,
+        isSubcomponent: boq.isSubcomponent,
+        rows: boq.rows.map((row) => ({
+          sl: row.sl,
+          code: row.code,
+          heading: row.heading,
+          description: row.description,
+          quantity: row.quantity,
+          unit: row.unit,
+          rate: row.rate,
+          amount: row.amount
+        })),
+        totalCost: boq.totalCost
+      }
+    }
+    const result = await window.api.excel.compile(payload)
+    // No base64 fallback: a missing path or save channel fails loudly.
+    if (!result || !result.ok || !result.filePath) {
+      throw new Error(result?.error || 'Excel engine did not return a workbook path.')
+    }
+    if (typeof window.api.export.workbook !== 'function') {
+      throw new Error('Excel export channel is unavailable.')
+    }
+    const fileName = boqFileName(boq.projectName, boq.componentName)
+    await window.api.export.workbook('', fileName, undefined, { sourcePath: result.filePath })
+  }
+
   const syncDashboard = async (): Promise<void> => {
     if (loading) return
     setLoading(true)
@@ -142,7 +189,6 @@ export default function TitleDashboard(): JSX.Element | null {
       await resolveTemplateDashboardMaterials(project.root, {
         setGuideWallMaterial,
         resolveBundMaterials,
-        resolveMiSluiceNewMaterials
       })
       const current = useStore.getState().project
       if (!current || current.id !== project.id) return
@@ -219,6 +265,13 @@ export default function TitleDashboard(): JSX.Element | null {
             onClick={() => setPrintStudioOpen(true)}
           >
             <FileCode size={15} /> Open Print Studio
+          </button>
+          <button
+            className="btn ghost"
+            title="Bill of Quantities"
+            onClick={() => setBoqOpen(true)}
+          >
+            <ClipboardList size={15} /> BOQ
           </button>
           <button
             className="btn ghost"
@@ -632,6 +685,28 @@ export default function TitleDashboard(): JSX.Element | null {
           onClose={() => setPrintStudioOpen(false)}
         />
       )}
+      {boqOpen && boqPrintStudio ? (
+        <EEstimatePrintStudio
+          scopeKey={boqPrintStudio.scopeKey}
+          key={project.id + boqPrintStudio.scopeKey}
+          title="BOQ — Bill of Quantities"
+          subtitle="Whole project"
+          defaultTypstSource={boqPrintStudio.defaultTypstSource}
+          savedTypstSource={boqPrintStudio.savedTypstSource}
+          compileInputs={boqPrintStudio.compileInputs}
+          compilePrelude={boqPrintStudio.compilePrelude}
+          runtimeData={boqPrintStudio.runtimeData}
+          projectDocumentSettings={boqPrintStudio.projectDocumentSettings}
+          savedDocumentSettings={boqPrintStudio.savedDocumentSettings ?? undefined}
+          excelExportLabel="Download the BOQ as an Excel workbook"
+          onExportExcel={() => exportBoqExcel()}
+          onSave={async (source, settings) => {
+            updatePrintStudioDocument(boqPrintStudio.scopeKey, source, settings)
+            await useStore.getState().saveProject({ requireSaved: true })
+          }}
+          onClose={() => setBoqOpen(false)}
+        />
+      ) : null}
       {miscOpen && (
         <Modal
           title="Add Miscellaneous Item"
@@ -727,6 +802,25 @@ export default function TitleDashboard(): JSX.Element | null {
 }
 
 /** One row of the General Abstract. Component rows open the component. */
+function decodeBase64(b64: string): Uint8Array {
+  const binary = atob(b64)
+  const len = binary.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
+
+function encodeBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  }
+  return btoa(binary)
+}
+
 function AbstractRow({
   line,
   onOpen

@@ -74,7 +74,7 @@ directly — it resolves through a registry.
 ```ts
 // contract a component addon implements
 interface ComponentAddon {
-  kind: ComponentTemplateId            // 'bund' | 'guide-wall' | 'mi-sluice-new' | custom id
+  kind: ComponentTemplateId            // 'bund' | 'guide-wall' | custom id
   manifest: AddonManifest
 
   // --- data / variables (own .ts) ---
@@ -122,7 +122,6 @@ Bund/Guide Wall dashboards already push their measured items into the component.
 |---|---|---|
 | `bund` | ✔ | Has a frontend, its own `.ts`, `.typ`, variables |
 | `guide-wall` | ✔ | Same |
-| `mi-sluice-new` | ✔ (future) | Same shape |
 | **Lead** | ✘ | Built-in conveyance-charge report; fixed data contract |
 | **Seigniorage** | ✘ | Built-in statutory schedule; fixed |
 | **Data / Component / Item** | ✘ | The generic sheets and component report; the injection *target*, not a template |

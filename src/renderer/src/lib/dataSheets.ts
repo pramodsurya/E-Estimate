@@ -26,6 +26,9 @@ export interface DataSheet {
   itemNode: ProjectNode
   group: ProjectItemGroup | null
   scopeNode: ProjectNode | null
+  scopeName?: string
+  usagePath?: string
+  scope?: string
   recipe: RateAnalysisRecipe
   leadApplications: LeadApplication[]
   leadVariants: LeadVariant[]
@@ -135,11 +138,11 @@ export function resolveDataSheet(
   const loaded =
     dashboardContextMatches(project.dashboardSnapshot, project) &&
     dashboardItemIsSynced(project.dashboardSnapshot, itemNode)
-      ? project.dashboardSnapshot?.recipes[itemNode.id] ?? null
+      ? (project.dashboardSnapshot?.recipes[itemNode.id] ?? null)
       : null
   const globalOverride = project.rateAnalysisOverrides?.[selection.itemKey] ?? null
   const scopedOverride = selection.scopeNodeId
-    ? project.rateAnalysisScopedOverrides?.[selection.scopeNodeId]?.[selection.itemKey] ?? null
+    ? (project.rateAnalysisScopedOverrides?.[selection.scopeNodeId]?.[selection.itemKey] ?? null)
     : null
   const override = scopedOverride ?? globalOverride
 
@@ -189,6 +192,12 @@ export function collectDataSheets(
       },
       groups
     )
-    return sheet ? [sheet] : []
+    if (!sheet) return []
+    return [{
+      ...sheet,
+      scopeName: entry.scopeName,
+      usagePath: entry.usages[0]?.path,
+      scope: entry.scope
+    }]
   })
 }

@@ -11,6 +11,7 @@ import type { EestimateProject, ProjectNode } from '../../types/project'
 import { computeProjectPrintInputs } from '../projectPrintInputs'
 import { collectDataSheets } from '../dataSheets'
 import { buildDataFigureBundle } from '../dataSheetPrint'
+import { contentHash, createBoundedCache, type BoundedCache } from './compileCache'
 import {
   COVER_STUDIO_SCOPE,
   coverCompileInputs,
@@ -105,8 +106,9 @@ function sysInputsAtCallPattern(escapedKey: string): string {
  *
  * Saved Typst often still uses the studio keys. A book cannot share one
  * `ee-data` across parts, and `sys.inputs.at("ee-data", default: …)` plus
- * `json.decode(...)` variants were easy to miss. Binding via `json("….json")`
- * next to `parts/*.typ` does not depend on Typst 0.15 `sys.inputs` lookup.
+ * `json.decode(...)` variants were easy to miss. Binding via `json("../….json")`
+ * at the canonical temp-root location does not depend on Typst 0.15
+ * `sys.inputs` lookup, and each JSON payload is sent exactly once.
  */
 export function remapSysInputBindings(source: string, keyMap: Record<string, string>): string {
   let result = source
@@ -114,7 +116,7 @@ export function remapSysInputBindings(source: string, keyMap: Record<string, str
     if (from === to) continue
     const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const atCall = sysInputsAtCallPattern(escaped)
-    const jsonRel = `"${to}.json"`
+    const jsonRel = `"../${to}.json"`
     result = result.replace(
       new RegExp(`json\\(\\s*bytes\\(\\s*${atCall}\\s*\\)\\s*\\)`, 'g'),
       () => `json(${jsonRel})`
@@ -488,7 +490,6 @@ export function assembleProjectBookFromParts(
       const jsonName = `${unique}.json`
       const jsonBytes = utf8ToBase64(payload)
       shadowFiles[jsonName] = jsonBytes
-      shadowFiles[`parts/${jsonName}`] = jsonBytes
     }
     if (part.shadowFiles) {
       for (const [path, data] of Object.entries(part.shadowFiles)) {
@@ -544,6 +545,12 @@ export async function assembleProjectBookCompileWithAssets(
   return assembleProjectBookFromParts(parts, project.meta.name || project.root.name || 'Estimate')
 }
 
+/** Compiled project books, keyed by contentHash (INVALIDATION spec). Few entries, capped bytes. */
+const projectBookPdfCache: BoundedCache<string> = createBoundedCache<string>({
+  maxEntries: 2,
+  maxBytes: 64 * 1024 * 1024
+})
+
 /** One Typst compile of the full project book (not a PDF merge). */
 export async function compileProjectBookPdf(
   project: EestimateProject,
@@ -551,9 +558,20 @@ export async function compileProjectBookPdf(
 ): Promise<Uint8Array> {
   const book = await assembleProjectBookCompileWithAssets(project, abstractSource)
   if (book.parts.length === 0) throw new Error('Nothing to print.')
+  const figureRefs = collectDataSheets(project, project.dashboardSnapshot?.dataDashboardEntries ?? [])
+    .flatMap((sheet) => sheet.recipe.sourceFigures ?? [])
+  const cacheKey = contentHash({
+    mainContent: book.mainContent,
+    inputs: book.inputs,
+    shadowFiles: book.shadowFiles,
+    figureRefs
+  })
+  const cachedPdf = projectBookPdfCache.get(cacheKey)
+  if (cachedPdf !== undefined && cachedPdf.length > 0) return decodeBase64(cachedPdf)
   const result = await window.api.typst.compile(book.mainContent, book.inputs, book.shadowFiles)
   if (!result.ok || !result.data) {
     throw new Error(result.error || 'Typst compile failed.')
   }
+  projectBookPdfCache.set(cacheKey, result.data, result.data.length)
   return decodeBase64(result.data)
 }

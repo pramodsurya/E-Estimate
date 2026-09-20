@@ -2,8 +2,11 @@ import type { EestimateApi } from '../types/eestimateApi'
 import {
   browserClearRecent,
   browserListRecent,
+  browserOpenCluster,
   browserOpenPath,
   browserOpenProject,
+  browserSaveCluster,
+  browserSaveClusterAs,
   browserSaveProject,
   browserSaveProjectAs
 } from './browserProjectIo'
@@ -32,6 +35,11 @@ export function createBrowserApi(): EestimateApi {
       open: () => browserOpenProject(),
       openPath: (path) => browserOpenPath(path)
     },
+    cluster: {
+      save: (data, currentPath, name) => browserSaveCluster(data, currentPath, name),
+      saveAs: (data, name) => browserSaveClusterAs(data, name),
+      open: () => browserOpenCluster()
+    },
     recent: {
       list: () => browserListRecent(),
       clear: () => browserClearRecent()
@@ -47,6 +55,9 @@ export function createBrowserApi(): EestimateApi {
       onProgress: () => noopSubscribe()
     },
     typst: {
+      compile: async () => ({ ok: false, error: BROWSER_HINT })
+    },
+    excel: {
       compile: async () => ({ ok: false, error: BROWSER_HINT })
     },
     image: {

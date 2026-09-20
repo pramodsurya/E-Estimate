@@ -5,6 +5,7 @@ import {
   Check,
   Edit2,
   Eye,
+  FileSpreadsheet,
   Gem,
   Printer,
   RefreshCw,
@@ -21,6 +22,8 @@ import {
   type SeigniorageCharge,
   type SeigniorageItemRow
 } from '../../lib/seigniorage'
+import { groupByMat } from '../../lib/seignioragePrintLayout'
+
 import type { SeigniorageApplicabilityPolicy } from '../../types/rateAnalysis'
 import { useStore } from '../../store/useStore'
 import EEstimatePrintStudio from '../typst/EEstimatePrintStudio'
@@ -43,6 +46,7 @@ import {
 } from '../../lib/dashboardSync'
 import SignatureFooterCard from '../signature/SignatureFooterCard'
 import {
+  resolveSignatureFooter,
   SEIGNIORAGE_SIGNATURE_SCOPE
 } from '../../lib/signatureFooter'
 
@@ -58,6 +62,25 @@ const rateFmt = new Intl.NumberFormat('en-IN', {
 const factorFmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 6 })
 const intFmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 })
 
+
+function decodeBase64(b64: string): Uint8Array {
+  const binary = atob(b64)
+  const len = binary.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
+
+function encodeBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  }
+  return btoa(binary)
+}
 
 interface MaterialGroup {
   key: string
@@ -82,6 +105,8 @@ export default function SeigniorageDashboard(): JSX.Element {
   const [filter, setFilter] = useState('')
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false)
   const [printStudioOpen, setPrintStudioOpen] = useState(false)
+  const [exportingExcel, setExportingExcel] = useState(false)
+  const [excelExportError, setExcelExportError] = useState<string | null>(null)
 
   const printOverrides = project?.seignioragePrintOverrides
   const statementTitle = printOverrides?.title || 'SEIGNIORAGE STATEMENT'
@@ -199,6 +224,102 @@ export default function SeigniorageDashboard(): JSX.Element {
     }
   }
 
+  const handleExportExcel = async (): Promise<void> => {
+    if (!project || exportingExcel) return
+    setExportingExcel(true)
+    setExcelExportError(null)
+    try {
+      const payloadOverrides = project.seignioragePrintOverrides
+      const payloadProjectName =
+        payloadOverrides?.title || project.meta.name || project.root.name || 'Detailed Estimate'
+      const payloadSorYear = payloadOverrides?.year || project.meta.sorYear || '2025-26'
+      const payloadPermitBasis = payloadOverrides?.permitBasis || PERMIT_GO_REFERENCE
+      const payloadSignature = resolveSignatureFooter(project, SEIGNIORAGE_SIGNATURE_SCOPE)
+      const payload = {
+        kind: 'seigniorage',
+        preferPath: true,
+        seigniorage: {
+          projectName: payloadProjectName,
+          sorYear: payloadSorYear,
+          permitBasis: payloadPermitBasis,
+          groups: groupByMat(calc.rows).map((group) => ({
+            key: group.key,
+            heading: resolveSeigniorageGroupHeading(project, group),
+            subtotalLabel: resolveSeigniorageGroupSubtotal(project, group),
+            rows: group.rows.map((row) => ({
+              itemCode: row.itemCode || '',
+              description: resolveSeigniorageRowDescription(project, row),
+              workQty: row.itemQuantity ?? null,
+              workUnit: row.itemUnit || '',
+              seigQty: row.quantity ?? null,
+              seigUnit: row.unit || row.recipeMaterialUnit || '',
+              rate: row.seigRate ?? null,
+              seigniorage: row.seigniorage ?? null,
+              dmft: row.dmft ?? null,
+              smft: row.smft ?? null,
+              permit: row.permit ?? null,
+              permitPercent: row.permitPercent || 0,
+              permitNote:
+                row.permit == null
+                  ? ''
+                  : row.permitPercent === 0
+                    ? 'Exempt'
+                    : `@ ${row.permitPercent}%`
+            }))
+          })),
+          totals: {
+            totalSeigniorage: calc.totalSeigniorage,
+            totalDmft: calc.totalDmft,
+            totalSmft: calc.totalSmft,
+            totalPermit: calc.totalPermit,
+            grandTotal: calc.grandTotal,
+            roundedGrandTotal: calc.roundedGrandTotal
+          },
+          signatures: payloadSignature?.enabled
+            ? payloadSignature.rows
+                .filter((sig) => sig.designation.trim() !== '' || sig.office.trim() !== '')
+                .map((sig) => ({ designation: sig.designation, office: sig.office }))
+            : []
+        }
+      }
+      const result = await window.api.excel.compile(payload)
+      if (!result || !result.ok || !result.filePath || typeof window.api?.export?.workbook !== 'function') {
+        throw new Error(result?.error || 'Native Excel compilation failed via rust_xlsxwriter.')
+      }
+      const fileNameFast = `${project.meta.name || project.root.name || 'Estimate'} — Seigniorage Statement.xlsx`
+      // Fast path: the backend copies the cached workbook to the picked location.
+      if (result.filePath && typeof window.api?.export?.workbook === 'function') {
+        await window.api.export.workbook('', fileNameFast, undefined, { sourcePath: result.filePath })
+        return
+      }
+      if (!result.data) {
+        throw new Error('Native Excel compilation returned no workbook.')
+      }
+      const bytes: Uint8Array = await Promise.reject(new Error('Removed fallback: Excel engine must return a workbook path.'))
+      const fileName = `${project.meta.name || project.root.name || 'Estimate'} — Seigniorage Statement.xlsx`
+      if (typeof window.api?.export?.workbook === 'function') {
+        await window.api.export.workbook(encodeBase64(bytes), fileName)
+        return
+      }
+      const copy = new ArrayBuffer(bytes.byteLength)
+      new Uint8Array(copy).set(bytes)
+      const url = URL.createObjectURL(
+        new Blob([copy], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        })
+      )
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = fileName
+      anchor.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 20000)
+    } catch (err: unknown) {
+      setExcelExportError(err instanceof Error ? err.message : 'Failed to export Seigniorage Excel workbook.')
+    } finally {
+      setExportingExcel(false)
+    }
+  }
+
   const materialGroups = useMemo(() => groupRowsByMaterial(calc.rows), [calc.rows])
   const selectedMaterialKey = selection?.materialKey ?? null
   const selectedGroup = useMemo(
@@ -306,18 +427,37 @@ export default function SeigniorageDashboard(): JSX.Element {
           <button className="btn ghost" onClick={() => setPrintStudioOpen(true)}>
             <Eye size={15} /> Open Print Studio
           </button>
+          <button
+            className="btn ghost"
+            disabled={exportingExcel}
+            onClick={() => void handleExportExcel()}
+            title="Export Seigniorage Statement to Excel (.xlsx)"
+          >
+            <FileSpreadsheet size={15} /> {exportingExcel ? 'Exporting…' : 'Export Excel'}
+          </button>
           <button className="btn ghost" onClick={closeSeigniorage}>
             <X size={14} /> Close
           </button>
         </div>
       </div>
 
+      {excelExportError && <div className="rate-warning">Excel export failed: {excelExportError}</div>}
       {error && <div className="rate-warning">Seigniorage sync failed: {error}</div>}
       {!snapshotValid && !error && (
         <div className="rate-notice">
-          {selectedMaterialKey
-            ? 'Sync the total Seigniorage Dashboard to populate this material.'
-            : 'Click Sync to populate seigniorage from the backend.'}
+          <span>
+            {selectedMaterialKey
+              ? 'Sync the total Seigniorage Dashboard to populate this material.'
+              : 'Click Sync to populate seigniorage from the backend.'}
+          </span>
+          <button
+            type="button"
+            className="btn-mini secondary"
+            disabled={loading}
+            onClick={() => void syncDashboard()}
+          >
+            {loading ? 'Syncing…' : 'Sync'}
+          </button>
         </div>
       )}
 
@@ -730,6 +870,8 @@ export default function SeigniorageDashboard(): JSX.Element {
           runtimeData={buildSeigniorageRenderData(project, calc)}
           projectDocumentSettings={projectDocumentSettings}
           savedDocumentSettings={project.printStudioDocumentSettings?.['seigniorage-statement']}
+          onExportExcel={handleExportExcel}
+          excelExportLabel="Export Seigniorage Statement as Excel (.xlsx)"
           onSave={async (source, settings) => {
             updatePrintStudioDocument('seigniorage-statement', source, settings)
             await useStore.getState().saveProject({ requireSaved: true })

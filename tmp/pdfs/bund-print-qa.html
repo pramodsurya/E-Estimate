@@ -1,0 +1,82 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+    *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    html,body{margin:0;padding:0;color:#111;background:#fff;font-family:"Times New Roman",serif}
+    body{font-size:13px;line-height:1.4}
+
+    /* Break hints. Everything below exists so the engine can fill a sheet
+       without splitting something that has to stay whole. */
+    h3,h4{break-after:avoid;page-break-after:avoid}
+    .bp-fig,.bp-ssr,.bp-sec,.bp-xcode,.bp-fam,.bp-keep{break-inside:avoid;page-break-inside:avoid}
+    table{break-inside:auto}
+    .bp-keep table{break-inside:avoid;page-break-inside:avoid}
+    thead{display:table-header-group}
+    tr{break-inside:avoid;page-break-inside:avoid}
+
+    .section-banner{margin:0 0 5mm;padding:6px 9px;border-left:4px solid #447a9c;background:#edf5fa;font-family:Arial}
+    .section-banner small{display:block;color:#4e6675;font-size:10.14px;text-transform:uppercase;letter-spacing:.6px}
+    .section-banner strong{display:block;margin-top:2px;color:#163f57;font-size:16.900000000000002px}
+    .section-banner .m{display:block;margin-top:2px;color:#4e6675;font-size:11.049999999999999px;font-family:"Times New Roman",serif}
+    h3{font-size:15.079999999999998px;font-weight:700;border-bottom:1px solid #bbb;padding-bottom:3px;margin:9px 0 6px;font-family:Arial}
+    h3:first-of-type{margin-top:0}
+    h4{font-size:13.65px;margin:9px 0 4px;font-family:Arial}
+    .bp-lead{margin:0 0 5px}
+    .bp-note{margin:0 0 5px;color:#4e6675;font-style:italic}
+    .bp-ssr{margin:6px 0 3px}
+    .bp-ssr-h{font-family:Arial;display:flex;align-items:baseline;gap:10px}
+    .bp-ssr-h b{color:#14364b}
+    .bp-code{color:#2b6fa8;font-weight:600}
+    .bp-unit{margin-left:auto;color:#8a9aa5;font-size:11.049999999999999px}
+    .bp-desc{margin:2px 0 3px;text-align:justify}
+    .bp-t{width:auto;border-collapse:collapse;font-size:11.96px;margin-bottom:6px;font-variant-numeric:tabular-nums}
+    .bp-t.wide{width:100%}
+    .bp-t th,.bp-t td{border:1px solid #999;padding:2.5px 6px;text-align:right}
+    .bp-t th{background:#eee;font-weight:600}
+    .bp-t th.grp{text-align:center;background:#e5edf3;color:#14364b}
+    .bp-t th.grp .add{display:block;font-weight:400;font-style:italic;color:#5c788a}
+    .bp-t .l{text-align:left}
+    .bp-t .n{text-align:right}
+    .bp-t .u{color:#777;text-align:left}
+    .bp-t .q{background:#f7fafc;font-weight:700}
+    .bp-t .tot td{font-weight:700;background:#f6f6f0}
+    .bp-t .bp-warn td{background:#fdeceb;color:#902b22}
+    .bp-fig{width:100%;max-width:176mm;display:block;border:1px solid #ccc;background:#fbfbfa;margin-bottom:5px}
+    .bp-fam-cols{display:flex;gap:7mm;margin-top:4px}
+    .bp-fam{flex:1;min-width:0;border:1px solid #b9c4cc;padding:5px 7px}
+    .bp-fam-h{font-family:Arial;border-bottom:1px solid #b9c4cc;padding-bottom:3px;margin-bottom:4px}
+    .bp-fam-h b{color:#14364b}
+    .bp-fam-h span{display:block;color:#8a9aa5;font-size:11.049999999999999px}
+    .bp-fam-list{margin:0 0 5px;padding-left:14px}
+    .bp-fam-list li span{float:right;font-weight:600}
+    .bp-fam-none{margin:0;color:#8a9aa5;font-style:italic}
+    .bp-xcode{margin:0 0 5px}
+    .bp-xcode-h{font-family:Arial;display:flex;align-items:baseline;gap:8px}
+    .bp-xcode-h b{color:#14364b}
+    .bp-xcode-q{margin-left:auto;font-weight:700;color:#10303f}
+    .bp-xcode .bp-desc{margin:2px 0 0;font-size:11.44px}
+
+    /* Sections tile across the measure rather than one per row, so a sheet
+       carries as many as fit instead of a fixed two. */
+    .bp-secs{display:flex;flex-wrap:wrap;gap:4mm}
+    .bp-sec{flex:1 1 100%;min-width:0;border-top:1px solid #ccd;padding-top:3px}
+    .bp-sec-h{font-family:Arial;font-weight:700;color:#14364b;margin:0 0 2px}
+    .bp-sec-body{display:flex;gap:3mm;align-items:flex-start}
+    .bp-sec-fig{flex:1 1 57%;min-width:0}
+    /* Without min-width:0 the SVG's intrinsic width becomes the section's
+       min-content width, and a section can no longer share a row. */
+    .bp-sec-fig .bp-fig{max-width:none;min-width:0;width:100%}
+    .bp-levels{flex:1 1 43%;min-width:0;width:100%;margin-bottom:0}
+    .bp-calc-levels{table-layout:fixed}
+    .bp-calc-levels th,.bp-calc-levels td{padding:2px 3px;vertical-align:top}
+    .bp-calc-levels .bp-col-ch{width:9%}
+    .bp-calc-levels .bp-col-level{width:11%}
+    .bp-calc-levels .bp-col-calc{width:53%}
+    .bp-calc-levels .bp-col-qty{width:16%}
+    .bp-calc{font-family:Arial,sans-serif;font-size:8.84px;line-height:1.15;text-align:left!important;white-space:normal;overflow-wrap:anywhere;color:#354b59}
+    .bp-levels-cols{display:flex;gap:2mm;align-items:flex-start}
+    .bp-sec-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:2mm;margin-top:2mm;border-top:1px solid #ccd;padding-top:2mm}
+    .bp-sec-summary>div{display:flex;justify-content:space-between;gap:2mm;padding:2px 5px;background:#f4f7f9;border:1px solid #d2d9de}
+    .bp-sec-summary span{font-family:Arial,sans-serif;color:#496170;font-size:10.14px}
+    .bp-sec-summary b{font-variant-numeric:tabular-nums;color:#14364b;white-space:nowrap}
+    .bp-sec-zone-table{margin:2mm 0 0;width:auto;font-size:10.66px}
+    .bp-stmt{width:100%;font-size:11.049999999999999px}
+  </style></head><body><div class="section-banner"><small>Cross-sections</small><strong>Bund</strong><span class="m">Homogeneous · repair of existing bund · 1 surveyed section · crest 3.00 m · U/S 1:2.00 · D/S 1:2.00 · TBL 100.00</span></div><h3>Cross-sections</h3><div class="bp-secs"><div class="bp-sec"><div class="bp-sec-h">Ch 0</div><div class="bp-sec-body"><div class="bp-sec-fig"><svg viewBox="0 0 470 210" xmlns="http://www.w3.org/2000/svg" class="bp-fig"><defs><pattern id="bpf0" width="5" height="5" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="5" stroke="#4ea1e0" stroke-width="0.8"/></pattern><pattern id="bpc0" width="5" height="5" patternTransform="rotate(-45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="5" stroke="#c9862f" stroke-width="0.8"/></pattern><pattern id="bph0" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="#fdf1f7"/><line x1="0" y1="0" x2="4" y2="4" stroke="#b8558c" stroke-width="0.7"/><line x1="4" y1="0" x2="0" y2="4" stroke="#b8558c" stroke-width="0.7"/></pattern></defs><line x1="46" y1="180.0" x2="456.0" y2="180.0" stroke="#e0e5ea" stroke-width="0.6"/><text x="42" y="183.0" text-anchor="end" fill="#8a9aa5" font-size="8" font-family="Arial">90.0</text><line x1="46" y1="138.0" x2="456.0" y2="138.0" stroke="#e0e5ea" stroke-width="0.6"/><text x="42" y="141.0" text-anchor="end" fill="#8a9aa5" font-size="8" font-family="Arial">92.5</text><line x1="46" y1="96.0" x2="456.0" y2="96.0" stroke="#e0e5ea" stroke-width="0.6"/><text x="42" y="99.0" text-anchor="end" fill="#8a9aa5" font-size="8" font-family="Arial">95.0</text><line x1="46" y1="54.0" x2="456.0" y2="54.0" stroke="#e0e5ea" stroke-width="0.6"/><text x="42" y="57.0" text-anchor="end" fill="#8a9aa5" font-size="8" font-family="Arial">97.5</text><line x1="46" y1="12.0" x2="456.0" y2="12.0" stroke="#e0e5ea" stroke-width="0.6"/><text x="42" y="15.0" text-anchor="end" fill="#8a9aa5" font-size="8" font-family="Arial">100.0</text><line x1="46.0" y1="12" x2="46.0" y2="180.0" stroke="#e0e5ea" stroke-width="0.6"/><text x="46.0" y="191.0" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">0</text><line x1="93.7" y1="12" x2="93.7" y2="180.0" stroke="#e0e5ea" stroke-width="0.6"/><text x="93.7" y="191.0" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">5</text><line x1="141.3" y1="12" x2="141.3" y2="180.0" stroke="#e0e5ea" stroke-width="0.6"/><text x="141.3" y="191.0" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">10</text><line x1="189.0" y1="12" x2="189.0" y2="180.0" stroke="#e0e5ea" stroke-width="0.6"/><text x="189.0" y="191.0" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">15</text><line x1="236.7" y1="12" x2="236.7" y2="180.0" stroke="#e0e5ea" stroke-width="0.6"/><text x="236.7" y="191.0" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">20</text><line x1="284.4" y1="12" x2="284.4" y2="180.0" stroke="#e0e5ea" stroke-width="0.6"/><text x="284.4" y="191.0" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">25</text><line x1="332.0" y1="12" x2="332.0" y2="180.0" stroke="#e0e5ea" stroke-width="0.6"/><text x="332.0" y="191.0" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">30</text><line x1="379.7" y1="12" x2="379.7" y2="180.0" stroke="#e0e5ea" stroke-width="0.6"/><text x="379.7" y="191.0" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">35</text><line x1="427.4" y1="12" x2="427.4" y2="180.0" stroke="#e0e5ea" stroke-width="0.6"/><text x="427.4" y="191.0" text-anchor="middle" fill="#8a9aa5" font-size="8" font-family="Arial">40</text><path d="M 46.0 180.0 L 131.8 112.8 L 131.8 117.8 L 46.0 185.0 Z" fill="url(#bpc0)"/><path d="M 131.8 112.8 L 141.3 100.8 L 141.3 105.8 L 131.8 117.8 Z" fill="url(#bpc0)"/><path d="M 141.3 100.8 L 154.1 84.8 L 154.1 89.8 L 141.3 105.8 Z" fill="url(#bpc0)"/><path d="M 154.1 84.8 L 189.0 40.8 L 189.0 54.0 L 154.1 84.8 Z" fill="url(#bpc0)"/><path d="M 189.0 40.8 L 198.6 28.8 L 198.6 45.6 L 189.0 54.0 Z" fill="url(#bpc0)"/><path d="M 198.6 28.8 L 208.1 20.4 L 208.1 37.2 L 198.6 45.6 Z" fill="url(#bpc0)"/><path d="M 208.1 20.4 L 217.6 21.0 L 217.6 28.8 L 208.1 37.2 Z" fill="url(#bpc0)"/><path d="M 217.6 21.0 L 226.0 21.4 L 226.0 21.4 L 217.6 28.8 Z" fill="url(#bpc0)"/><path d="M 226.0 21.4 L 236.7 22.1 L 236.7 27.1 L 226.0 26.5 Z" fill="url(#bpc0)"/><path d="M 236.7 22.1 L 251.0 38.9 L 251.0 43.9 L 236.7 27.1 Z" fill="url(#bpc0)"/><path d="M 251.0 38.9 L 265.3 55.7 L 265.3 60.7 L 251.0 43.9 Z" fill="url(#bpc0)"/><path d="M 265.3 55.7 L 293.9 89.3 L 293.9 94.3 L 265.3 60.7 Z" fill="url(#bpc0)"/><path d="M 293.9 89.3 L 360.7 142.2 L 360.7 147.2 L 293.9 94.3 Z" fill="url(#bpc0)"/><path d="M 360.7 142.2 L 408.3 180.0 L 408.3 185.0 L 360.7 147.2 Z" fill="url(#bpc0)"/><path d="M 408.3 180.0 L 456.0 180.0 L 456.0 185.0 L 408.3 185.0 Z" fill="url(#bpc0)"/><path d="M 46.0 180.0 L 131.8 104.4 L 131.8 112.8 L 46.0 180.0 Z" fill="url(#bpf0)"/><path d="M 131.8 104.4 L 141.3 96.0 L 141.3 100.8 L 131.8 112.8 Z" fill="url(#bpf0)"/><path d="M 141.3 96.0 L 154.1 84.8 L 154.1 84.8 L 141.3 100.8 Z" fill="url(#bpf0)"/><path d="M 226.0 21.4 L 236.7 12.0 L 236.7 22.1 L 226.0 21.4 Z" fill="url(#bpf0)"/><path d="M 236.7 12.0 L 251.0 12.0 L 251.0 38.9 L 236.7 22.1 Z" fill="url(#bpf0)"/><path d="M 251.0 12.0 L 265.3 12.0 L 265.3 55.7 L 251.0 38.9 Z" fill="url(#bpf0)"/><path d="M 265.3 12.0 L 293.9 37.2 L 293.9 89.3 L 265.3 55.7 Z" fill="url(#bpf0)"/><path d="M 293.9 37.2 L 360.7 96.0 L 360.7 142.2 L 293.9 89.3 Z" fill="url(#bpf0)"/><path d="M 360.7 96.0 L 408.3 138.0 L 408.3 180.0 L 360.7 142.2 Z" fill="url(#bpf0)"/><path d="M 408.3 138.0 L 456.0 180.0 L 456.0 180.0 L 408.3 180.0 Z" fill="url(#bpf0)"/><path d="M 46.0 180.0 L 131.8 112.8 L 189.0 40.8 L 198.6 28.8 L 208.1 20.4 L 217.6 21.0 L 236.7 22.1 L 293.9 89.3 L 408.3 180.0 L 456.0 180.0" fill="none" stroke="#8a6a3a" stroke-width="1.4"/><path d="M 46.0 180.0 L 131.8 104.4 L 141.3 96.0 L 189.0 54.0 L 198.6 45.6 L 208.1 37.2 L 217.6 28.8 L 236.7 12.0 L 251.0 12.0 L 265.3 12.0 L 293.9 37.2 L 360.7 96.0 L 408.3 138.0 L 456.0 180.0" fill="none" stroke="#2b6fa8" stroke-width="1.7"/><text x="46" y="206" fill="#9aa8b2" font-size="8" font-family="Arial">Ch from start (m)</text></svg></div><table class="bp-t bp-levels bp-calc-levels" style="font-size:85%"><colgroup><col class="bp-col-ch"><col class="bp-col-level"><col class="bp-col-level"><col class="bp-col-calc"><col class="bp-col-qty"></colgroup><thead><tr><th>Ch</th><th>EL</th><th>RL</th><th>Calculation</th><th>Quantity</th></tr></thead><tbody><tr><td class="n">0.00</td><td class="n">90.000</td><td class="n">90.000</td><td class="bp-calc">Start point</td><td class="n">—</td></tr><tr><td class="n">9.00</td><td class="n">94.000</td><td class="n">94.500</td><td class="bp-calc">9.00 - 0.00 x [(90.000 - 90.000) + (94.500 - 94.000)] / 2 (positive part)</td><td class="n">2.250</td></tr><tr><td class="n">10.00</td><td class="n">94.714</td><td class="n">95.000</td><td class="bp-calc">10.00 - 9.00 x [(94.500 - 94.000) + (95.000 - 94.714)] / 2</td><td class="n">0.393</td></tr><tr><td class="n">11.33</td><td class="n">95.667</td><td class="n">95.666</td><td class="bp-calc">11.33 - 10.00 x [(95.000 - 94.714) + (95.666 - 95.667)] / 2 (positive part)</td><td class="n">0.190</td></tr><tr><td class="n">15.00</td><td class="n">98.286</td><td class="n">97.500</td><td class="bp-calc">No positive formation</td><td class="n">0.000</td></tr><tr><td class="n">16.00</td><td class="n">99.000</td><td class="n">98.000</td><td class="bp-calc">No positive formation</td><td class="n">0.000</td></tr><tr><td class="n">17.00</td><td class="n">99.500</td><td class="n">98.500</td><td class="bp-calc">No positive formation</td><td class="n">0.000</td></tr><tr><td class="n">18.00</td><td class="n">99.467</td><td class="n">99.000</td><td class="bp-calc">No positive formation</td><td class="n">0.000</td></tr><tr><td class="n">18.88</td><td class="n">99.438</td><td class="n">99.438</td><td class="bp-calc">No positive formation</td><td class="n">0.000</td></tr><tr><td class="n">20.00</td><td class="n">99.400</td><td class="n">100.000</td><td class="bp-calc">20.00 - 18.88 x [(99.438 - 99.438) + (100.000 - 99.400)] / 2 (positive part)</td><td class="n">0.337</td></tr><tr><td class="n">21.50</td><td class="n">98.400</td><td class="n">100.000</td><td class="bp-calc">21.50 - 20.00 x [(100.000 - 99.400) + (100.000 - 98.400)] / 2</td><td class="n">1.650</td></tr><tr><td class="n">23.00</td><td class="n">97.400</td><td class="n">100.000</td><td class="bp-calc">23.00 - 21.50 x [(100.000 - 98.400) + (100.000 - 97.400)] / 2</td><td class="n">3.150</td></tr><tr><td class="n">26.00</td><td class="n">95.400</td><td class="n">98.500</td><td class="bp-calc">26.00 - 23.00 x [(100.000 - 97.400) + (98.500 - 95.400)] / 2</td><td class="n">8.550</td></tr><tr><td class="n">33.00</td><td class="n">92.250</td><td class="n">95.000</td><td class="bp-calc">33.00 - 26.00 x [(98.500 - 95.400) + (95.000 - 92.250)] / 2</td><td class="n">20.475</td></tr><tr><td class="n">38.00</td><td class="n">90.000</td><td class="n">92.500</td><td class="bp-calc">38.00 - 33.00 x [(95.000 - 92.250) + (92.500 - 90.000)] / 2</td><td class="n">13.125</td></tr><tr><td class="n">43.00</td><td class="n">90.000</td><td class="n">90.000</td><td class="bp-calc">43.00 - 38.00 x [(92.500 - 90.000) + (90.000 - 90.000)] / 2 (positive part)</td><td class="n">6.250</td></tr><tr class="tot"><td colspan="4" class="l">Total Formation Quantity</td><td class="n">56.370 m²</td></tr></tbody></table></div><div class="bp-sec-summary"><div><span>Perimeter</span><b>43.000 m</b></div><div><span>Slope - U/S</span><b>22.361 m</b></div><div><span>Slope - D/S</span><b>22.361 m</b></div><div><span>Stripping Area</span><b>14.909 m²</b></div></div></div></div></body></html>

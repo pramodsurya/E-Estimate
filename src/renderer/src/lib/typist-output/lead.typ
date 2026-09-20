@@ -122,7 +122,9 @@
   ),
   ..Lead.materials.map(material => (
     [#metadata(material.at("_ee_print_id", default: ""))#material.summary.sl],
-    [#material.summary.name],
+    [#material.summary.name #if material.summary.at("lead_type_tag", default: "") != "" [
+      #linebreak() #box(fill: rgb("#e0f2fe"), inset: (x: 4pt, y: 1.5pt), radius: 2pt)[#text(size: 0.65em, fill: rgb("#0369a1"), weight: "bold")[#material.summary.lead_type_tag]]
+    ]],
     [#material.summary.quarry],
     [#material.summary.conveyance_class],
     [#material.summary.lead_km],
@@ -136,9 +138,69 @@
 
 #for material in Lead.breakdowns [
   #metadata(material.at("_ee_print_id", default: ""))
-  #heading(level: 3)[#material.sl. #material.name (#material.lead_km)]
+  #heading(level: 3)[#material.sl. #material.name (#material.lead_km) #if material.at("lead_type_tag", default: "") != "" [
+    #h(4pt) #box(fill: rgb("#e0f2fe"), inset: (x: 4.5pt, y: 1.5pt), radius: 2pt)[#text(size: 0.68em, fill: rgb("#0369a1"), weight: "bold")[#material.lead_type_tag]]
+  ]]
 
   #emph[Route: #material.route]
+
+  #let avg = material.at("avg_lead", default: none)
+  #if avg != none [
+    #v(3pt)
+    #block(fill: rgb("#f0fdf4"), stroke: 0.5pt + rgb("#86efac"), inset: 6pt, radius: 2pt, width: 100%)[
+      #text(weight: "bold", fill: rgb("#166534"), size: 0.88em)[Average Lead Survey & Sampling Audit]
+      #linebreak()
+      #text(size: 0.78em)[
+        Sampling Mode: *#avg.mode_label* | Component: *#avg.component_name* | Total Points: *#avg.point_count*
+        #linebreak()
+        Adopted Average Distance: *#avg.avg_km_text km*
+      ]
+      #if avg.routes.len() > 0 [
+        #v(3pt)
+        #table(
+          columns: (12mm, 1fr, 30mm),
+          align: (center, left, right),
+          stroke: 0.4pt + rgb("#bbf7d0"),
+          fill: (_, r) => if r == 0 { rgb("#dcfce7") } else { none },
+          table.header([*Pt*], [*Chainage along line*], [*Route Distance*]),
+          ..avg.routes.map(pt => (
+            [#pt.index],
+            [Ch #pt.chainage_text (along line)],
+            [#pt.route_km_text]
+          )).flatten()
+        )
+      ]
+    ]
+    #v(3pt)
+  ]
+
+  #let wt = material.at("weighted_lead", default: none)
+  #if wt != none [
+    #v(3pt)
+    #block(fill: rgb("#eff6ff"), stroke: 0.5pt + rgb("#93c5fd"), inset: 6pt, radius: 2pt, width: 100%)[
+      #text(weight: "bold", fill: rgb("#1e40af"), size: 0.88em)[Weighted Average Lead Calculation (Project-wide)]
+      #linebreak()
+      #text(size: 0.78em)[
+        Formula: *#wt.formula*
+      ]
+      #v(3pt)
+      #table(
+        columns: (1fr, 26mm, 26mm, 30mm),
+        align: (left, right, right, right),
+        stroke: 0.4pt + rgb("#bfdbfe"),
+        fill: (_, r) => if r == 0 { rgb("#dbeafe") } else { none },
+        table.header([*Source Variant*], [*Lead (km)*], [*Quantity*], [*Weight × Lead*]),
+        ..wt.entries.map(e => (
+          [#e.name],
+          [#e.lead_km_text km],
+          [#e.quantity_text #e.unit],
+          [#e.product_text]
+        )).flatten(),
+        table.cell(colspan: 2)[*Total Quantity (W)*], [*#wt.total_quantity_text*], [*Weighted Avg: #wt.weighted_avg_km_text km*]
+      )
+    ]
+    #v(3pt)
+  ]
 
   #table(
     columns: (1fr, 32mm, 35mm),

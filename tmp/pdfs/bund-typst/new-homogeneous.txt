@@ -1,0 +1,186 @@
+Bund #1 [West]                                                                                                            NEW · HOMOGENEOUS
+
+
+Test reservoir · 3 surveyed section(s) · Bund length 60 m · Datum 0 m · Crest width 6 m
+
+
+         MWL (m)                           Freeboard (m)                        TBL (m)          FTL (m)   U/S slope             D/S slope
+
+           98.5                                1.5                                100              98        2:1                   2:1
+
+                                                                                          6.00
+   Diagrammatic — enabled elements only                                             TBL 100.00
+
+
+   MWL 98.50
+
+   FTL 98.00
+
+
+
+
+   1:2.00                                                                                                                               1:2.00
+  0                3m                                                                                                  All dimensions in metres
+
+
+
+
+                                                                                                                                  Bund #1 [West] · 1 / 6
+   Statement of quantities
+Average section value = (A1 + A2) / 2. Interval quantity = average section value × length.
+
+
+                                                                                         Jungle clearance            Bund foundation excavation —       Homogeneous bund filling
+                            Average          Bund          Width at                                                            depth 0.3 m                  (excluding berms)
+         Length
+Chainage                    toe RL           height        stripped
+          (m)                                                                   Section           Avg.      Total     Section         Avg.     Total   Section        Avg.      Total
+                              (m)             (m)          level (m)
+                                                                                    (m)           (m)        (m²)        (m²)         (m²)      (m³)      (m²)        (m²)        (m³)
+(1)                  (2)             (3)           (4)               (5)             (6)           (7)         (8)         (9)        (10)      (11)      (12)         (13)       (14)
+0                    —               95            5.3               29              29            —           —          8.7           —         —         80           —          —
+30                   30              95            5.3               29              29            29         870         8.7          8.7       261        80           80      2400
+60                   30              95            5.3               29              29            29         870         8.7          8.7       261        80           80      2400
+Total                60                                                                                     1740                                 522                             4800
+
+
+
+
+                                                                                                                                                                       Bund #1 [West] · 2 / 6
+ Statement of quantities — continued
+                             Rock toe         Rock-toe graded filter Berm filling (D/S, RL   Berm protection (D/S, Berm drain protection         Berm drain
+                                                                              97)                  RL 97)              (D/S, RL 97)          excavation (D/S, RL
+           Length                                                                                                                                    97)
+Chainage
+            (m)
+                   Section      Avg.    Total Section    Avg. Total Section   Avg.   Total Section    Avg.    Total Section   Avg.   Total Section    Avg. Total
+                      (m²)      (m²)     (m³)    (m²)    (m²)   (m³)   (m²)   (m²)    (m³)     (m)     (m)     (m²)     (m)    (m)    (m³)    (m²)    (m²)    (m³)
+(1)            (2)    (15)      (16)     (17)    (18)    (19)   (20)   (21)   (22)    (23)    (24)    (25)     (26)    (27)   (28)    (29)    (30)    (31)    (32)
+0              —      2.16        —        — 4.449         —      —       6     —       —       2.4      —       —     0.12     —       —     0.18      —       —
+30             30     2.16      2.16     64.8 4.449     4.449 133.47      6      6     180      2.4     2.4      72    0.12   0.12     3.6    0.18    0.18     5.4
+60             30     2.16      2.16     64.8 4.449     4.449 133.47      6      6     180      2.4     2.4      72    0.12   0.12     3.6    0.18    0.18     5.4
+Total          60                       129.6                 266.94                   360                      144                    7.2                    10.8
+
+
+
+
+                                                                                                                                                  Bund #1 [West] · 3 / 6
+   Earthwork excavation classification
+Percentages are the selected dashboard classification applied to each measured source.
+
+
+Foundation / stripping · 522 m³
+Soil / rock                    Share (%)          Code                 Calculation                                           Quantity (m³)
+All Soils                         100          IRR-CAW-1-1             522 × 100 / 100                                                 522
+
+Berm catch-water drain · 10.8 m³
+Soil / rock                    Share (%)          Code                 Calculation                                           Quantity (m³)
+All Soils                         100          IRR-CAW-1-1             10.8 × 100 / 100                                               10.8
+
+   Component details
+Rock toe and graded filter
+The shared general excavation beneath the rock-toe foundation is assigned to the rock-toe trench and deducted from the general cut. It is counted
+once.
+
+
+
+
+             inner 1:1.00
+
+
+
+
+                                                                                                                                    1.20
+                                Rock toe                                                            outer 1:2.00
+                        1.00
+
+
+
+
+                                                                  graded filter 1.00 m below
+
+
+
+
+                                                                    foundation excavation
+
+
+    0                          1m                                                                                     All dimensions in metres
+
+
+
+
+                                                                                                                          Bund #1 [West] · 4 / 6
+Berm shelf and catch-water drain
+The shelf is included in the embankment geometry; only its selected surfacing and drain works are additional quantities.
+
+
+
+
+                                                                          3.00
+                                 Shelf RL 97.00                                                           shelf is part of the design face
+                                                                    shelf protection
+
+
+                                                                  cross-fall 1 in 40.00
+                                                  catch-water drain
+
+
+
+
+    0                                2m                                                                                All dimensions in metres
+
+
+
+Shelf surfacing: 144 m² Drain protection: 7.2 m³ Drain excavation: 10.8 m³
+
+
+   Phreatic-line comparison
+Reference and selected drainage conditions at the governing cross-section.
+
+Parameter                                                                              Without drainage                 Selected drainage
+Focus datum RL (m)                                                                                    95                                95
+Water depth (m)                                                                                      3.5                               3.5
+Focal distance S; q = K × S (m)                                                                   0.288                             0.297
+
+
+
+                                                           TBL 100.00
+
+    MWL 98.50
+
+
+
+                                                                                                                                  rock toe
+                                                                                                                intercepted by rocktoe
+
+
+
+          Reference — plain bund, no drainage               Actual — with rock toe + filter + berm
+
+
+   Payable quantities
+Selected work codes and quantities from the same engine as the component dashboard. Distinct operations can share a measured volume; their
+quantities must not be added to obtain geometric fill.
+
+
+ No.    Code    Description                                                                                                Unit Quantity
+  1 IRR-PMW-1-2                                                                                                             m²     1740
+  2 IRR-CAW-1-1                                                                                                             m³    532.8
+  3 IRR-DAW-5-6                                                                                                             m³     5160
+  4     IRR-                                                                                                               SQM      144
+      CAW-8-15
+  5     IRR-                                                                                                               CUM                 7.2
+      CAW-7-12
+  6 IRR-CAW-5-6                                                                                                            CUM               129.6
+
+                                                                                                                           Bund #1 [West] · 5 / 6
+No.     Code     Description   Unit Quantity
+ 7      IRR-                   CUM    266.94
+      CAW-5-11
+
+
+
+
+                               Bund #1 [West] · 6 / 6
+

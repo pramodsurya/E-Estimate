@@ -1,0 +1,56 @@
+- dialog [ref=e4]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]: main.typ
+        - generic [ref=e14]: Table QA
+      - generic [ref=e15]:
+        - button "Reset" [ref=e16] [cursor=pointer]
+        - button "Copy .typ" [ref=e20] [cursor=pointer]
+        - button "Download .typ" [ref=e24] [cursor=pointer]
+        - button "Print" [disabled] [ref=e28]
+        - button "Close Studio" [ref=e33] [cursor=pointer]
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - generic [ref=e39]:
+          - generic [ref=e40]:
+            - button "Bold (*text* / Ctrl+B)" [ref=e41] [cursor=pointer]
+            - button "Italic (_text_ / Ctrl+I)" [ref=e44] [cursor=pointer]
+            - button "Underline (#underline[...] / Ctrl+U)" [ref=e47] [cursor=pointer]
+            - button "Strikethrough (#strike[...])" [ref=e50] [cursor=pointer]
+            - button "Highlight Selection (Ctrl+H)" [ref=e55] [cursor=pointer]
+            - button "Text Color" [ref=e60] [cursor=pointer]
+          - generic [ref=e67]:
+            - button "Size" [ref=e69] [cursor=pointer]
+            - button "Heading" [ref=e73] [cursor=pointer]
+          - generic [ref=e74]:
+            - button "Align Left" [ref=e75] [cursor=pointer]
+            - button "Align Center" [ref=e77] [cursor=pointer]
+            - button "Align Right" [ref=e79] [cursor=pointer]
+          - generic [ref=e81]:
+            - button "Insert Page Break" [ref=e82] [cursor=pointer]
+            - button "Insert Horizontal Rule" [ref=e86] [cursor=pointer]
+            - button "+ Box" [ref=e88] [cursor=pointer]
+            - button "+ Note" [ref=e89] [cursor=pointer]
+            - generic [ref=e90]:
+              - button "Table" [active] [ref=e91] [cursor=pointer]
+              - generic [ref=e126]:
+                - button "+ Insert 3-Col Table" [ref=e127] [cursor=pointer]
+                - button "Highlight Table Cell" [disabled] [ref=e128] [cursor=pointer]
+          - generic [ref=e94]:
+            - button "Code" [ref=e95] [cursor=pointer]
+            - button "Visual" [ref=e96] [cursor=pointer]
+          - button "Find & Replace (Ctrl+F)" [ref=e97] [cursor=pointer]
+        - generic [ref=e103]:
+          - heading "Test" [level=1] [ref=e104]
+          - paragraph [ref=e105]: Place table here
+      - generic [ref=e106]:
+        - generic [ref=e107]:
+          - button "Recompile" [ref=e108] [cursor=pointer]
+          - generic [ref=e111]: Press Recompile to preview
+          - generic [ref=e113]:
+            - button [ref=e114] [cursor=pointer]
+            - generic [ref=e118]: 100%
+            - button [ref=e119] [cursor=pointer]
+            - button "100%" [ref=e123] [cursor=pointer]
+        - generic [ref=e124]: "Compilation Error: Preview intentionally disabled in UI harness"

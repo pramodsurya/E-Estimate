@@ -4,6 +4,7 @@ import {
   BookOpen,
   Database,
   FilePenLine,
+  FileSpreadsheet,
   Plus,
   Printer,
   RefreshCw,
@@ -16,6 +17,7 @@ import {
 } from '../../lib/dashboardSync'
 import { collectDataSheets } from '../../lib/dataSheets'
 import { buildDataSheetsPrintPdf } from '../../lib/dataSheetPrint'
+import { buildDataExcelWorkbook } from '../../lib/excel-output/dataExcel'
 import type { MasterItem } from '../../lib/masterData'
 import { resolveProjectPrintSettings } from '../../lib/projectPrintSettings'
 import { projectDataRate } from '../../lib/projectData'
@@ -61,15 +63,16 @@ export default function DataDashboard(): JSX.Element | null {
   const setDashboardSnapshot = useStore((state) => state.setDashboardSnapshot)
   const setGuideWallMaterial = useStore((state) => state.setGuideWallMaterial)
   const resolveBundMaterials = useStore((state) => state.resolveBundMaterials)
-  const resolveMiSluiceNewMaterials = useStore((state) => state.resolveMiSluiceNewMaterials)
   const openRateAnalysis = useStore((state) => state.openRateAnalysis)
   const dataDashboardSection = useStore((state) => state.dataDashboardSection)
   const setDataDashboardSection = useStore((state) => state.setDataDashboardSection)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState('')
+  const [exportError, setExportError] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
   const [printPreview, setPrintPreview] = useState(false)
   const [printPdfUrl, setPrintPdfUrl] = useState<string | null>(null)
+  const [exportingExcel, setExportingExcel] = useState(false)
   const [createDataOpen, setCreateDataOpen] = useState(false)
   const [editingData, setEditingData] = useState<ProjectDataDefinition | null>(null)
   const [creationNotice, setCreationNotice] = useState('')
@@ -116,11 +119,11 @@ export default function DataDashboard(): JSX.Element | null {
     if (syncing) return
     setSyncing(true)
     setError('')
+    setExportError(null)
     try {
       await resolveTemplateDashboardMaterials(project.root, {
         setGuideWallMaterial,
         resolveBundMaterials,
-        resolveMiSluiceNewMaterials
       })
       // Template resolution mutates generated items (for example, replacing a
       // zoned bund's casing/hearting DATA with its homogeneous DATA). Always
@@ -133,6 +136,60 @@ export default function DataDashboard(): JSX.Element | null {
       setError(reason instanceof Error ? reason.message : 'Unable to sync the DATA Dashboard.')
     } finally {
       setSyncing(false)
+    }
+  }
+
+  const exportExcel = async (): Promise<void> => {
+    if (exportingExcel || syncing) return
+    setExportingExcel(true)
+    setExportError(null)
+    try {
+      let targetEntries = entries
+      if (targetEntries.length === 0) {
+        if (project.dashboardSnapshot?.dataDashboardEntries?.length) {
+          targetEntries = project.dashboardSnapshot.dataDashboardEntries
+        } else {
+          // Attempt auto-compiling snapshot so export works seamlessly
+          const next = await syncDataDashboardSnapshot(project)
+          setDashboardSnapshot(next)
+          targetEntries = next.dataDashboardEntries ?? []
+        }
+      }
+
+      const sheets = collectDataSheets(project, targetEntries)
+      if (sheets.length === 0) {
+        setExportError('No compiled SSR/SOR codes are available to export.')
+        return
+      }
+      const bytes = await buildDataExcelWorkbook(project, sheets)
+      const fileName = `${project.meta.name || 'Estimate'} — DATA Book.xlsx`
+      if (typeof window.api?.export?.workbook === 'function') {
+        let binary = ''
+        const len = bytes.byteLength
+        const chunkSize = 8192
+        for (let i = 0; i < len; i += chunkSize) {
+          const chunk = bytes.subarray(i, Math.min(i + chunkSize, len))
+          binary += String.fromCharCode.apply(null, chunk as unknown as number[])
+        }
+        await window.api.export.workbook(btoa(binary), fileName)
+      } else {
+        const copy = new ArrayBuffer(bytes.byteLength)
+        new Uint8Array(copy).set(bytes)
+        const url = URL.createObjectURL(
+          new Blob([copy], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          })
+        )
+        const anchor = document.createElement('a')
+        anchor.href = url
+        anchor.download = fileName
+        anchor.click()
+        window.setTimeout(() => URL.revokeObjectURL(url), 20000)
+      }
+    } catch (reason: unknown) {
+      setExportError(reason instanceof Error ? reason.message : 'Unable to export DATA Excel workbook.')
+    } finally {
+      setExportingExcel(false)
     }
   }
 
@@ -209,6 +266,14 @@ export default function DataDashboard(): JSX.Element | null {
               >
                 <Printer size={15} /> Typst Preview
               </button>
+              <button
+                className="btn ghost"
+                disabled={exportingExcel || syncing}
+                onClick={() => void exportExcel()}
+                title="Export DATA book to Excel (Sheet 1: SSR Items, Sheet 2: SOR Items)"
+              >
+                <FileSpreadsheet size={15} /> {exportingExcel ? 'Exporting…' : 'Excel Export'}
+              </button>
             </>
           )}
         </div>
@@ -218,11 +283,22 @@ export default function DataDashboard(): JSX.Element | null {
       {isDashboard && (
         <>
           {error && <div className="rate-warning">DATA sync failed: {error}</div>}
+          {exportError && <div className="rate-warning">Excel export failed: {exportError}</div>}
           {!compiled && !error && (
             <div className="rate-notice">
-              {entries.length
-                ? 'Items, edits, or Lead additions have changed. Click Sync to recompile all DATA rates.'
-                : 'Click Sync to compile all DATA items, descriptions, scoped edits, and rates.'}
+              <span>
+                {entries.length
+                  ? 'Items, edits, or Lead additions have changed. Click Sync to recompile all DATA rates.'
+                  : 'Click Sync to compile all DATA items, descriptions, scoped edits, and rates.'}
+              </span>
+              <button
+                type="button"
+                className="btn-mini secondary"
+                disabled={syncing}
+                onClick={() => void syncDashboard()}
+              >
+                {syncing ? 'Recompiling…' : 'Sync'}
+              </button>
             </div>
           )}
           <SignatureFooterCard scopeKey={DATA_SIGNATURE_SCOPE} />

@@ -16,6 +16,11 @@ pub struct ExportPayload {
     pub data: String,
     pub name: String,
     pub default_path: Option<String>,
+    /// When present, the file at this path is copied to the picked location
+    /// instead of decoding `data`. Only paths inside the session compile
+    /// cache are accepted; anything else is rejected.
+    #[serde(default)]
+    pub source_path: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -55,6 +60,7 @@ pub async fn export_pdf(app: tauri::AppHandle, payload: ExportPayload) -> Result
         PDF_FILTER,
         ".pdf",
         &payload.data,
+        payload.source_path.clone(),
     )
     .await
 }
@@ -73,6 +79,7 @@ pub async fn export_workbook(
         WORKBOOK_FILTER,
         ".xlsx",
         &payload.data,
+        payload.source_path.clone(),
     )
     .await
 }
@@ -87,8 +94,26 @@ pub async fn export_png(app: tauri::AppHandle, payload: ExportPayload) -> Result
         PNG_FILTER,
         ".png",
         &payload.data,
+        payload.source_path.clone(),
     )
     .await
+}
+
+/// Session compile outputs live here (`typst_compile` / `excel_compile`
+/// prefer_path). Only these files may be used as `source_path`.
+fn cache_root() -> PathBuf {
+    std::env::temp_dir().join("e-estimate-compile-cache")
+}
+
+fn resolve_cached_source(raw: &str) -> Result<PathBuf, String> {
+    let candidate = PathBuf::from(raw);
+    let root = cache_root();
+    let ok = candidate.starts_with(&root)
+        && fs::metadata(&candidate).map(|m| m.len() > 0).unwrap_or(false);
+    if !ok {
+        return Err("source_path is not a current compile output.".to_string());
+    }
+    Ok(candidate)
 }
 
 async fn save_binary_export(
@@ -98,6 +123,7 @@ async fn save_binary_export(
     filter: (&str, &[&str]),
     extension: &str,
     data_b64: &str,
+    source_path: Option<String>,
 ) -> Result<ExportResult, String> {
     let picked = app
         .dialog()
@@ -119,10 +145,15 @@ async fn save_binary_export(
         target.set_extension(&extension[1..]);
     }
 
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(data_b64)
-        .map_err(|e| e.to_string())?;
-    fs::write(&target, bytes).map_err(|e| e.to_string())?;
+    if let Some(source) = source_path {
+        let cached = resolve_cached_source(&source)?;
+        fs::copy(&cached, &target).map_err(|e| e.to_string())?;
+    } else {
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(data_b64)
+            .map_err(|e| e.to_string())?;
+        fs::write(&target, bytes).map_err(|e| e.to_string())?;
+    }
 
     Ok(ExportResult {
         canceled: false,

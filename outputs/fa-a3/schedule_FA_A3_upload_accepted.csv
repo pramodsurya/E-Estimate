@@ -1,0 +1,24 @@
+Country/Region name,Country Name and Code,Name of entity,Address of entity,ZIP Code,Nature of entity,Date of acquiring the interest,Initial value of the investment,Peak value of investment during the Period,Closing balance,Total gross amount paid/credited with respect to the holding during the period,Total gross proceeds from sale or redemption of investment during the period
+UNITED STATES OF AMERICA,2,Alphabet Inc. Class C,1600 Amphitheatre Parkway Mountain View CA United States,94043,Company,2025-03-10,14805,28545,28076,55,0
+UNITED STATES OF AMERICA,2,Alphabet Inc. Class A,1600 Amphitheatre Parkway Mountain View CA United States,94043,Company,2025-06-06,27077,53084,52110,102,0
+UNITED STATES OF AMERICA,2,UiPath Inc.,One Vanderbilt Avenue New York NY United States,10017,Company,2025-10-14,2936,3432,2933,0,0
+UNITED STATES OF AMERICA,2,Tesla Inc.,1 Tesla Road Austin TX United States,78725,Company,2022-06-06,2317,4474,0,0,3339
+UNITED STATES OF AMERICA,2,Tesla Inc.,1 Tesla Road Austin TX United States,78725,Company,2025-04-15,19168,26825,0,0,23893
+UNITED STATES OF AMERICA,2,Tesla Inc.,1 Tesla Road Austin TX United States,78725,Company,2025-04-15,263,525,485,0,0
+UNITED STATES OF AMERICA,2,Tesla Inc.,1 Tesla Road Austin TX United States,78725,Company,2025-10-03,163,181,167,0,0
+UNITED STATES OF AMERICA,2,Apple Inc.,One Apple Park Way Cupertino CA United States,95014,Company,2022-06-06,772,1459,0,2,1187
+UNITED STATES OF AMERICA,2,NVIDIA Corporation,2788 San Tomas Expressway Santa Clara CA United States,95051,Company,2022-06-06,2,26,24,0,0
+UNITED STATES OF AMERICA,2,NVIDIA Corporation,2788 San Tomas Expressway Santa Clara CA United States,95051,Company,2024-12-02,1091,1709,1559,0,0
+UNITED STATES OF AMERICA,2,NVIDIA Corporation,2788 San Tomas Expressway Santa Clara CA United States,95051,Company,2025-04-15,3290,6315,5760,0,0
+UNITED STATES OF AMERICA,2,NVIDIA Corporation,2788 San Tomas Expressway Santa Clara CA United States,95051,Company,2025-10-07,16453,18292,16686,1,0
+UNITED STATES OF AMERICA,2,NVIDIA Corporation,2788 San Tomas Expressway Santa Clara CA United States,95051,Company,2025-11-14,9849,10346,10187,1,0
+UNITED STATES OF AMERICA,2,Microsoft Corporation,One Microsoft Way Redmond WA United States,98052,Company,2022-06-06,1027,2365,2137,15,0
+UNITED STATES OF AMERICA,2,Microsoft Corporation,One Microsoft Way Redmond WA United States,98052,Company,2025-01-13,9392,12730,11502,79,0
+TAIWAN,886,Taiwan Semiconductor Manufacturing Company Ltd.,Hsinchu Science Park Hsinchu City Taiwan,300096,Company,2024-12-16,14515,23371,23033,131,0
+UNITED STATES OF AMERICA,2,Vanguard S&P 500 ETF,USA,99999,ETF,2025-01-06,9720,9708,0,0,9389
+UNITED STATES OF AMERICA,2,Nike Inc.,One Bowerman Drive Beaverton OR United States,97005,Company,2025-03-11,4719,4611,0,0,3303
+UNITED STATES OF AMERICA,2,VanEck Vietnam ETF,USA,99999,ETF,2025-04-03,931,1665,1634,3,0
+UNITED STATES OF AMERICA,2,VanEck Vietnam ETF,USA,99999,ETF,2025-04-10,922,1698,1666,3,0
+UNITED STATES OF AMERICA,2,VanEck Vietnam ETF,USA,99999,ETF,2025-04-17,928,1615,1585,3,0
+UNITED STATES OF AMERICA,2,VanEck Vietnam ETF,USA,99999,ETF,2025-04-24,936,1624,1594,3,0
+UNITED STATES OF AMERICA,2,VanEck Vietnam ETF,USA,99999,ETF,2025-05-05,941,1585,1556,3,0

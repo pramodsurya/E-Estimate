@@ -85,9 +85,18 @@ function leadWarnings(application: LeadApplication, variant: LeadVariant | undef
 }
 
 
+export interface ScopeContext {
+  scopeName?: string
+  usagePath?: string
+  scope?: string
+}
+
 /** Prepare values only; all document layout lives in data.typ. */
 export function buildRateAnalysisRenderData(
-  recipe: RateAnalysisRecipe, leadApplications: LeadApplication[] = [], leadVariants: LeadVariant[] = []
+  recipe: RateAnalysisRecipe,
+  leadApplications: LeadApplication[] = [],
+  leadVariants: LeadVariant[] = [],
+  scopeContext?: ScopeContext
 ) {
   const code = recipe.itemCode?.trim() || recipe.itemKey || 'DATA'
   const unit = recipe.unit || 'cum'
@@ -95,6 +104,7 @@ export function buildRateAnalysisRenderData(
   const desc = recipe.description || ''
   const sectionHeading = recipe.sectionHeading || ''
   const documentTitle = recipe.documentTitle || ''
+  const scopeLabel = scopeContext?.usagePath || scopeContext?.scopeName || scopeContext?.scope || ''
 
   // This is the same semantic result consumed by the React DATA view.
   const presentation = buildDataPresentation(recipe, leadApplications, leadVariants)
@@ -151,9 +161,28 @@ export function buildRateAnalysisRenderData(
   const leadRows = (applications: LeadApplication[]) => applications.map((app) => {
     const variant = leadVariants.find((candidate) => candidate.id === app.variantId)
     const disposal = isDisposalLead(variant)
+
+    let leadTypeTag = ''
+    let leadFormula = ''
+    if (variant?.weightedLead) {
+      leadTypeTag = 'Weighted Avg · Whole Project'
+      const entries = variant.weightedLead.entries || []
+      const parts = entries
+        .map((e) => `${fmtQty(e.quantity)} × ${e.leadKm.toFixed(2)} km`)
+        .join(' + ')
+      const totalQty = fmtQty(variant.weightedLead.totalQuantity)
+      leadFormula = `(${parts}) ÷ ${totalQty} = ${variant.weightedLead.weightedAvgKm.toFixed(2)} km`
+    } else if (variant?.avgLead) {
+      leadTypeTag = variant.avgLead.mode === 'line' ? 'Avg Lead (Line sampling)' : 'Avg Lead (Table)'
+      leadFormula = `Average of ${variant.avgLead.pointCount} points${
+        variant.avgLead.componentName ? ` along ${variant.avgLead.componentName}` : ''
+      } = ${variant.avgLead.avgKm.toFixed(2)} km`
+    }
+
     return {
       material: disposal ? 'Disposal Lead' : variant?.materialName || app.itemCode || 'Material',
       distance_km: variant?.leadKm ?? null, lift_m: variant?.liftM ?? 0,
+      lead_type_tag: leadTypeTag, lead_formula: leadFormula,
       quantity: app.quantity, quantity_source: app.quantitySource || '', quantity_edited: Boolean(app.quantityManuallyEdited),
       unit: app.unit, rate: app.grossRate, amount: app.grossAmount,
       qty_text: fmtQty(app.quantity), rate_text: fmtMoney(app.grossRate), amount_text: fmtMoney(app.grossAmount),
@@ -228,7 +257,7 @@ export function buildRateAnalysisRenderData(
   }
   return {
     code, unit, description: desc, description_runs: printableRuns(desc, layout.descriptionRuns),
-    section_heading: sectionHeading, document_title: documentTitle,
+    section_heading: sectionHeading, document_title: documentTitle, scope_label: scopeLabel,
     visibility: {
       code: layout.codeVisible, description: layout.descriptionVisible, unit_quantity: layout.unitQuantityVisible,
       materials: layout.sections.materials.visible, machinery: layout.sections.machinery.visible,
@@ -306,7 +335,11 @@ export function dataSheetsCompileInputs(sheets: DataSheet[], options: TypstDocum
       rate_text: s.sorPrintRate?.hasNumericRate ? fmtMoney(s.sorPrintRate.finalRate) : s.sorPrintRate?.rateText || 'Rate not published'
     })),
     recipes: sheets.filter(s => s.recipe.itemSource !== 'SOR').map(s => ({
-      ...buildRateAnalysisRenderData(s.recipe, s.leadApplications, s.leadVariants),
+      ...buildRateAnalysisRenderData(s.recipe, s.leadApplications, s.leadVariants, {
+        scopeName: s.scopeName,
+        usagePath: s.usagePath,
+        scope: s.scope
+      }),
       figures: options.figurePaths?.[s.id] ?? []
     })),
     signature: signature?.enabled ? {
@@ -327,8 +360,8 @@ export function dataSignatureSettings(project: EestimateProject): SignatureFoote
   return resolveSignatureFooter(project, DATA_SIGNATURE_SCOPE)
 }
 export function rateAnalysisCompileInputs(recipe: RateAnalysisRecipe, project: EestimateProject | null,
-  applications: LeadApplication[] = [], variants: LeadVariant[] = []): Record<string, string> {
+  applications: LeadApplication[] = [], variants: LeadVariant[] = [], scopeContext?: ScopeContext): Record<string, string> {
   return { 'ee-data': JSON.stringify({ project: project?.meta.name || 'Estimate', year: project?.meta.sorYear || '',
     setup: { paper: 'a4', flipped: false, font_size: 10 }, sor: [],
-    recipes: [buildRateAnalysisRenderData(recipe, applications, variants)] }) }
+    recipes: [buildRateAnalysisRenderData(recipe, applications, variants, scopeContext)] }) }
 }

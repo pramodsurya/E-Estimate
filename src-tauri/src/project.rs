@@ -7,6 +7,7 @@ use tauri_plugin_dialog::{DialogExt, FilePath};
 use crate::recent::{add_recent, remove_recent};
 
 const FILE_FILTER: (&str, &[&str]) = ("E-Estimate Project", &["eestimate"]);
+const CLUSTER_FILTER: (&str, &[&str]) = ("E-Estimate Cluster Project", &["eestimate-cluster"]);
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -129,6 +130,52 @@ pub async fn project_save_as(app: tauri::AppHandle, payload: SavePayload) -> Res
         canceled: false,
         path: Some(target.to_string_lossy().to_string()),
     })
+}
+
+#[tauri::command]
+pub async fn cluster_save_as(app: tauri::AppHandle, payload: SavePayload) -> Result<SaveResult, String> {
+    let picked = app
+        .dialog()
+        .file()
+        .set_title("Save Cluster Project As")
+        .set_file_name(&format!("{}.eestimate-cluster", sanitize(&payload.name)))
+        .add_filter(CLUSTER_FILTER.0, CLUSTER_FILTER.1)
+        .blocking_save_file();
+
+    let Some(file) = picked else {
+        return Ok(SaveResult {
+            canceled: true,
+            path: None,
+        });
+    };
+    let target = path_from_file(file).ok_or_else(|| "Invalid save path.".to_string())?;
+    write_project(&target, &payload.data)?;
+    add_recent(&app, target.to_string_lossy().to_string(), Some(payload.name))?;
+    Ok(SaveResult {
+        canceled: false,
+        path: Some(target.to_string_lossy().to_string()),
+    })
+}
+
+#[tauri::command]
+pub async fn cluster_open(app: tauri::AppHandle) -> Result<OpenResult, String> {
+    let picked = app
+        .dialog()
+        .file()
+        .set_title("Open Cluster Project")
+        .add_filter(CLUSTER_FILTER.0, CLUSTER_FILTER.1)
+        .blocking_pick_file();
+
+    let Some(file) = picked else {
+        return Ok(OpenResult {
+            canceled: true,
+            path: None,
+            data: None,
+            error: None,
+        });
+    };
+    let path = path_from_file(file).ok_or_else(|| "Invalid open path.".to_string())?;
+    open_path_internal(&app, path)
 }
 
 #[tauri::command]

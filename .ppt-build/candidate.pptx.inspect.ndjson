@@ -1,0 +1,153 @@
+{"kind":"deck","id":"pr/kcnd7y","name":"Deck"}
+{"kind":"layout","layoutId":"099c53a9-292b-4edc-a44f-6538e7fb3d68","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"53e28dbd-b2cc-49ff-a77f-cebc53953b75","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/d4hqxp","slide":1,"title":"E-ESTIMATE","textShapes":4}
+{"kind":"shape","id":"sh/83mt8vqt","slide":1,"bbox":[0,0,760,720]}
+{"kind":"shape","id":"sh/94fu10re","slide":1,"bbox":[72,106,88,5]}
+{"kind":"textbox","id":"sh/yd4b2lsr","slide":1,"text":"E-ESTIMATE","textPreview":"E-ESTIMATE","textChars":10,"textLines":1,"bbox":[72,144,380,30]}
+{"kind":"textbox","id":"sh/zedcvq9c","slide":1,"text":"Construction estimates\nthat stay connected","textPreview":"Construction estimates | that stay connected","textChars":42,"textLines":2,"bbox":[72,192,540,120]}
+{"kind":"textbox","id":"sh/0fmt4vax","slide":1,"text":"A Windows desktop workspace for Telangana SOR/SSR estimate preparation, calculation and print-ready documentation.","textPreview":"A Windows desktop workspace for Telangana SOR/SSR estimate preparation, calculation and print-ready documentation.","textChars":114,"textLines":1,"bbox":[72,338,500,74]}
+{"kind":"textbox","id":"sh/lgvuxgr2","slide":1,"text":"Software pitch  |  September 2026","textPreview":"Software pitch  |  September 2026","textChars":33,"textLines":1,"bbox":[72,630,360,24]}
+{"kind":"image","id":"im/qtwf294f","slide":1,"name":"","alt":"E-Estimate construction estimation screen","bbox":[650,0,630,720]}
+{"kind":"notes","id":"nt/d4hqxp","slide":1,"text":"Product pitch prepared from the E-Estimate repository README and product assets."}
+{"kind":"slide","id":"sl/sm5of3","slide":2,"title":"02","textShapes":15}
+{"kind":"textbox","id":"sh/vulgb6ds","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[72,42,48,25]}
+{"kind":"textbox","id":"sh/wvuhkbud","slide":2,"text":"The estimate process spans too many disconnected tasks","textPreview":"The estimate process spans too many disconnected tasks","textChars":54,"textLines":1,"bbox":[72,76,970,52]}
+{"kind":"textbox","id":"sh/hwnydgvy","slide":2,"text":"Teams need one working record from item selection to the final document.","textPreview":"Teams need one working record from item selection to the final document.","textChars":72,"textLines":1,"bbox":[72,132,910,28]}
+{"kind":"shape","id":"sh/ixwzmlcj","slide":2,"bbox":[72,178,1136,2]}
+{"kind":"shape","id":"sh/jy5gf6d4","slide":2,"bbox":[72,238,330,268]}
+{"kind":"textbox","id":"sh/4zehobup","slide":2,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[100,266,60,38]}
+{"kind":"textbox","id":"sh/50nyhgva","slide":2,"text":"Estimate inputs","textPreview":"Estimate inputs","textChars":15,"textLines":1,"bbox":[100,322,270,34]}
+{"kind":"textbox","id":"sh/y1sfahcf","slide":2,"text":"Item quantities, rates and project data must remain traceable.","textPreview":"Item quantities, rates and project data must remain traceable.","textChars":62,"textLines":1,"bbox":[100,374,266,80]}
+{"kind":"shape","id":"sh/z21g3md0","slide":2,"bbox":[452,238,330,268]}
+{"kind":"textbox","id":"sh/3yhova5w","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[480,266,60,38]}
+{"kind":"textbox","id":"sh/2d8nm5ob","slide":2,"text":"Technical checks","textPreview":"Technical checks","textChars":16,"textLines":1,"bbox":[480,322,270,34]}
+{"kind":"textbox","id":"sh/p0z6x0nm","slide":2,"text":"Lead, rate analysis, seigniorage and bund work add calculation depth.","textPreview":"Lead, rate analysis, seigniorage and bund work add calculation depth.","textChars":69,"textLines":1,"bbox":[480,374,266,80]}
+{"kind":"shape","id":"sh/ozq5ov61","slide":2,"bbox":[832,238,330,268]}
+{"kind":"textbox","id":"sh/faxorq5k","slide":2,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[860,266,60,38]}
+{"kind":"textbox","id":"sh/e9oniloz","slide":2,"text":"Deliverables","textPreview":"Deliverables","textChars":12,"textLines":1,"bbox":[860,322,270,34]}
+{"kind":"textbox","id":"sh/1cf6t0nq","slide":2,"text":"Stakeholders need consistent, print-ready project documents.","textPreview":"Stakeholders need consistent, print-ready project documents.","textChars":60,"textLines":1,"bbox":[860,374,266,80]}
+{"kind":"textbox","id":"sh/gb65kv65","slide":2,"text":"E-Estimate keeps these workflows in a single desktop workspace.","textPreview":"E-Estimate keeps these workflows in a single desktop workspace.","textChars":63,"textLines":1,"bbox":[72,570,830,36]}
+{"kind":"textbox","id":"sh/r6xonq5o","slide":2,"text":"E-ESTIMATE  |  CONFIDENTIAL PRODUCT PITCH","textPreview":"E-ESTIMATE  |  CONFIDENTIAL PRODUCT PITCH","textChars":41,"textLines":1,"bbox":[72,678,500,16]}
+{"kind":"textbox","id":"sh/65onelo3","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1158,676,50,18]}
+{"kind":"notes","id":"nt/sm5of3","slide":2,"text":"Challenge framing is a product-positioning summary, not a quantified market claim."}
+{"kind":"slide","id":"sl/vx5pmy","slide":3,"title":"03","textShapes":8}
+{"kind":"textbox","id":"sh/tcjqdozu","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[72,42,48,25]}
+{"kind":"textbox","id":"sh/69872903","slide":3,"text":"One workspace for the estimate lifecycle","textPreview":"One workspace for the estimate lifecycle","textChars":40,"textLines":1,"bbox":[72,76,970,52]}
+{"kind":"textbox","id":"sh/7a18beho","slide":3,"text":"E-Estimate keeps project data, calculations and output preparation close together.","textPreview":"E-Estimate keeps project data, calculations and output preparation close together.","textChars":82,"textLines":1,"bbox":[72,132,910,28]}
+{"kind":"shape","id":"sh/k7qp0jid","slide":3,"bbox":[72,178,1136,2]}
+{"kind":"shape","id":"sh/58z694zi","slide":3,"bbox":[72,232,472,324]}
+{"kind":"textbox","id":"sh/i587y907","slide":3,"text":"The operating model","textPreview":"The operating model","textChars":19,"textLines":1,"bbox":[108,270,300,28]}
+{"kind":"textbox","id":"sh/j6ho7ehs","slide":3,"text":"Build the estimate once.\nUse the same project data\nthrough calculation and print.","textPreview":"Build the estimate once. | Use the same project data | through calculation and print.","textChars":81,"textLines":3,"bbox":[108,320,372,118]}
+{"kind":"textbox","id":"sh/43upc3yh","slide":3,"text":"A desktop application designed for estimation work, not a collection of loose spreadsheets.","textPreview":"A desktop application designed for estimation work, not a collection of loose spreadsheets.","textChars":91,"textLines":1,"bbox":[108,476,355,47]}
+{"kind":"textbox","id":"sh/d8n6lwvi","slide":3,"text":"E-ESTIMATE  |  CONFIDENTIAL PRODUCT PITCH","textPreview":"E-ESTIMATE  |  CONFIDENTIAL PRODUCT PITCH","textChars":41,"textLines":1,"bbox":[72,678,500,16]}
+{"kind":"textbox","id":"sh/c7e5sbex","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1158,676,50,18]}
+{"kind":"image","id":"im/k3itwzu9","slide":3,"name":"","geometry":"roundRect","alt":"E-Estimate application preview","bbox":[602,228,606,342]}
+{"kind":"notes","id":"nt/vx5pmy","slide":3,"text":"Product capability summary based on README.md."}
+{"kind":"slide","id":"sl/7ub8u7","slide":4,"title":"04","textShapes":21}
+{"kind":"textbox","id":"sh/cbuhofed","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[72,42,48,25]}
+{"kind":"textbox","id":"sh/balgfad8","slide":4,"text":"Core estimation workflows","textPreview":"Core estimation workflows","textChars":25,"textLines":1,"bbox":[72,76,970,52]}
+{"kind":"textbox","id":"sh/a9czmpwn","slide":4,"text":"Purpose-built modules keep specialist work connected to the project record.","textPreview":"Purpose-built modules keep specialist work connected to the project record.","textChars":75,"textLines":1,"bbox":[72,132,910,28]}
+{"kind":"shape","id":"sh/l0nil4va","slide":4,"bbox":[72,178,1136,2]}
+{"kind":"shape","id":"sh/kzuhszep","slide":4,"bbox":[90,218,54,54]}
+{"kind":"textbox","id":"sh/zyl0jud4","slide":4,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[90,232,54,26]}
+{"kind":"textbox","id":"sh/yxczqpwj","slide":4,"text":"SOR / SSR catalogue","textPreview":"SOR / SSR catalogue","textChars":19,"textLines":1,"bbox":[174,221,246,28]}
+{"kind":"textbox","id":"sh/94nip4v6","slide":4,"text":"Find and reuse schedule items.","textPreview":"Find and reuse schedule items.","textChars":30,"textLines":1,"bbox":[174,250,332,26]}
+{"kind":"shape","id":"sh/83ehwzel","slide":4,"bbox":[118,273,2,21]}
+{"kind":"shape","id":"sh/mxkje1sz","slide":4,"bbox":[90,294,54,54]}
+{"kind":"textbox","id":"sh/nyt0769k","slide":4,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[90,308,54,26]}
+{"kind":"textbox","id":"sh/oz21gba5","slide":4,"text":"Rate analysis","textPreview":"Rate analysis","textChars":13,"textLines":1,"bbox":[174,297,246,28]}
+{"kind":"textbox","id":"sh/90bi9wrq","slide":4,"text":"Build transparent rate inputs.","textPreview":"Build transparent rate inputs.","textChars":30,"textLines":1,"bbox":[174,326,332,26]}
+{"kind":"shape","id":"sh/a1kji1sb","slide":4,"bbox":[118,349,2,21]}
+{"kind":"shape","id":"sh/b2t0b69w","slide":4,"bbox":[90,370,54,54]}
+{"kind":"textbox","id":"sh/w321kba1","slide":4,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[90,384,54,26]}
+{"kind":"textbox","id":"sh/x4bidgrm","slide":4,"text":"Lead calculations","textPreview":"Lead calculations","textChars":17,"textLines":1,"bbox":[174,373,246,28]}
+{"kind":"textbox","id":"sh/q5gz6hsr","slide":4,"text":"Model material movement and leads.","textPreview":"Model material movement and leads.","textChars":34,"textLines":1,"bbox":[174,402,332,26]}
+{"kind":"shape","id":"sh/r690zm9c","slide":4,"bbox":[118,425,2,21]}
+{"kind":"shape","id":"sh/fa5g7ip4","slide":4,"bbox":[90,446,54,54]}
+{"kind":"textbox","id":"sh/u9wfyd8j","slide":4,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[90,460,54,26]}
+{"kind":"textbox","id":"sh/hcny987a","slide":4,"text":"Seigniorage","textPreview":"Seigniorage","textChars":11,"textLines":1,"bbox":[174,449,246,28]}
+{"kind":"textbox","id":"sh/gbex0nqp","slide":4,"text":"Handle applicable royalty workflows.","textPreview":"Handle applicable royalty workflows.","textChars":36,"textLines":1,"bbox":[174,478,332,26]}
+{"kind":"shape","id":"sh/76lg3yp8","slide":4,"bbox":[118,501,2,21]}
+{"kind":"shape","id":"sh/6lcfut8n","slide":4,"bbox":[90,522,54,54]}
+{"kind":"textbox","id":"sh/t8ny587y","slide":4,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[90,536,54,26]}
+{"kind":"textbox","id":"sh/s7exw3qt","slide":4,"text":"Bund analysis","textPreview":"Bund analysis","textChars":13,"textLines":1,"bbox":[174,525,246,28]}
+{"kind":"textbox","id":"sh/r2pgf2pc","slide":4,"text":"Prepare bund data and simulation inputs.","textPreview":"Prepare bund data and simulation inputs.","textChars":40,"textLines":1,"bbox":[174,554,332,26]}
+{"kind":"textbox","id":"sh/obqlkv2x","slide":4,"text":"Bund workflow visual from the product repository","textPreview":"Bund workflow visual from the product repository","textChars":48,"textLines":1,"bbox":[630,560,420,20]}
+{"kind":"textbox","id":"sh/pczmd0ji","slide":4,"text":"E-ESTIMATE  |  CONFIDENTIAL PRODUCT PITCH","textPreview":"E-ESTIMATE  |  CONFIDENTIAL PRODUCT PITCH","textChars":41,"textLines":1,"bbox":[72,678,500,16]}
+{"kind":"textbox","id":"sh/29o3ilk7","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1158,676,50,18]}
+{"kind":"image","id":"im/98j6h4vu","slide":4,"name":"","alt":"Bund diagram generated by E-Estimate","bbox":[590,222,548,318]}
+{"kind":"notes","id":"nt/7ub8u7","slide":4,"text":"Module names and visual sourced from E-Estimate repository."}
+{"kind":"slide","id":"sl/92p3sx","slide":5,"title":"05","textShapes":18}
+{"kind":"textbox","id":"sh/5w7a5cj6","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[72,42,48,25]}
+{"kind":"textbox","id":"sh/i9grahkf","slide":5,"text":"From project data to print-ready documents","textPreview":"From project data to print-ready documents","textChars":42,"textLines":1,"bbox":[72,76,970,52]}
+{"kind":"textbox","id":"sh/japs3m10","slide":5,"text":"The same project record supports calculation, review and formal output.","textPreview":"The same project record supports calculation, review and formal output.","textChars":71,"textLines":1,"bbox":[72,132,910,28]}
+{"kind":"shape","id":"sh/szi9grih","slide":5,"bbox":[72,178,1136,2]}
+{"kind":"shape","id":"sh/t0ra9wj2","slide":5,"bbox":[72,276,244,180]}
+{"kind":"textbox","id":"sh/6xgreh0r","slide":5,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[96,300,60,28]}
+{"kind":"textbox","id":"sh/ryps7m1w","slide":5,"text":"Project setup","textPreview":"Project setup","textChars":13,"textLines":1,"bbox":[96,340,198,32]}
+{"kind":"textbox","id":"sh/g3itkbit","slide":5,"text":"Capture estimate data in the project workspace.","textPreview":"Capture estimate data in the project workspace.","textChars":47,"textLines":1,"bbox":[96,384,194,48]}
+{"kind":"shape","id":"sh/14radgje","slide":5,"bbox":[316,361,42,2]}
+{"kind":"shape","id":"sh/t4fitcvi","slide":5,"bbox":[358,276,244,180]}
+{"kind":"textbox","id":"sh/s36hk7ux","slide":5,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[382,300,60,28]}
+{"kind":"textbox","id":"sh/r2x0r2dc","slide":5,"text":"Calculation","textPreview":"Calculation","textChars":11,"textLines":1,"bbox":[382,340,198,32]}
+{"kind":"textbox","id":"sh/61ozixcr","slide":5,"text":"Apply rate, lead, seigniorage and related workflows.","textPreview":"Apply rate, lead, seigniorage and related workflows.","textChars":52,"textLines":1,"bbox":[382,384,194,48]}
+{"kind":"shape","id":"sh/1szixcve","slide":5,"bbox":[602,361,42,2]}
+{"kind":"shape","id":"sh/g7qho7ut","slide":5,"bbox":[644,276,244,180]}
+{"kind":"textbox","id":"sh/f6h0v2d8","slide":5,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[668,300,60,28]}
+{"kind":"textbox","id":"sh/e5ozmhc3","slide":5,"text":"Document preparation","textPreview":"Document preparation","textChars":20,"textLines":1,"bbox":[668,340,198,32]}
+{"kind":"textbox","id":"sh/hwvylsva","slide":5,"text":"Assemble the project book and required print content.","textPreview":"Assemble the project book and required print content.","textChars":53,"textLines":1,"bbox":[668,384,194,48]}
+{"kind":"shape","id":"sh/wbmhcnup","slide":5,"bbox":[888,361,42,2]}
+{"kind":"shape","id":"sh/8ra9or6x","slide":5,"bbox":[930,276,244,180]}
+{"kind":"textbox","id":"sh/9sjqhc72","slide":5,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[954,300,60,28]}
+{"kind":"textbox","id":"sh/mp8rmh8r","slide":5,"text":"Windows delivery","textPreview":"Windows delivery","textChars":16,"textLines":1,"bbox":[954,340,198,32]}
+{"kind":"textbox","id":"sh/7q18fmpc","slide":5,"text":"Package the desktop app for installation and use.","textPreview":"Package the desktop app for installation and use.","textChars":49,"textLines":1,"bbox":[954,384,194,48]}
+{"kind":"textbox","id":"sh/wva9sr6t","slide":5,"text":"Project data remains central throughout the workflow.","textPreview":"Project data remains central throughout the workflow.","textChars":53,"textLines":1,"bbox":[72,554,700,38]}
+{"kind":"textbox","id":"sh/hwjqlw7e","slide":5,"text":"E-ESTIMATE  |  CONFIDENTIAL PRODUCT PITCH","textPreview":"E-ESTIMATE  |  CONFIDENTIAL PRODUCT PITCH","textChars":41,"textLines":1,"bbox":[72,678,500,16]}
+{"kind":"textbox","id":"sh/utsrqhon","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1158,676,50,18]}
+{"kind":"notes","id":"nt/92p3sx","slide":5,"text":"Workflow synthesized from README and repository structure, including Typst print compilation and Tauri packaging."}
+{"kind":"slide","id":"sl/jxsbke","slide":6,"title":"06","textShapes":10}
+{"kind":"textbox","id":"sh/f69kbu5k","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[72,42,48,25]}
+{"kind":"textbox","id":"sh/gri1kz6p","slide":6,"text":"Designed around Telangana SOR/SSR workflows","textPreview":"Designed around Telangana SOR/SSR workflows","textChars":43,"textLines":1,"bbox":[72,76,970,52]}
+{"kind":"textbox","id":"sh/1sb2d4na","slide":6,"text":"E-Estimate focuses the product on the rules and documents that estimation teams already use.","textPreview":"E-Estimate focuses the product on the rules and documents that estimation teams already use.","textChars":92,"textLines":1,"bbox":[72,132,910,28]}
+{"kind":"shape","id":"sh/2tkjm9ov","slide":6,"bbox":[72,178,1136,2]}
+{"kind":"shape","id":"sh/3utkfe5g","slide":6,"bbox":[72,238,1136,258]}
+{"kind":"textbox","id":"sh/ov2loz61","slide":6,"text":"TELANGANA","textPreview":"TELANGANA","textChars":9,"textLines":1,"bbox":[108,278,230,28]}
+{"kind":"textbox","id":"sh/pwb2h4nm","slide":6,"text":"A domain-specific estimation environment","textPreview":"A domain-specific estimation environment","textChars":40,"textLines":1,"bbox":[108,324,520,44]}
+{"kind":"textbox","id":"sh/qxk3q9o7","slide":6,"text":"The product brings SOR/SSR catalogue work, rate analysis, leads, seigniorage and project output into one application.","textPreview":"The product brings SOR/SSR catalogue work, rate analysis, leads, seigniorage and project output into one application.","textChars":117,"textLines":1,"bbox":[108,390,626,66]}
+{"kind":"shape","id":"sh/bytkje5s","slide":6,"bbox":[832,268,260,168]}
+{"kind":"textbox","id":"sh/3ul47m9o","slide":6,"text":"FOCUSED\nWORKFLOWS","textPreview":"FOCUSED | WORKFLOWS","textChars":17,"textLines":2,"bbox":[858,301,206,56]}
+{"kind":"textbox","id":"sh/29c3yhs3","slide":6,"text":"Built around the estimation process.","textPreview":"Built around the estimation process.","textChars":36,"textLines":1,"bbox":[858,374,185,35]}
+{"kind":"textbox","id":"sh/pwnm9wru","slide":6,"text":"E-ESTIMATE  |  CONFIDENTIAL PRODUCT PITCH","textPreview":"E-ESTIMATE  |  CONFIDENTIAL PRODUCT PITCH","textChars":41,"textLines":1,"bbox":[72,678,500,16]}
+{"kind":"textbox","id":"sh/ovul0ra9","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1158,676,50,18]}
+{"kind":"notes","id":"nt/jxsbke","slide":6,"text":"Regional focus stated in README.md."}
+{"kind":"slide","id":"sl/zw5lot","slide":7,"title":"07","textShapes":12}
+{"kind":"textbox","id":"sh/dg3mtora","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[72,42,48,25]}
+{"kind":"textbox","id":"sh/qdsni9sj","slide":7,"text":"Desktop delivery for everyday estimation work","textPreview":"Desktop delivery for everyday estimation work","textChars":45,"textLines":1,"bbox":[72,76,970,52]}
+{"kind":"textbox","id":"sh/be14re94","slide":7,"text":"E-Estimate ships as a packaged Windows application.","textPreview":"E-Estimate ships as a packaged Windows application.","textChars":51,"textLines":1,"bbox":[72,132,910,28]}
+{"kind":"shape","id":"sh/oba5gzat","slide":7,"bbox":[72,178,1136,2]}
+{"kind":"shape","id":"sh/pcjmp4ry","slide":7,"bbox":[72,258,336,234]}
+{"kind":"shape","id":"sh/29snepsn","slide":7,"bbox":[72,258,336,8]}
+{"kind":"textbox","id":"sh/3a14nu98","slide":7,"text":"Windows desktop","textPreview":"Windows desktop","textChars":15,"textLines":1,"bbox":[100,302,278,34]}
+{"kind":"textbox","id":"sh/87u5s3ax","slide":7,"text":"A native desktop shell built with Tauri 2 and WebView2.","textPreview":"A native desktop shell built with Tauri 2 and WebView2.","textChars":55,"textLines":1,"bbox":[100,361,272,76]}
+{"kind":"shape","id":"sh/98n618ri","slide":7,"bbox":[450,258,336,234]}
+{"kind":"shape","id":"sh/t4f6hknq","slide":7,"bbox":[450,258,336,8]}
+{"kind":"textbox","id":"sh/s36pof65","slide":7,"text":"Print-ready output","textPreview":"Print-ready output","textChars":18,"textLines":1,"bbox":[478,302,278,34]}
+{"kind":"textbox","id":"sh/r2xofa5k","slide":7,"text":"Typst-based document compilation supports formal estimate output.","textPreview":"Typst-based document compilation supports formal estimate output.","textChars":65,"textLines":1,"bbox":[478,361,272,76]}
+{"kind":"shape","id":"sh/61o7m5of","slide":7,"bbox":[828,258,336,234]}
+{"kind":"shape","id":"sh/50f6d0nu","slide":7,"bbox":[828,258,336,8]}
+{"kind":"textbox","id":"sh/4zmpkv69","slide":7,"text":"Packaged distribution","textPreview":"Packaged distribution","textChars":21,"textLines":1,"bbox":[856,302,278,34]}
+{"kind":"textbox","id":"sh/jydoba5o","slide":7,"text":"The project produces a Windows NSIS installer.","textPreview":"The project produces a Windows NSIS installer.","textChars":46,"textLines":1,"bbox":[856,361,272,76]}
+{"kind":"textbox","id":"sh/ix47i5o3","slide":7,"text":"The pitch can support a product demo, pilot discussion or stakeholder review.","textPreview":"The pitch can support a product demo, pilot discussion or stakeholder review.","textChars":77,"textLines":1,"bbox":[72,557,920,34]}
+{"kind":"textbox","id":"sh/pwzqp4ny","slide":7,"text":"E-ESTIMATE  |  CONFIDENTIAL PRODUCT PITCH","textPreview":"E-ESTIMATE  |  CONFIDENTIAL PRODUCT PITCH","textChars":41,"textLines":1,"bbox":[72,678,500,16]}
+{"kind":"textbox","id":"sh/ovqpwzmd","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1158,676,50,18]}
+{"kind":"notes","id":"nt/zw5lot","slide":7,"text":"Technical delivery details are sourced from README.md."}
+{"kind":"slide","id":"sl/t6vwsh","slide":8,"title":"E-ESTIMATE","textShapes":6}
+{"kind":"textbox","id":"sh/obm5gbap","slide":8,"text":"E-ESTIMATE","textPreview":"E-ESTIMATE","textChars":10,"textLines":1,"bbox":[72,98,260,28]}
+{"kind":"textbox","id":"sh/nad4n6t4","slide":8,"text":"A clearer working record\nfor every estimate","textPreview":"A clearer working record | for every estimate","textChars":43,"textLines":2,"bbox":[72,152,710,112]}
+{"kind":"textbox","id":"sh/m9kne1sj","slide":8,"text":"Next conversation","textPreview":"Next conversation","textChars":17,"textLines":1,"bbox":[72,334,200,28]}
+{"kind":"textbox","id":"sh/xgvmtgb6","slide":8,"text":"Select a pilot estimate, walk through the workflow, and define the output needed by your team.","textPreview":"Select a pilot estimate, walk through the workflow, and define the output needed by your team.","textChars":94,"textLines":1,"bbox":[72,382,690,58]}
+{"kind":"shape","id":"sh/wfm5kba1","slide":8,"bbox":[72,534,170,5]}
+{"kind":"textbox","id":"sh/bed4r6tg","slide":8,"text":"Thank you","textPreview":"Thank you","textChars":9,"textLines":1,"bbox":[72,568,240,36]}
+{"kind":"textbox","id":"sh/ad4ni1sv","slide":8,"text":"E-Estimate  |  Construction cost estimation software","textPreview":"E-Estimate  |  Construction cost estimation software","textChars":52,"textLines":1,"bbox":[72,622,520,22]}
+{"kind":"notes","id":"nt/t6vwsh","slide":8,"text":"Closing slide."}

@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Check, LoaderCircle, MapPin, Search } from 'lucide-react'
+import { Check, LoaderCircle } from 'lucide-react'
 import { useStore } from '../../store/useStore'
-import { fetchSorYears, resolveAreaAllowance } from '../../lib/masterData'
-import { normalizePlaceName } from '../../lib/placeNormalization'
-import type { ProjectAreaAllowance, ProjectLocation, ProjectMeta } from '../../types/project'
-import LocationMap from './LocationMap'
+import { fetchSorYears } from '../../lib/masterData'
+import { resolveManualAreaAllowance } from '../../lib/manualAreaAllowance'
+import type { ProjectAreaAllowance, ProjectMeta } from '../../types/project'
 
 const FALLBACK_YEARS = ['2026-27', '2025-26', '2024-25', '2023-24']
-const ALLOWANCE_TYPES = [
+export const ALLOWANCE_TYPES = [
   { value: 'GHMC', label: 'GHMC' },
   { value: 'CORPORATION', label: 'Corporation' },
   { value: 'MUNICIPALITY', label: 'Municipality' },
@@ -36,34 +35,20 @@ export function ProjectDetailsForm({
   const [sorZone, setSorZone] = useState<'zone_1' | 'zone_2' | 'zone_3'>(
     initialMeta?.sorZone ?? 'zone_3'
   )
-  const [location, setLocation] = useState<ProjectLocation | null>(initialMeta?.location ?? null)
   const [areaAllowance, setAreaAllowance] = useState<ProjectAreaAllowance | null>(
     initialMeta?.areaAllowance ??
       (initialMeta
         ? {
             type: null,
-            label: initialMeta.areaAllowanceLabel ?? 'No location-based area allowance',
+            label: initialMeta.areaAllowanceLabel ?? 'No area allowance (manual)',
             percent: initialMeta.areaAllowancePercent ?? 0
           }
         : null)
   )
   const [resolvingAllowance, setResolvingAllowance] = useState(false)
   const [allowanceError, setAllowanceError] = useState<string | null>(null)
-  const [allowanceMode, setAllowanceMode] = useState<'automatic' | 'manual'>(
-    initialMeta?.areaAllowance?.source === 'manual' ? 'manual' : 'automatic'
-  )
   const [manualAllowanceType, setManualAllowanceType] = useState(
-    initialMeta?.areaAllowance?.source === 'manual' ? initialMeta.areaAllowance.type ?? '' : ''
-  )
-
-  const [searchText, setSearchText] = useState(initialMeta?.location?.label ?? '')
-  const [searching, setSearching] = useState(false)
-  const [recenterToken, setRecenterToken] = useState(0)
-  const [latInput, setLatInput] = useState(
-    initialMeta?.location ? initialMeta.location.lat.toFixed(6) : ''
-  )
-  const [lngInput, setLngInput] = useState(
-    initialMeta?.location ? initialMeta.location.lng.toFixed(6) : ''
+    initialMeta?.areaAllowance?.type ?? ''
   )
   const [loadError, setLoadError] = useState<string | null>(null)
   const hasSorZones = sorYear === '2026-27'
@@ -97,7 +82,7 @@ export function ProjectDetailsForm({
   }, [hasSorZones])
 
   useEffect(() => {
-    if (!location || !sorYear) {
+    if (!sorYear) {
       setAreaAllowance(null)
       setAllowanceError(null)
       return
@@ -105,11 +90,7 @@ export function ProjectDetailsForm({
     let alive = true
     setResolvingAllowance(true)
     setAllowanceError(null)
-    void resolveAreaAllowance(
-      location,
-      sorYear,
-      allowanceMode === 'manual' ? manualAllowanceType || null : undefined
-    )
+    void resolveManualAreaAllowance(manualAllowanceType || null, sorYear)
       .then((resolved) => {
         if (alive) setAreaAllowance(resolved)
       })
@@ -126,53 +107,17 @@ export function ProjectDetailsForm({
     return () => {
       alive = false
     }
-  }, [location?.lat, location?.lng, sorYear, allowanceMode, manualAllowanceType])
-
-  const pick = (lat: number, lng: number, label?: string): void => {
-    setLocation({ lat, lng, label })
-    setLatInput(lat.toFixed(6))
-    setLngInput(lng.toFixed(6))
-  }
-
-  const searchLocation = async (): Promise<void> => {
-    const query = searchText.trim()
-    if (!query) return
-    setSearching(true)
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`
-      )
-      const data = (await response.json()) as { lat: string; lon: string; display_name: string }[]
-      if (data[0]) {
-        pick(parseFloat(data[0].lat), parseFloat(data[0].lon), data[0].display_name)
-        setRecenterToken((token) => token + 1)
-      }
-    } catch {
-      setLoadError('Location search failed. You can still click the map or enter coordinates.')
-    } finally {
-      setSearching(false)
-    }
-  }
-
-  const applyLatLng = (): void => {
-    const lat = parseFloat(latInput)
-    const lng = parseFloat(lngInput)
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      pick(lat, lng)
-      setRecenterToken((token) => token + 1)
-    }
-  }
+  }, [sorYear, manualAllowanceType])
 
   const valid =
     name.trim().length > 0 &&
     Boolean(sorYear) &&
-    Boolean(location) &&
     Boolean(areaAllowance) &&
     !resolvingAllowance &&
     !allowanceError
 
   const submit = (): void => {
-    if (!valid || !location || !areaAllowance) return
+    if (!valid || !areaAllowance) return
     const meta: ProjectMeta = {
       name: name.trim(),
       sorYear,
@@ -180,7 +125,7 @@ export function ProjectDetailsForm({
       areaAllowancePercent: areaAllowance.percent,
       areaAllowanceLabel: areaAllowance.label,
       areaAllowance,
-      location,
+      location: mode === 'edit' ? (initialMeta?.location ?? null) : null,
       flags: areaAllowance.type ? [areaAllowance.type] : [],
       taxSettings: initialMeta?.taxSettings ?? {
         mode: 'automatic',
@@ -198,13 +143,13 @@ export function ProjectDetailsForm({
         <>
           <h1>New Project</h1>
           <p className="form-lead">
-            Set up the project details. Area allowance is identified from the selected location.
+            Set up the project details. Choose the area classification for the labour allowance.
           </p>
         </>
       ) : (
         <p className="form-lead project-edit-lead">
-          Edit the same project details used during creation. Changing the location or year refreshes
-          the area allowance automatically.
+          Edit the same project details used during creation. Changing the year or
+          classification refreshes the area allowance automatically.
         </p>
       )}
 
@@ -264,88 +209,24 @@ export function ProjectDetailsForm({
         </div>
       </div>
 
-      <div className="form-section">
-        <h2>
-          Location<span className="required-mark">*</span>
-        </h2>
-        <div className="map-tools">
-          <input
-            className="text-input"
-            placeholder="Search a place (OpenStreetMap)…"
-            value={searchText}
-            onChange={(event) => setSearchText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') void searchLocation()
-            }}
-          />
-          <button className="btn ghost" onClick={() => void searchLocation()} disabled={searching}>
-            <Search size={14} /> {searching ? 'Searching…' : 'Search'}
-          </button>
-        </div>
-        <div className="map-tools">
-          <input
-            className="text-input"
-            placeholder="Latitude"
-            value={latInput}
-            onChange={(event) => setLatInput(event.target.value)}
-          />
-          <input
-            className="text-input"
-            placeholder="Longitude"
-            value={lngInput}
-            onChange={(event) => setLngInput(event.target.value)}
-          />
-          <button className="btn ghost" onClick={applyLatLng}>
-            <MapPin size={14} /> Go
-          </button>
-        </div>
-        <div data-tour="np-map">
-          <LocationMap value={location} onPick={pick} recenterToken={recenterToken} />
-        </div>
-        <div className="latlng-display">
-          {location
-            ? `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}${
-                location.label ? ` · ${location.label}` : ''
-              }`
-            : 'Click the map, search, or enter coordinates to set the project location.'}
-        </div>
-      </div>
-
       <div className="form-section area-allowance-section" data-tour="np-allowance">
         <h2>Area Allowance</h2>
-        <div className="allowance-mode-control" role="group" aria-label="Area allowance classification mode">
-          <button
-            type="button"
-            className={allowanceMode === 'automatic' ? 'active' : ''}
-            onClick={() => setAllowanceMode('automatic')}
-          >
-            Automatic from map
-          </button>
-          <button
-            type="button"
-            className={allowanceMode === 'manual' ? 'active' : ''}
-            onClick={() => setAllowanceMode('manual')}
-          >
-            Manual override
-          </button>
+        <p className="form-lead">Select the area classification for this project.</p>
+        <div className="allowance-flags" aria-label="Area classification">
+          {ALLOWANCE_TYPES.map((option) => (
+            <button
+              type="button"
+              key={option.value || 'none'}
+              className={manualAllowanceType === option.value ? 'selected' : ''}
+              onClick={() => setManualAllowanceType(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
-        {allowanceMode === 'manual' && (
-          <div className="allowance-flags" aria-label="Manual area classification">
-            {ALLOWANCE_TYPES.map((option) => (
-              <button
-                type="button"
-                key={option.value || 'none'}
-                className={manualAllowanceType === option.value ? 'selected' : ''}
-                onClick={() => setManualAllowanceType(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        )}
         {resolvingAllowance ? (
           <div className="allowance-status is-loading">
-            <LoaderCircle size={18} className="spin" /> Checking the selected location…
+            <LoaderCircle size={18} className="spin" /> Looking up the allowance rule…
           </div>
         ) : allowanceError ? (
           <div className="allowance-status is-error">{allowanceError}</div>
@@ -360,18 +241,6 @@ export function ProjectDetailsForm({
               <strong>{areaAllowance.percent.toFixed(2)}%</strong>
             </div>
             <div>
-              <span>Mapped location</span>
-              <strong>
-                {[
-                  normalizePlaceName(areaAllowance.village),
-                  normalizePlaceName(areaAllowance.mandal),
-                  normalizePlaceName(areaAllowance.district)
-                ]
-                  .filter(Boolean)
-                  .join(', ') || 'Outside a mapped allowance area'}
-              </strong>
-            </div>
-            <div>
               <span>Rule source</span>
               <strong>
                 {areaAllowance.ruleYear || sorYear}
@@ -380,7 +249,7 @@ export function ProjectDetailsForm({
             </div>
           </div>
         ) : (
-          <div className="allowance-status">Select the project location to determine allowance.</div>
+          <div className="allowance-status">Select an area classification above to determine the allowance.</div>
         )}
         {areaAllowance?.description && (
           <p className="allowance-description">{areaAllowance.description}</p>

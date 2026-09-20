@@ -1,0 +1,43 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img "E-Estimate" [ref=e7]
+        - text: E-Estimate
+      - button "File" [ref=e10] [cursor=pointer]
+      - button "Component" [ref=e12] [cursor=pointer]
+      - button "Help" [ref=e14] [cursor=pointer]
+      - button "Undo" [disabled] [ref=e15]
+      - button "Redo" [disabled] [ref=e19]
+    - textbox "Search project, pages, items…" [ref=e69]
+    - generic [ref=e29]:
+      - generic [ref=e70]: Untitled (new)
+      - button "Notifications, 1 unread" [ref=e31] [cursor=pointer]:
+        - generic [ref=e35]: "1"
+  - generic [ref=e71]:
+    - generic [ref=e72]:
+      - strong [ref=e73]: This project has not been saved yet.
+      - text: Nothing you enter is being kept — choose where it should live and it saves itself from then on.
+    - button "Save project" [ref=e74] [cursor=pointer]
+  - generic [ref=e36]:
+    - generic [ref=e75]:
+      - button "Explorer" [ref=e76] [cursor=pointer]
+      - button "Search" [ref=e81] [cursor=pointer]
+      - button "Lead Dashboard" [ref=e85] [cursor=pointer]
+      - button "DATA Dashboard" [ref=e90] [cursor=pointer]
+      - button "Source Control" [ref=e95] [cursor=pointer]
+    - generic [ref=e100]:
+      - generic [ref=e101]:
+        - generic [ref=e102]:
+          - generic [ref=e103]: Explorer
+          - generic [ref=e104]:
+            - button "Add Page" [ref=e105] [cursor=pointer]
+            - button "Add Component" [ref=e109] [cursor=pointer]
+        - generic "Title" [ref=e118] [cursor=pointer]
+      - generic [ref=e119]:
+        - tablist "Project data" [ref=e120]:
+          - button "Seigniorage" [ref=e121] [cursor=pointer]
+          - button "Lead" [ref=e127] [cursor=pointer]
+          - button "Data" [ref=e131] [cursor=pointer]
+        - generic [ref=e136]: Items added in Explorer will appear here.
+    - generic [ref=e37]: Loading...

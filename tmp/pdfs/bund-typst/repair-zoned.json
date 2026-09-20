@@ -1,0 +1,3190 @@
+{
+  "layout_kind": "repair-zoned",
+  "layout_label": "REPAIR · ZONED",
+  "is_new": false,
+  "is_zoned": true,
+  "show_freeboard": false,
+  "show_hearting": true,
+  "show_cutoff_trench": false,
+  "show_repair_kind": true,
+  "project_name": "Test reservoir",
+  "component_name": "Bund #1 [West]",
+  "document_settings": {
+    "paper": "a4",
+    "flipped": false,
+    "margins": {
+      "top": 20,
+      "right": 15,
+      "bottom": 20,
+      "left": 25
+    },
+    "statement_page_width_mm": 257
+  },
+  "design": {
+    "topLevel": 100,
+    "mwl": 98.5,
+    "ftl": 98,
+    "deepBedLevel": null,
+    "freeBoard": 1.5,
+    "topWidth": 6,
+    "usSlope": 2,
+    "dsSlope": 2,
+    "stripDepth": 0.3,
+    "berms": [
+      {
+        "id": "n_5ylmi1a393ry",
+        "side": "us",
+        "level": 96,
+        "width": 3,
+        "crossFall": 40,
+        "slopeBelow": null,
+        "surfaceMaterial": {
+          "code": "IRR-CAW-8-15",
+          "unit": "SQM"
+        },
+        "surfaceThickness": 0.1,
+        "drainLiningMaterial": {
+          "code": "IRR-CAW-7-12",
+          "unit": "CUM"
+        },
+        "drainExcavationMaterial": {
+          "code": "IRR-CAW-1-1",
+          "unit": "CUM"
+        },
+        "drainWidth": 0.6,
+        "drainDepth": 0.3,
+        "drainLiningThickness": 0.1,
+        "chuteDrainLiningMaterial": null,
+        "chuteDrainExcavationMaterial": null,
+        "chuteDrainProtectionType": "concrete"
+      },
+      {
+        "id": "n_5kj3hs6y93ry",
+        "side": "ds",
+        "level": 97,
+        "width": 3,
+        "crossFall": 40,
+        "slopeBelow": null,
+        "surfaceMaterial": {
+          "code": "IRR-CAW-8-15",
+          "unit": "SQM"
+        },
+        "surfaceThickness": 0.1,
+        "drainLiningMaterial": {
+          "code": "IRR-CAW-7-12",
+          "unit": "CUM"
+        },
+        "drainExcavationMaterial": {
+          "code": "IRR-CAW-1-1",
+          "unit": "CUM"
+        },
+        "drainWidth": 0.6,
+        "drainDepth": 0.3,
+        "drainLiningThickness": 0.1,
+        "chuteDrainLiningMaterial": null,
+        "chuteDrainExcavationMaterial": {
+          "code": "IRR-CAW-1-1",
+          "unit": "CUM"
+        },
+        "chuteDrainProtectionType": "concrete"
+      }
+    ]
+  },
+  "hearting_design": {
+    "topLevel": 100,
+    "topWidth": 2.4,
+    "usSlope": 0.5,
+    "dsSlope": 0.5,
+    "centerOffset": 0
+  },
+  "cutoff_trench": {
+    "depthMode": "auto",
+    "depth": 0.6,
+    "bottomWidth": 3,
+    "usSlope": 0.5,
+    "dsSlope": 0.5,
+    "fillMaterial": null,
+    "excavationMaterial": null,
+    "resolved_depth_m": 1.5,
+    "area_m2": 5.625
+  },
+  "chute_geometry": {
+    "width_m": 0.6,
+    "depth_m": 0.3,
+    "lining_thickness_m": 0.1,
+    "excavation_area_m2": 0.18,
+    "lined_perimeter_m": 1.2,
+    "protection_measure": "volume",
+    "protection_unit": "m³",
+    "equivalent_section_unit": "m³/m"
+  },
+  "length_m": 60,
+  "datum_rl": 0,
+  "repair_kind": "breached",
+  "soil_source": "borrow",
+  "formation_enabled": true,
+  "compaction_enabled": true,
+  "configuration": {
+    "configured": true,
+    "mode": "restoration",
+    "embankmentType": "zoned",
+    "zonedRepairKind": "breached",
+    "zonedSoilSource": "borrow",
+    "zonedSsrVersion": 1,
+    "source": "map",
+    "alignment": [],
+    "lengthM": 60,
+    "chainageUnit": "m",
+    "includePhreaticInPrint": true,
+    "sectionMode": "continuous",
+    "intervalM": 30,
+    "breaks": [],
+    "datum": 0,
+    "design": {
+      "topLevel": 100,
+      "mwl": 98.5,
+      "ftl": 98,
+      "deepBedLevel": null,
+      "freeBoard": 1.5,
+      "topWidth": 6,
+      "usSlope": 2,
+      "dsSlope": 2,
+      "stripDepth": 0.3,
+      "berms": [
+        {
+          "id": "n_5ylmi1a393ry",
+          "side": "us",
+          "level": 96,
+          "width": 3,
+          "crossFall": 40,
+          "slopeBelow": null,
+          "surfaceMaterial": {
+            "code": "IRR-CAW-8-15",
+            "unit": "SQM"
+          },
+          "surfaceThickness": 0.1,
+          "drainLiningMaterial": {
+            "code": "IRR-CAW-7-12",
+            "unit": "CUM"
+          },
+          "drainExcavationMaterial": {
+            "code": "IRR-CAW-1-1",
+            "unit": "CUM"
+          },
+          "drainWidth": 0.6,
+          "drainDepth": 0.3,
+          "drainLiningThickness": 0.1,
+          "chuteDrainLiningMaterial": null,
+          "chuteDrainExcavationMaterial": null,
+          "chuteDrainProtectionType": "concrete"
+        },
+        {
+          "id": "n_5kj3hs6y93ry",
+          "side": "ds",
+          "level": 97,
+          "width": 3,
+          "crossFall": 40,
+          "slopeBelow": null,
+          "surfaceMaterial": {
+            "code": "IRR-CAW-8-15",
+            "unit": "SQM"
+          },
+          "surfaceThickness": 0.1,
+          "drainLiningMaterial": {
+            "code": "IRR-CAW-7-12",
+            "unit": "CUM"
+          },
+          "drainExcavationMaterial": {
+            "code": "IRR-CAW-1-1",
+            "unit": "CUM"
+          },
+          "drainWidth": 0.6,
+          "drainDepth": 0.3,
+          "drainLiningThickness": 0.1,
+          "chuteDrainLiningMaterial": null,
+          "chuteDrainExcavationMaterial": {
+            "code": "IRR-CAW-1-1",
+            "unit": "CUM"
+          },
+          "chuteDrainProtectionType": "concrete"
+        }
+      ]
+    },
+    "heartingDesign": {
+      "topLevel": 100,
+      "topWidth": 2.4,
+      "usSlope": 0.5,
+      "dsSlope": 0.5,
+      "centerOffset": 0
+    },
+    "casingSoilType": null,
+    "heartingSoilType": null,
+    "heartingSlopeProfile": "compact-core",
+    "zonedSlopeMode": "manual",
+    "homogeneousSoilType": null,
+    "homogeneousSlopeMode": "manual",
+    "heartingTrench": {
+      "depthMode": "auto",
+      "depth": 0.6,
+      "bottomWidth": 3,
+      "usSlope": 0.5,
+      "dsSlope": 0.5,
+      "fillMaterial": null,
+      "excavationMaterial": null
+    },
+    "billing": "combined",
+    "formationEnabled": true,
+    "compactionEnabled": true,
+    "earthworkOperationVersion": 2,
+    "fillBasis": "existing",
+    "clearanceMaterial": {
+      "code": "IRR-PMW-1-2"
+    },
+    "clearanceMode": "perimeter",
+    "clearanceManualRows": [],
+    "strippingMaterial": {
+      "code": "IRR-CAW-1-1"
+    },
+    "formationMaterial": {
+      "code": "IRR-PMW-3-9"
+    },
+    "rollingMaterial": {
+      "code": "IRR-PMW-3-18"
+    },
+    "heartingMaterial": {
+      "code": "IRR-PMW-3-8"
+    },
+    "heartingRollingMaterial": {
+      "code": "IRR-PMW-3-18"
+    },
+    "turfingMaterial": {
+      "code": "IRR-DAW-6-15",
+      "unit": "SQM"
+    },
+    "turfingThickness": 0.15,
+    "pitchingMaterial": null,
+    "pitchingExtent": "mwl",
+    "pitchingThickness": 0.6,
+    "pitchingAsVolume": false,
+    "pitchingBeddingMaterial": null,
+    "pitchingBeddingThickness": 0.15,
+    "pitchingMetalEnabled": false,
+    "pitchingMetalMaterial": null,
+    "pitchingMetalThickness": 0.2,
+    "horizontalFilterMaterial": null,
+    "horizontalFilterLengthMode": "auto",
+    "horizontalFilterLength": 6,
+    "horizontalFilterThickness": 0.4,
+    "verticalFilterMaterial": null,
+    "verticalFilterWidth": 0.45,
+    "verticalFilterHeight": 0,
+    "rockToeMaterial": {
+      "code": "IRR-CAW-5-6",
+      "unit": "CUM"
+    },
+    "rockToeFilterMaterial": {
+      "code": "IRR-CAW-5-11",
+      "unit": "CUM"
+    },
+    "rockToeTopWidth": 0,
+    "rockToeInnerSlope": 1,
+    "rockToeOuterSlope": 2,
+    "rockToeAutoHeight": false,
+    "rockToeHeight": 1.2,
+    "rockToeExcavationDepth": 0,
+    "rockToeExcavationMaterial": {
+      "code": "IRR-DAW-1-1"
+    },
+    "soilBands": [],
+    "excavationBands": {
+      "stripping": [
+        {
+          "id": "n_wnoh27rq93ry",
+          "label": "All Soils",
+          "pct": 100,
+          "material": {
+            "code": "IRR-CAW-1-1"
+          }
+        },
+        {
+          "id": "n_i2pn4k7893ry",
+          "label": "HDR",
+          "pct": 0,
+          "material": {
+            "code": "IRR-CAW-1-4"
+          }
+        },
+        {
+          "id": "n_01mn9h2z93ry",
+          "label": "F&F",
+          "pct": 0,
+          "material": {
+            "code": "IRR-CAW-1-6"
+          }
+        },
+        {
+          "id": "n_b8qf683w93ry",
+          "label": "HR",
+          "pct": 0,
+          "material": {
+            "code": "IRR-CAW-1-7"
+          }
+        }
+      ],
+      "ustoe-exc": [
+        {
+          "id": "n_cui6h13s93ry",
+          "label": "All Soils",
+          "pct": 100,
+          "material": {
+            "code": "IRR-DAW-1-1"
+          }
+        },
+        {
+          "id": "n_ugzu2h6j93ry",
+          "label": "HDR",
+          "pct": 0,
+          "material": {
+            "code": "IRR-DAW-1-2"
+          }
+        },
+        {
+          "id": "n_jt7sxvhl93ry",
+          "label": "F&F",
+          "pct": 0,
+          "material": {
+            "code": "IRR-DAW-1-3"
+          }
+        },
+        {
+          "id": "n_4mcy2agu93ry",
+          "label": "HR",
+          "pct": 0,
+          "material": {
+            "code": "IRR-DAW-1-5"
+          }
+        }
+      ],
+      "dstoe-exc": [
+        {
+          "id": "n_6c7oabfk93ry",
+          "label": "All Soils",
+          "pct": 100,
+          "material": {
+            "code": "IRR-CAW-1-1"
+          }
+        },
+        {
+          "id": "n_hulnzz5193ry",
+          "label": "HDR",
+          "pct": 0,
+          "material": {
+            "code": "IRR-CAW-1-4"
+          }
+        },
+        {
+          "id": "n_zhut0jn193ry",
+          "label": "F&F",
+          "pct": 0,
+          "material": {
+            "code": "IRR-CAW-1-6"
+          }
+        },
+        {
+          "id": "n_l1hlv0da93ry",
+          "label": "HR",
+          "pct": 0,
+          "material": {
+            "code": "IRR-CAW-1-7"
+          }
+        }
+      ],
+      "rocktoe-exc": [
+        {
+          "id": "n_e5fvh3bu93ry",
+          "label": "All Soils",
+          "pct": 100,
+          "material": {
+            "code": "IRR-DAW-1-1"
+          }
+        },
+        {
+          "id": "n_eoz3qk8w93ry",
+          "label": "HDR",
+          "pct": 0,
+          "material": {
+            "code": "IRR-DAW-1-2"
+          }
+        },
+        {
+          "id": "n_o1lt7kso93ry",
+          "label": "F&F",
+          "pct": 0,
+          "material": {
+            "code": "IRR-DAW-1-3"
+          }
+        },
+        {
+          "id": "n_kl6u2xnd93ry",
+          "label": "HR",
+          "pct": 0,
+          "material": {
+            "code": "IRR-DAW-1-5"
+          }
+        }
+      ],
+      "chute-exc": [
+        {
+          "id": "n_lnp88k6y93ry",
+          "label": "All Soils",
+          "pct": 100,
+          "material": {
+            "code": "IRR-CAW-1-1"
+          }
+        },
+        {
+          "id": "n_wye15mmj93ry",
+          "label": "HDR",
+          "pct": 0,
+          "material": {
+            "code": "IRR-CAW-1-4"
+          }
+        },
+        {
+          "id": "n_ake4vkuw93ry",
+          "label": "F&F",
+          "pct": 0,
+          "material": {
+            "code": "IRR-CAW-1-6"
+          }
+        },
+        {
+          "id": "n_ehecp63493ry",
+          "label": "HR",
+          "pct": 0,
+          "material": {
+            "code": "IRR-CAW-1-7"
+          }
+        }
+      ],
+      "berm-drain-exc": [
+        {
+          "id": "n_uh0dbmd493ry",
+          "label": "All Soils",
+          "pct": 100,
+          "material": {
+            "code": "IRR-CAW-1-1"
+          }
+        },
+        {
+          "id": "n_mxlp8a2f93ry",
+          "label": "HDR",
+          "pct": 0,
+          "material": {
+            "code": "IRR-CAW-1-4"
+          }
+        },
+        {
+          "id": "n_wgkkuv5193ry",
+          "label": "F&F",
+          "pct": 0,
+          "material": {
+            "code": "IRR-CAW-1-6"
+          }
+        },
+        {
+          "id": "n_ui5tc4bo93ry",
+          "label": "HR",
+          "pct": 0,
+          "material": {
+            "code": "IRR-CAW-1-7"
+          }
+        }
+      ],
+      "hearting-trench-exc": [
+        {
+          "id": "n_womk9xxn93ry",
+          "label": "All Soils",
+          "pct": 100,
+          "material": {
+            "code": "IRR-DAW-1-1"
+          }
+        },
+        {
+          "id": "n_be5p0ktd93ry",
+          "label": "HDR",
+          "pct": 0,
+          "material": {
+            "code": "IRR-DAW-1-2"
+          }
+        },
+        {
+          "id": "n_wynou4ai93ry",
+          "label": "F&F",
+          "pct": 0,
+          "material": {
+            "code": "IRR-DAW-1-3"
+          }
+        },
+        {
+          "id": "n_tck0vrp893ry",
+          "label": "HR",
+          "pct": 0,
+          "material": {
+            "code": "IRR-DAW-1-5"
+          }
+        }
+      ]
+    },
+    "strippingExcavationFamily": "seating",
+    "excavationClassificationVersion": 2,
+    "upstreamToe": {
+      "excavationMaterial": null,
+      "topWidth": 0.6,
+      "bottomWidth": 0.6,
+      "depth": 0.6,
+      "invertMode": "auto",
+      "invertLevel": null,
+      "leftSlope": 1,
+      "rightSlope": 1,
+      "bermWidth": 1,
+      "invertStartLevel": null,
+      "invertEndLevel": null,
+      "buildMaterial": null,
+      "buildArea": 0,
+      "liningThickness": 0
+    },
+    "downstreamToe": {
+      "excavationMaterial": null,
+      "topWidth": 1.6,
+      "bottomWidth": 1,
+      "depth": 0.3,
+      "invertMode": "auto",
+      "invertLevel": null,
+      "leftSlope": 1,
+      "rightSlope": 1,
+      "bermWidth": 1,
+      "invertStartLevel": null,
+      "invertEndLevel": null,
+      "buildMaterial": null,
+      "buildArea": 0,
+      "liningThickness": 0
+    },
+    "chuteDrainLiningMaterial": {
+      "code": "IRR-CAW-7-15",
+      "unit": "CUM"
+    },
+    "chuteDrainProtectionType": "concrete",
+    "chuteDrainExcavationMaterial": {
+      "code": "IRR-CAW-1-1",
+      "unit": "CUM"
+    },
+    "chuteDrainUseSpacing": true,
+    "chuteDrainSpacing": 30,
+    "chuteDrainCount": 1,
+    "chuteDrainWidth": 0.6,
+    "chuteDrainDepth": 0.3,
+    "chuteDrainLiningThickness": 0.1,
+    "sameToeLevels": true,
+    "sections": [
+      {
+        "id": "section-0",
+        "chainage": 0,
+        "groundLevel": null,
+        "pre": [
+          {
+            "offset": -40,
+            "rl": 95
+          },
+          {
+            "offset": -10,
+            "rl": 95
+          },
+          {
+            "offset": -2,
+            "rl": 98
+          },
+          {
+            "offset": 2,
+            "rl": 98
+          },
+          {
+            "offset": 10,
+            "rl": 95
+          },
+          {
+            "offset": 40,
+            "rl": 95
+          }
+        ],
+        "stripped": null,
+        "projected": null,
+        "separateToeLevels": false,
+        "upstreamGroundLevel": 95,
+        "downstreamGroundLevel": 95
+      },
+      {
+        "id": "section-1",
+        "chainage": 30,
+        "groundLevel": null,
+        "pre": [
+          {
+            "offset": -40,
+            "rl": 95
+          },
+          {
+            "offset": -10,
+            "rl": 95
+          },
+          {
+            "offset": -2,
+            "rl": 98
+          },
+          {
+            "offset": 2,
+            "rl": 98
+          },
+          {
+            "offset": 10,
+            "rl": 95
+          },
+          {
+            "offset": 40,
+            "rl": 95
+          }
+        ],
+        "stripped": null,
+        "projected": null,
+        "separateToeLevels": false,
+        "upstreamGroundLevel": 95,
+        "downstreamGroundLevel": 95
+      },
+      {
+        "id": "section-2",
+        "chainage": 60,
+        "groundLevel": null,
+        "pre": [
+          {
+            "offset": -40,
+            "rl": 95
+          },
+          {
+            "offset": -10,
+            "rl": 95
+          },
+          {
+            "offset": -2,
+            "rl": 98
+          },
+          {
+            "offset": 2,
+            "rl": 98
+          },
+          {
+            "offset": 10,
+            "rl": 95
+          },
+          {
+            "offset": 40,
+            "rl": 95
+          }
+        ],
+        "stripped": null,
+        "projected": null,
+        "separateToeLevels": false,
+        "upstreamGroundLevel": 95,
+        "downstreamGroundLevel": 95
+      }
+    ],
+    "materialItems": []
+  },
+  "schedules": {
+    "foundation": {
+      "unit": "m³",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 8.414,
+          "end_section": 8.414,
+          "average_section": 8.414,
+          "quantity": 252.42
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 8.414,
+          "end_section": 8.414,
+          "average_section": 8.414,
+          "quantity": 252.42
+        }
+      ],
+      "total": 504.84
+    },
+    "casing": {
+      "unit": "m³",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 44.022,
+          "end_section": 44.022,
+          "average_section": 44.022,
+          "quantity": 1320.66
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 44.022,
+          "end_section": 44.022,
+          "average_section": 44.022,
+          "quantity": 1320.66
+        }
+      ],
+      "total": 2641.32
+    },
+    "hearting": {
+      "unit": "m³",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 6.818,
+          "end_section": 6.818,
+          "average_section": 6.818,
+          "quantity": 204.54
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 6.818,
+          "end_section": 6.818,
+          "average_section": 6.818,
+          "quantity": 204.54
+        }
+      ],
+      "total": 409.08
+    },
+    "clearance": {
+      "unit": "m²",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 33.088,
+          "end_section": 33.088,
+          "average_section": 33.088,
+          "quantity": 992.64
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 33.088,
+          "end_section": 33.088,
+          "average_section": 33.088,
+          "quantity": 992.64
+        }
+      ],
+      "total": 1985.28
+    },
+    "turfing": {
+      "unit": "m²",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 8.497,
+          "end_section": 8.497,
+          "average_section": 8.497,
+          "quantity": 254.91
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 8.497,
+          "end_section": 8.497,
+          "average_section": 8.497,
+          "quantity": 254.91
+        }
+      ],
+      "total": 509.82
+    },
+    "rock_toe": {
+      "unit": "m³",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 2.16,
+          "end_section": 2.16,
+          "average_section": 2.16,
+          "quantity": 64.8
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 2.16,
+          "end_section": 2.16,
+          "average_section": 2.16,
+          "quantity": 64.8
+        }
+      ],
+      "total": 129.6
+    },
+    "rock_toe_excavation": {
+      "unit": "m³",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 3.706,
+          "end_section": 3.706,
+          "average_section": 3.706,
+          "quantity": 111.18
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 3.706,
+          "end_section": 3.706,
+          "average_section": 3.706,
+          "quantity": 111.18
+        }
+      ],
+      "total": 222.36
+    },
+    "rock_toe_filter": {
+      "unit": "m³",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 4.449,
+          "end_section": 4.449,
+          "average_section": 4.449,
+          "quantity": 133.47
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 4.449,
+          "end_section": 4.449,
+          "average_section": 4.449,
+          "quantity": 133.47
+        }
+      ],
+      "total": 266.94
+    },
+    "chute_excavation": {
+      "unit": "m³",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 0.06706666666666666,
+          "end_section": 0.06706666666666666,
+          "average_section": 0.06706666666666666,
+          "quantity": 2.012
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 0.06706666666666666,
+          "end_section": 0.06706666666666666,
+          "average_section": 0.06706666666666666,
+          "quantity": 2.012
+        }
+      ],
+      "total": 4.024
+    },
+    "chute_lining": {
+      "unit": "m³",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 0.04473333333333333,
+          "end_section": 0.04473333333333333,
+          "average_section": 0.04473333333333333,
+          "quantity": 1.342
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 0.04473333333333333,
+          "end_section": 0.04473333333333333,
+          "average_section": 0.04473333333333333,
+          "quantity": 1.342
+        }
+      ],
+      "total": 2.684
+    },
+    "berm_fill_0": {
+      "unit": "m³",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 3,
+          "end_section": 3,
+          "average_section": 3,
+          "quantity": 90
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 3,
+          "end_section": 3,
+          "average_section": 3,
+          "quantity": 90
+        }
+      ],
+      "total": 180
+    },
+    "berm_surface_0": {
+      "unit": "m²",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 2.4,
+          "end_section": 2.4,
+          "average_section": 2.4,
+          "quantity": 72
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 2.4,
+          "end_section": 2.4,
+          "average_section": 2.4,
+          "quantity": 72
+        }
+      ],
+      "total": 144
+    },
+    "berm_drain_0": {
+      "unit": "m³",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 0.12,
+          "end_section": 0.12,
+          "average_section": 0.12,
+          "quantity": 3.6
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 0.12,
+          "end_section": 0.12,
+          "average_section": 0.12,
+          "quantity": 3.6
+        }
+      ],
+      "total": 7.2
+    },
+    "berm_drain_exc_0": {
+      "unit": "m³",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 0.18,
+          "end_section": 0.18,
+          "average_section": 0.18,
+          "quantity": 5.4
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 0.18,
+          "end_section": 0.18,
+          "average_section": 0.18,
+          "quantity": 5.4
+        }
+      ],
+      "total": 10.8
+    },
+    "berm_fill_1": {
+      "unit": "m³",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 6,
+          "end_section": 6,
+          "average_section": 6,
+          "quantity": 180
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 6,
+          "end_section": 6,
+          "average_section": 6,
+          "quantity": 180
+        }
+      ],
+      "total": 360
+    },
+    "berm_surface_1": {
+      "unit": "m²",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 2.4,
+          "end_section": 2.4,
+          "average_section": 2.4,
+          "quantity": 72
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 2.4,
+          "end_section": 2.4,
+          "average_section": 2.4,
+          "quantity": 72
+        }
+      ],
+      "total": 144
+    },
+    "berm_drain_1": {
+      "unit": "m³",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 0.12,
+          "end_section": 0.12,
+          "average_section": 0.12,
+          "quantity": 3.6
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 0.12,
+          "end_section": 0.12,
+          "average_section": 0.12,
+          "quantity": 3.6
+        }
+      ],
+      "total": 7.2
+    },
+    "berm_drain_exc_1": {
+      "unit": "m³",
+      "rows": [
+        {
+          "from_chainage": "0",
+          "to_chainage": "30",
+          "length_m": 30,
+          "start_section": 0.18,
+          "end_section": 0.18,
+          "average_section": 0.18,
+          "quantity": 5.4
+        },
+        {
+          "from_chainage": "30",
+          "to_chainage": "60",
+          "length_m": 30,
+          "start_section": 0.18,
+          "end_section": 0.18,
+          "average_section": 0.18,
+          "quantity": 5.4
+        }
+      ],
+      "total": 10.8
+    }
+  },
+  "excavation": [
+    {
+      "role": "stripping",
+      "quantity": 504.84,
+      "classes": [
+        {
+          "soil": "All Soils",
+          "percent": 100,
+          "code": "IRR-CAW-1-1",
+          "description": "",
+          "quantity": 504.84
+        }
+      ]
+    },
+    {
+      "role": "rocktoe-exc",
+      "quantity": 222.36,
+      "classes": [
+        {
+          "soil": "All Soils",
+          "percent": 100,
+          "code": "IRR-DAW-1-1",
+          "description": "",
+          "quantity": 222.36
+        }
+      ]
+    },
+    {
+      "role": "chute-exc",
+      "quantity": 4.024,
+      "classes": [
+        {
+          "soil": "All Soils",
+          "percent": 100,
+          "code": "IRR-CAW-1-1",
+          "description": "",
+          "quantity": 4.024
+        }
+      ]
+    },
+    {
+      "role": "berm-drain-exc",
+      "quantity": 21.6,
+      "material": {
+        "code": "IRR-CAW-1-1",
+        "unit": "CUM"
+      },
+      "classes": [
+        {
+          "soil": "All Soils",
+          "percent": 100,
+          "code": "IRR-CAW-1-1",
+          "description": "",
+          "quantity": 21.6
+        }
+      ]
+    }
+  ],
+  "excavation_by_code": [
+    {
+      "code": "IRR-CAW-1-1",
+      "description": "",
+      "descriptionRuns": [],
+      "terms": [
+        {
+          "role": "stripping",
+          "label": "Foundation stripping",
+          "quantity": 504.84
+        },
+        {
+          "role": "chute-exc",
+          "label": "Chute drains",
+          "quantity": 4.024
+        },
+        {
+          "role": "berm-drain-exc",
+          "label": "Berm catch-water drains",
+          "quantity": 21.6
+        }
+      ],
+      "total": 530.4639999999999
+    },
+    {
+      "code": "IRR-DAW-1-1",
+      "description": "",
+      "descriptionRuns": [],
+      "terms": [
+        {
+          "role": "rocktoe-exc",
+          "label": "Rock-toe foundation",
+          "quantity": 222.36
+        }
+      ],
+      "total": 222.36
+    }
+  ],
+  "payable_by_code": [
+    {
+      "code": "IRR-PMW-1-2",
+      "description": "",
+      "descriptionRuns": [],
+      "unit": "m²",
+      "terms": [
+        {
+          "role": "clearance",
+          "label": "Jungle clearance",
+          "quantity": 1985.28
+        }
+      ],
+      "total": 1985.28
+    },
+    {
+      "code": "IRR-PMW-3-9",
+      "description": "",
+      "descriptionRuns": [],
+      "unit": "m³",
+      "terms": [
+        {
+          "role": "casing",
+          "label": "Casing",
+          "quantity": 2230.92
+        },
+        {
+          "role": "berm:n_5ylmi1a393ry",
+          "label": "u/s Berm (RL 96)",
+          "quantity": 180
+        },
+        {
+          "role": "berm:n_5kj3hs6y93ry",
+          "label": "d/s Berm (RL 97)",
+          "quantity": 360
+        },
+        {
+          "role": "rocktoe-deduction",
+          "label": "Less: Rock toe",
+          "quantity": -129.6
+        }
+      ],
+      "total": 2641.32
+    },
+    {
+      "code": "IRR-PMW-3-8",
+      "description": "",
+      "descriptionRuns": [],
+      "unit": "m³",
+      "terms": [
+        {
+          "role": "hearting",
+          "label": "Zoned embankment - hearting formation",
+          "quantity": 409.08
+        }
+      ],
+      "total": 409.08
+    },
+    {
+      "code": "IRR-DAW-6-15",
+      "description": "",
+      "descriptionRuns": [],
+      "unit": "SQM",
+      "terms": [
+        {
+          "role": "bund",
+          "label": "Bund",
+          "quantity": 509.82
+        }
+      ],
+      "total": 509.82
+    },
+    {
+      "code": "IRR-CAW-7-15",
+      "description": "",
+      "descriptionRuns": [],
+      "unit": "CUM",
+      "terms": [
+        {
+          "role": "chute-lining",
+          "label": "D/S chute drains — channel protection",
+          "quantity": 2.684
+        }
+      ],
+      "total": 2.684
+    },
+    {
+      "code": "IRR-CAW-8-15",
+      "description": "",
+      "descriptionRuns": [],
+      "unit": "SQM",
+      "terms": [
+        {
+          "role": "berm-surface",
+          "label": "u/s Berm (RL 96)",
+          "quantity": 288
+        }
+      ],
+      "total": 288
+    },
+    {
+      "code": "IRR-CAW-7-12",
+      "description": "",
+      "descriptionRuns": [],
+      "unit": "CUM",
+      "terms": [
+        {
+          "role": "berm-drain-lining",
+          "label": "u/s Berm (RL 96)",
+          "quantity": 14.4
+        }
+      ],
+      "total": 14.4
+    },
+    {
+      "code": "IRR-CAW-5-6",
+      "description": "",
+      "descriptionRuns": [],
+      "unit": "CUM",
+      "terms": [
+        {
+          "role": "rocktoe",
+          "label": "Rock toe (d/s)",
+          "quantity": 129.6
+        }
+      ],
+      "total": 129.6
+    },
+    {
+      "code": "IRR-CAW-5-11",
+      "description": "",
+      "descriptionRuns": [],
+      "unit": "CUM",
+      "terms": [
+        {
+          "role": "rocktoe-filter",
+          "label": "Graded filter below and behind rock toe (d/s)",
+          "quantity": 266.94
+        }
+      ],
+      "total": 266.94
+    }
+  ],
+  "clearance_manual": [],
+  "chute_rows": [
+    {
+      "index": 1,
+      "chainage": 0,
+      "slopeLength": 11.18,
+      "excavationQty": 2.012,
+      "protectionArea": 13.416,
+      "liningQty": 1.342,
+      "protectionQty": 1.342
+    },
+    {
+      "index": 2,
+      "chainage": 30,
+      "slopeLength": 11.18,
+      "excavationQty": 2.012,
+      "protectionArea": 13.416,
+      "liningQty": 1.342,
+      "protectionQty": 1.342
+    }
+  ],
+  "payable_items": [
+    {
+      "role": "clearance",
+      "code": "IRR-PMW-1-2",
+      "description": "",
+      "unit": "m²",
+      "quantity": 1985.28,
+      "measure": "area"
+    },
+    {
+      "role": "stripping",
+      "code": "IRR-CAW-1-1",
+      "description": "",
+      "unit": "m³",
+      "quantity": 530.464,
+      "measure": "volume"
+    },
+    {
+      "role": "casing",
+      "code": "IRR-PMW-3-9",
+      "description": "",
+      "unit": "m³",
+      "quantity": 2641.32,
+      "measure": "volume"
+    },
+    {
+      "role": "hearting",
+      "code": "IRR-PMW-3-8",
+      "description": "",
+      "unit": "m³",
+      "quantity": 409.08,
+      "measure": "volume"
+    },
+    {
+      "role": "turfing",
+      "code": "IRR-DAW-6-15",
+      "description": "",
+      "unit": "SQM",
+      "quantity": 509.82,
+      "measure": "area"
+    },
+    {
+      "role": "chute-lining",
+      "code": "IRR-CAW-7-15",
+      "description": "",
+      "unit": "CUM",
+      "quantity": 2.684,
+      "measure": "volume"
+    },
+    {
+      "role": "berm-surface",
+      "code": "IRR-CAW-8-15",
+      "description": "",
+      "unit": "SQM",
+      "quantity": 288,
+      "measure": "area"
+    },
+    {
+      "role": "berm-drain-lining",
+      "code": "IRR-CAW-7-12",
+      "description": "",
+      "unit": "CUM",
+      "quantity": 14.4,
+      "measure": "volume"
+    },
+    {
+      "role": "rocktoe",
+      "code": "IRR-CAW-5-6",
+      "description": "",
+      "unit": "CUM",
+      "quantity": 129.6,
+      "measure": "volume"
+    },
+    {
+      "role": "rocktoe-filter",
+      "code": "IRR-CAW-5-11",
+      "description": "",
+      "unit": "CUM",
+      "quantity": 266.94,
+      "measure": "volume"
+    },
+    {
+      "role": "rocktoe-exc",
+      "code": "IRR-DAW-1-1",
+      "description": "",
+      "unit": "m³",
+      "quantity": 222.36,
+      "measure": "volume"
+    }
+  ],
+  "sections": [
+    {
+      "chainage": "0",
+      "chainage_m": 0,
+      "average_toe_rl": 95,
+      "separate_toe_levels": false,
+      "upstream_toe_rl": 95,
+      "downstream_toe_rl": 95,
+      "detailed_ground_profile": false,
+      "ground_perimeter_m": 33.088,
+      "height_m": 5.299999999999997,
+      "base_width_m": 32,
+      "svg": "<svg viewBox=\"0 0 470 99\" xmlns=\"http://www.w3.org/2000/svg\" class=\"bp-fig\"><defs><pattern id=\"bpf0\" width=\"5\" height=\"5\" patternTransform=\"rotate(45)\" patternUnits=\"userSpaceOnUse\"><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"5\" stroke=\"#4ea1e0\" stroke-width=\"0.8\"/></pattern><pattern id=\"bpc0\" width=\"5\" height=\"5\" patternTransform=\"rotate(-45)\" patternUnits=\"userSpaceOnUse\"><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"5\" stroke=\"#c9862f\" stroke-width=\"0.8\"/></pattern><pattern id=\"bph0\" width=\"4\" height=\"4\" patternUnits=\"userSpaceOnUse\"><rect width=\"4\" height=\"4\" fill=\"#fdf1f7\"/><line x1=\"0\" y1=\"0\" x2=\"4\" y2=\"4\" stroke=\"#b8558c\" stroke-width=\"0.7\"/><line x1=\"4\" y1=\"0\" x2=\"0\" y2=\"4\" stroke=\"#b8558c\" stroke-width=\"0.7\"/></pattern></defs><line x1=\"38\" y1=\"75.3\" x2=\"456.0\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"78.3\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">95.0</text><line x1=\"38\" y1=\"62.3\" x2=\"456.0\" y2=\"62.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"65.3\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">96.0</text><line x1=\"38\" y1=\"49.2\" x2=\"456.0\" y2=\"49.2\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"52.2\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">97.0</text><line x1=\"38\" y1=\"36.1\" x2=\"456.0\" y2=\"36.1\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"39.1\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">98.0</text><line x1=\"38\" y1=\"23.1\" x2=\"456.0\" y2=\"23.1\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"26.1\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">99.0</text><line x1=\"38\" y1=\"10.0\" x2=\"456.0\" y2=\"10.0\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"13.0\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">100.0</text><line x1=\"38.0\" y1=\"10.0\" x2=\"38.0\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"38.0\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">0</text><line x1=\"103.3\" y1=\"10.0\" x2=\"103.3\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"103.3\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">5</text><line x1=\"168.6\" y1=\"10.0\" x2=\"168.6\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"168.6\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">10</text><line x1=\"233.9\" y1=\"10.0\" x2=\"233.9\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"233.9\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">15</text><line x1=\"299.3\" y1=\"10.0\" x2=\"299.3\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"299.3\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">20</text><line x1=\"364.6\" y1=\"10.0\" x2=\"364.6\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"364.6\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">25</text><line x1=\"429.9\" y1=\"10.0\" x2=\"429.9\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"429.9\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">30</text><path d=\"M 38.0 75.3 L 64.1 75.3 L 64.1 79.2 L 38.0 79.2 Z\" fill=\"url(#bpc0)\"/><path d=\"M 64.1 75.3 L 103.3 75.3 L 103.3 79.2 L 64.1 79.2 Z\" fill=\"url(#bpc0)\"/><path d=\"M 103.3 75.3 L 116.4 75.3 L 116.4 79.2 L 103.3 79.2 Z\" fill=\"url(#bpc0)\"/><path d=\"M 116.4 75.3 L 122.9 72.9 L 122.9 76.8 L 116.4 79.2 Z\" fill=\"url(#bpc0)\"/><path d=\"M 122.9 72.9 L 207.8 41.0 L 207.8 44.9 L 122.9 76.8 Z\" fill=\"url(#bpc0)\"/><path d=\"M 207.8 41.0 L 220.9 36.1 L 220.9 40.0 L 207.8 44.9 Z\" fill=\"url(#bpc0)\"/><path d=\"M 220.9 36.1 L 247.0 36.1 L 247.0 40.0 L 220.9 40.0 Z\" fill=\"url(#bpc0)\"/><path d=\"M 247.0 36.1 L 273.1 36.1 L 273.1 40.0 L 247.0 40.0 Z\" fill=\"url(#bpc0)\"/><path d=\"M 273.1 36.1 L 286.2 41.0 L 286.2 44.9 L 273.1 40.0 Z\" fill=\"url(#bpc0)\"/><path d=\"M 286.2 41.0 L 364.6 70.4 L 364.6 74.3 L 286.2 44.9 Z\" fill=\"url(#bpc0)\"/><path d=\"M 364.6 70.4 L 371.1 72.9 L 371.1 76.8 L 364.6 74.3 Z\" fill=\"url(#bpc0)\"/><path d=\"M 371.1 72.9 L 377.6 75.3 L 377.6 79.2 L 371.1 76.8 Z\" fill=\"url(#bpc0)\"/><path d=\"M 377.6 75.3 L 403.8 75.3 L 403.8 79.2 L 377.6 79.2 Z\" fill=\"url(#bpc0)\"/><path d=\"M 403.8 75.3 L 404.4 75.3 L 404.4 79.2 L 403.8 79.2 Z\" fill=\"url(#bpc0)\"/><path d=\"M 38.0 75.3 L 64.1 62.3 L 64.1 75.3 L 38.0 75.3 Z\" fill=\"url(#bpf0)\"/><path d=\"M 64.1 62.3 L 103.3 62.3 L 103.3 75.3 L 64.1 75.3 Z\" fill=\"url(#bpf0)\"/><path d=\"M 103.3 62.3 L 116.4 55.7 L 116.4 75.3 L 103.3 75.3 Z\" fill=\"url(#bpf0)\"/><path d=\"M 116.4 55.7 L 122.9 52.5 L 122.9 72.9 L 116.4 75.3 Z\" fill=\"url(#bpf0)\"/><path d=\"M 122.9 52.5 L 207.8 10.0 L 207.8 41.0 L 122.9 72.9 Z\" fill=\"url(#bpf0)\"/><path d=\"M 207.8 10.0 L 220.9 10.0 L 220.9 36.1 L 207.8 41.0 Z\" fill=\"url(#bpf0)\"/><path d=\"M 220.9 10.0 L 247.0 10.0 L 247.0 36.1 L 220.9 36.1 Z\" fill=\"url(#bpf0)\"/><path d=\"M 247.0 10.0 L 273.1 10.0 L 273.1 36.1 L 247.0 36.1 Z\" fill=\"url(#bpf0)\"/><path d=\"M 273.1 10.0 L 286.2 10.0 L 286.2 41.0 L 273.1 36.1 Z\" fill=\"url(#bpf0)\"/><path d=\"M 286.2 10.0 L 364.6 49.2 L 364.6 70.4 L 286.2 41.0 Z\" fill=\"url(#bpf0)\"/><path d=\"M 364.6 49.2 L 371.1 49.2 L 371.1 72.9 L 364.6 70.4 Z\" fill=\"url(#bpf0)\"/><path d=\"M 371.1 49.2 L 377.6 49.2 L 377.6 75.3 L 371.1 72.9 Z\" fill=\"url(#bpf0)\"/><path d=\"M 377.6 49.2 L 403.8 49.2 L 403.8 75.3 L 377.6 75.3 Z\" fill=\"url(#bpf0)\"/><path d=\"M 403.8 49.2 L 456.0 75.3 L 456.0 75.3 L 403.8 75.3 Z\" fill=\"url(#bpf0)\"/><path d=\"M 217.7 37.3 L 220.9 30.9 L 220.9 36.1 L 217.7 37.3 Z\" fill=\"url(#bph0)\"/><path d=\"M 220.9 30.9 L 231.3 10.0 L 231.3 36.1 L 220.9 36.1 Z\" fill=\"url(#bph0)\"/><path d=\"M 231.3 10.0 L 247.0 10.0 L 247.0 36.1 L 231.3 36.1 Z\" fill=\"url(#bph0)\"/><path d=\"M 247.0 10.0 L 262.7 10.0 L 262.7 36.1 L 247.0 36.1 Z\" fill=\"url(#bph0)\"/><path d=\"M 262.7 10.0 L 273.1 30.9 L 273.1 36.1 L 262.7 36.1 Z\" fill=\"url(#bph0)\"/><path d=\"M 273.1 30.9 L 276.3 37.3 L 276.3 37.3 L 273.1 36.1 Z\" fill=\"url(#bph0)\"/><path d=\"M 38.0 75.3 L 116.4 75.3 L 220.9 36.1 L 273.1 36.1 L 377.6 75.3 L 456.0 75.3\" fill=\"none\" stroke=\"#8a6a3a\" stroke-width=\"1.4\"/><path d=\"M 38.0 75.3 L 64.1 62.3 L 103.3 62.3 L 116.4 55.7 L 122.9 52.5 L 207.8 10.0 L 220.9 10.0 L 247.0 10.0 L 273.1 10.0 L 286.2 10.0 L 364.6 49.2 L 371.1 49.2 L 377.6 49.2 L 403.8 49.2 L 456.0 75.3\" fill=\"none\" stroke=\"#2b6fa8\" stroke-width=\"1.7\"/><path d=\"M 217.7 37.3 L 231.3 10.0 L 262.7 10.0 L 276.3 37.3\" fill=\"none\" stroke=\"#b8558c\" stroke-width=\"1.4\"/><rect x=\"372.0\" y=\"12\" width=\"8\" height=\"7\" fill=\"url(#bph0)\" stroke=\"#b8558c\" stroke-width=\"0.6\"/><text x=\"383.0\" y=\"18\" fill=\"#8a4a72\" font-size=\"7.5\" font-family=\"Arial\">Hearting</text><rect x=\"372.0\" y=\"22\" width=\"8\" height=\"7\" fill=\"url(#bpf0)\" stroke=\"#4ea1e0\" stroke-width=\"0.6\"/><text x=\"383.0\" y=\"28\" fill=\"#2b6fa8\" font-size=\"7.5\" font-family=\"Arial\">Casing</text><text x=\"38\" y=\"95\" fill=\"#9aa8b2\" font-size=\"8\" font-family=\"Arial\">Ch from start (m)</text></svg>",
+      "areas": {
+        "clearanceWidth": 32,
+        "stripping": 8.414,
+        "formation": 53,
+        "usFace": 11.18,
+        "dsFace": 11.18
+      },
+      "stations": [
+        {
+          "offset_m": -16,
+          "distance_m": 0,
+          "existing_rl": 95,
+          "proposed_rl": 95,
+          "width_m": null,
+          "start_depth_m": null,
+          "end_depth_m": 0,
+          "signed_area_m2": null
+        },
+        {
+          "offset_m": -14,
+          "distance_m": 2,
+          "existing_rl": 95,
+          "proposed_rl": 96,
+          "width_m": 2,
+          "start_depth_m": 0,
+          "end_depth_m": 1,
+          "signed_area_m2": 1
+        },
+        {
+          "offset_m": -11,
+          "distance_m": 5,
+          "existing_rl": 95,
+          "proposed_rl": 96,
+          "width_m": 3,
+          "start_depth_m": 1,
+          "end_depth_m": 1,
+          "signed_area_m2": 3
+        },
+        {
+          "offset_m": -10,
+          "distance_m": 6,
+          "existing_rl": 95,
+          "proposed_rl": 96.5,
+          "width_m": 1,
+          "start_depth_m": 1,
+          "end_depth_m": 1.5,
+          "signed_area_m2": 1.25
+        },
+        {
+          "offset_m": -9.5,
+          "distance_m": 6.5,
+          "existing_rl": 95.1875,
+          "proposed_rl": 96.75,
+          "width_m": 0.5,
+          "start_depth_m": 1.5,
+          "end_depth_m": 1.5625,
+          "signed_area_m2": 0.765625
+        },
+        {
+          "offset_m": -3,
+          "distance_m": 13,
+          "existing_rl": 97.625,
+          "proposed_rl": 100,
+          "width_m": 6.5,
+          "start_depth_m": 1.5625,
+          "end_depth_m": 2.375,
+          "signed_area_m2": 12.796875
+        },
+        {
+          "offset_m": -2,
+          "distance_m": 14,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 1,
+          "start_depth_m": 2.375,
+          "end_depth_m": 2,
+          "signed_area_m2": 2.1875
+        },
+        {
+          "offset_m": 0,
+          "distance_m": 16,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 2,
+          "start_depth_m": 2,
+          "end_depth_m": 2,
+          "signed_area_m2": 4
+        },
+        {
+          "offset_m": 2,
+          "distance_m": 18,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 2,
+          "start_depth_m": 2,
+          "end_depth_m": 2,
+          "signed_area_m2": 4
+        },
+        {
+          "offset_m": 3,
+          "distance_m": 19,
+          "existing_rl": 97.625,
+          "proposed_rl": 100,
+          "width_m": 1,
+          "start_depth_m": 2,
+          "end_depth_m": 2.375,
+          "signed_area_m2": 2.1875
+        },
+        {
+          "offset_m": 9,
+          "distance_m": 25,
+          "existing_rl": 95.375,
+          "proposed_rl": 97,
+          "width_m": 6,
+          "start_depth_m": 2.375,
+          "end_depth_m": 1.625,
+          "signed_area_m2": 12
+        },
+        {
+          "offset_m": 9.5,
+          "distance_m": 25.5,
+          "existing_rl": 95.1875,
+          "proposed_rl": 97,
+          "width_m": 0.5,
+          "start_depth_m": 1.625,
+          "end_depth_m": 1.8125,
+          "signed_area_m2": 0.859375
+        },
+        {
+          "offset_m": 10,
+          "distance_m": 26,
+          "existing_rl": 95,
+          "proposed_rl": 97,
+          "width_m": 0.5,
+          "start_depth_m": 1.8125,
+          "end_depth_m": 2,
+          "signed_area_m2": 0.953125
+        },
+        {
+          "offset_m": 12,
+          "distance_m": 28,
+          "existing_rl": 95,
+          "proposed_rl": 97,
+          "width_m": 2,
+          "start_depth_m": 2,
+          "end_depth_m": 2,
+          "signed_area_m2": 4
+        },
+        {
+          "offset_m": 16,
+          "distance_m": 32,
+          "existing_rl": 95,
+          "proposed_rl": 95,
+          "width_m": 4,
+          "start_depth_m": 2,
+          "end_depth_m": 0,
+          "signed_area_m2": 4
+        }
+      ],
+      "hearting_stations": [
+        {
+          "offset_m": -2.246,
+          "distance_m": 13.754,
+          "existing_rl": 97.90775,
+          "proposed_rl": 97.908,
+          "width_m": null,
+          "start_depth_m": null,
+          "end_depth_m": 0.00025000000000829914,
+          "signed_area_m2": null
+        },
+        {
+          "offset_m": -2,
+          "distance_m": 14,
+          "existing_rl": 98,
+          "proposed_rl": 98.4,
+          "width_m": 0.24600000000000044,
+          "start_depth_m": 0.00025000000000829914,
+          "end_depth_m": 0.4000000000000057,
+          "signed_area_m2": 0.04923075000000181
+        },
+        {
+          "offset_m": -1.2,
+          "distance_m": 14.8,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 0.8000000000000007,
+          "start_depth_m": 0.4000000000000057,
+          "end_depth_m": 2,
+          "signed_area_m2": 0.9600000000000031
+        },
+        {
+          "offset_m": 0,
+          "distance_m": 16,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 1.1999999999999993,
+          "start_depth_m": 2,
+          "end_depth_m": 2,
+          "signed_area_m2": 2.3999999999999986
+        },
+        {
+          "offset_m": 1.2,
+          "distance_m": 17.2,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 1.1999999999999993,
+          "start_depth_m": 2,
+          "end_depth_m": 2,
+          "signed_area_m2": 2.3999999999999986
+        },
+        {
+          "offset_m": 2,
+          "distance_m": 18,
+          "existing_rl": 98,
+          "proposed_rl": 98.4,
+          "width_m": 0.8000000000000007,
+          "start_depth_m": 2,
+          "end_depth_m": 0.4000000000000057,
+          "signed_area_m2": 0.9600000000000031
+        },
+        {
+          "offset_m": 2.246,
+          "distance_m": 18.246,
+          "existing_rl": 97.90775,
+          "proposed_rl": 97.908,
+          "width_m": 0.24599999999999866,
+          "start_depth_m": 0.4000000000000057,
+          "end_depth_m": 0.00025000000000829914,
+          "signed_area_m2": 0.049230750000001454
+        }
+      ],
+      "fill_bands": [
+        {
+          "fromOffset": -16,
+          "toOffset": -14,
+          "upperFromRl": 95,
+          "upperToRl": 96,
+          "lowerFromRl": 95,
+          "lowerToRl": 95
+        },
+        {
+          "fromOffset": -14,
+          "toOffset": -11,
+          "upperFromRl": 96,
+          "upperToRl": 96,
+          "lowerFromRl": 95,
+          "lowerToRl": 95
+        },
+        {
+          "fromOffset": -11,
+          "toOffset": -10,
+          "upperFromRl": 96,
+          "upperToRl": 96.5,
+          "lowerFromRl": 95,
+          "lowerToRl": 95
+        },
+        {
+          "fromOffset": -10,
+          "toOffset": -9.5,
+          "upperFromRl": 96.5,
+          "upperToRl": 96.75,
+          "lowerFromRl": 95,
+          "lowerToRl": 95.1875
+        },
+        {
+          "fromOffset": -9.5,
+          "toOffset": -3,
+          "upperFromRl": 96.75,
+          "upperToRl": 100,
+          "lowerFromRl": 95.1875,
+          "lowerToRl": 97.625
+        },
+        {
+          "fromOffset": -3,
+          "toOffset": -2,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 97.625,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": -2,
+          "toOffset": 0,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": 0,
+          "toOffset": 2,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": 2,
+          "toOffset": 3,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 97.625
+        },
+        {
+          "fromOffset": 3,
+          "toOffset": 9,
+          "upperFromRl": 100,
+          "upperToRl": 97,
+          "lowerFromRl": 97.625,
+          "lowerToRl": 95.375
+        },
+        {
+          "fromOffset": 9,
+          "toOffset": 9.5,
+          "upperFromRl": 97,
+          "upperToRl": 97,
+          "lowerFromRl": 95.375,
+          "lowerToRl": 95.1875
+        },
+        {
+          "fromOffset": 9.5,
+          "toOffset": 10,
+          "upperFromRl": 97,
+          "upperToRl": 97,
+          "lowerFromRl": 95.1875,
+          "lowerToRl": 95
+        },
+        {
+          "fromOffset": 10,
+          "toOffset": 12,
+          "upperFromRl": 97,
+          "upperToRl": 97,
+          "lowerFromRl": 95,
+          "lowerToRl": 95
+        },
+        {
+          "fromOffset": 12,
+          "toOffset": 16,
+          "upperFromRl": 97,
+          "upperToRl": 95,
+          "lowerFromRl": 95,
+          "lowerToRl": 95
+        }
+      ],
+      "cut_bands": [
+        {
+          "fromOffset": -16,
+          "toOffset": -14,
+          "upperFromRl": 95,
+          "upperToRl": 95,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.7
+        },
+        {
+          "fromOffset": -14,
+          "toOffset": -11,
+          "upperFromRl": 95,
+          "upperToRl": 95,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.7
+        },
+        {
+          "fromOffset": -11,
+          "toOffset": -10,
+          "upperFromRl": 95,
+          "upperToRl": 95,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.7
+        },
+        {
+          "fromOffset": -10,
+          "toOffset": -9.5,
+          "upperFromRl": 95,
+          "upperToRl": 95.1875,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.8875
+        },
+        {
+          "fromOffset": -9.5,
+          "toOffset": -3,
+          "upperFromRl": 95.1875,
+          "upperToRl": 97.625,
+          "lowerFromRl": 94.8875,
+          "lowerToRl": 97.325
+        },
+        {
+          "fromOffset": -3,
+          "toOffset": -2,
+          "upperFromRl": 97.625,
+          "upperToRl": 98,
+          "lowerFromRl": 97.325,
+          "lowerToRl": 97.7
+        },
+        {
+          "fromOffset": -2,
+          "toOffset": 0,
+          "upperFromRl": 98,
+          "upperToRl": 98,
+          "lowerFromRl": 97.7,
+          "lowerToRl": 97.7
+        },
+        {
+          "fromOffset": 0,
+          "toOffset": 2,
+          "upperFromRl": 98,
+          "upperToRl": 98,
+          "lowerFromRl": 97.7,
+          "lowerToRl": 97.7
+        },
+        {
+          "fromOffset": 2,
+          "toOffset": 3,
+          "upperFromRl": 98,
+          "upperToRl": 97.625,
+          "lowerFromRl": 97.7,
+          "lowerToRl": 97.325
+        },
+        {
+          "fromOffset": 3,
+          "toOffset": 9,
+          "upperFromRl": 97.625,
+          "upperToRl": 95.375,
+          "lowerFromRl": 97.325,
+          "lowerToRl": 95.075
+        },
+        {
+          "fromOffset": 9,
+          "toOffset": 9.5,
+          "upperFromRl": 95.375,
+          "upperToRl": 95.1875,
+          "lowerFromRl": 95.075,
+          "lowerToRl": 94.8875
+        },
+        {
+          "fromOffset": 9.5,
+          "toOffset": 10,
+          "upperFromRl": 95.1875,
+          "upperToRl": 95,
+          "lowerFromRl": 94.8875,
+          "lowerToRl": 94.7
+        },
+        {
+          "fromOffset": 10,
+          "toOffset": 12,
+          "upperFromRl": 95,
+          "upperToRl": 95,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.7
+        },
+        {
+          "fromOffset": 12,
+          "toOffset": 12.046,
+          "upperFromRl": 95,
+          "upperToRl": 95,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.7
+        }
+      ],
+      "hearting_bands": [
+        {
+          "fromOffset": -2.246,
+          "toOffset": -2,
+          "upperFromRl": 97.908,
+          "upperToRl": 98.4,
+          "lowerFromRl": 97.90775,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": -2,
+          "toOffset": -1.2,
+          "upperFromRl": 98.4,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": -1.2,
+          "toOffset": 0,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": 0,
+          "toOffset": 1.2,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": 1.2,
+          "toOffset": 2,
+          "upperFromRl": 100,
+          "upperToRl": 98.4,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": 2,
+          "toOffset": 2.246,
+          "upperFromRl": 98.4,
+          "upperToRl": 97.908,
+          "lowerFromRl": 98,
+          "lowerToRl": 97.90775
+        }
+      ]
+    },
+    {
+      "chainage": "30",
+      "chainage_m": 30,
+      "average_toe_rl": 95,
+      "separate_toe_levels": false,
+      "upstream_toe_rl": 95,
+      "downstream_toe_rl": 95,
+      "detailed_ground_profile": false,
+      "ground_perimeter_m": 33.088,
+      "height_m": 5.299999999999997,
+      "base_width_m": 32,
+      "svg": "<svg viewBox=\"0 0 470 99\" xmlns=\"http://www.w3.org/2000/svg\" class=\"bp-fig\"><defs><pattern id=\"bpf1\" width=\"5\" height=\"5\" patternTransform=\"rotate(45)\" patternUnits=\"userSpaceOnUse\"><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"5\" stroke=\"#4ea1e0\" stroke-width=\"0.8\"/></pattern><pattern id=\"bpc1\" width=\"5\" height=\"5\" patternTransform=\"rotate(-45)\" patternUnits=\"userSpaceOnUse\"><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"5\" stroke=\"#c9862f\" stroke-width=\"0.8\"/></pattern><pattern id=\"bph1\" width=\"4\" height=\"4\" patternUnits=\"userSpaceOnUse\"><rect width=\"4\" height=\"4\" fill=\"#fdf1f7\"/><line x1=\"0\" y1=\"0\" x2=\"4\" y2=\"4\" stroke=\"#b8558c\" stroke-width=\"0.7\"/><line x1=\"4\" y1=\"0\" x2=\"0\" y2=\"4\" stroke=\"#b8558c\" stroke-width=\"0.7\"/></pattern></defs><line x1=\"38\" y1=\"75.3\" x2=\"456.0\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"78.3\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">95.0</text><line x1=\"38\" y1=\"62.3\" x2=\"456.0\" y2=\"62.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"65.3\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">96.0</text><line x1=\"38\" y1=\"49.2\" x2=\"456.0\" y2=\"49.2\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"52.2\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">97.0</text><line x1=\"38\" y1=\"36.1\" x2=\"456.0\" y2=\"36.1\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"39.1\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">98.0</text><line x1=\"38\" y1=\"23.1\" x2=\"456.0\" y2=\"23.1\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"26.1\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">99.0</text><line x1=\"38\" y1=\"10.0\" x2=\"456.0\" y2=\"10.0\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"13.0\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">100.0</text><line x1=\"38.0\" y1=\"10.0\" x2=\"38.0\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"38.0\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">0</text><line x1=\"103.3\" y1=\"10.0\" x2=\"103.3\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"103.3\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">5</text><line x1=\"168.6\" y1=\"10.0\" x2=\"168.6\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"168.6\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">10</text><line x1=\"233.9\" y1=\"10.0\" x2=\"233.9\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"233.9\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">15</text><line x1=\"299.3\" y1=\"10.0\" x2=\"299.3\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"299.3\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">20</text><line x1=\"364.6\" y1=\"10.0\" x2=\"364.6\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"364.6\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">25</text><line x1=\"429.9\" y1=\"10.0\" x2=\"429.9\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"429.9\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">30</text><path d=\"M 38.0 75.3 L 64.1 75.3 L 64.1 79.2 L 38.0 79.2 Z\" fill=\"url(#bpc1)\"/><path d=\"M 64.1 75.3 L 103.3 75.3 L 103.3 79.2 L 64.1 79.2 Z\" fill=\"url(#bpc1)\"/><path d=\"M 103.3 75.3 L 116.4 75.3 L 116.4 79.2 L 103.3 79.2 Z\" fill=\"url(#bpc1)\"/><path d=\"M 116.4 75.3 L 122.9 72.9 L 122.9 76.8 L 116.4 79.2 Z\" fill=\"url(#bpc1)\"/><path d=\"M 122.9 72.9 L 207.8 41.0 L 207.8 44.9 L 122.9 76.8 Z\" fill=\"url(#bpc1)\"/><path d=\"M 207.8 41.0 L 220.9 36.1 L 220.9 40.0 L 207.8 44.9 Z\" fill=\"url(#bpc1)\"/><path d=\"M 220.9 36.1 L 247.0 36.1 L 247.0 40.0 L 220.9 40.0 Z\" fill=\"url(#bpc1)\"/><path d=\"M 247.0 36.1 L 273.1 36.1 L 273.1 40.0 L 247.0 40.0 Z\" fill=\"url(#bpc1)\"/><path d=\"M 273.1 36.1 L 286.2 41.0 L 286.2 44.9 L 273.1 40.0 Z\" fill=\"url(#bpc1)\"/><path d=\"M 286.2 41.0 L 364.6 70.4 L 364.6 74.3 L 286.2 44.9 Z\" fill=\"url(#bpc1)\"/><path d=\"M 364.6 70.4 L 371.1 72.9 L 371.1 76.8 L 364.6 74.3 Z\" fill=\"url(#bpc1)\"/><path d=\"M 371.1 72.9 L 377.6 75.3 L 377.6 79.2 L 371.1 76.8 Z\" fill=\"url(#bpc1)\"/><path d=\"M 377.6 75.3 L 403.8 75.3 L 403.8 79.2 L 377.6 79.2 Z\" fill=\"url(#bpc1)\"/><path d=\"M 403.8 75.3 L 404.4 75.3 L 404.4 79.2 L 403.8 79.2 Z\" fill=\"url(#bpc1)\"/><path d=\"M 38.0 75.3 L 64.1 62.3 L 64.1 75.3 L 38.0 75.3 Z\" fill=\"url(#bpf1)\"/><path d=\"M 64.1 62.3 L 103.3 62.3 L 103.3 75.3 L 64.1 75.3 Z\" fill=\"url(#bpf1)\"/><path d=\"M 103.3 62.3 L 116.4 55.7 L 116.4 75.3 L 103.3 75.3 Z\" fill=\"url(#bpf1)\"/><path d=\"M 116.4 55.7 L 122.9 52.5 L 122.9 72.9 L 116.4 75.3 Z\" fill=\"url(#bpf1)\"/><path d=\"M 122.9 52.5 L 207.8 10.0 L 207.8 41.0 L 122.9 72.9 Z\" fill=\"url(#bpf1)\"/><path d=\"M 207.8 10.0 L 220.9 10.0 L 220.9 36.1 L 207.8 41.0 Z\" fill=\"url(#bpf1)\"/><path d=\"M 220.9 10.0 L 247.0 10.0 L 247.0 36.1 L 220.9 36.1 Z\" fill=\"url(#bpf1)\"/><path d=\"M 247.0 10.0 L 273.1 10.0 L 273.1 36.1 L 247.0 36.1 Z\" fill=\"url(#bpf1)\"/><path d=\"M 273.1 10.0 L 286.2 10.0 L 286.2 41.0 L 273.1 36.1 Z\" fill=\"url(#bpf1)\"/><path d=\"M 286.2 10.0 L 364.6 49.2 L 364.6 70.4 L 286.2 41.0 Z\" fill=\"url(#bpf1)\"/><path d=\"M 364.6 49.2 L 371.1 49.2 L 371.1 72.9 L 364.6 70.4 Z\" fill=\"url(#bpf1)\"/><path d=\"M 371.1 49.2 L 377.6 49.2 L 377.6 75.3 L 371.1 72.9 Z\" fill=\"url(#bpf1)\"/><path d=\"M 377.6 49.2 L 403.8 49.2 L 403.8 75.3 L 377.6 75.3 Z\" fill=\"url(#bpf1)\"/><path d=\"M 403.8 49.2 L 456.0 75.3 L 456.0 75.3 L 403.8 75.3 Z\" fill=\"url(#bpf1)\"/><path d=\"M 217.7 37.3 L 220.9 30.9 L 220.9 36.1 L 217.7 37.3 Z\" fill=\"url(#bph1)\"/><path d=\"M 220.9 30.9 L 231.3 10.0 L 231.3 36.1 L 220.9 36.1 Z\" fill=\"url(#bph1)\"/><path d=\"M 231.3 10.0 L 247.0 10.0 L 247.0 36.1 L 231.3 36.1 Z\" fill=\"url(#bph1)\"/><path d=\"M 247.0 10.0 L 262.7 10.0 L 262.7 36.1 L 247.0 36.1 Z\" fill=\"url(#bph1)\"/><path d=\"M 262.7 10.0 L 273.1 30.9 L 273.1 36.1 L 262.7 36.1 Z\" fill=\"url(#bph1)\"/><path d=\"M 273.1 30.9 L 276.3 37.3 L 276.3 37.3 L 273.1 36.1 Z\" fill=\"url(#bph1)\"/><path d=\"M 38.0 75.3 L 116.4 75.3 L 220.9 36.1 L 273.1 36.1 L 377.6 75.3 L 456.0 75.3\" fill=\"none\" stroke=\"#8a6a3a\" stroke-width=\"1.4\"/><path d=\"M 38.0 75.3 L 64.1 62.3 L 103.3 62.3 L 116.4 55.7 L 122.9 52.5 L 207.8 10.0 L 220.9 10.0 L 247.0 10.0 L 273.1 10.0 L 286.2 10.0 L 364.6 49.2 L 371.1 49.2 L 377.6 49.2 L 403.8 49.2 L 456.0 75.3\" fill=\"none\" stroke=\"#2b6fa8\" stroke-width=\"1.7\"/><path d=\"M 217.7 37.3 L 231.3 10.0 L 262.7 10.0 L 276.3 37.3\" fill=\"none\" stroke=\"#b8558c\" stroke-width=\"1.4\"/><rect x=\"372.0\" y=\"12\" width=\"8\" height=\"7\" fill=\"url(#bph1)\" stroke=\"#b8558c\" stroke-width=\"0.6\"/><text x=\"383.0\" y=\"18\" fill=\"#8a4a72\" font-size=\"7.5\" font-family=\"Arial\">Hearting</text><rect x=\"372.0\" y=\"22\" width=\"8\" height=\"7\" fill=\"url(#bpf1)\" stroke=\"#4ea1e0\" stroke-width=\"0.6\"/><text x=\"383.0\" y=\"28\" fill=\"#2b6fa8\" font-size=\"7.5\" font-family=\"Arial\">Casing</text><text x=\"38\" y=\"95\" fill=\"#9aa8b2\" font-size=\"8\" font-family=\"Arial\">Ch from start (m)</text></svg>",
+      "areas": {
+        "clearanceWidth": 32,
+        "stripping": 8.414,
+        "formation": 53,
+        "usFace": 11.18,
+        "dsFace": 11.18
+      },
+      "stations": [
+        {
+          "offset_m": -16,
+          "distance_m": 0,
+          "existing_rl": 95,
+          "proposed_rl": 95,
+          "width_m": null,
+          "start_depth_m": null,
+          "end_depth_m": 0,
+          "signed_area_m2": null
+        },
+        {
+          "offset_m": -14,
+          "distance_m": 2,
+          "existing_rl": 95,
+          "proposed_rl": 96,
+          "width_m": 2,
+          "start_depth_m": 0,
+          "end_depth_m": 1,
+          "signed_area_m2": 1
+        },
+        {
+          "offset_m": -11,
+          "distance_m": 5,
+          "existing_rl": 95,
+          "proposed_rl": 96,
+          "width_m": 3,
+          "start_depth_m": 1,
+          "end_depth_m": 1,
+          "signed_area_m2": 3
+        },
+        {
+          "offset_m": -10,
+          "distance_m": 6,
+          "existing_rl": 95,
+          "proposed_rl": 96.5,
+          "width_m": 1,
+          "start_depth_m": 1,
+          "end_depth_m": 1.5,
+          "signed_area_m2": 1.25
+        },
+        {
+          "offset_m": -9.5,
+          "distance_m": 6.5,
+          "existing_rl": 95.1875,
+          "proposed_rl": 96.75,
+          "width_m": 0.5,
+          "start_depth_m": 1.5,
+          "end_depth_m": 1.5625,
+          "signed_area_m2": 0.765625
+        },
+        {
+          "offset_m": -3,
+          "distance_m": 13,
+          "existing_rl": 97.625,
+          "proposed_rl": 100,
+          "width_m": 6.5,
+          "start_depth_m": 1.5625,
+          "end_depth_m": 2.375,
+          "signed_area_m2": 12.796875
+        },
+        {
+          "offset_m": -2,
+          "distance_m": 14,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 1,
+          "start_depth_m": 2.375,
+          "end_depth_m": 2,
+          "signed_area_m2": 2.1875
+        },
+        {
+          "offset_m": 0,
+          "distance_m": 16,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 2,
+          "start_depth_m": 2,
+          "end_depth_m": 2,
+          "signed_area_m2": 4
+        },
+        {
+          "offset_m": 2,
+          "distance_m": 18,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 2,
+          "start_depth_m": 2,
+          "end_depth_m": 2,
+          "signed_area_m2": 4
+        },
+        {
+          "offset_m": 3,
+          "distance_m": 19,
+          "existing_rl": 97.625,
+          "proposed_rl": 100,
+          "width_m": 1,
+          "start_depth_m": 2,
+          "end_depth_m": 2.375,
+          "signed_area_m2": 2.1875
+        },
+        {
+          "offset_m": 9,
+          "distance_m": 25,
+          "existing_rl": 95.375,
+          "proposed_rl": 97,
+          "width_m": 6,
+          "start_depth_m": 2.375,
+          "end_depth_m": 1.625,
+          "signed_area_m2": 12
+        },
+        {
+          "offset_m": 9.5,
+          "distance_m": 25.5,
+          "existing_rl": 95.1875,
+          "proposed_rl": 97,
+          "width_m": 0.5,
+          "start_depth_m": 1.625,
+          "end_depth_m": 1.8125,
+          "signed_area_m2": 0.859375
+        },
+        {
+          "offset_m": 10,
+          "distance_m": 26,
+          "existing_rl": 95,
+          "proposed_rl": 97,
+          "width_m": 0.5,
+          "start_depth_m": 1.8125,
+          "end_depth_m": 2,
+          "signed_area_m2": 0.953125
+        },
+        {
+          "offset_m": 12,
+          "distance_m": 28,
+          "existing_rl": 95,
+          "proposed_rl": 97,
+          "width_m": 2,
+          "start_depth_m": 2,
+          "end_depth_m": 2,
+          "signed_area_m2": 4
+        },
+        {
+          "offset_m": 16,
+          "distance_m": 32,
+          "existing_rl": 95,
+          "proposed_rl": 95,
+          "width_m": 4,
+          "start_depth_m": 2,
+          "end_depth_m": 0,
+          "signed_area_m2": 4
+        }
+      ],
+      "hearting_stations": [
+        {
+          "offset_m": -2.246,
+          "distance_m": 13.754,
+          "existing_rl": 97.90775,
+          "proposed_rl": 97.908,
+          "width_m": null,
+          "start_depth_m": null,
+          "end_depth_m": 0.00025000000000829914,
+          "signed_area_m2": null
+        },
+        {
+          "offset_m": -2,
+          "distance_m": 14,
+          "existing_rl": 98,
+          "proposed_rl": 98.4,
+          "width_m": 0.24600000000000044,
+          "start_depth_m": 0.00025000000000829914,
+          "end_depth_m": 0.4000000000000057,
+          "signed_area_m2": 0.04923075000000181
+        },
+        {
+          "offset_m": -1.2,
+          "distance_m": 14.8,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 0.8000000000000007,
+          "start_depth_m": 0.4000000000000057,
+          "end_depth_m": 2,
+          "signed_area_m2": 0.9600000000000031
+        },
+        {
+          "offset_m": 0,
+          "distance_m": 16,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 1.1999999999999993,
+          "start_depth_m": 2,
+          "end_depth_m": 2,
+          "signed_area_m2": 2.3999999999999986
+        },
+        {
+          "offset_m": 1.2,
+          "distance_m": 17.2,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 1.1999999999999993,
+          "start_depth_m": 2,
+          "end_depth_m": 2,
+          "signed_area_m2": 2.3999999999999986
+        },
+        {
+          "offset_m": 2,
+          "distance_m": 18,
+          "existing_rl": 98,
+          "proposed_rl": 98.4,
+          "width_m": 0.8000000000000007,
+          "start_depth_m": 2,
+          "end_depth_m": 0.4000000000000057,
+          "signed_area_m2": 0.9600000000000031
+        },
+        {
+          "offset_m": 2.246,
+          "distance_m": 18.246,
+          "existing_rl": 97.90775,
+          "proposed_rl": 97.908,
+          "width_m": 0.24599999999999866,
+          "start_depth_m": 0.4000000000000057,
+          "end_depth_m": 0.00025000000000829914,
+          "signed_area_m2": 0.049230750000001454
+        }
+      ],
+      "fill_bands": [
+        {
+          "fromOffset": -16,
+          "toOffset": -14,
+          "upperFromRl": 95,
+          "upperToRl": 96,
+          "lowerFromRl": 95,
+          "lowerToRl": 95
+        },
+        {
+          "fromOffset": -14,
+          "toOffset": -11,
+          "upperFromRl": 96,
+          "upperToRl": 96,
+          "lowerFromRl": 95,
+          "lowerToRl": 95
+        },
+        {
+          "fromOffset": -11,
+          "toOffset": -10,
+          "upperFromRl": 96,
+          "upperToRl": 96.5,
+          "lowerFromRl": 95,
+          "lowerToRl": 95
+        },
+        {
+          "fromOffset": -10,
+          "toOffset": -9.5,
+          "upperFromRl": 96.5,
+          "upperToRl": 96.75,
+          "lowerFromRl": 95,
+          "lowerToRl": 95.1875
+        },
+        {
+          "fromOffset": -9.5,
+          "toOffset": -3,
+          "upperFromRl": 96.75,
+          "upperToRl": 100,
+          "lowerFromRl": 95.1875,
+          "lowerToRl": 97.625
+        },
+        {
+          "fromOffset": -3,
+          "toOffset": -2,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 97.625,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": -2,
+          "toOffset": 0,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": 0,
+          "toOffset": 2,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": 2,
+          "toOffset": 3,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 97.625
+        },
+        {
+          "fromOffset": 3,
+          "toOffset": 9,
+          "upperFromRl": 100,
+          "upperToRl": 97,
+          "lowerFromRl": 97.625,
+          "lowerToRl": 95.375
+        },
+        {
+          "fromOffset": 9,
+          "toOffset": 9.5,
+          "upperFromRl": 97,
+          "upperToRl": 97,
+          "lowerFromRl": 95.375,
+          "lowerToRl": 95.1875
+        },
+        {
+          "fromOffset": 9.5,
+          "toOffset": 10,
+          "upperFromRl": 97,
+          "upperToRl": 97,
+          "lowerFromRl": 95.1875,
+          "lowerToRl": 95
+        },
+        {
+          "fromOffset": 10,
+          "toOffset": 12,
+          "upperFromRl": 97,
+          "upperToRl": 97,
+          "lowerFromRl": 95,
+          "lowerToRl": 95
+        },
+        {
+          "fromOffset": 12,
+          "toOffset": 16,
+          "upperFromRl": 97,
+          "upperToRl": 95,
+          "lowerFromRl": 95,
+          "lowerToRl": 95
+        }
+      ],
+      "cut_bands": [
+        {
+          "fromOffset": -16,
+          "toOffset": -14,
+          "upperFromRl": 95,
+          "upperToRl": 95,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.7
+        },
+        {
+          "fromOffset": -14,
+          "toOffset": -11,
+          "upperFromRl": 95,
+          "upperToRl": 95,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.7
+        },
+        {
+          "fromOffset": -11,
+          "toOffset": -10,
+          "upperFromRl": 95,
+          "upperToRl": 95,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.7
+        },
+        {
+          "fromOffset": -10,
+          "toOffset": -9.5,
+          "upperFromRl": 95,
+          "upperToRl": 95.1875,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.8875
+        },
+        {
+          "fromOffset": -9.5,
+          "toOffset": -3,
+          "upperFromRl": 95.1875,
+          "upperToRl": 97.625,
+          "lowerFromRl": 94.8875,
+          "lowerToRl": 97.325
+        },
+        {
+          "fromOffset": -3,
+          "toOffset": -2,
+          "upperFromRl": 97.625,
+          "upperToRl": 98,
+          "lowerFromRl": 97.325,
+          "lowerToRl": 97.7
+        },
+        {
+          "fromOffset": -2,
+          "toOffset": 0,
+          "upperFromRl": 98,
+          "upperToRl": 98,
+          "lowerFromRl": 97.7,
+          "lowerToRl": 97.7
+        },
+        {
+          "fromOffset": 0,
+          "toOffset": 2,
+          "upperFromRl": 98,
+          "upperToRl": 98,
+          "lowerFromRl": 97.7,
+          "lowerToRl": 97.7
+        },
+        {
+          "fromOffset": 2,
+          "toOffset": 3,
+          "upperFromRl": 98,
+          "upperToRl": 97.625,
+          "lowerFromRl": 97.7,
+          "lowerToRl": 97.325
+        },
+        {
+          "fromOffset": 3,
+          "toOffset": 9,
+          "upperFromRl": 97.625,
+          "upperToRl": 95.375,
+          "lowerFromRl": 97.325,
+          "lowerToRl": 95.075
+        },
+        {
+          "fromOffset": 9,
+          "toOffset": 9.5,
+          "upperFromRl": 95.375,
+          "upperToRl": 95.1875,
+          "lowerFromRl": 95.075,
+          "lowerToRl": 94.8875
+        },
+        {
+          "fromOffset": 9.5,
+          "toOffset": 10,
+          "upperFromRl": 95.1875,
+          "upperToRl": 95,
+          "lowerFromRl": 94.8875,
+          "lowerToRl": 94.7
+        },
+        {
+          "fromOffset": 10,
+          "toOffset": 12,
+          "upperFromRl": 95,
+          "upperToRl": 95,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.7
+        },
+        {
+          "fromOffset": 12,
+          "toOffset": 12.046,
+          "upperFromRl": 95,
+          "upperToRl": 95,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.7
+        }
+      ],
+      "hearting_bands": [
+        {
+          "fromOffset": -2.246,
+          "toOffset": -2,
+          "upperFromRl": 97.908,
+          "upperToRl": 98.4,
+          "lowerFromRl": 97.90775,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": -2,
+          "toOffset": -1.2,
+          "upperFromRl": 98.4,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": -1.2,
+          "toOffset": 0,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": 0,
+          "toOffset": 1.2,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": 1.2,
+          "toOffset": 2,
+          "upperFromRl": 100,
+          "upperToRl": 98.4,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": 2,
+          "toOffset": 2.246,
+          "upperFromRl": 98.4,
+          "upperToRl": 97.908,
+          "lowerFromRl": 98,
+          "lowerToRl": 97.90775
+        }
+      ]
+    },
+    {
+      "chainage": "60",
+      "chainage_m": 60,
+      "average_toe_rl": 95,
+      "separate_toe_levels": false,
+      "upstream_toe_rl": 95,
+      "downstream_toe_rl": 95,
+      "detailed_ground_profile": false,
+      "ground_perimeter_m": 33.088,
+      "height_m": 5.299999999999997,
+      "base_width_m": 32,
+      "svg": "<svg viewBox=\"0 0 470 99\" xmlns=\"http://www.w3.org/2000/svg\" class=\"bp-fig\"><defs><pattern id=\"bpf2\" width=\"5\" height=\"5\" patternTransform=\"rotate(45)\" patternUnits=\"userSpaceOnUse\"><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"5\" stroke=\"#4ea1e0\" stroke-width=\"0.8\"/></pattern><pattern id=\"bpc2\" width=\"5\" height=\"5\" patternTransform=\"rotate(-45)\" patternUnits=\"userSpaceOnUse\"><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"5\" stroke=\"#c9862f\" stroke-width=\"0.8\"/></pattern><pattern id=\"bph2\" width=\"4\" height=\"4\" patternUnits=\"userSpaceOnUse\"><rect width=\"4\" height=\"4\" fill=\"#fdf1f7\"/><line x1=\"0\" y1=\"0\" x2=\"4\" y2=\"4\" stroke=\"#b8558c\" stroke-width=\"0.7\"/><line x1=\"4\" y1=\"0\" x2=\"0\" y2=\"4\" stroke=\"#b8558c\" stroke-width=\"0.7\"/></pattern></defs><line x1=\"38\" y1=\"75.3\" x2=\"456.0\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"78.3\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">95.0</text><line x1=\"38\" y1=\"62.3\" x2=\"456.0\" y2=\"62.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"65.3\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">96.0</text><line x1=\"38\" y1=\"49.2\" x2=\"456.0\" y2=\"49.2\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"52.2\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">97.0</text><line x1=\"38\" y1=\"36.1\" x2=\"456.0\" y2=\"36.1\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"39.1\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">98.0</text><line x1=\"38\" y1=\"23.1\" x2=\"456.0\" y2=\"23.1\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"26.1\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">99.0</text><line x1=\"38\" y1=\"10.0\" x2=\"456.0\" y2=\"10.0\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"34\" y=\"13.0\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">100.0</text><line x1=\"38.0\" y1=\"10.0\" x2=\"38.0\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"38.0\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">0</text><line x1=\"103.3\" y1=\"10.0\" x2=\"103.3\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"103.3\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">5</text><line x1=\"168.6\" y1=\"10.0\" x2=\"168.6\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"168.6\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">10</text><line x1=\"233.9\" y1=\"10.0\" x2=\"233.9\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"233.9\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">15</text><line x1=\"299.3\" y1=\"10.0\" x2=\"299.3\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"299.3\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">20</text><line x1=\"364.6\" y1=\"10.0\" x2=\"364.6\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"364.6\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">25</text><line x1=\"429.9\" y1=\"10.0\" x2=\"429.9\" y2=\"75.3\" stroke=\"#e0e5ea\" stroke-width=\"0.6\"/><text x=\"429.9\" y=\"86.3\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"8\" font-family=\"Arial\">30</text><path d=\"M 38.0 75.3 L 64.1 75.3 L 64.1 79.2 L 38.0 79.2 Z\" fill=\"url(#bpc2)\"/><path d=\"M 64.1 75.3 L 103.3 75.3 L 103.3 79.2 L 64.1 79.2 Z\" fill=\"url(#bpc2)\"/><path d=\"M 103.3 75.3 L 116.4 75.3 L 116.4 79.2 L 103.3 79.2 Z\" fill=\"url(#bpc2)\"/><path d=\"M 116.4 75.3 L 122.9 72.9 L 122.9 76.8 L 116.4 79.2 Z\" fill=\"url(#bpc2)\"/><path d=\"M 122.9 72.9 L 207.8 41.0 L 207.8 44.9 L 122.9 76.8 Z\" fill=\"url(#bpc2)\"/><path d=\"M 207.8 41.0 L 220.9 36.1 L 220.9 40.0 L 207.8 44.9 Z\" fill=\"url(#bpc2)\"/><path d=\"M 220.9 36.1 L 247.0 36.1 L 247.0 40.0 L 220.9 40.0 Z\" fill=\"url(#bpc2)\"/><path d=\"M 247.0 36.1 L 273.1 36.1 L 273.1 40.0 L 247.0 40.0 Z\" fill=\"url(#bpc2)\"/><path d=\"M 273.1 36.1 L 286.2 41.0 L 286.2 44.9 L 273.1 40.0 Z\" fill=\"url(#bpc2)\"/><path d=\"M 286.2 41.0 L 364.6 70.4 L 364.6 74.3 L 286.2 44.9 Z\" fill=\"url(#bpc2)\"/><path d=\"M 364.6 70.4 L 371.1 72.9 L 371.1 76.8 L 364.6 74.3 Z\" fill=\"url(#bpc2)\"/><path d=\"M 371.1 72.9 L 377.6 75.3 L 377.6 79.2 L 371.1 76.8 Z\" fill=\"url(#bpc2)\"/><path d=\"M 377.6 75.3 L 403.8 75.3 L 403.8 79.2 L 377.6 79.2 Z\" fill=\"url(#bpc2)\"/><path d=\"M 403.8 75.3 L 404.4 75.3 L 404.4 79.2 L 403.8 79.2 Z\" fill=\"url(#bpc2)\"/><path d=\"M 38.0 75.3 L 64.1 62.3 L 64.1 75.3 L 38.0 75.3 Z\" fill=\"url(#bpf2)\"/><path d=\"M 64.1 62.3 L 103.3 62.3 L 103.3 75.3 L 64.1 75.3 Z\" fill=\"url(#bpf2)\"/><path d=\"M 103.3 62.3 L 116.4 55.7 L 116.4 75.3 L 103.3 75.3 Z\" fill=\"url(#bpf2)\"/><path d=\"M 116.4 55.7 L 122.9 52.5 L 122.9 72.9 L 116.4 75.3 Z\" fill=\"url(#bpf2)\"/><path d=\"M 122.9 52.5 L 207.8 10.0 L 207.8 41.0 L 122.9 72.9 Z\" fill=\"url(#bpf2)\"/><path d=\"M 207.8 10.0 L 220.9 10.0 L 220.9 36.1 L 207.8 41.0 Z\" fill=\"url(#bpf2)\"/><path d=\"M 220.9 10.0 L 247.0 10.0 L 247.0 36.1 L 220.9 36.1 Z\" fill=\"url(#bpf2)\"/><path d=\"M 247.0 10.0 L 273.1 10.0 L 273.1 36.1 L 247.0 36.1 Z\" fill=\"url(#bpf2)\"/><path d=\"M 273.1 10.0 L 286.2 10.0 L 286.2 41.0 L 273.1 36.1 Z\" fill=\"url(#bpf2)\"/><path d=\"M 286.2 10.0 L 364.6 49.2 L 364.6 70.4 L 286.2 41.0 Z\" fill=\"url(#bpf2)\"/><path d=\"M 364.6 49.2 L 371.1 49.2 L 371.1 72.9 L 364.6 70.4 Z\" fill=\"url(#bpf2)\"/><path d=\"M 371.1 49.2 L 377.6 49.2 L 377.6 75.3 L 371.1 72.9 Z\" fill=\"url(#bpf2)\"/><path d=\"M 377.6 49.2 L 403.8 49.2 L 403.8 75.3 L 377.6 75.3 Z\" fill=\"url(#bpf2)\"/><path d=\"M 403.8 49.2 L 456.0 75.3 L 456.0 75.3 L 403.8 75.3 Z\" fill=\"url(#bpf2)\"/><path d=\"M 217.7 37.3 L 220.9 30.9 L 220.9 36.1 L 217.7 37.3 Z\" fill=\"url(#bph2)\"/><path d=\"M 220.9 30.9 L 231.3 10.0 L 231.3 36.1 L 220.9 36.1 Z\" fill=\"url(#bph2)\"/><path d=\"M 231.3 10.0 L 247.0 10.0 L 247.0 36.1 L 231.3 36.1 Z\" fill=\"url(#bph2)\"/><path d=\"M 247.0 10.0 L 262.7 10.0 L 262.7 36.1 L 247.0 36.1 Z\" fill=\"url(#bph2)\"/><path d=\"M 262.7 10.0 L 273.1 30.9 L 273.1 36.1 L 262.7 36.1 Z\" fill=\"url(#bph2)\"/><path d=\"M 273.1 30.9 L 276.3 37.3 L 276.3 37.3 L 273.1 36.1 Z\" fill=\"url(#bph2)\"/><path d=\"M 38.0 75.3 L 116.4 75.3 L 220.9 36.1 L 273.1 36.1 L 377.6 75.3 L 456.0 75.3\" fill=\"none\" stroke=\"#8a6a3a\" stroke-width=\"1.4\"/><path d=\"M 38.0 75.3 L 64.1 62.3 L 103.3 62.3 L 116.4 55.7 L 122.9 52.5 L 207.8 10.0 L 220.9 10.0 L 247.0 10.0 L 273.1 10.0 L 286.2 10.0 L 364.6 49.2 L 371.1 49.2 L 377.6 49.2 L 403.8 49.2 L 456.0 75.3\" fill=\"none\" stroke=\"#2b6fa8\" stroke-width=\"1.7\"/><path d=\"M 217.7 37.3 L 231.3 10.0 L 262.7 10.0 L 276.3 37.3\" fill=\"none\" stroke=\"#b8558c\" stroke-width=\"1.4\"/><rect x=\"372.0\" y=\"12\" width=\"8\" height=\"7\" fill=\"url(#bph2)\" stroke=\"#b8558c\" stroke-width=\"0.6\"/><text x=\"383.0\" y=\"18\" fill=\"#8a4a72\" font-size=\"7.5\" font-family=\"Arial\">Hearting</text><rect x=\"372.0\" y=\"22\" width=\"8\" height=\"7\" fill=\"url(#bpf2)\" stroke=\"#4ea1e0\" stroke-width=\"0.6\"/><text x=\"383.0\" y=\"28\" fill=\"#2b6fa8\" font-size=\"7.5\" font-family=\"Arial\">Casing</text><text x=\"38\" y=\"95\" fill=\"#9aa8b2\" font-size=\"8\" font-family=\"Arial\">Ch from start (m)</text></svg>",
+      "areas": {
+        "clearanceWidth": 32,
+        "stripping": 8.414,
+        "formation": 53,
+        "usFace": 11.18,
+        "dsFace": 11.18
+      },
+      "stations": [
+        {
+          "offset_m": -16,
+          "distance_m": 0,
+          "existing_rl": 95,
+          "proposed_rl": 95,
+          "width_m": null,
+          "start_depth_m": null,
+          "end_depth_m": 0,
+          "signed_area_m2": null
+        },
+        {
+          "offset_m": -14,
+          "distance_m": 2,
+          "existing_rl": 95,
+          "proposed_rl": 96,
+          "width_m": 2,
+          "start_depth_m": 0,
+          "end_depth_m": 1,
+          "signed_area_m2": 1
+        },
+        {
+          "offset_m": -11,
+          "distance_m": 5,
+          "existing_rl": 95,
+          "proposed_rl": 96,
+          "width_m": 3,
+          "start_depth_m": 1,
+          "end_depth_m": 1,
+          "signed_area_m2": 3
+        },
+        {
+          "offset_m": -10,
+          "distance_m": 6,
+          "existing_rl": 95,
+          "proposed_rl": 96.5,
+          "width_m": 1,
+          "start_depth_m": 1,
+          "end_depth_m": 1.5,
+          "signed_area_m2": 1.25
+        },
+        {
+          "offset_m": -9.5,
+          "distance_m": 6.5,
+          "existing_rl": 95.1875,
+          "proposed_rl": 96.75,
+          "width_m": 0.5,
+          "start_depth_m": 1.5,
+          "end_depth_m": 1.5625,
+          "signed_area_m2": 0.765625
+        },
+        {
+          "offset_m": -3,
+          "distance_m": 13,
+          "existing_rl": 97.625,
+          "proposed_rl": 100,
+          "width_m": 6.5,
+          "start_depth_m": 1.5625,
+          "end_depth_m": 2.375,
+          "signed_area_m2": 12.796875
+        },
+        {
+          "offset_m": -2,
+          "distance_m": 14,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 1,
+          "start_depth_m": 2.375,
+          "end_depth_m": 2,
+          "signed_area_m2": 2.1875
+        },
+        {
+          "offset_m": 0,
+          "distance_m": 16,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 2,
+          "start_depth_m": 2,
+          "end_depth_m": 2,
+          "signed_area_m2": 4
+        },
+        {
+          "offset_m": 2,
+          "distance_m": 18,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 2,
+          "start_depth_m": 2,
+          "end_depth_m": 2,
+          "signed_area_m2": 4
+        },
+        {
+          "offset_m": 3,
+          "distance_m": 19,
+          "existing_rl": 97.625,
+          "proposed_rl": 100,
+          "width_m": 1,
+          "start_depth_m": 2,
+          "end_depth_m": 2.375,
+          "signed_area_m2": 2.1875
+        },
+        {
+          "offset_m": 9,
+          "distance_m": 25,
+          "existing_rl": 95.375,
+          "proposed_rl": 97,
+          "width_m": 6,
+          "start_depth_m": 2.375,
+          "end_depth_m": 1.625,
+          "signed_area_m2": 12
+        },
+        {
+          "offset_m": 9.5,
+          "distance_m": 25.5,
+          "existing_rl": 95.1875,
+          "proposed_rl": 97,
+          "width_m": 0.5,
+          "start_depth_m": 1.625,
+          "end_depth_m": 1.8125,
+          "signed_area_m2": 0.859375
+        },
+        {
+          "offset_m": 10,
+          "distance_m": 26,
+          "existing_rl": 95,
+          "proposed_rl": 97,
+          "width_m": 0.5,
+          "start_depth_m": 1.8125,
+          "end_depth_m": 2,
+          "signed_area_m2": 0.953125
+        },
+        {
+          "offset_m": 12,
+          "distance_m": 28,
+          "existing_rl": 95,
+          "proposed_rl": 97,
+          "width_m": 2,
+          "start_depth_m": 2,
+          "end_depth_m": 2,
+          "signed_area_m2": 4
+        },
+        {
+          "offset_m": 16,
+          "distance_m": 32,
+          "existing_rl": 95,
+          "proposed_rl": 95,
+          "width_m": 4,
+          "start_depth_m": 2,
+          "end_depth_m": 0,
+          "signed_area_m2": 4
+        }
+      ],
+      "hearting_stations": [
+        {
+          "offset_m": -2.246,
+          "distance_m": 13.754,
+          "existing_rl": 97.90775,
+          "proposed_rl": 97.908,
+          "width_m": null,
+          "start_depth_m": null,
+          "end_depth_m": 0.00025000000000829914,
+          "signed_area_m2": null
+        },
+        {
+          "offset_m": -2,
+          "distance_m": 14,
+          "existing_rl": 98,
+          "proposed_rl": 98.4,
+          "width_m": 0.24600000000000044,
+          "start_depth_m": 0.00025000000000829914,
+          "end_depth_m": 0.4000000000000057,
+          "signed_area_m2": 0.04923075000000181
+        },
+        {
+          "offset_m": -1.2,
+          "distance_m": 14.8,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 0.8000000000000007,
+          "start_depth_m": 0.4000000000000057,
+          "end_depth_m": 2,
+          "signed_area_m2": 0.9600000000000031
+        },
+        {
+          "offset_m": 0,
+          "distance_m": 16,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 1.1999999999999993,
+          "start_depth_m": 2,
+          "end_depth_m": 2,
+          "signed_area_m2": 2.3999999999999986
+        },
+        {
+          "offset_m": 1.2,
+          "distance_m": 17.2,
+          "existing_rl": 98,
+          "proposed_rl": 100,
+          "width_m": 1.1999999999999993,
+          "start_depth_m": 2,
+          "end_depth_m": 2,
+          "signed_area_m2": 2.3999999999999986
+        },
+        {
+          "offset_m": 2,
+          "distance_m": 18,
+          "existing_rl": 98,
+          "proposed_rl": 98.4,
+          "width_m": 0.8000000000000007,
+          "start_depth_m": 2,
+          "end_depth_m": 0.4000000000000057,
+          "signed_area_m2": 0.9600000000000031
+        },
+        {
+          "offset_m": 2.246,
+          "distance_m": 18.246,
+          "existing_rl": 97.90775,
+          "proposed_rl": 97.908,
+          "width_m": 0.24599999999999866,
+          "start_depth_m": 0.4000000000000057,
+          "end_depth_m": 0.00025000000000829914,
+          "signed_area_m2": 0.049230750000001454
+        }
+      ],
+      "fill_bands": [
+        {
+          "fromOffset": -16,
+          "toOffset": -14,
+          "upperFromRl": 95,
+          "upperToRl": 96,
+          "lowerFromRl": 95,
+          "lowerToRl": 95
+        },
+        {
+          "fromOffset": -14,
+          "toOffset": -11,
+          "upperFromRl": 96,
+          "upperToRl": 96,
+          "lowerFromRl": 95,
+          "lowerToRl": 95
+        },
+        {
+          "fromOffset": -11,
+          "toOffset": -10,
+          "upperFromRl": 96,
+          "upperToRl": 96.5,
+          "lowerFromRl": 95,
+          "lowerToRl": 95
+        },
+        {
+          "fromOffset": -10,
+          "toOffset": -9.5,
+          "upperFromRl": 96.5,
+          "upperToRl": 96.75,
+          "lowerFromRl": 95,
+          "lowerToRl": 95.1875
+        },
+        {
+          "fromOffset": -9.5,
+          "toOffset": -3,
+          "upperFromRl": 96.75,
+          "upperToRl": 100,
+          "lowerFromRl": 95.1875,
+          "lowerToRl": 97.625
+        },
+        {
+          "fromOffset": -3,
+          "toOffset": -2,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 97.625,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": -2,
+          "toOffset": 0,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": 0,
+          "toOffset": 2,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": 2,
+          "toOffset": 3,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 97.625
+        },
+        {
+          "fromOffset": 3,
+          "toOffset": 9,
+          "upperFromRl": 100,
+          "upperToRl": 97,
+          "lowerFromRl": 97.625,
+          "lowerToRl": 95.375
+        },
+        {
+          "fromOffset": 9,
+          "toOffset": 9.5,
+          "upperFromRl": 97,
+          "upperToRl": 97,
+          "lowerFromRl": 95.375,
+          "lowerToRl": 95.1875
+        },
+        {
+          "fromOffset": 9.5,
+          "toOffset": 10,
+          "upperFromRl": 97,
+          "upperToRl": 97,
+          "lowerFromRl": 95.1875,
+          "lowerToRl": 95
+        },
+        {
+          "fromOffset": 10,
+          "toOffset": 12,
+          "upperFromRl": 97,
+          "upperToRl": 97,
+          "lowerFromRl": 95,
+          "lowerToRl": 95
+        },
+        {
+          "fromOffset": 12,
+          "toOffset": 16,
+          "upperFromRl": 97,
+          "upperToRl": 95,
+          "lowerFromRl": 95,
+          "lowerToRl": 95
+        }
+      ],
+      "cut_bands": [
+        {
+          "fromOffset": -16,
+          "toOffset": -14,
+          "upperFromRl": 95,
+          "upperToRl": 95,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.7
+        },
+        {
+          "fromOffset": -14,
+          "toOffset": -11,
+          "upperFromRl": 95,
+          "upperToRl": 95,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.7
+        },
+        {
+          "fromOffset": -11,
+          "toOffset": -10,
+          "upperFromRl": 95,
+          "upperToRl": 95,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.7
+        },
+        {
+          "fromOffset": -10,
+          "toOffset": -9.5,
+          "upperFromRl": 95,
+          "upperToRl": 95.1875,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.8875
+        },
+        {
+          "fromOffset": -9.5,
+          "toOffset": -3,
+          "upperFromRl": 95.1875,
+          "upperToRl": 97.625,
+          "lowerFromRl": 94.8875,
+          "lowerToRl": 97.325
+        },
+        {
+          "fromOffset": -3,
+          "toOffset": -2,
+          "upperFromRl": 97.625,
+          "upperToRl": 98,
+          "lowerFromRl": 97.325,
+          "lowerToRl": 97.7
+        },
+        {
+          "fromOffset": -2,
+          "toOffset": 0,
+          "upperFromRl": 98,
+          "upperToRl": 98,
+          "lowerFromRl": 97.7,
+          "lowerToRl": 97.7
+        },
+        {
+          "fromOffset": 0,
+          "toOffset": 2,
+          "upperFromRl": 98,
+          "upperToRl": 98,
+          "lowerFromRl": 97.7,
+          "lowerToRl": 97.7
+        },
+        {
+          "fromOffset": 2,
+          "toOffset": 3,
+          "upperFromRl": 98,
+          "upperToRl": 97.625,
+          "lowerFromRl": 97.7,
+          "lowerToRl": 97.325
+        },
+        {
+          "fromOffset": 3,
+          "toOffset": 9,
+          "upperFromRl": 97.625,
+          "upperToRl": 95.375,
+          "lowerFromRl": 97.325,
+          "lowerToRl": 95.075
+        },
+        {
+          "fromOffset": 9,
+          "toOffset": 9.5,
+          "upperFromRl": 95.375,
+          "upperToRl": 95.1875,
+          "lowerFromRl": 95.075,
+          "lowerToRl": 94.8875
+        },
+        {
+          "fromOffset": 9.5,
+          "toOffset": 10,
+          "upperFromRl": 95.1875,
+          "upperToRl": 95,
+          "lowerFromRl": 94.8875,
+          "lowerToRl": 94.7
+        },
+        {
+          "fromOffset": 10,
+          "toOffset": 12,
+          "upperFromRl": 95,
+          "upperToRl": 95,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.7
+        },
+        {
+          "fromOffset": 12,
+          "toOffset": 12.046,
+          "upperFromRl": 95,
+          "upperToRl": 95,
+          "lowerFromRl": 94.7,
+          "lowerToRl": 94.7
+        }
+      ],
+      "hearting_bands": [
+        {
+          "fromOffset": -2.246,
+          "toOffset": -2,
+          "upperFromRl": 97.908,
+          "upperToRl": 98.4,
+          "lowerFromRl": 97.90775,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": -2,
+          "toOffset": -1.2,
+          "upperFromRl": 98.4,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": -1.2,
+          "toOffset": 0,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": 0,
+          "toOffset": 1.2,
+          "upperFromRl": 100,
+          "upperToRl": 100,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": 1.2,
+          "toOffset": 2,
+          "upperFromRl": 100,
+          "upperToRl": 98.4,
+          "lowerFromRl": 98,
+          "lowerToRl": 98
+        },
+        {
+          "fromOffset": 2,
+          "toOffset": 2.246,
+          "upperFromRl": 98.4,
+          "upperToRl": 97.908,
+          "lowerFromRl": 98,
+          "lowerToRl": 97.90775
+        }
+      ]
+    }
+  ],
+  "drawings": {
+    "assembly": "<svg viewBox=\"0 0 780 185\" xmlns=\"http://www.w3.org/2000/svg\" class=\"bp-fig\"><defs><marker id=\"bfArrow\" markerUnits=\"userSpaceOnUse\" markerWidth=\"9\" markerHeight=\"8\" refX=\"8\" refY=\"3\" orient=\"auto-start-reverse\"><path d=\"M0,0 L8,3 L0,6 Z\" fill=\"#1a4a7a\"/></marker><pattern id=\"bfStone\" width=\"9\" height=\"9\" patternUnits=\"userSpaceOnUse\" patternTransform=\"rotate(30)\"><rect width=\"9\" height=\"9\" fill=\"#dfe6ea\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"9\" stroke=\"#8fa3b0\" stroke-width=\"1.1\"/></pattern><pattern id=\"bfTurf\" width=\"8\" height=\"8\" patternUnits=\"userSpaceOnUse\"><rect width=\"8\" height=\"8\" fill=\"#dcebd6\"/><path d=\"M1 8 L3 3 M5 8 L7 2\" stroke=\"#78a36f\" stroke-width=\"0.9\"/></pattern><pattern id=\"bfConcrete\" width=\"12\" height=\"12\" patternUnits=\"userSpaceOnUse\"><rect width=\"12\" height=\"12\" fill=\"#e2e5e7\"/><path d=\"M0 6 H12 M6 0 V12\" stroke=\"#9aa3a8\" stroke-width=\"0.7\"/></pattern><pattern id=\"bfMurum\" width=\"6\" height=\"6\" patternUnits=\"userSpaceOnUse\"><rect width=\"6\" height=\"6\" fill=\"#f0e4cf\"/><circle cx=\"3\" cy=\"3\" r=\"0.9\" fill=\"#c2a06a\"/></pattern><pattern id=\"bfRubble\" width=\"13\" height=\"13\" patternUnits=\"userSpaceOnUse\"><rect width=\"13\" height=\"13\" fill=\"#e6e9e5\"/><path d=\"M2 7 L6 2 L10 7 L6 11 Z\" fill=\"none\" stroke=\"#7c8b78\" stroke-width=\"1\"/></pattern><pattern id=\"bfFilter\" width=\"7\" height=\"7\" patternUnits=\"userSpaceOnUse\"><rect width=\"7\" height=\"7\" fill=\"#eef3e8\"/><circle cx=\"2\" cy=\"2\" r=\"0.8\" fill=\"#8aa06a\"/><circle cx=\"5\" cy=\"5\" r=\"0.8\" fill=\"#8aa06a\"/></pattern></defs><path d=\"M 39.5 144.7 L 83.3 122.8 L 149.0 122.8 L 171.0 111.8 L 181.9 106.3 L 324.3 35.1 L 346.2 35.1 L 390.0 35.1 L 433.8 35.1 L 455.7 35.1 L 587.1 100.9 L 598.1 100.9 L 609.0 100.9 L 652.9 100.9 L 740.5 144.7 L 740.5 153.4 L 39.5 153.4 Z\" fill=\"#efe9df\" stroke=\"none\"/><line x1=\"22.0\" y1=\"68.0\" x2=\"390.0\" y2=\"68.0\" stroke=\"#4a90b8\" stroke-width=\"1\" stroke-dasharray=\"6 3\"/><text x=\"25.0\" y=\"63.0\" text-anchor=\"start\" fill=\"#4a90b8\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">MWL 98.50</text><line x1=\"22.0\" y1=\"79.0\" x2=\"324.3\" y2=\"79.0\" stroke=\"#4a8f7d\" stroke-width=\"1\" stroke-dasharray=\"3 3\"/><text x=\"25.0\" y=\"91.0\" text-anchor=\"start\" fill=\"#4a8f7d\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">FTL 98.00</text><polygon points=\"340.8,81.0 363.7,35.1 416.3,35.1 439.2,81.0 439.2,81.0 433.8,79.0 346.2,79.0 340.8,81.0\" fill=\"url(#bfMurum)\" stroke=\"#b8558c\" stroke-width=\"1.4\"/><polygon points=\"455.7,35.1 587.1,100.9 598.1,100.9 609.0,100.9 652.9,100.9 740.5,144.7 740.5,141.7 652.9,97.9 609.0,97.9 598.1,97.9 587.1,97.9 455.7,32.1\" fill=\"url(#bfTurf)\" stroke=\"#6f9a68\" stroke-width=\"1\"/><polygon points=\"661.6,144.7 687.9,118.4 687.9,118.4 740.5,144.7\" fill=\"url(#bfRubble)\" stroke=\"#7c8b78\" stroke-width=\"1.3\"/><polygon points=\"83.3,122.8 149.0,122.8 149.0,117.8 83.3,117.8\" fill=\"url(#bfStone)\" stroke=\"#5a6b76\" stroke-width=\"1.1\"/><circle cx=\"149.0\" cy=\"120.3\" r=\"3.2\" fill=\"#d9ecf6\" stroke=\"#4a90b8\" stroke-width=\"1\"/><polygon points=\"587.1,100.9 652.9,100.9 652.9,95.9 587.1,95.9\" fill=\"url(#bfStone)\" stroke=\"#5a6b76\" stroke-width=\"1.1\"/><circle cx=\"587.1\" cy=\"98.4\" r=\"3.2\" fill=\"#d9ecf6\" stroke=\"#4a90b8\" stroke-width=\"1\"/><path d=\"M 39.5 144.7 L 83.3 122.8 L 149.0 122.8 L 171.0 111.8 L 181.9 106.3 L 324.3 35.1 L 346.2 35.1 L 390.0 35.1 L 433.8 35.1 L 455.7 35.1 L 587.1 100.9 L 598.1 100.9 L 609.0 100.9 L 652.9 100.9 L 740.5 144.7\" fill=\"none\" stroke=\"#6b5a44\" stroke-width=\"1.7\"/><line x1=\"83.3\" y1=\"122.8\" x2=\"149.0\" y2=\"122.8\" stroke=\"#c19a3d\" stroke-width=\"1.1\" stroke-dasharray=\"5 3\"/><line x1=\"587.1\" y1=\"100.9\" x2=\"652.9\" y2=\"100.9\" stroke=\"#c19a3d\" stroke-width=\"1.1\" stroke-dasharray=\"5 3\"/><text x=\"390.0\" y=\"26.1\" text-anchor=\"middle\" fill=\"#33505f\" font-size=\"11\" font-weight=\"normal\" font-family=\"Arial\">TBL 100.00</text><line x1=\"324.3\" y1=\"6.1\" x2=\"324.3\" y2=\"16.1\" stroke=\"#1a4a7a\" stroke-width=\"0.7\"/><line x1=\"455.7\" y1=\"6.1\" x2=\"455.7\" y2=\"16.1\" stroke=\"#1a4a7a\" stroke-width=\"0.7\"/><line x1=\"324.3\" y1=\"11.1\" x2=\"455.7\" y2=\"11.1\" stroke=\"#1a4a7a\" stroke-width=\"0.9\" marker-start=\"url(#bfArrow)\" marker-end=\"url(#bfArrow)\"/><text x=\"390.0\" y=\"6.1\" text-anchor=\"middle\" fill=\"#1a4a7a\" font-size=\"11\" font-family=\"Arial\">6.00</text><text x=\"39.5\" y=\"159.7\" text-anchor=\"middle\" fill=\"#5a7a90\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">1:2.00</text><text x=\"740.5\" y=\"159.7\" text-anchor=\"middle\" fill=\"#5a7a90\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">1:2.00</text><text x=\"25.0\" y=\"26.0\" text-anchor=\"start\" fill=\"#8a9aa5\" font-size=\"10\" font-weight=\"normal\" font-family=\"Arial\">Diagrammatic — enabled elements only</text><rect x=\"22.0\" y=\"171\" width=\"21.9\" height=\"5\" fill=\"#222\" stroke=\"#222\" stroke-width=\"0.7\"/><rect x=\"43.9\" y=\"171\" width=\"21.9\" height=\"5\" fill=\"#fff\" stroke=\"#222\" stroke-width=\"0.7\"/><rect x=\"65.8\" y=\"171\" width=\"21.9\" height=\"5\" fill=\"#222\" stroke=\"#222\" stroke-width=\"0.7\"/><text x=\"22.0\" y=\"167.0\" text-anchor=\"start\" fill=\"#8a9aa5\" font-size=\"10\" font-weight=\"normal\" font-family=\"Arial\">0</text><text x=\"87.7\" y=\"167.0\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"10\" font-weight=\"normal\" font-family=\"Arial\">3 m</text><text x=\"758.0\" y=\"167.0\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"10\" font-weight=\"normal\" font-family=\"Arial\">All dimensions in metres</text></svg>",
+    "upstream_toe": "",
+    "downstream_drain": "",
+    "rock_toe": "<svg xmlns=\"http://www.w3.org/2000/svg\" class=\"bund-rocktoe-diagram bp-fig\" viewBox=\"0 0 520 300\" role=\"img\" aria-label=\"Rock toe aligned with downstream bund slope and graded filter layers\">\n  <defs>\n    <pattern id=\"brt-36-12-print-rock\" width=\"10\" height=\"10\" patternUnits=\"userSpaceOnUse\">\n      <rect width=\"10\" height=\"10\" fill=\"#d7bc87\"/>\n      <circle cx=\"2\" cy=\"2.5\" r=\"0.9\" fill=\"#96784a\" opacity=\".6\"/><circle cx=\"7\" cy=\"4\" r=\"1.15\" fill=\"#8b6d3e\" opacity=\".5\"/><circle cx=\"4.5\" cy=\"8\" r=\".7\" fill=\"#806235\" opacity=\".45\"/>\n    </pattern>\n    <pattern id=\"brt-36-12-print-ca40\" width=\"8\" height=\"8\" patternUnits=\"userSpaceOnUse\">\n      <rect width=\"8\" height=\"8\" fill=\"#aa8c5b\"/><circle cx=\"2\" cy=\"2\" r=\"1.1\" fill=\"#745d39\" opacity=\".52\"/><circle cx=\"6.2\" cy=\"5.7\" r=\"1.25\" fill=\"#745d39\" opacity=\".45\"/>\n    </pattern>\n    <pattern id=\"brt-36-12-print-ca20\" width=\"6\" height=\"6\" patternUnits=\"userSpaceOnUse\">\n      <rect width=\"6\" height=\"6\" fill=\"#c3c9b6\"/><path d=\"M0 6L6 0\" stroke=\"#78806d\" stroke-width=\".65\" opacity=\".6\"/>\n    </pattern>\n    <pattern id=\"brt-36-12-print-sand\" width=\"6\" height=\"6\" patternUnits=\"userSpaceOnUse\">\n      <rect width=\"6\" height=\"6\" fill=\"#f0d993\"/><circle cx=\"1.5\" cy=\"1.5\" r=\".55\" fill=\"#aa843d\" opacity=\".6\"/><circle cx=\"4.7\" cy=\"4.5\" r=\".45\" fill=\"#aa843d\" opacity=\".5\"/>\n    </pattern>\n  </defs>\n  <line x1=\"20\" y1=\"142\" x2=\"510\" y2=\"142\" stroke=\"#6f604d\" stroke-width=\"1.2\"/>\n  \n  <rect x=\"146\" y=\"142\" width=\"228\" height=\"41.17\" fill=\"url(#brt-36-12-print-ca40)\" stroke=\"#705b3a\" stroke-width=\"0.8\"/>\n  <rect x=\"146\" y=\"183.17\" width=\"228\" height=\"12.67\" fill=\"url(#brt-36-12-print-ca20)\" stroke=\"#705b3a\" stroke-width=\"0.8\"/>\n  <rect x=\"146\" y=\"195.83\" width=\"228\" height=\"9.5\" fill=\"url(#brt-36-12-print-sand)\" stroke=\"#705b3a\" stroke-width=\"0.8\"/>\n  <polygon points=\"146,142 222,66 215.28,59.28 139.28,135.28\" fill=\"url(#brt-36-12-print-ca40)\" stroke=\"#705b3a\" stroke-width=\"0.8\"/>\n  <polygon points=\"139.28,135.28 215.28,59.28 208.56,52.56 132.56,128.56\" fill=\"url(#brt-36-12-print-ca20)\" stroke=\"#705b3a\" stroke-width=\"0.8\"/>\n  <polygon points=\"132.56,128.56 208.56,52.56 199.61,43.61 123.61,119.61\" fill=\"url(#brt-36-12-print-sand)\" stroke=\"#705b3a\" stroke-width=\"0.8\"/>\n  <rect x=\"146\" y=\"142\" width=\"228\" height=\"63.33\" fill=\"none\" stroke=\"#9d7132\" stroke-width=\"0.9\" stroke-dasharray=\"3 2\"/>\n  <text x=\"151\" y=\"218.33\" fill=\"#9d7132\" font-family=\"Arial, sans-serif\" font-size=\"8.5\">1.00 m graded filter bed</text>\n  <text x=\"260\" y=\"163.53\" text-anchor=\"middle\" dominant-baseline=\"middle\" fill=\"#394955\" font-family=\"Arial, sans-serif\" font-size=\"8.5\">40 mm CA · 0.65 m</text>\n  <text x=\"260\" y=\"189.5\" text-anchor=\"middle\" dominant-baseline=\"middle\" fill=\"#394955\" font-family=\"Arial, sans-serif\" font-size=\"8\">20 mm CA · 0.20 m</text>\n  <text x=\"260\" y=\"200.58\" text-anchor=\"middle\" dominant-baseline=\"middle\" fill=\"#394955\" font-family=\"Arial, sans-serif\" font-size=\"8\">Sand · 0.15 m</text>\n  <line x1=\"141\" y1=\"147\" x2=\"118\" y2=\"147\" stroke=\"#164d81\" stroke-width=\"0.8\"/>\n  <text x=\"115\" y=\"150\" text-anchor=\"end\" fill=\"#164d81\" font-family=\"Arial, sans-serif\" font-size=\"8.5\">Filter behind toe: 0.50 m</text>\n  <line x1=\"132\" y1=\"21\" x2=\"374\" y2=\"142\" stroke=\"#705b3a\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>\n  <polygon points=\"146,142 222,66 222,66 374,142\" fill=\"url(#brt-36-12-print-rock)\" fill-opacity=\"0.82\" stroke=\"#71562f\" stroke-width=\"1.2\"/>\n  <line x1=\"222\" y1=\"66\" x2=\"374\" y2=\"142\" stroke=\"#71562f\" stroke-width=\"1.6\"/>\n  <text x=\"241\" y=\"110.08\" text-anchor=\"middle\" fill=\"#71562f\" font-family=\"Arial, sans-serif\" font-size=\"10\">Rock toe</text>\n  \n  <line x1=\"382\" y1=\"66\" x2=\"382\" y2=\"142\" stroke=\"#164d81\" stroke-width=\"0.9\"/>\n  <line x1=\"379\" y1=\"66\" x2=\"385\" y2=\"66\" stroke=\"#164d81\" stroke-width=\"0.9\"/>\n  <line x1=\"379\" y1=\"142\" x2=\"385\" y2=\"142\" stroke=\"#164d81\" stroke-width=\"0.9\"/>\n  <text x=\"387\" y=\"104\" dominant-baseline=\"middle\" fill=\"#164d81\" font-family=\"Arial, sans-serif\" font-size=\"10\">Height 1.2 m</text>\n  <text x=\"135\" y=\"16\" fill=\"#705b3a\" font-family=\"Arial, sans-serif\" font-size=\"9\">D/S slope 1:2</text>\n  <text x=\"260\" y=\"278\" text-anchor=\"middle\" fill=\"#394955\" font-family=\"Arial, sans-serif\" font-size=\"9\">Area = H × [Crest + H × (inner + outer) / 2] = 1.2 × [0 + 1.2 × (1 + 2) / 2] = 2.16 m²</text>\n  <text x=\"510\" y=\"297\" text-anchor=\"end\" fill=\"#394955\" font-family=\"Arial, sans-serif\" font-size=\"9\">Base 3.6 m · inner 1:1 · outer = D/S slope</text>\n</svg>",
+    "filters": "",
+    "chute": "<svg xmlns=\"http://www.w3.org/2000/svg\" class=\"bund-chute-diagram bp-fig\" viewBox=\"0 0 720 270\" role=\"img\" aria-label=\"Chute drain 0.6 m wide and 0.3 m deep with concrete protection\">\n  <defs>\n    <pattern id=\"chute-print-concrete\" width=\"10\" height=\"10\" patternUnits=\"userSpaceOnUse\" patternTransform=\"rotate(32)\">\n      <rect width=\"10\" height=\"10\" fill=\"#e5edf1\"/>\n      <line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"10\" stroke=\"#70848f\" stroke-width=\"0.7\" opacity=\"0.28\"/>\n    </pattern>\n  </defs>\n  <path d=\"M 44 62 L 311.3 62 L 311.3 110.7 L 408.7 110.7 L 408.7 62 L 676 62 L 676 198 L 44 198 Z\" fill=\"#f3efe7\" stroke=\"none\"/>\n  <path d=\"M 44 62 L 311.3 62 M 408.7 62 L 676 62\" fill=\"none\" stroke=\"#77664e\" stroke-width=\"1.15\" stroke-linecap=\"round\"/>\n  <path d=\"M 311.3 62 L 311.3 110.7 L 408.7 110.7 L 408.7 62 L 396.52 62 L 396.52 98.52 L 323.48 98.52 L 323.48 62 Z\" fill=\"url(#chute-print-concrete)\" stroke=\"#70848f\" stroke-width=\"1.2\" stroke-linejoin=\"round\"/>\n  <rect x=\"323.48\" y=\"62\" width=\"73.04\" height=\"36.52\" fill=\"#ffffff\"/>\n  <path d=\"M 323.48 62 L 323.48 98.52 L 396.52 98.52 L 396.52 62\" fill=\"none\" stroke=\"#70848f\" stroke-width=\"1.2\" stroke-linejoin=\"round\"/>\n  <line x1=\"323.48\" y1=\"115.52\" x2=\"396.52\" y2=\"115.52\" stroke=\"#245d8f\" stroke-width=\"0.9\"/>\n  <line x1=\"323.48\" y1=\"111.52\" x2=\"323.48\" y2=\"119.52\" stroke=\"#245d8f\" stroke-width=\"0.9\"/>\n  <line x1=\"396.52\" y1=\"111.52\" x2=\"396.52\" y2=\"119.52\" stroke=\"#245d8f\" stroke-width=\"0.9\"/>\n  <text x=\"360\" y=\"129.52\" text-anchor=\"middle\" fill=\"#245d8f\" font-family=\"Arial, sans-serif\" font-size=\"11\">W = 0.6 m clear</text>\n  <line x1=\"426.7\" y1=\"62\" x2=\"426.7\" y2=\"98.52\" stroke=\"#245d8f\" stroke-width=\"0.9\"/>\n  <text x=\"433.7\" y=\"80.26\" dominant-baseline=\"middle\" fill=\"#245d8f\" font-family=\"Arial, sans-serif\" font-size=\"11\">D = 0.3 m</text>\n  <text x=\"44\" y=\"35\" fill=\"#52646e\" font-family=\"Arial, sans-serif\" font-size=\"11\">CC protection: t = 0.1 m</text>\n  <text x=\"44\" y=\"224\" fill=\"#52646e\" font-family=\"Arial, sans-serif\" font-size=\"10.5\">Excavation area = W × D = 0.6 × 0.3 = 0.18 m²</text>\n  <text x=\"44\" y=\"243\" fill=\"#52646e\" font-family=\"Arial, sans-serif\" font-size=\"10.5\">Lined perimeter P = W + 2D = 0.6 + 2(0.3) = 1.2 m</text>\n  <text x=\"676\" y=\"262\" text-anchor=\"end\" fill=\"#52646e\" font-family=\"Arial, sans-serif\" font-size=\"9.5\">Cross-section of downstream chute drain</text>\n</svg>"
+  },
+  "berms": [
+    {
+      "id": "n_5ylmi1a393ry",
+      "side": "us",
+      "level": 96,
+      "width": 3,
+      "crossFall": 40,
+      "slopeBelow": null,
+      "surfaceMaterial": {
+        "code": "IRR-CAW-8-15",
+        "unit": "SQM"
+      },
+      "surfaceThickness": 0.1,
+      "drainLiningMaterial": {
+        "code": "IRR-CAW-7-12",
+        "unit": "CUM"
+      },
+      "drainExcavationMaterial": {
+        "code": "IRR-CAW-1-1",
+        "unit": "CUM"
+      },
+      "drainWidth": 0.6,
+      "drainDepth": 0.3,
+      "drainLiningThickness": 0.1,
+      "chuteDrainLiningMaterial": null,
+      "chuteDrainExcavationMaterial": null,
+      "chuteDrainProtectionType": "concrete",
+      "schedule_index": 0,
+      "svg": "<svg viewBox=\"0 0 700 280\" xmlns=\"http://www.w3.org/2000/svg\" class=\"bp-fig\"><defs><marker id=\"bfArrow\" markerUnits=\"userSpaceOnUse\" markerWidth=\"9\" markerHeight=\"8\" refX=\"8\" refY=\"3\" orient=\"auto-start-reverse\"><path d=\"M0,0 L8,3 L0,6 Z\" fill=\"#1a4a7a\"/></marker><pattern id=\"bfStone\" width=\"9\" height=\"9\" patternUnits=\"userSpaceOnUse\" patternTransform=\"rotate(30)\"><rect width=\"9\" height=\"9\" fill=\"#dfe6ea\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"9\" stroke=\"#8fa3b0\" stroke-width=\"1.1\"/></pattern><pattern id=\"bfTurf\" width=\"8\" height=\"8\" patternUnits=\"userSpaceOnUse\"><rect width=\"8\" height=\"8\" fill=\"#dcebd6\"/><path d=\"M1 8 L3 3 M5 8 L7 2\" stroke=\"#78a36f\" stroke-width=\"0.9\"/></pattern><pattern id=\"bfConcrete\" width=\"12\" height=\"12\" patternUnits=\"userSpaceOnUse\"><rect width=\"12\" height=\"12\" fill=\"#e2e5e7\"/><path d=\"M0 6 H12 M6 0 V12\" stroke=\"#9aa3a8\" stroke-width=\"0.7\"/></pattern><pattern id=\"bfMurum\" width=\"6\" height=\"6\" patternUnits=\"userSpaceOnUse\"><rect width=\"6\" height=\"6\" fill=\"#f0e4cf\"/><circle cx=\"3\" cy=\"3\" r=\"0.9\" fill=\"#c2a06a\"/></pattern><pattern id=\"bfRubble\" width=\"13\" height=\"13\" patternUnits=\"userSpaceOnUse\"><rect width=\"13\" height=\"13\" fill=\"#e6e9e5\"/><path d=\"M2 7 L6 2 L10 7 L6 11 Z\" fill=\"none\" stroke=\"#7c8b78\" stroke-width=\"1\"/></pattern><pattern id=\"bfFilter\" width=\"7\" height=\"7\" patternUnits=\"userSpaceOnUse\"><rect width=\"7\" height=\"7\" fill=\"#eef3e8\"/><circle cx=\"2\" cy=\"2\" r=\"0.8\" fill=\"#8aa06a\"/><circle cx=\"5\" cy=\"5\" r=\"0.8\" fill=\"#8aa06a\"/></pattern></defs><path d=\"M 702.9 26.2 L 462.1 146.6 L 213.0 140.3 L -11.2 252.4 L -11.2 264.9 L 702.9 264.9 Z\" fill=\"#efe9df\" stroke=\"#6b5a44\" stroke-width=\"1.7\"/><polygon points=\"462.1,146.6 213.0,140.3 213.0,135.3 462.1,141.6\" fill=\"url(#bfStone)\" stroke=\"#5a6b76\" stroke-width=\"1.1\"/><polygon points=\"441.3,146.0 441.3,170.9 391.5,170.9 391.5,144.8\" fill=\"#d9ecf6\" stroke=\"#5aa9d6\" stroke-width=\"1.3\"/><text x=\"350.0\" y=\"20.0\" text-anchor=\"middle\" fill=\"#33505f\" font-size=\"11\" font-weight=\"bold\" font-family=\"Arial\">U/S berm · Shelf RL 96.00 m</text><line x1=\"462.1\" y1=\"117.3\" x2=\"462.1\" y2=\"127.3\" stroke=\"#1a4a7a\" stroke-width=\"0.7\"/><line x1=\"213.0\" y1=\"117.3\" x2=\"213.0\" y2=\"127.3\" stroke=\"#1a4a7a\" stroke-width=\"0.7\"/><line x1=\"462.1\" y1=\"122.3\" x2=\"213.0\" y2=\"122.3\" stroke=\"#1a4a7a\" stroke-width=\"0.9\" marker-start=\"url(#bfArrow)\" marker-end=\"url(#bfArrow)\"/><text x=\"337.5\" y=\"117.3\" text-anchor=\"middle\" fill=\"#1a4a7a\" font-size=\"11\" font-family=\"Arial\">3.00</text><text x=\"470.1\" y=\"138.6\" text-anchor=\"start\" fill=\"#33505f\" font-size=\"11\" font-weight=\"bold\" font-family=\"Arial\">Shelf RL 96.00 m</text><text x=\"337.5\" y=\"135.4\" text-anchor=\"middle\" fill=\"#5a6b76\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">stone revetment</text><text x=\"337.5\" y=\"167.4\" text-anchor=\"middle\" fill=\"#5a7a90\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">cross-fall 1 in 40.00</text><text x=\"416.4\" y=\"184.9\" text-anchor=\"middle\" fill=\"#4a90b8\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">catch-water drain</text><text x=\"553.4\" y=\"116.9\" text-anchor=\"middle\" fill=\"#5a7a90\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">face above 1 in 2.00</text><text x=\"138.3\" y=\"193.7\" text-anchor=\"middle\" fill=\"#5a7a90\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">face below 1 in 2.00</text><text x=\"674.0\" y=\"262.3\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">shelf is part of the design face</text><rect x=\"22.0\" y=\"266\" width=\"83.0\" height=\"5\" fill=\"#222\" stroke=\"#222\" stroke-width=\"0.7\"/><rect x=\"105.0\" y=\"266\" width=\"83.0\" height=\"5\" fill=\"#fff\" stroke=\"#222\" stroke-width=\"0.7\"/><text x=\"22.0\" y=\"262.0\" text-anchor=\"start\" fill=\"#8a9aa5\" font-size=\"10\" font-weight=\"normal\" font-family=\"Arial\">0</text><text x=\"188.1\" y=\"262.0\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"10\" font-weight=\"normal\" font-family=\"Arial\">2 m</text><text x=\"678.0\" y=\"262.0\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"10\" font-weight=\"normal\" font-family=\"Arial\">All dimensions in metres</text></svg>",
+      "surface": {
+        "measure": "area",
+        "quantity": 144
+      },
+      "drain": {
+        "measure": "volume",
+        "quantity": 7.2
+      },
+      "excavation": {
+        "unit": "m³",
+        "rows": [
+          {
+            "from_chainage": "0",
+            "to_chainage": "30",
+            "length_m": 30,
+            "start_section": 0.18,
+            "end_section": 0.18,
+            "average_section": 0.18,
+            "quantity": 5.4
+          },
+          {
+            "from_chainage": "30",
+            "to_chainage": "60",
+            "length_m": 30,
+            "start_section": 0.18,
+            "end_section": 0.18,
+            "average_section": 0.18,
+            "quantity": 5.4
+          }
+        ],
+        "total": 10.8
+      }
+    },
+    {
+      "id": "n_5kj3hs6y93ry",
+      "side": "ds",
+      "level": 97,
+      "width": 3,
+      "crossFall": 40,
+      "slopeBelow": null,
+      "surfaceMaterial": {
+        "code": "IRR-CAW-8-15",
+        "unit": "SQM"
+      },
+      "surfaceThickness": 0.1,
+      "drainLiningMaterial": {
+        "code": "IRR-CAW-7-12",
+        "unit": "CUM"
+      },
+      "drainExcavationMaterial": {
+        "code": "IRR-CAW-1-1",
+        "unit": "CUM"
+      },
+      "drainWidth": 0.6,
+      "drainDepth": 0.3,
+      "drainLiningThickness": 0.1,
+      "chuteDrainLiningMaterial": null,
+      "chuteDrainExcavationMaterial": {
+        "code": "IRR-CAW-1-1",
+        "unit": "CUM"
+      },
+      "chuteDrainProtectionType": "concrete",
+      "schedule_index": 1,
+      "svg": "<svg viewBox=\"0 0 700 280\" xmlns=\"http://www.w3.org/2000/svg\" class=\"bp-fig\"><defs><marker id=\"bfArrow\" markerUnits=\"userSpaceOnUse\" markerWidth=\"9\" markerHeight=\"8\" refX=\"8\" refY=\"3\" orient=\"auto-start-reverse\"><path d=\"M0,0 L8,3 L0,6 Z\" fill=\"#1a4a7a\"/></marker><pattern id=\"bfStone\" width=\"9\" height=\"9\" patternUnits=\"userSpaceOnUse\" patternTransform=\"rotate(30)\"><rect width=\"9\" height=\"9\" fill=\"#dfe6ea\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"9\" stroke=\"#8fa3b0\" stroke-width=\"1.1\"/></pattern><pattern id=\"bfTurf\" width=\"8\" height=\"8\" patternUnits=\"userSpaceOnUse\"><rect width=\"8\" height=\"8\" fill=\"#dcebd6\"/><path d=\"M1 8 L3 3 M5 8 L7 2\" stroke=\"#78a36f\" stroke-width=\"0.9\"/></pattern><pattern id=\"bfConcrete\" width=\"12\" height=\"12\" patternUnits=\"userSpaceOnUse\"><rect width=\"12\" height=\"12\" fill=\"#e2e5e7\"/><path d=\"M0 6 H12 M6 0 V12\" stroke=\"#9aa3a8\" stroke-width=\"0.7\"/></pattern><pattern id=\"bfMurum\" width=\"6\" height=\"6\" patternUnits=\"userSpaceOnUse\"><rect width=\"6\" height=\"6\" fill=\"#f0e4cf\"/><circle cx=\"3\" cy=\"3\" r=\"0.9\" fill=\"#c2a06a\"/></pattern><pattern id=\"bfRubble\" width=\"13\" height=\"13\" patternUnits=\"userSpaceOnUse\"><rect width=\"13\" height=\"13\" fill=\"#e6e9e5\"/><path d=\"M2 7 L6 2 L10 7 L6 11 Z\" fill=\"none\" stroke=\"#7c8b78\" stroke-width=\"1\"/></pattern><pattern id=\"bfFilter\" width=\"7\" height=\"7\" patternUnits=\"userSpaceOnUse\"><rect width=\"7\" height=\"7\" fill=\"#eef3e8\"/><circle cx=\"2\" cy=\"2\" r=\"0.8\" fill=\"#8aa06a\"/><circle cx=\"5\" cy=\"5\" r=\"0.8\" fill=\"#8aa06a\"/></pattern></defs><path d=\"M -2.9 26.2 L 237.9 146.6 L 487.0 140.3 L 711.2 252.4 L 711.2 264.9 L -2.9 264.9 Z\" fill=\"#efe9df\" stroke=\"#6b5a44\" stroke-width=\"1.7\"/><polygon points=\"237.9,146.6 487.0,140.3 487.0,135.3 237.9,141.6\" fill=\"url(#bfStone)\" stroke=\"#5a6b76\" stroke-width=\"1.1\"/><polygon points=\"258.7,146.0 258.7,170.9 308.5,170.9 308.5,144.8\" fill=\"#d9ecf6\" stroke=\"#5aa9d6\" stroke-width=\"1.3\"/><text x=\"350.0\" y=\"20.0\" text-anchor=\"middle\" fill=\"#33505f\" font-size=\"11\" font-weight=\"bold\" font-family=\"Arial\">D/S berm · Shelf RL 97.00 m</text><line x1=\"237.9\" y1=\"117.3\" x2=\"237.9\" y2=\"127.3\" stroke=\"#1a4a7a\" stroke-width=\"0.7\"/><line x1=\"487.0\" y1=\"117.3\" x2=\"487.0\" y2=\"127.3\" stroke=\"#1a4a7a\" stroke-width=\"0.7\"/><line x1=\"237.9\" y1=\"122.3\" x2=\"487.0\" y2=\"122.3\" stroke=\"#1a4a7a\" stroke-width=\"0.9\" marker-start=\"url(#bfArrow)\" marker-end=\"url(#bfArrow)\"/><text x=\"362.5\" y=\"117.3\" text-anchor=\"middle\" fill=\"#1a4a7a\" font-size=\"11\" font-family=\"Arial\">3.00</text><text x=\"231.9\" y=\"138.6\" text-anchor=\"end\" fill=\"#33505f\" font-size=\"11\" font-weight=\"bold\" font-family=\"Arial\">Shelf RL 97.00 m</text><text x=\"362.5\" y=\"135.4\" text-anchor=\"middle\" fill=\"#5a6b76\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">stone revetment</text><text x=\"362.5\" y=\"167.4\" text-anchor=\"middle\" fill=\"#5a7a90\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">cross-fall 1 in 40.00</text><text x=\"283.6\" y=\"184.9\" text-anchor=\"middle\" fill=\"#4a90b8\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">catch-water drain</text><text x=\"146.6\" y=\"116.9\" text-anchor=\"middle\" fill=\"#5a7a90\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">face above 1 in 2.00</text><text x=\"561.7\" y=\"193.7\" text-anchor=\"middle\" fill=\"#5a7a90\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">face below 1 in 2.00</text><text x=\"674.0\" y=\"262.3\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"10.5\" font-weight=\"normal\" font-family=\"Arial\">shelf is part of the design face</text><rect x=\"22.0\" y=\"266\" width=\"83.0\" height=\"5\" fill=\"#222\" stroke=\"#222\" stroke-width=\"0.7\"/><rect x=\"105.0\" y=\"266\" width=\"83.0\" height=\"5\" fill=\"#fff\" stroke=\"#222\" stroke-width=\"0.7\"/><text x=\"22.0\" y=\"262.0\" text-anchor=\"start\" fill=\"#8a9aa5\" font-size=\"10\" font-weight=\"normal\" font-family=\"Arial\">0</text><text x=\"188.1\" y=\"262.0\" text-anchor=\"middle\" fill=\"#8a9aa5\" font-size=\"10\" font-weight=\"normal\" font-family=\"Arial\">2 m</text><text x=\"678.0\" y=\"262.0\" text-anchor=\"end\" fill=\"#8a9aa5\" font-size=\"10\" font-weight=\"normal\" font-family=\"Arial\">All dimensions in metres</text></svg>",
+      "surface": {
+        "measure": "area",
+        "quantity": 144
+      },
+      "drain": {
+        "measure": "volume",
+        "quantity": 7.2
+      },
+      "excavation": {
+        "unit": "m³",
+        "rows": [
+          {
+            "from_chainage": "0",
+            "to_chainage": "30",
+            "length_m": 30,
+            "start_section": 0.18,
+            "end_section": 0.18,
+            "average_section": 0.18,
+            "quantity": 5.4
+          },
+          {
+            "from_chainage": "30",
+            "to_chainage": "60",
+            "length_m": 30,
+            "start_section": 0.18,
+            "end_section": 0.18,
+            "average_section": 0.18,
+            "quantity": 5.4
+          }
+        ],
+        "total": 10.8
+      }
+    }
+  ],
+  "phreatic": null,
+  "signature": []
+}

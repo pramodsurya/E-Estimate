@@ -1,0 +1,130 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img "E-Estimate" [ref=e7]
+        - text: E-Estimate
+      - button "File" [ref=e10] [cursor=pointer]
+      - button "Component" [ref=e12] [cursor=pointer]
+      - button "Help" [ref=e14] [cursor=pointer]
+      - button "Undo" [disabled] [ref=e15]
+      - button "Redo" [disabled] [ref=e19]
+    - textbox "Search project, pages, items…" [ref=e69]
+    - generic [ref=e29]:
+      - generic [ref=e70]: Untitled (new)
+      - button "Notifications, 1 unread" [ref=e31] [cursor=pointer]:
+        - generic [ref=e35]: "1"
+  - generic [ref=e71]:
+    - generic [ref=e72]:
+      - strong [ref=e73]: This project has not been saved yet.
+      - text: Nothing you enter is being kept — choose where it should live and it saves itself from then on.
+    - button "Save project" [ref=e74] [cursor=pointer]
+  - generic [ref=e36]:
+    - generic [ref=e75]:
+      - button "Explorer" [ref=e76] [cursor=pointer]
+      - button "Search" [ref=e81] [cursor=pointer]
+      - button "Lead Dashboard" [ref=e85] [cursor=pointer]
+      - button "DATA Dashboard" [ref=e90] [cursor=pointer]
+      - button "Source Control" [ref=e95] [cursor=pointer]
+    - generic [ref=e100]:
+      - generic [ref=e101]:
+        - generic [ref=e102]:
+          - generic [ref=e103]: Explorer
+          - generic [ref=e104]:
+            - button "Add Page" [ref=e105] [cursor=pointer]
+            - button "Add Component" [ref=e109] [cursor=pointer]
+        - generic "Title" [ref=e118] [cursor=pointer]
+      - generic [ref=e119]:
+        - tablist "Project data" [ref=e120]:
+          - button "Seigniorage" [ref=e121] [cursor=pointer]
+          - button "Lead" [ref=e127] [cursor=pointer]
+          - button "Data" [ref=e131] [cursor=pointer]
+        - generic [ref=e136]: Items added in Explorer will appear here.
+    - generic [ref=e139]:
+      - heading "New Project" [level=1] [ref=e140]
+      - paragraph [ref=e141]: Set up the project details. Choose the area classification for the labour allowance.
+      - generic [ref=e142]:
+        - heading "Project" [level=2] [ref=e143]
+        - generic [ref=e144]:
+          - generic [ref=e145]:
+            - generic [ref=e146]: Name of Project*
+            - textbox "e.g. Repairs to Sluice at Kakarvani Tank" [ref=e147]
+          - generic [ref=e148]:
+            - generic [ref=e149]: SOR / SSR Year*
+            - combobox [ref=e150]:
+              - option "Select year…" [disabled]
+              - option "2026-27" [selected]
+              - option "2025-26"
+              - option "2024-25"
+              - option "2023-24"
+          - generic [ref=e151]:
+            - generic [ref=e152]: Zone
+            - combobox [ref=e153]:
+              - option "Zone I"
+              - option "Zone II"
+              - option "Zone III" [selected]
+      - generic [ref=e154]:
+        - heading "Area Allowance" [level=2] [ref=e155]
+        - paragraph [ref=e156]: Select the area classification for this project.
+        - generic "Area classification" [ref=e157]:
+          - button "GHMC" [ref=e158] [cursor=pointer]
+          - button "Corporation" [ref=e159] [cursor=pointer]
+          - button "Municipality" [ref=e160] [cursor=pointer]
+          - button "Industrial area" [ref=e161] [cursor=pointer]
+          - button "Agency / Tribal" [ref=e162] [cursor=pointer]
+          - button "None" [ref=e163] [cursor=pointer]
+        - generic [ref=e164]:
+          - generic [ref=e165]:
+            - generic [ref=e166]: Allowance
+            - strong [ref=e167]: No area allowance (manual)
+          - generic [ref=e168]:
+            - generic [ref=e169]: Labour percentage
+            - strong [ref=e170]: 0.00%
+          - generic [ref=e171]:
+            - generic [ref=e172]: Rule source
+            - strong [ref=e173]: 2026-27
+      - button "Create Project" [disabled] [ref=e175]
+  - dialog [ref=e179]:
+    - generic [ref=e180]:
+      - generic [ref=e181]: Locate Canal
+      - button "Close" [ref=e182] [cursor=pointer]
+    - generic [ref=e186]:
+      - generic [ref=e239]:
+        - generic [ref=e240]: Working geometry
+        - paragraph [ref=e241]: Draw the canal alignment on the map, type a length, or upload a file below — one canal per distinct line (branches become sub-components). Uploads need lines, not points.
+      - generic [ref=e242]:
+        - generic [ref=e243]: Length (m) — manual (no map)
+        - spinbutton "Length (m) — manual (no map)" [ref=e244]
+        - generic [ref=e245]: Used when nothing is drawn or uploaded — the canal setup takes this length.
+      - generic [ref=e246]:
+        - generic [ref=e247]: Import line file
+        - generic [ref=e248]:
+          - button "Upload KML / KMZ / GeoJSON / SHP" [ref=e249] [cursor=pointer]
+          - generic [ref=e253]:
+            - text: Join within
+            - combobox "Join within" [ref=e254]:
+              - option "30 m"
+              - option "40 m"
+              - option "50 m" [selected]
+      - generic [ref=e256]:
+        - generic:
+          - generic:
+            - img "Toposheet"
+        - generic:
+          - generic [ref=e257]:
+            - button "Zoom in" [ref=e258] [cursor=pointer]: +
+            - button "Zoom out" [ref=e259] [cursor=pointer]: −
+          - button "Layers" [ref=e261] [cursor=pointer]
+          - generic [ref=e262]:
+            - link "Leaflet" [ref=e263] [cursor=pointer]:
+              - /url: https://leafletjs.com
+            - text: "| Toposheet imagery: supplied KMZ"
+      - generic [ref=e268]:
+        - heading "Area Allowance" [level=2] [ref=e269]
+        - generic [ref=e270]: Draw the line or upload a file — the allowance reads at the line middle.
+    - generic [ref=e232]:
+      - generic [ref=e233]: Adding to Title
+      - generic [ref=e234]:
+        - button "Back" [ref=e271] [cursor=pointer]
+        - button "Cancel" [ref=e235] [cursor=pointer]
+        - button "Create" [disabled] [ref=e274]

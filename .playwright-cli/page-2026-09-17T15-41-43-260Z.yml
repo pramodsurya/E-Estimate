@@ -1,0 +1,134 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img "E-Estimate" [ref=e7]
+        - text: E-Estimate
+      - button "File" [ref=e10] [cursor=pointer]
+      - button "Component" [ref=e12] [cursor=pointer]
+      - button "Help" [ref=e14] [cursor=pointer]
+      - button "Undo" [ref=e15] [cursor=pointer]
+      - button "Redo" [disabled] [ref=e19]
+    - textbox "Search project, pages, items…" [ref=e69]
+    - generic [ref=e29]:
+      - generic [ref=e70]: Drainage QA •
+      - button "Notifications, 1 unread" [ref=e31] [cursor=pointer]:
+        - generic [ref=e35]: "1"
+  - generic [ref=e71]:
+    - generic [ref=e72]:
+      - strong [ref=e73]: This project has not been saved yet.
+      - text: Nothing you enter is being kept — choose where it should live and it saves itself from then on.
+    - button "Save project" [ref=e74] [cursor=pointer]
+  - generic [ref=e36]:
+    - generic [ref=e75]:
+      - button "Explorer" [ref=e76] [cursor=pointer]
+      - button "Search" [ref=e81] [cursor=pointer]
+      - button "Lead Dashboard" [ref=e85] [cursor=pointer]
+      - button "DATA Dashboard" [ref=e90] [cursor=pointer]
+      - button "Source Control" [ref=e95] [cursor=pointer]
+    - generic [ref=e100]:
+      - generic [ref=e101]:
+        - generic [ref=e102]:
+          - generic [ref=e103]: Explorer
+          - generic [ref=e104]:
+            - button "Add Page" [ref=e105] [cursor=pointer]
+            - button "Add Component" [ref=e109] [cursor=pointer]
+        - generic [ref=e112]:
+          - generic "Drainage QA" [ref=e320] [cursor=pointer]
+          - generic "Front Page" [ref=e325] [cursor=pointer]
+          - generic "Introduction" [ref=e331] [cursor=pointer]
+          - generic [ref=e283] [cursor=pointer]:
+            - generic "Canal" [ref=e293]
+            - generic [ref=e303]:
+              - button "Move up" [disabled] [ref=e304]
+              - button "Move down" [disabled] [ref=e307]
+              - button "Add Item" [ref=e310]
+              - button "Settings" [ref=e312]
+              - button "Delete this component with everything inside it" [ref=e316]
+          - generic [ref=e294] [cursor=pointer]: Detailed
+      - generic [ref=e119]:
+        - tablist "Project data" [ref=e120]:
+          - button "Seigniorage" [ref=e121] [cursor=pointer]
+          - button "Lead" [ref=e127] [cursor=pointer]
+          - button "Data" [ref=e131] [cursor=pointer]
+        - generic [ref=e136]: Items added in Explorer will appear here.
+    - generic [ref=e333]:
+      - generic [ref=e334]:
+        - generic [ref=e335]:
+          - generic [ref=e336]: Component
+          - heading "Canal" [level=1] [ref=e337]
+        - generic [ref=e343]:
+          - button "Sync" [ref=e344] [cursor=pointer]
+          - button "Add Sub-component" [ref=e350] [cursor=pointer]
+          - button "Add Page" [ref=e355] [cursor=pointer]
+          - button "Add Item" [ref=e359] [cursor=pointer]
+          - button "Settings" [ref=e361] [cursor=pointer]
+          - button "Print Studio" [ref=e365] [cursor=pointer]
+      - generic [ref=e371]:
+        - generic [ref=e372]: This dashboard has not been synced for the current SOR settings. Click Sync to populate it.
+        - generic [ref=e373]:
+          - generic [ref=e374]:
+            - generic [ref=e375]:
+              - generic [ref=e376]: Working location & allowance
+              - heading "No area allowance (manual) · 0.00%" [level=2] [ref=e377]
+              - paragraph [ref=e378]: Using the project allowance. Every item under this component is priced with it until an explicit one is set.
+            - button "Edit length" [ref=e379] [cursor=pointer]
+            - button "Change" [ref=e380] [cursor=pointer]
+          - generic [ref=e381]:
+            - generic [ref=e382]:
+              - generic [ref=e383]: Work point
+              - strong [ref=e384]: Not set
+              - generic [ref=e385]: Inherited allowance · 1000 m
+            - generic [ref=e386]:
+              - generic [ref=e387]: Rule source
+              - strong [ref=e388]: 2026-27
+              - generic [ref=e389]: Project year
+        - generic [ref=e390]:
+          - generic [ref=e391]:
+            - generic [ref=e396]:
+              - heading "Signature / Footer" [level=3] [ref=e397]
+              - text: Inherited from Project Dashboard
+            - button "Customize here" [ref=e399] [cursor=pointer]
+          - generic [ref=e400]: No signature prints here — Project Dashboard has it turned off.
+        - generic [ref=e402]:
+          - generic [ref=e403]:
+            - generic [ref=e404]: Total estimated cost
+            - generic [ref=e408]: ₹ 0
+            - paragraph [ref=e409]: Fixed quantities × adopted rates across this component.
+          - generic [ref=e410]:
+            - generic [ref=e411]:
+              - generic [ref=e412]: Component items
+              - strong [ref=e413]: ₹ 0
+              - generic [ref=e414]: 0 direct items
+            - generic [ref=e415]:
+              - generic [ref=e416]: Sub-components
+              - strong [ref=e417]: ₹ 0
+              - generic [ref=e418]: 0 sub-components
+            - generic [ref=e419]:
+              - generic [ref=e420]: Ready for costing
+              - strong [ref=e421]: 0 / 0
+              - generic [ref=e422]: Direct items with quantity and rate
+            - generic [ref=e423]:
+              - generic [ref=e424]: Supporting pages
+              - strong [ref=e425]: "0"
+              - generic [ref=e426]: Attached to this section
+        - generic [ref=e427]:
+          - generic [ref=e428]:
+            - generic [ref=e429]:
+              - generic [ref=e430]: Sub-components
+              - heading "Cost by sub-component" [level=2] [ref=e435]
+              - paragraph [ref=e436]: 0 items grouped separately from this component’s own abstract.
+            - button "Add Sub-component" [ref=e437] [cursor=pointer]
+          - generic [ref=e444]:
+            - strong [ref=e445]: No sub-components
+            - generic [ref=e446]: Create one when a part of the work needs its own abstract and cost.
+        - generic [ref=e447]:
+          - generic [ref=e448]:
+            - generic [ref=e449]:
+              - generic [ref=e450]: Component items
+              - heading "Direct items" [level=2] [ref=e452]
+              - paragraph [ref=e453]: Only these items appear in the main Component Abstract.
+            - button "Add Item" [ref=e454] [cursor=pointer]
+          - generic [ref=e458]:
+            - strong [ref=e459]: No direct items
+            - generic [ref=e460]: Add an item to begin costing this section.

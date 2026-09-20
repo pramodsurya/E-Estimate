@@ -318,12 +318,12 @@ export type SpreadsheetDocument = IWorkbookData | LegacySpreadsheetDocument
 
 // ---------------------------------------------------------------------------
 // Component templates. A template turns a component node into a purpose-built
-// dashboard (Guide Wall today; Box Culvert / Weir / Sluice later) whose
+// dashboard (Guide Wall and Bund today; Box Culvert / Weir later) whose
 // computed quantities are written into ordinary item children, so component
 // totals and the Lead / Seigniorage / Abstract prints keep working unchanged.
 // ---------------------------------------------------------------------------
 
-export type ComponentTemplateId = 'guide-wall' | 'bund' | 'mi-sluice-new'
+export type ComponentTemplateId = 'guide-wall' | 'bund' | 'canal'
 
 export interface GuideWallPoint {
   lat: number
@@ -355,6 +355,8 @@ export interface TemplateMaterialRef {
   side?: ItemSource
   /** Published DATA variant/add-on selected when this SSR code was attached. */
   dataVariant?: DataVariantSelection
+  /** Exact SOR catalogue cell selected through the unified code picker. */
+  sorCatalogue?: SorCatalogueItemSelection
 }
 
 export type GuideWallMaterialRef = TemplateMaterialRef
@@ -414,119 +416,6 @@ export interface GuideWallData {
   excavationRows: GuideWallExcavationRow[]
   /** Generated items, one per distinct (role, code) actually in use. */
   materialItems: GuideWallMaterialItem[]
-}
-
-// ---------------------------------------------------------------------------
-// New MI tank sluice. This is a quantity template, not a structural design
-// substitute: the engineer enters the approved geometry and mechanical BOM;
-// the template keeps the estimate, hydraulic check, drawing and SSR rows in
-// step with those inputs.
-// ---------------------------------------------------------------------------
-
-export type MiSluiceOpeningShape = 'rectangular' | 'circular'
-export type MiSluiceIntakeType = 'headwall' | 'tower'
-export type MiSluiceMaterialRole =
-  | 'excavation'
-  | 'pcc'
-  | 'rcc'
-  | 'reinforcement'
-  | 'embedded'
-  | 'gate'
-  | 'hoist'
-  | 'embedded-paint'
-  | 'gate-paint'
-  | 'hoist-paint'
-
-export interface MiSluiceMaterialItem {
-  role: MiSluiceMaterialRole
-  code: string
-  itemNodeId: string
-}
-
-export interface MiSluiceNewData {
-  configured: boolean
-  intakeType: MiSluiceIntakeType
-  openingShape: MiSluiceOpeningShape
-  vents: number
-  levels: {
-    sill: number
-    minimumOperating: number
-    ftl: number
-    mwl: number
-    tbl: number
-  }
-  hydraulic: {
-    designDischarge: number
-    dischargeCoefficient: number
-    minimumCrownCover: number
-  }
-  opening: {
-    width: number
-    height: number
-    diameter: number
-  }
-  barrel: {
-    length: number
-    outerWidth: number
-    outerHeight: number
-  }
-  excavation: {
-    length: number
-    width: number
-    depth: number
-  }
-  pcc: {
-    length: number
-    width: number
-    thickness: number
-  }
-  intake: {
-    length: number
-    averageThickness: number
-    height: number
-  }
-  downstreamHeadwall: {
-    length: number
-    averageThickness: number
-    height: number
-  }
-  wingWalls: {
-    count: number
-    length: number
-    averageThickness: number
-    averageHeight: number
-  }
-  returnWalls: {
-    count: number
-    length: number
-    averageThickness: number
-    averageHeight: number
-  }
-  cutoffWalls: {
-    count: number
-    width: number
-    thickness: number
-    depth: number
-  }
-  stillingBasin: {
-    length: number
-    width: number
-    slabThickness: number
-    sideWallCount: number
-    sideWallThickness: number
-    sideWallHeight: number
-  }
-  reinforcementKgPerCum: number
-  mechanical: {
-    embeddedTonnes: number
-    gateTonnes: number
-    hoistTonnes: number
-    embeddedPaintSqm: number
-    gatePaintSqm: number
-    hoistPaintSqm: number
-  }
-  materials: Record<MiSluiceMaterialRole, TemplateMaterialRef | null>
-  materialItems: MiSluiceMaterialItem[]
 }
 
 // ---------------------------------------------------------------------------
@@ -892,6 +781,12 @@ export type BundHomogeneousSoilType =
 
 /** Impervious-core geometry profile used to recommend zoned side slopes. */
 export type BundHeartingSlopeProfile = 'broad-core' | 'compact-core'
+/**
+ * Which side of the drawn alignment (chainage direction Ch 0 → end) carries
+ * the tank water (u/s). Asked in bund setup step 2 instead of the length;
+ * 'left' preserves the historical assumption.
+ */
+export type BundWaterSide = 'left' | 'right'
 
 export interface BundData {
   /** False until the setup wizard finishes; Edit setup reopens the wizard. */
@@ -925,6 +820,8 @@ export interface BundData {
   source: 'map' | 'manual'
   alignment: GuideWallPoint[]
   lengthM: number
+  /** Tank-water (u/s) side of the alignment; asked in setup step 2. */
+  waterSide: BundWaterSide
   chainageUnit: BundChainageUnit
   /**
    * Include the phreatic-line diagram in the printed component details. Off by
@@ -1081,6 +978,371 @@ export interface BundData {
   simulation?: import('./bundSimulation').BundSimulationData
 }
 
+// ---------------------------------------------------------------------------
+// Canal (new or repair irrigation canal). Chapter 1 captures the canal-level
+// design; per-reach designs, earthwork, LA width and lining follow in later
+// chapters. Like Bund, quantities sync into ordinary generated items.
+// ---------------------------------------------------------------------------
+
+export type CanalMode = 'new' | 'repair';
+
+/**
+ * Water-flow direction along a drawn canal alignment. `start-to-end` means
+ * water flows from the first drawn point (Ch 0) to the last; `end-to-start`
+ * is the reverse. Null until the user chooses or inherits it.
+ */
+export type CanalFlowDirection = 'start-to-end' | 'end-to-start';
+
+export type CanalBankMaterialSource = 'canal-excavation' | 'dump-area' | 'borrow-area';
+export type CanalBankMaterialZone = 'homogeneous' | 'hearting' | 'casing';
+
+/** One share of a bank zone supplied and billed from a particular material source. */
+export interface CanalBankMaterialAllocation {
+  id: string;
+  zone: CanalBankMaterialZone;
+  source: CanalBankMaterialSource;
+  /** Share of this zone's measured volume. Allocations for a zone should total 100%. */
+  percentage: number;
+  compaction: 95 | 98;
+  watering: boolean;
+}
+
+export interface CanalDesign {
+  /** Design bed RL at canal Ch 0 (m). */
+  bedLevelAtStart: number;
+  /** Design discharge Q (cumecs); sizes the section and drives lining thickness. */
+  discharge: number;
+  /** Bed width B (m). */
+  bedWidth: number;
+  /** Full supply depth FSD (m). */
+  fullSupplyDepth: number;
+  /** Freeboard above FSL (m). */
+  freeBoard: number;
+  /** Bed slope expressed as 1 in N. */
+  bedSlope: number;
+  /** Side slope: horizontal metres per 1 m vertical. */
+  sideSlope: number;
+  /** Left bank crest width (m). */
+  leftBankCrestWidth: number;
+  /** Left bank outer slope, horizontal metres per 1 m vertical. */
+  leftBankOuterSlope: number;
+  /** Right bank crest width (m). */
+  rightBankCrestWidth: number;
+  /** Right bank outer slope, horizontal metres per 1 m vertical. */
+  rightBankOuterSlope: number;
+  /** Repeatable shelves on the two canal-side and two outer-bank faces. */
+  berms: CanalBerm[];
+  /** Chainage reaches carrying service-road platforms on either canal bank. */
+  serviceRoadReaches: CanalServiceRoadReach[];
+  /** Bank material arrangement. */
+  bankSectionType: 'homogeneous' | 'zoned';
+  /** Repeatable chainage ranges where impervious zoned bank construction applies. */
+  zonedReaches: Array<{ id: string; fromChainage: number; toChainage: number }>;
+  /** Signed vertical offset of the hearting top from FSL; capped at freeboard. */
+  heartingLevelOffsetFromFsl: number;
+  /** Minimum hearting height above prepared ground for the zone to apply (m). */
+  minimumHeartingHeight: number;
+  /** Finished width of the impervious hearting at its top (m). */
+  heartingTopWidth: number;
+  heartingLeftSlope: number;
+  heartingRightSlope: number;
+  heartingTrenchEnabled: boolean;
+  /** Finished bottom width of the cutoff trench (m). */
+  heartingTrenchWidth: number;
+  /** Cutoff-trench side slopes, horizontal metres per 1 m vertical. */
+  heartingTrenchLeftSlope: number;
+  heartingTrenchRightSlope: number;
+  /** Source shares for homogeneous fill or the two zones of a zoned bank. */
+  bankMaterialAllocations: CanalBankMaterialAllocation[];
+  /** @deprecated Retained only when loading older project files. */
+  bankSoil: string;
+  /** @deprecated Retained only when loading older project files. */
+  heartingSoil: string;
+  billBankFormation: boolean;
+  billBankCompaction: boolean;
+  billHearting: boolean;
+  billCasing: boolean;
+  billHeartingTrench: boolean;
+  /** Optional user overrides; blank retains the recommended SSR operation. */
+  bankFormationCodeOverride: string;
+  bankCompactionCodeOverride: string;
+  heartingCodeOverride: string;
+  casingCodeOverride: string;
+  bankFormationItemOverride?: TemplateMaterialRef | null;
+  bankCompactionItemOverride?: TemplateMaterialRef | null;
+  heartingItemOverride?: TemplateMaterialRef | null;
+  casingItemOverride?: TemplateMaterialRef | null;
+  /** Parent canal / offtake reference, e.g. the RD chainage. */
+  offtake: string;
+}
+
+/** One point of a canal cross-section profile (metres from the centre-line, RL). */
+export interface CanalPoint {
+  /** Horizontal distance from the canal centre-line (m); negative = left of flow. */
+  offset: number;
+  /** Reduced level (m). */
+  rl: number;
+}
+
+/** One chainage cross-section along 0..lengthM. */
+export interface CanalSection {
+  id: string;
+  chainage: number;
+  /** User-created section that is retained independently of interval generation. */
+  isManual?: boolean;
+  /** Quick-entry mode retained independently at each chainage. */
+  groundEntryMode?: 'average' | 'separate';
+  /** Entered left toe RL, or the common RL when groundEntryMode is average. */
+  leftToeRl?: number | null;
+  /** Entered right toe RL, equal to leftToeRl in average mode. */
+  rightToeRl?: number | null;
+  /** Surveyed existing ground profile (offset, RL), ordered by offset. */
+  ground: CanalPoint[];
+  /** False after Clear Proposed; surveyed ground remains available. */
+  designPopulated?: boolean;
+  /** Important generated canal breakpoints shown in the Section Levels table. */
+  designPointOffsets?: number[];
+}
+
+export type CanalBermFace = 'left-outer' | 'left-canal' | 'right-canal' | 'right-outer';
+
+export interface CanalBerm {
+  id: string;
+  face: CanalBermFace;
+  /** Vertical elevation of the shelf above the canal bed (m). */
+  heightAboveBed: number;
+  /** Horizontal shelf width (m). */
+  width: number;
+}
+
+export interface CanalServiceRoadReach {
+  id: string;
+  fromChainage: number;
+  toChainage: number;
+  side: 'left' | 'right' | 'both';
+  heightMode: 'tbl' | 'manual';
+  /** Used only in manual mode; vertical height above canal bed (m). */
+  heightAboveBed: number;
+  /** Usable carriageway width, excluding shoulders (m). */
+  width: number;
+  /** Edge shoulder/tolerance width on each side of the usable road (m). */
+  shoulderWidth: number;
+  constructionType: 'earthen' | 'traditional-metal';
+  hardMetalThickness: number;
+  hardMetalCode: string;
+  blindageCode: string;
+  hardMetalItem?: TemplateMaterialRef | null;
+  blindageItem?: TemplateMaterialRef | null;
+}
+
+export type CanalItemRole =
+  | 'clearance'
+  | 'excavation'
+  | 'banking'
+  | 'lining'
+  | 'foundation'
+  | 'sand-blanket'
+  | 'filter'
+  | 'rock-toe'
+  | 'road-metal'
+  | 'road-blindage';
+
+export interface CanalMaterialItem {
+  role: CanalItemRole;
+  code: string;
+  itemNodeId: string;
+}
+
+export interface CanalExcavationBand {
+  id: string;
+  label: string;
+  pct: number;
+  /** Percentage of this excavated class confirmed suitable for reuse in bank fill. */
+  bankReusePct: number;
+  material: TemplateMaterialRef;
+}
+
+export interface CanalClearanceRow {
+  id: string;
+  length: number | null;
+  breadth: number | null;
+}
+
+export interface CanalFoundationExcavationReach {
+  id: string;
+  fromChainage: number;
+  toChainage: number;
+  kind: 'foundation' | 'stripping';
+  /** Target formation RL beneath the bank-fill footprint. */
+  foundationRl: number;
+  /** Stripping depth below existing ground when kind is stripping. */
+  strippingDepth: number;
+  /** Independent soil/rock classification for this reach. */
+  bands: CanalExcavationBand[];
+}
+
+export type CanalFoundationFillKind = '5-1' | '5-2' | '5-3' | '5-4' | '5-5' | '5-7' | '5-10';
+
+export interface CanalFoundationFillReach {
+  id: string;
+  /** Groups foundation fill, blanket and rock-toe selections saved for one reach. */
+  workReachId: string;
+  fromChainage: number;
+  toChainage: number;
+  kind: CanalFoundationFillKind;
+  /** Share of foundation-excavation void replaced by 5-1/5-2/5-3. */
+  percentage: number;
+  /** Vertical replacement-fill depth above the foundation excavation bottom RL. */
+  foundationDepth: number;
+  /** Blanket thickness; 5-4 is fixed at 0.25 m. */
+  thickness: number;
+  /** Plan width for blankets, or base width for a rock toe/filter. */
+  width: number;
+  blanketWidthMode: 'automatic' | 'manual';
+  blanketLeftWidth: number;
+  blanketRightWidth: number;
+  /** Rock-toe height or filter depth. */
+  height: number;
+  side: 'left' | 'right' | 'both';
+  material: TemplateMaterialRef;
+}
+
+export type CanalFilterDrainKind = '5-6' | '5-7' | '5-8' | '5-9' | '5-11' | '5-12' | '5-13';
+
+export interface CanalFilterDrainReach {
+  id: string;
+  fromChainage: number;
+  toChainage: number;
+  kind: CanalFilterDrainKind;
+  orientation: 'longitudinal' | 'cross' | 'local';
+  side: 'left' | 'right' | 'both' | 'bed';
+  width: number;
+  depth: number;
+  thickness: number;
+  spacing: number;
+  count: number;
+  /** Rock-toe crest width; CAW-5-6 follows the Bund geometry model. */
+  rockToeTopWidth?: number;
+  /** Rock-toe inner batter, horizontal metres per metre vertical. */
+  rockToeInnerSlope?: number;
+  /** Developed length of one transverse or local drain. */
+  crossDrainLength?: number;
+  /** Physical system; SSR code is resolved from this design object. */
+  system?: 'rock-toe' | 'toe-drain' | 'bed-drainage' | 'porous-plug';
+  coverage?: 'entire' | 'selected';
+  placementMode?: 'spacing' | 'count' | 'manual';
+  manualChainages?: number[];
+  plugLocations?: Array<'bed' | 'left' | 'right'>;
+  offsetMode?: 'centre' | 'left' | 'right' | 'custom';
+  offset?: number;
+  material: TemplateMaterialRef;
+}
+
+/** Lining item keys: each key feeds one billing toggle and one code override. */
+export type CanalLiningItemKey =
+  | 'lining'
+  | 'modelWall'
+  | 'steps'
+  | 'sleepers'
+  | 'porousPlugs'
+  | 'masticJoints'
+  | 'tarfeltJoints';
+
+/** Which lining operations are billed in a reach. */
+export interface CanalLiningBilling {
+  lining: boolean;
+  modelWall: boolean;
+  steps: boolean;
+  sleepers: boolean;
+  porousPlugs: boolean;
+  masticJoints: boolean;
+  tarfeltJoints: boolean;
+}
+
+/**
+ * One lined chainage reach (Chapter 6 new / 5 repair). Section geometry stays
+ * in Chapter 1; every field here is lining-specific and `null` means "use the
+ * documented automatic value" so the reach can be added without decisions.
+ */
+export interface CanalLiningReach {
+  id: string;
+  fromChainage: number;
+  toChainage: number;
+  /** False skips this reach; other reaches still measure. */
+  provide: boolean;
+  /** Lining thickness (mm); null = default (75 mm). */
+  thicknessMm: number | null;
+  /** Lining freeboard on the slopes above FSD (m); null = design freeBoard. */
+  liningFb: number | null;
+  /** Coping / lug width (m); null = from design discharge. */
+  copingWidthM: number | null;
+  /** Panel length between transverse contraction joints (m); null = 3.5. */
+  panelLengthM: number | null;
+  /** Model / profile wall interval along the reach (m); null = 17.5. */
+  modelWallIntervalM: number | null;
+  /** Steps interval along the reach (m); null = 300. */
+  stepsIntervalM: number | null;
+  /** Porous plug spacing on the slopes (sq.m per plug); null = 40. */
+  plugSlopeSpacingSqm: number | null;
+  /** Porous plug spacing in the bed (sq.m per plug); null = 100. */
+  plugBedSpacingSqm: number | null;
+  bill: CanalLiningBilling;
+  /** Per-item SSR code overrides; a blank key keeps the default code. */
+  itemOverrides: Partial<Record<CanalLiningItemKey, TemplateMaterialRef>>;
+}
+
+export interface CanalData {
+  /** False until the setup wizard finishes; Edit setup reopens the wizard. */
+  configured: boolean;
+  /** Repair is modelled but not built yet; setup offers New only. */
+  mode: CanalMode;
+  /**
+   * How the length is fixed:
+   *  - 'map'    → the alignment is drawn on the map; the length is measured
+   *               from it (a sub-component only trusts its line when it
+   *               follows the parent canal alignment).
+   *  - 'manual' → the length is typed in.
+   */
+  source: 'map' | 'manual';
+  alignment: GuideWallPoint[];
+  lengthM: number;
+  /** Water-flow direction along the drawn alignment; null when not set. */
+  flowDirection: CanalFlowDirection | null;
+  /** True when flowDirection was inherited from the parent canal alignment. */
+  flowInherited: boolean;
+  sectionMode: 'continuous' | 'discontinuous';
+  intervalM: number;
+  /** Interior section chainages for discontinuous mode (sorted, 0 < ch < lengthM). */
+  breaks: number[];
+  /** Canal-level design (Chapter 1); per-reach designs arrive later. */
+  design: CanalDesign;
+  /** Topsoil/preparation stripping depth used in Chapter 4 (m). */
+  strippingDepth: number;
+  /** New-canal bank-foundation excavation; replaces stripping in new work. */
+  foundationExcavationReaches: CanalFoundationExcavationReach[];
+  /** Optional treatments placed in or beside saved foundation-excavation reaches. */
+  foundationFillReaches: CanalFoundationFillReach[];
+  /** Optional filter and drain works. */
+  filterDrainReaches: CanalFilterDrainReach[];
+  /** Soil/rock classification percentages for canal cut and stripping. */
+  excavationBands: CanalExcavationBand[];
+  /** Separately classified cut-off-trench excavation. */
+  trenchExcavationBands: CanalExcavationBand[];
+  /** Lining reaches (Chapter 6 new / 5 repair); blank fields use defaults. */
+  liningReaches: CanalLiningReach[];
+  jungleClearanceMode: 'automatic' | 'manual';
+  jungleClearanceMaterial: TemplateMaterialRef | null;
+  jungleClearanceRows: CanalClearanceRow[];
+  /** Extra acquisition margin beyond the designed footprint on each side (m). */
+  laLeftMargin: number;
+  laRightMargin: number;
+  /** Materialized sections along 0..lengthM. */
+  sections: CanalSection[];
+  /** Generated items, one per distinct (role, code) actually in use. */
+  materialItems: CanalMaterialItem[];
+}
+
+
 /**
  * Pinned pages every project carries. 'front' is the cover canvas (rich text
  * plus images); 'introduction' is a plain rich document.
@@ -1104,8 +1366,10 @@ export interface ProjectNode {
   guideWall?: GuideWallData
   /** Bund template state (templateId === 'bund'). */
   bund?: BundData
-  /** New MI tank sluice template state (templateId === 'mi-sluice-new'). */
-  miSluiceNew?: MiSluiceNewData
+  /** Canal template state (templateId === 'canal'). */
+  canal?: CanalData
+  /** Retired 'mi-sluice-new' template state: never created; old project files ignore it. */
+  miSluiceNew?: unknown
 
   /**
    * Item nodes whose quantity is computed by a component template. Carries the
@@ -1118,7 +1382,7 @@ export interface ProjectNode {
   /** Component id that owns and edits this generated item. */
   templateOwnerId?: string
   /** Which template role produced this item. */
-  templateItemRole?: 'wall' | 'base' | 'excavation' | BundItemRole | MiSluiceMaterialRole
+  templateItemRole?: 'wall' | 'base' | 'excavation' | BundItemRole | CanalItemRole
 
   /**
    * Page/document item nodes: free-form document content.
@@ -1152,6 +1416,14 @@ export interface ProjectNode {
   createdDataId?: string
   /** Optional work point for a component/sub-component. Defaults to project location. */
   location?: ProjectLocation | null
+  /**
+   * Explicit labour area allowance for a component/sub-component. Items under
+   * the nearest ancestor carrying one use it instead of the project allowance;
+   * null/undefined means inherit.
+   */
+  areaAllowance?: ProjectAreaAllowance | null
+  /** Drawn working line for a custom component; the allowance resolves from its centroid. */
+  workingLine?: { lat: number; lng: number }[] | null
   /** Items open as a spreadsheet by default, but can be changed from Settings. */
   itemEditorType?: ItemEditorType
   unit?: string | null
@@ -1372,6 +1644,46 @@ export interface ItemLeadChoice {
   qtyShare: number
 }
 
+export type AvgLeadMode = 'line' | 'table'
+
+export interface AvgLeadRouteInput {
+  chainageM: number
+  routeKm: number
+  startPointId: string
+  /** Accepted road route, stored — never discarded. Empty in table mode. */
+  geometry?: { lat: number; lon: number }[]
+}
+
+/** Audit trail for an Avg Lead: how the averaged distance was produced. */
+export interface AvgLeadDetail {
+  mode: AvgLeadMode
+  componentId: string
+  componentName: string
+  spacingM?: number
+  toleranceM?: number
+  pointCount: number
+  avgKm: number
+  routes: AvgLeadRouteInput[]
+  distancesKm?: number[]
+}
+
+export interface WeightedLeadEntry {
+  variantId: string
+  variantName: string
+  leadKm: number
+  quantity: number
+  /** Quantity unit from the first contributing Lead application ("cum", "MT", …). */
+  unit: string
+}
+
+/** Project-wide Weighted Average Lead: (w1*l1 + w2*l2 + …) / W over applied leads. */
+export interface WeightedLeadDetail {
+  entries: WeightedLeadEntry[]
+  totalQuantity: number
+  weightedAvgKm: number
+  createdAt: string
+}
+
 export interface LeadVariant {
   id: string
   variantName?: string
@@ -1403,6 +1715,11 @@ export interface LeadVariant {
   includesAllLifts?: boolean
   /** Actual measured route distance. `leadKm` remains the payable/equivalent chart lead. */
   actualLeadKm?: number | null
+  /** Component the lead was created from (Avg Lead: working line or table). */
+  componentId?: string
+  componentName?: string
+  avgLead?: AvgLeadDetail
+  weightedLead?: WeightedLeadDetail
   roadCondition?: LeadRoadCondition
   roadSegmentKm?: number
   roadMultiplier?: number

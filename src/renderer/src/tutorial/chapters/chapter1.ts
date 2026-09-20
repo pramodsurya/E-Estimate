@@ -48,30 +48,31 @@ const chapter1: TutorialChapter = {
       body:
         'Zone III covers most of the state outside the notified urban belts, and it is the safe default. ' +
         'If your division letter names a zone, use that one.',
-      primary: 'Next — the location',
+      primary: 'Next — the area',
       screen: 'the New Project form',
       target: { selector: '[data-tour="np-zone"]', placement: 'bottom' }
     },
     {
       id: 'location',
-      actionLabel: 'the map',
-      rail: 'Location',
+
+      rail: 'Area',
       section: 'setup',
-      title: 'Click the map where the work is',
+      title: 'Pick the area classification',
       body:
-        'Search the village, or click the spot directly. The pin decides your area allowance — the percentage ' +
-        'added to labour rates for that mandal — so it is read from the map, never typed by you.',
+        'Choose the belt the work sits in — GHMC, Corporation, Municipality, Industrial, or Agency / Tribal. ' +
+        'The classification decides your area allowance — the percentage added to labour rates — so pick what ' +
+        'the division letter says. “None” means no allowance.',
       primary: 'Next — the allowance',
       screen: 'the New Project form',
-      target: { selector: '[data-tour="np-map"]', placement: 'top' }
+      target: { selector: '[data-tour="np-allowance"]', placement: 'top' }
     },
     {
       id: 'allowance',
       rail: 'Allowance',
       section: 'setup',
-      title: 'The allowance came from the pin',
+      title: 'The allowance follows the classification',
       body:
-        'An Agency / Tribal mandal carries a higher labour percentage than a plain one. The rule year and ' +
+        'An Agency / Tribal belt carries a higher labour percentage than a plain one. The rule year and ' +
         'G.O. reference are shown with it, which is what a checking officer will ask for.',
       primary: 'Next — create it',
       screen: 'the New Project form',
@@ -378,7 +379,7 @@ const chapter1: TutorialChapter = {
   complete: {
     title: 'You’ve built a real estimate.',
     checklist: [
-      'Project details, year, zone and area allowance from the map',
+      'Project details, year, zone and area allowance',
       'A component, three items — two of them added and measured unaided',
       'Final numbers fixed, with print areas set automatically from the sheet',
       'One item written as a document instead of a table'
