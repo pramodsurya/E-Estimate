@@ -1,6 +1,6 @@
 /** Native Typst DATA Dashboard PDF compilation. */
 import { supabase } from './supabase'
-import { contentHash, createBoundedCache, figureCacheKey, type BoundedCache } from './typist-output/compileCache'
+import { contentHash, createBoundedCache, figureCacheKey, type BoundedCache, type FigureRefLike } from './typist-output/compileCache'
 import type { DataSheet } from './dataSheets'
 import type { EestimateProject, Margins, Orientation, PaperSize } from '../types/project'
 import {
@@ -106,7 +106,7 @@ export async function buildDataFigureBundle(
   const figurePaths: Record<string, Array<{ path: string; caption: string }>> = {}
   const downloads = new Map<string, Promise<string | null>>()
 
-  const download = (objectPath: string, figure?: { updatedAt?: unknown; size?: unknown; version?: unknown; figureVersion?: unknown }): Promise<string | null> => {
+  const download = (objectPath: string, figure?: FigureRefLike): Promise<string | null> => {
     const key = figureCacheKey(objectPath, figure)
     const cached = figureBytesCache.get(key)
     if (cached !== undefined) return Promise.resolve(cached)

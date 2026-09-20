@@ -21,7 +21,6 @@ import drawingEnUS from '@univerjs/preset-docs-drawing/locales/en-US'
 import { DocSelectionManagerService, RichTextEditingMutation } from '@univerjs/docs'
 import { AlertTriangle, Crop, FileCode, Hash } from 'lucide-react'
 import {
-  forwardRef,
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
@@ -132,6 +131,7 @@ interface UniverDocumentProps {
   showItemTools?: boolean
   /** Render the stored snapshot without editor controls or persistence (VPV). */
   preview?: boolean
+  ref?: React.Ref<UniverDocumentHandle>
 }
 
 /**
@@ -143,11 +143,13 @@ interface UniverDocumentProps {
  * enable it by default; preview-only callers may disable it when drawings are
  * known to be absent.
  */
-const UniverDocument = forwardRef<UniverDocumentHandle, UniverDocumentProps>(
-  function UniverDocument(
-    { node, allowImages = true, showItemTools = false, preview = false },
-    ref
-  ): JSX.Element {
+const UniverDocument = function UniverDocument({
+  node,
+  allowImages = true,
+  showItemTools = false,
+  preview = false,
+  ref
+}: UniverDocumentProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const univerRef = useRef<Univer | null>(null)
   const applyDrawingRef = useRef<UniverDocumentHandle['applyDrawingSnapshot']>(
@@ -747,6 +749,6 @@ const UniverDocument = forwardRef<UniverDocumentHandle, UniverDocumentProps>(
       ) : null}
     </>
   )
-})
+}
 
 export default UniverDocument

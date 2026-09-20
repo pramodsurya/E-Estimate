@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { FilePlus2, LoaderCircle, Trash2, X } from 'lucide-react'
 import { resolveAreaAllowance } from '../../lib/masterData'
 import { workingLineCentroid } from '../../lib/componentAllowance'
@@ -72,13 +72,17 @@ interface GeometryImportPanelProps {
   extendKey: string | null
   onToggleExtend: (key: string | null) => void
   onRowsChange: (rows: ImportProposalRow[] | null) => void
+  ref?: React.Ref<GeometryImportPanelHandle>
 }
 
-const GeometryImportPanel = forwardRef<GeometryImportPanelHandle, GeometryImportPanelProps>(
-  function GeometryImportPanel(
-    { baseName, sorYear, extendKey, onToggleExtend, onRowsChange },
-    ref
-  ) {
+const GeometryImportPanel = function GeometryImportPanel({
+  baseName,
+  sorYear,
+  extendKey,
+  onToggleExtend,
+  onRowsChange,
+  ref
+}: GeometryImportPanelProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const rowTokens = useRef<Record<string, number>>({})
   const [fileName, setFileName] = useState<string | null>(null)
@@ -578,7 +582,6 @@ const GeometryImportPanel = forwardRef<GeometryImportPanelHandle, GeometryImport
       )}
     </div>
   )
-  }
-)
+}
 
 export default GeometryImportPanel

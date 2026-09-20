@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Download, Eraser, LoaderCircle, LockKeyhole, Printer, X } from 'lucide-react'
 import L from 'leaflet'
 import {
@@ -64,6 +64,7 @@ export interface LeadMapPrintPageProps {
   signatureFooter?: SignatureFooterSettings
   onUpdatePrintSettings?: (settings: LeadPrintSettings) => void
   interactive?: boolean
+  ref?: React.Ref<HTMLElement>
 }
 
 interface RoutePoint {
@@ -365,54 +366,50 @@ export default function LeadMapPrintStudio({
   )
 }
 
-export const LeadMapPrintPage = forwardRef<HTMLElement, LeadMapPrintPageProps>(
-  function LeadMapPrintPage(
-    {
-      variants,
-      applications,
-      assignments,
-      points,
-      site,
-      mapDirections,
-      printSettings,
-      signatureFooter,
-      onUpdatePrintSettings,
-      interactive = true
-    },
-    ref
-  ): JSX.Element {
-    const layout = normalizeLeadPrintSettings(printSettings)
-    const routes = useMemo(
-      () => buildRouteLines(variants, applications, assignments, points, site, mapDirections),
-      [applications, assignments, mapDirections, points, site, variants]
-    )
-    const update = onUpdatePrintSettings ?? (() => undefined)
-    return (
-      <article
-        ref={ref}
-        className={`lead-print-page map-page ${layout.pages.map.orientation}`}
-        style={mapPageStyle(layout, signatureFooter)}
-      >
-        {layout.showMapHeader && (
-          <header className="lead-print-section-header">
-            <div>
-              <h2>{layout.mapTitle || 'Lead Route Map'}</h2>
-              {layout.mapSubtitle && <p>{layout.mapSubtitle}</p>}
-            </div>
-          </header>
-        )}
-        <RouteMap
-          routes={routes}
-          layout={layout}
-          interactive={interactive}
-          onViewChange={(mapView) => update({ ...layout, mapView })}
-          onViewReset={() => update({ ...layout, mapView: null })}
-        />
-        {signatureFooter?.enabled && <SignatureFooterPrint settings={signatureFooter} />}
-      </article>
-    )
-  }
-)
+export function LeadMapPrintPage({
+  variants,
+  applications,
+  assignments,
+  points,
+  site,
+  mapDirections,
+  printSettings,
+  signatureFooter,
+  onUpdatePrintSettings,
+  interactive = true,
+  ref
+}: LeadMapPrintPageProps): JSX.Element {
+  const layout = normalizeLeadPrintSettings(printSettings)
+  const routes = useMemo(
+    () => buildRouteLines(variants, applications, assignments, points, site, mapDirections),
+    [applications, assignments, mapDirections, points, site, variants]
+  )
+  const update = onUpdatePrintSettings ?? (() => undefined)
+  return (
+    <article
+      ref={ref}
+      className={`lead-print-page map-page ${layout.pages.map.orientation}`}
+      style={mapPageStyle(layout, signatureFooter)}
+    >
+      {layout.showMapHeader && (
+        <header className="lead-print-section-header">
+          <div>
+            <h2>{layout.mapTitle || 'Lead Route Map'}</h2>
+            {layout.mapSubtitle && <p>{layout.mapSubtitle}</p>}
+          </div>
+        </header>
+      )}
+      <RouteMap
+        routes={routes}
+        layout={layout}
+        interactive={interactive}
+        onViewChange={(mapView) => update({ ...layout, mapView })}
+        onViewReset={() => update({ ...layout, mapView: null })}
+      />
+      {signatureFooter?.enabled && <SignatureFooterPrint settings={signatureFooter} />}
+    </article>
+  )
+}
 
 function RouteMap({
   routes,
