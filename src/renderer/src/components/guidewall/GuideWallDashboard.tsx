@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   AlertTriangle,
   ClipboardCopy,
@@ -55,7 +55,7 @@ const qty3 = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 3 })
 interface Props {
   node: ProjectNode
   data: GuideWallData
-  onEditSetup: (step: 1 | 2) => void
+  onEditSetup: () => void
 }
 
 type MaterialRole = 'wall' | 'base' | 'excavation'
@@ -78,9 +78,9 @@ export default function GuideWallDashboard({ node, data, onEditSetup }: Props): 
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [copyFrom, setCopyFrom] = useState('')
 
-  const wallGroups = useMemo(() => wallMaterialGroups(data), [data])
-  const baseGroups = useMemo(() => baseMaterialGroups(data), [data])
-  const gaps = useMemo(() => excavationGaps(data.excavationRows, data.lengthM), [data])
+  const wallGroups = (wallMaterialGroups(data))
+  const baseGroups = (baseMaterialGroups(data))
+  const gaps = (excavationGaps(data.excavationRows, data.lengthM))
 
   const update = (patch: Partial<GuideWallData>): void =>
     setGuideWall(node.id, { ...data, ...patch })
@@ -208,10 +208,10 @@ export default function GuideWallDashboard({ node, data, onEditSetup }: Props): 
         </span>
         <span className="gw-badge">{formatChainage(data.lengthM)} m total</span>
         {data.source === 'manual' && <span className="gw-badge">Manual length (no map)</span>}
-        <button className="btn ghost" onClick={() => onEditSetup(2)}>
+        <button className="btn ghost" onClick={() => onEditSetup()}>
           <ListOrdered size={14} /> Edit sections
         </button>
-        <button className="btn ghost" onClick={() => onEditSetup(1)}>
+        <button className="btn ghost" onClick={() => onEditSetup()}>
           <Settings2 size={14} /> Edit setup
         </button>
       </div>

@@ -21,7 +21,7 @@ import { buildDataExcelWorkbook } from '../../lib/excel-output/dataExcel'
 import type { MasterItem } from '../../lib/masterData'
 import { resolveProjectPrintSettings } from '../../lib/projectPrintSettings'
 import { projectDataRate } from '../../lib/projectData'
-import { calculateRateAnalysis, fetchRateAnalysis } from '../../lib/rateAnalysis'
+import { fetchRateAnalysis } from '../../lib/rateAnalysis'
 import { supabase } from '../../lib/supabase'
 import { resolveTemplateDashboardMaterials } from '../../lib/templateDashboardSync'
 import { useStore } from '../../store/useStore'
@@ -36,7 +36,8 @@ import type {
   RateAnalysisFigure,
   RateAnalysisRecipe,
   RateAnalysisSectionKey,
-  RateAnalysisStoredRow
+  RateAnalysisStoredRow,
+  RateAnalysisSummary
 } from '../../types/rateAnalysis'
 import { SsrCodeSelectionColumn } from '../modals/AddItemModal'
 import SignatureFooterCard from '../signature/SignatureFooterCard'
@@ -51,6 +52,8 @@ const money = new Intl.NumberFormat('en-IN', {
   maximumFractionDigits: 2
 })
 const PRINT_REBUILD_DELAY_MS = 300
+const EMPTY_FIGURES: RateAnalysisFigure[] = []
+const EMPTY_ENTRIES: CompiledDataDashboardEntry[] = []
 
 function entryDisplayName(entry: CompiledDataDashboardEntry): string {
   return entry.source === 'SOR' || entry.source === 'PROJECT_DATA'
@@ -82,8 +85,8 @@ export default function DataDashboard(): JSX.Element | null {
     ? dashboardContextMatches(project.dashboardSnapshot, project)
     : false
   const entries = snapshotValid
-    ? project?.dashboardSnapshot?.dataDashboardEntries ?? []
-    : []
+    ? project?.dashboardSnapshot?.dataDashboardEntries ?? EMPTY_ENTRIES
+    : EMPTY_ENTRIES
   // Walks the whole item tree and stringifies it, so it must not run on every
   // render — filter keystrokes and print toggles do not change the signature.
   const currentSignature = useMemo(
@@ -115,8 +118,8 @@ export default function DataDashboard(): JSX.Element | null {
   const projectData = project.projectData ?? []
   const isDashboard = dataDashboardSection === 'dashboard'
 
-  const syncDashboard = async (): Promise<void> => {
-    if (syncing) return
+  const syncDashboard = async (): Promise<boolean> => {
+    if (syncing) return false
     setSyncing(true)
     setError('')
     setExportError(null)
@@ -129,14 +132,44 @@ export default function DataDashboard(): JSX.Element | null {
       // zoned bund's casing/hearting DATA with its homogeneous DATA). Always
       // compile the latest tree, not the project captured before resolution.
       const current = useStore.getState().project
-      if (!current || current.id !== project.id) return
+      if (!current || current.id !== project.id) return false
       const next = await syncDataDashboardSnapshot(current)
-      if (useStore.getState().project?.id === current.id) setDashboardSnapshot(next)
+      if (useStore.getState().project !== current) {
+        setError('DATA changed while Sync was running. Sync again before opening output.')
+        return false
+      }
+      setDashboardSnapshot(next)
+      const synced = useStore.getState().project
+      const ready = Boolean(
+        synced &&
+        synced.id === current.id &&
+        dashboardContextMatches(synced.dashboardSnapshot, synced) &&
+        synced.dashboardSnapshot?.dataSyncedAt &&
+        synced.dashboardSnapshot?.dataCompileSignature === dashboardDataCompileSignature(synced)
+      )
+      if (!ready) {
+        setError('DATA Sync finished without producing a valid output snapshot.')
+        return false
+      }
+      return true
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : 'Unable to sync the DATA Dashboard.')
+      return false
     } finally {
       setSyncing(false)
     }
+  }
+
+  const openPrintPreview = async (): Promise<void> => {
+    if (!compiled && !(await syncDashboard())) return
+    const current = useStore.getState().project
+    if (!current || current.id !== project.id ||
+      !dashboardContextMatches(current.dashboardSnapshot, current) ||
+      current.dashboardSnapshot?.dataCompileSignature !== dashboardDataCompileSignature(current)) {
+      setError('DATA changed after Sync. Sync again before opening output.')
+      return
+    }
+    setPrintPreview(true)
   }
 
   const exportExcel = async (): Promise<void> => {
@@ -144,25 +177,26 @@ export default function DataDashboard(): JSX.Element | null {
     setExportingExcel(true)
     setExportError(null)
     try {
-      let targetEntries = entries
-      if (targetEntries.length === 0) {
-        if (project.dashboardSnapshot?.dataDashboardEntries?.length) {
-          targetEntries = project.dashboardSnapshot.dataDashboardEntries
-        } else {
-          // Attempt auto-compiling snapshot so export works seamlessly
-          const next = await syncDataDashboardSnapshot(project)
-          setDashboardSnapshot(next)
-          targetEntries = next.dataDashboardEntries ?? []
-        }
+      if (!compiled && !(await syncDashboard())) return
+      const current = useStore.getState().project
+      if (!current || current.id !== project.id) {
+        setExportError('The active project has changed.')
+        return
       }
+      if (!dashboardContextMatches(current.dashboardSnapshot, current) ||
+        current.dashboardSnapshot?.dataCompileSignature !== dashboardDataCompileSignature(current)) {
+        setExportError('DATA changed after Sync. Sync again before exporting.')
+        return
+      }
+      const targetEntries = current.dashboardSnapshot?.dataDashboardEntries ?? []
 
-      const sheets = collectDataSheets(project, targetEntries)
+      const sheets = collectDataSheets(current, targetEntries)
       if (sheets.length === 0) {
         setExportError('No compiled SSR/SOR codes are available to export.')
         return
       }
-      const bytes = await buildDataExcelWorkbook(project, sheets)
-      const fileName = `${project.meta.name || 'Estimate'} — DATA Book.xlsx`
+      const bytes = await buildDataExcelWorkbook(current, sheets)
+      const fileName = `${current.meta.name || 'Estimate'} — DATA Book.xlsx`
       if (typeof window.api?.export?.workbook === 'function') {
         let binary = ''
         const len = bytes.byteLength
@@ -260,11 +294,10 @@ export default function DataDashboard(): JSX.Element | null {
               </button>
               <button
                 className="btn ghost"
-                onClick={() => {
-                  setPrintPreview(true)
-                }}
+                disabled={syncing}
+                onClick={() => void openPrintPreview()}
               >
-                <Printer size={15} /> Typst Preview
+                <Printer size={15} /> {syncing ? 'Syncing…' : 'Typst Preview'}
               </button>
               <button
                 className="btn ghost"
@@ -610,13 +643,35 @@ function BackendDataPreview({
   recipe: RateAnalysisRecipe
   source: 'SOR' | 'SSR'
 }): JSX.Element {
-  const summary = calculateRateAnalysis(recipe)
+  const [summary, setSummary] = useState<RateAnalysisSummary | null>(null)
+  useEffect(() => {
+    let active = true
+    window.api.rateAnalysis.calculate(recipe).then((res) => {
+      if (active) setSummary(res)
+    }).catch(console.error)
+    return () => { active = false }
+  }, [recipe])
+
+  const activeSummary = summary ?? {
+    sectionTotals: { materials: 0, machinery: 0, labour: 0 },
+    labourBaseCost: 0,
+    areaAllowancePercent: 0,
+    areaAllowanceAmount: 0,
+    labourCostWithAreaAllowance: 0,
+    baseCost: 0,
+    overheadAmount: 0,
+    totalCost: 0,
+    ratePerUnit: 0,
+    labourUnitBase: 0,
+    labourUnitProfit: 0,
+    labourUnitTotal: 0
+  }
   const publishedRate = typeof recipe.publishedRate === 'number'
     ? recipe.publishedRate
-    : summary.ratePerUnit
+    : activeSummary.ratePerUnit
   const sections = recipe.sections.filter((section) => section.lines.length > 0)
   const resourceCount = sections.reduce((count, section) => count + section.lines.length, 0)
-  const abstractRows = publishedAbstractRows(recipe, summary)
+  const abstractRows = publishedAbstractRows(recipe, activeSummary)
 
   return (
     <article className="backend-data-preview">
@@ -641,7 +696,7 @@ function BackendDataPreview({
       ) : null}
       <p className="backend-data-preview-description">{recipe.description}</p>
 
-      <BackendSourceFigures figures={recipe.sourceFigures ?? []} itemCode={recipe.itemCode} />
+      <BackendSourceFigures figures={recipe.sourceFigures ?? EMPTY_FIGURES} itemCode={recipe.itemCode} />
 
       <div className="backend-data-preview-metrics">
         <div>
@@ -650,19 +705,19 @@ function BackendDataPreview({
         </div>
         <div>
           <span>Total cost</span>
-          <strong>₹ {money.format(summary.totalCost)}</strong>
+          <strong>₹ {money.format(activeSummary.totalCost)}</strong>
         </div>
         <div>
           <span>Materials</span>
-          <strong>₹ {money.format(summary.sectionTotals.materials)}</strong>
+          <strong>₹ {money.format(activeSummary.sectionTotals.materials)}</strong>
         </div>
         <div>
           <span>Machinery</span>
-          <strong>₹ {money.format(summary.sectionTotals.machinery)}</strong>
+          <strong>₹ {money.format(activeSummary.sectionTotals.machinery)}</strong>
         </div>
         <div>
           <span>Labour</span>
-          <strong>₹ {money.format(summary.sectionTotals.labour)}</strong>
+          <strong>₹ {money.format(activeSummary.sectionTotals.labour)}</strong>
         </div>
       </div>
 
@@ -703,7 +758,7 @@ function BackendDataPreview({
               <section className={`backend-data-preview-section ${section.key}`} key={section.key}>
                 <header>
                   <span>{BACKEND_SECTION_LABELS[section.key]}</span>
-                  <strong>₹ {money.format(summary.sectionTotals[section.key])}</strong>
+                  <strong>₹ {money.format(activeSummary.sectionTotals[section.key])}</strong>
                 </header>
                 <div className="backend-data-preview-row backend-data-preview-row-head">
                   <span>Resource</span>
@@ -732,7 +787,7 @@ function BackendDataPreview({
 
 function publishedAbstractRows(
   recipe: RateAnalysisRecipe,
-  summary: ReturnType<typeof calculateRateAnalysis>
+  summary: RateAnalysisSummary
 ): RateAnalysisStoredRow[] {
   const published = recipe.recalculation?.abstract ?? recipe.storedValues?.abstract
   if (published?.length) return published
@@ -766,16 +821,21 @@ function BackendSourceFigures({
   figures: RateAnalysisFigure[]
   itemCode: string
 }): JSX.Element {
+  const [prevFigures, setPrevFigures] = useState(figures)
   const [loaded, setLoaded] = useState<Array<{
     figure: RateAnalysisFigure
     url?: string
     error?: string
   }>>(() => figures.map((figure) => ({ figure })))
 
+  if (figures !== prevFigures) {
+    setPrevFigures(figures)
+    setLoaded(figures.map((figure) => ({ figure })))
+  }
+
   useEffect(() => {
     let cancelled = false
     const objectUrls: string[] = []
-    setLoaded(figures.map((figure) => ({ figure })))
     void Promise.all(
       figures.map(async (figure) => {
         const { data, error } = await supabase.storage.from('ssr-figures').download(figure.objectPath)
@@ -883,6 +943,15 @@ export function DataDashboardReport({
     [project.projectPrintSettings]
   )
   const { pageSize, orientation, margins } = printSettings
+  const { top: marginTop, right: marginRight, bottom: marginBottom, left: marginLeft } = margins
+
+  const compileKey = `${project.id}:${project.updatedAt}:${entries.length}:${pageSize}:${orientation}:${marginTop}:${marginRight}:${marginBottom}:${marginLeft}:${fontScale}`
+  const [prevCompileKey, setPrevCompileKey] = useState(compileKey)
+  if (compileKey !== prevCompileKey) {
+    setPrevCompileKey(compileKey)
+    setPdfUrl(null)
+    setError(null)
+  }
 
   // `project` is a fresh object after every edit anywhere in the estimate, and
   // collecting the sheets then rendering them is seconds of work on the thread
@@ -890,8 +959,6 @@ export function DataDashboardReport({
   useEffect(() => {
     let cancelled = false
     let objectUrl: string | null = null
-    setPdfUrl(null)
-    setError(null)
     onPdfReady?.(null)
 
     const handle = window.setTimeout(() => {
@@ -904,7 +971,12 @@ export function DataDashboardReport({
       void buildDataSheetsPrintPdf({
         project,
         sheets,
-        geometry: { pageSize, orientation, margins, fontScale }
+        geometry: {
+          pageSize,
+          orientation,
+          margins: { top: marginTop, right: marginRight, bottom: marginBottom, left: marginLeft },
+          fontScale
+        }
       })
         .then((bytes) => {
           if (cancelled) return
@@ -927,7 +999,7 @@ export function DataDashboardReport({
       onPdfReady?.(null)
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [entries, fontScale, margins, onPdfReady, orientation, pageSize, project])
+  }, [entries, fontScale, marginTop, marginRight, marginBottom, marginLeft, onPdfReady, orientation, pageSize, project])
 
   if (error) {
     return <div className="data-dashboard-print-message error">{error}</div>

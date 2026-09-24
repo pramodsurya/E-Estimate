@@ -12,13 +12,14 @@ fn main() {
                 std::process::exit(1);
             }
         };
-        let req: e_estimate_lib::excel_compile::ExcelCompileRequest = match serde_json::from_str(&json_str) {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!("Failed to deserialize request JSON: {}", e);
-                std::process::exit(2);
-            }
-        };
+        let req: e_estimate_lib::excel_compile::ExcelCompileRequest =
+            match serde_json::from_str(&json_str) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("Failed to deserialize request JSON: {}", e);
+                    std::process::exit(2);
+                }
+            };
         let bytes = match e_estimate_lib::excel_compile::generate_workbook(&req) {
             Ok(b) => b,
             Err(e) => {

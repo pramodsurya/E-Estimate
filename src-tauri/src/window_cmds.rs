@@ -24,11 +24,39 @@ pub fn window_minimize(window: WebviewWindow) -> Result<(), String> {
 
 #[tauri::command]
 pub fn window_toggle_maximize(window: WebviewWindow) -> Result<(), String> {
-    if window.is_maximized().unwrap_or(false) {
-        window.unmaximize().map_err(|e| e.to_string())
-    } else {
-        window.maximize().map_err(|e| e.to_string())
+    if window.is_maximized().map_err(|e| e.to_string())? {
+        return window.unmaximize().map_err(|e| e.to_string());
     }
+
+    window.maximize().map_err(|e| e.to_string())?;
+    clamp_to_work_area(&window)
+}
+
+/// Keep a maximized frameless window out from behind the Windows taskbar.
+///
+/// Frameless (`decorations: false`) windows miss Windows' normal
+/// maximize-to-work-area clipping, so `maximize()` alone sizes the window to
+/// the full monitor and the bottom edge ends up behind the taskbar. Correct
+/// the bounds to the monitor's work area afterwards; calling `maximize()`
+/// first (rather than only `set_size`/`set_position`) keeps the OS maximized
+/// flag correct so `unmaximize()`/`is_maximized()` keep working normally.
+/// No-op off Windows.
+pub fn clamp_to_work_area(window: &WebviewWindow) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(Some(monitor)) = window.current_monitor() {
+            let area = monitor.work_area();
+            window
+                .set_position(area.position)
+                .map_err(|e| e.to_string())?;
+            window.set_size(area.size).map_err(|e| e.to_string())?;
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = window;
+    }
+    Ok(())
 }
 
 #[tauri::command]

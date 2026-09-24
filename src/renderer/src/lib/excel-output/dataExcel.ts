@@ -9,8 +9,10 @@
  * and zero RAM bloating even on massive 1000cr projects.
  * No JavaScript fallback — native compilation is the sole engine.
  */
-import type { DataSheet } from '../dataSheets'
+import { calculateDataSheets, type DataSheet } from '../dataSheets'
 import type { EestimateProject } from '../../types/project'
+import { excelPrintSettings, resolveExcelDocumentSettings } from './excelDocumentSettings'
+import { excelSignatureSettings } from './excelSignature'
 import { buildRateAnalysisRenderData } from '../typist-output/dataTypst'
 
 function decodeBase64(b64: string): Uint8Array {
@@ -29,20 +31,31 @@ export function buildDataExcelPayload(project: EestimateProject, sheets: DataShe
 
   return {
     projectName: project.meta.name || 'STANDARD DATA',
+    dataSignature: excelSignatureSettings(project, 'dashboard:data'),
     sorYear: project.meta.sorYear || '2026-27',
     sorZone: project.meta.sorZone || 'zone_3',
-    recipes: ssrSheets.map((s) =>
-      buildRateAnalysisRenderData(s.recipe, s.leadApplications, s.leadVariants, {
+    recipes: ssrSheets.map((s) => ({
+      ...buildRateAnalysisRenderData(s.recipe, s.leadApplications, s.leadVariants, {
         scopeName: s.scopeName,
         usagePath: s.usagePath,
         scope: s.scope
-      })
-    ),
+      }, s.calculatedSummary),
+      excelKey: s.id
+    })),
     sor: sorSheets.map((s, i) => ({
+      excelKey: s.id,
       sl: i + 1,
       description: s.recipe.description,
       unit: s.recipe.unit || 'unit',
       rate: s.sorPrintRate?.hasNumericRate ? s.sorPrintRate.finalRate : null,
+      baseRate: s.sorPrintRate?.hasNumericRate
+        ? s.sorPrintRate.finalRate - s.sorPrintRate.leadRate
+        : null,
+      outputQty: s.recipe.outputQuantity || 1,
+      leadLinks: s.leadApplications.map((application) => ({
+        leadKey: application.variantId,
+        quantity: application.quantity
+      })),
       rateText: s.sorPrintRate?.hasNumericRate
         ? undefined
         : s.sorPrintRate?.rateText || s.recipe.publishedRateText || 'Rate not published'
@@ -64,8 +77,11 @@ export async function buildDataExcelWorkbook(
     )
   }
 
-  const payload = buildDataExcelPayload(project, sheets)
-  const result = await window.api.excel.compile(payload)
+  const payload = buildDataExcelPayload(project, await calculateDataSheets(sheets))
+  const result = await window.api.excel.compile({
+    ...payload,
+    printSettings: excelPrintSettings(resolveExcelDocumentSettings(project))
+  })
 
   if (!result || !result.ok || !result.data) {
     throw new Error(

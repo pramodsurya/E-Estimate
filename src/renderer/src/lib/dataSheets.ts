@@ -4,7 +4,6 @@
  * the same sheets — no second calculation is ever performed for printing.
  */
 
-import { recalculateRateAnalysis } from './rateAnalysis'
 import { mergeSavedRecipe } from './recipeMerge'
 import { collectProjectItemGroups, type ProjectItemGroup } from './projectItems'
 import { dashboardContextMatches, dashboardItemIsSynced } from './dashboardSync'
@@ -16,7 +15,8 @@ import type {
   LeadVariant,
   ProjectNode
 } from '../types/project'
-import type { RateAnalysisRecipe } from '../types/rateAnalysis'
+import type { RateAnalysisRecipe, RateAnalysisSummary } from '../types/rateAnalysis'
+import { calculateRateAnalysis } from './rateAnalysis'
 
 /** One resolved code sheet, exactly as the individual DATA dashboard renders it. */
 export interface DataSheet {
@@ -30,10 +30,30 @@ export interface DataSheet {
   usagePath?: string
   scope?: string
   recipe: RateAnalysisRecipe
+  /** Native calculation result consumed by both Typst and Excel renderers. */
+  calculatedSummary?: RateAnalysisSummary
   leadApplications: LeadApplication[]
   leadVariants: LeadVariant[]
   /** Resolved SOR row values consumed unchanged by the flowing print table. */
   sorPrintRate: SorDataPrintRate | null
+}
+
+/**
+ * Attach the one authoritative native calculation to every SSR/other DATA
+ * sheet before an output driver renders it.  The renderers stay synchronous
+ * and format-only; they never grow a second JavaScript calculation path.
+ */
+export async function calculateDataSheets(sheets: DataSheet[]): Promise<DataSheet[]> {
+  return Promise.all(sheets.map(async (sheet) => {
+    if (sheet.recipe.itemSource === 'SOR' || sheet.calculatedSummary) return sheet
+    try {
+      return { ...sheet, calculatedSummary: await calculateRateAnalysis(sheet.recipe) }
+    } catch (reason: unknown) {
+      const code = sheet.recipe.itemCode?.trim() || sheet.itemKey || 'DATA'
+      const detail = reason instanceof Error ? reason.message : String(reason)
+      throw new Error(`Could not calculate DATA ${code} for export: ${detail}`)
+    }
+  }))
 }
 
 export interface SorDataPrintRate {
@@ -98,7 +118,7 @@ export function adoptSavedRecipe(
           recalculation: undefined,
           calculationStale: false
         }
-      : recalculateRateAnalysis({ ...merged, recalculation: undefined })
+      : { ...merged, recalculation: undefined, calculationStale: true }
   )
 }
 

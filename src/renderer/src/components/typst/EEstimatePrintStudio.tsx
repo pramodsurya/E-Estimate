@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { startTransition, useEffect, useRef, useState, useTransition } from 'react'
 import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
@@ -69,8 +69,10 @@ export interface EEstimatePrintStudioProps {
   closable?: boolean
   /** Runtime `sys.inputs` forwarded to the Typst compiler (e.g. `{ 'ee-data': ... }`). */
   compileInputs?: Record<string, string>
-  /** Refresh project data on compile, without replacing the editable source. */
-  onSync?: () => Promise<Record<string, string>>
+  /** Explicit dashboard synchronization, never invoked by opening or recompiling. */
+  onRequestSync?: () => Promise<void>
+  snapshotRevision?: string
+  snapshotStale?: boolean
   /** Runtime data for the source-authoritative visual layer (chips + runtime tables). */
   runtimeData?: unknown
   /** App-owned Typst helpers prepended (never saved) before every compile. */
@@ -86,6 +88,11 @@ export interface EEstimatePrintStudioProps {
     mainContent: string
     inputs: Record<string, string>
     shadowFiles?: Record<string, string>
+  }>
+  /** Large books compile independently authored parts and return a merged PDF. */
+  compileBook?: (editorSource: string, onPhase: (phase: string) => void) => Promise<{
+    bytes: Uint8Array
+    issues: PrintIssue[]
   }>
   /** Apply the runtime decoration layer in Visual mode (default true). Layout-only
    *  studios (content edited on the dashboard) can set false to keep Visual as source. */
@@ -125,7 +132,7 @@ const TEXT_COLORS = [
 const FONT_SIZES = ['8', '9', '9.5', '10', '11', '12', '14', '16', '18']
 
 /** Book compiles can be large; never leave the preview on “Compiling…” forever. */
-const COMPILE_TIMEOUT_MS = 90_000
+const COMPILE_TIMEOUT_MS = 180_000
 
 /**
  * Rapid successive compiles (spam-clicked Recompile, back-to-back refreshes) are
@@ -133,6 +140,12 @@ const COMPILE_TIMEOUT_MS = 90_000
  * only the latest generation ever reaches the Rust compiler.
  */
 const COMPILE_DEBOUNCE_MS = 180
+
+interface PendingCompileRequest {
+  source: string
+  generation: number
+  waiters: Array<() => void>
+}
 
 /**
  * High-contrast dark theme for Typst source. The default One Dark palette has
@@ -220,12 +233,14 @@ function studioContextLabel(scopeKey: string | undefined, title: string, subtitl
     .trim()
 }
 
+class CompileTimeoutError extends Error {}
+
 function withTimeout<T>(work: Promise<T>, ms: number, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
   return new Promise<T>((resolve, reject) => {
     timer = setTimeout(() => {
       reject(
-        new Error(
+        new CompileTimeoutError(
           `${label} timed out after ${Math.round(ms / 1000)}s. The Typst engine may still be running — try Recompile.`
         )
       )
@@ -255,11 +270,14 @@ export default function EEstimatePrintStudio({
   onClose,
   closable = true,
   compileInputs,
-  onSync,
+  onRequestSync,
+  snapshotRevision,
+  snapshotStale = false,
   runtimeData,
   compilePrelude,
   shadowFiles,
   assembleCompile,
+  compileBook,
   visualize = true,
   managePageSetup = true,
   notice,
@@ -279,7 +297,11 @@ export default function EEstimatePrintStudio({
   const [usesProjectDocumentSettings, setUsesProjectDocumentSettings] = useState(!savedDocumentSettings)
   const [compiledPdfUrl, setCompiledPdfUrl] = useState<string | null>(null)
   const [compiledPdfPath, setCompiledPdfPath] = useState<string | null>(null)
+  const [compiledPdfBytes, setCompiledPdfBytes] = useState<Uint8Array | null>(null)
   const [compileLoading, setCompileLoading] = useState(false)
+  const [manualSyncLoading, setManualSyncLoading] = useState(false)
+  const [manualSyncError, setManualSyncError] = useState<string | null>(null)
+  const [compilePhase, setCompilePhase] = useState('Preparing report…')
   const [compileError, setCompileError] = useState<string | null>(null)
   const [compileTimeMs, setCompileTimeMs] = useState<number | null>(null)
   const [lastCompiledSource, setLastCompiledSource] = useState<string | null>(null)
@@ -297,13 +319,13 @@ export default function EEstimatePrintStudio({
   const [exportingExcel, startExportExcel] = useTransition()
   const [excelError, setExcelError] = useState<string | null>(null)
 
-  const mediaCount = useMemo(() => {
+  const mediaCount = (() => {
     if (!runtimeData || typeof runtimeData !== 'object') return 0
     const obj = runtimeData as Record<string, unknown>
     if (Array.isArray(obj.gallery)) return obj.gallery.length
     if (Array.isArray(obj.images)) return obj.images.length
     return 0
-  }, [runtimeData])
+  })()
 
   // Dropdown states
   const [highlightMenuOpen, setHighlightMenuOpen] = useState(false)
@@ -321,72 +343,108 @@ export default function EEstimatePrintStudio({
   const uploadTypRef = useRef<HTMLInputElement>(null)
   const printFrameRef = useRef<HTMLIFrameElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const initialCompileStartedRef = useRef(false)
-  const loadedInputsRef = useRef(compileInputs)
-  const inputsReadyRef = useRef(!onSync)
+  const initializedScopeRef = useRef<string | null>(null)
   const compileGenerationRef = useRef(0)
   const compileActiveRef = useRef(false)
+  const compileExecutingRef = useRef(false)
+  const pendingCompileRef = useRef<PendingCompileRequest | null>(null)
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputKey = JSON.stringify(compileInputs ?? {})
-  const previousInputKey = useRef(inputKey)
-  useEffect(() => {
-    if (previousInputKey.current === inputKey) return
-    previousInputKey.current = inputKey
-    if (!onSync) {
-      compileGenerationRef.current += 1
-      setCompileLoading(false)
-    }
+  const [prevInputKey, setPrevInputKey] = useState(inputKey)
+  if (inputKey !== prevInputKey) {
+    setPrevInputKey(inputKey)
+    setCompileLoading(false)
     setLastCompiledSource(null)
     setIssues([])
-  }, [inputKey])
+  }
 
   // Compiler function: debounced entry point. A request that arrives while a
   // compile is in flight supersedes it — only the latest generation runs next.
-  const runCompile = (sourceToCompile = code, refreshData = true): Promise<void> => {
-    const generation = ++compileGenerationRef.current
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current)
+  function schedulePendingCompile(): void {
+    if (compileExecutingRef.current || !pendingCompileRef.current) return
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    debounceTimerRef.current = setTimeout(() => {
       debounceTimerRef.current = null
-    }
-    if (compileActiveRef.current) {
-      return new Promise<void>((resolve) => {
-        debounceTimerRef.current = setTimeout(() => {
-          debounceTimerRef.current = null
-          void executeCompile(sourceToCompile, refreshData, generation).then(resolve, resolve)
-        }, COMPILE_DEBOUNCE_MS)
-      })
-    }
-    return executeCompile(sourceToCompile, refreshData, generation)
+      const pending = pendingCompileRef.current
+      pendingCompileRef.current = null
+      if (!pending) {
+        compileActiveRef.current = false
+        setCompileLoading(false)
+        return
+      }
+      void executeCompile(pending.source, pending.generation)
+        .finally(() => pending.waiters.forEach((resolve) => resolve()))
+    }, COMPILE_DEBOUNCE_MS)
   }
 
-  const executeCompile = async (sourceToCompile: string, refreshData: boolean, generation: number): Promise<void> => {
+  function finishCompileExecution(generation: number): void {
+    compileExecutingRef.current = false
+    if (pendingCompileRef.current) {
+      schedulePendingCompile()
+    } else {
+      compileActiveRef.current = false
+      if (generation === compileGenerationRef.current) setCompileLoading(false)
+    }
+  }
+
+  const runCompile = (sourceToCompile = code): Promise<void> => {
+    const generation = ++compileGenerationRef.current
+    if (compileActiveRef.current) {
+      return new Promise<void>((resolve) => {
+        const waiters = pendingCompileRef.current?.waiters ?? []
+        pendingCompileRef.current = {
+          source: sourceToCompile,
+          generation,
+          waiters: [...waiters, resolve]
+        }
+        schedulePendingCompile()
+      })
+    }
+    return executeCompile(sourceToCompile, generation)
+  }
+
+  const executeCompile = async (sourceToCompile: string, generation: number): Promise<void> => {
     if (!sourceToCompile.trim()) {
       setCompileError('The saved template is empty. Add Typst code or choose Use default.')
-      setCompileLoading(false)
       setLastCompiledSource(null)
       setIssues([])
+      finishCompileExecution(generation)
       return
     }
     compileActiveRef.current = true
+    compileExecutingRef.current = true
     setCompileLoading(true)
+    setCompilePhase('Preparing report…')
     setCompileError(null)
     setIssues([])
-    const start = performance.now()
+    let workPromise: Promise<Awaited<ReturnType<typeof window.api.typst.compile>> | null> | null = null
+    let releaseDeferred = false
     try {
+      if (compileBook) {
+        const { bytes, issues: bookIssues } = await compileBook(sourceToCompile, (phase) => {
+          if (generation === compileGenerationRef.current) setCompilePhase(phase)
+        })
+        if (generation !== compileGenerationRef.current) return
+        setCompilePhase('Loading preview…')
+        setIssues(bookIssues)
+        setCompiledPdfBytes(bytes)
+        setCompiledPdfPath(null)
+        setLastCompiledSource(sourceToCompile)
+        const url = URL.createObjectURL(new Blob([Uint8Array.from(bytes).buffer], { type: 'application/pdf' }))
+        startTransition(() => setCompiledPdfUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev)
+          return url
+        }))
+        return
+      }
       const work = (async () => {
-        if (refreshData && onSync) {
-          loadedInputsRef.current = await onSync()
-          inputsReadyRef.current = true
-        }
-        if (!inputsReadyRef.current) {
-          throw new Error('Project values could not be refreshed. Close and reopen Print Studio to try again.')
-        }
         let res: Awaited<ReturnType<typeof window.api.typst.compile>>
         let audit: ReturnType<typeof preparePrintAudit>
         if (assembleCompile) {
           const assembled = await assembleCompile(sourceToCompile)
           audit = preparePrintAudit(assembled.inputs)
           if (generation !== compileGenerationRef.current) return null
+          setCompilePhase('Rendering PDF…')
           const auditedShadowFiles = auditShadowFiles(audit.inputs, assembled.shadowFiles)
           res = await window.api.typst.compile(
             assembled.mainContent,
@@ -402,9 +460,10 @@ export default function EEstimatePrintStudio({
             }
           )
         } else {
-          const inputs = onSync ? loadedInputsRef.current : compileInputs
+          const inputs = compileInputs
           audit = preparePrintAudit(inputs)
           if (generation !== compileGenerationRef.current) return null
+          setCompilePhase('Rendering PDF…')
           const mainContent = (compilePrelude ?? '') + sourceToCompile
           res = await window.api.typst.compile(
             mainContent,
@@ -426,9 +485,11 @@ export default function EEstimatePrintStudio({
         if (generation === compileGenerationRef.current) setIssues(auditPrintContent(audit.obligations, res.printedContent))
         return res
       })()
+      workPromise = work
       const res = await withTimeout(work, COMPILE_TIMEOUT_MS, 'Typst compile')
       if (generation !== compileGenerationRef.current || !res?.pdfPath) return
-      const duration = Math.round(performance.now() - start)
+      setCompilePhase('Loading preview…')
+      const duration = Math.round(res.durationMs ?? 0)
       setCompileTimeMs(duration)
       setLastCompiledSource(sourceToCompile)
       // No base64 fallback: a missing or unreadable path throws into the
@@ -438,6 +499,7 @@ export default function EEstimatePrintStudio({
       const blob = new Blob([bytes], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
       startTransition(() => {
+        setCompiledPdfBytes(null)
         setCompiledPdfPath(res.pdfPath ?? null)
         setCompiledPdfUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev)
@@ -445,25 +507,62 @@ export default function EEstimatePrintStudio({
         })
       })
     } catch (err) {
+      if (err instanceof CompileTimeoutError && workPromise) {
+        // A UI timeout cannot cancel native Typst. Keep the queue occupied until
+        // that worker really exits so Recompile cannot pile another book behind it.
+        releaseDeferred = true
+        if (generation === compileGenerationRef.current) {
+          setCompileError(err.message)
+          setCompileLoading(false)
+        }
+        void workPromise.catch(() => null).finally(() => finishCompileExecution(generation))
+        return
+      }
       if (generation !== compileGenerationRef.current) return
       setCompileError(err instanceof Error ? err.message : String(err))
     } finally {
-      if (generation === compileGenerationRef.current) {
-        compileActiveRef.current = false
-        setCompileLoading(false)
-      }
+      if (!releaseDeferred) finishCompileExecution(generation)
     }
   }
 
   // Initialize the project's template without marking it saved on disk; compile current values.
+  const runCompileRef = useRef(runCompile)
+  const snapshotRevisionRef = useRef(snapshotRevision)
+  const manualSyncRequestedRef = useRef(false)
   useEffect(() => {
-    if (initialCompileStartedRef.current) return
-    initialCompileStartedRef.current = true
+    runCompileRef.current = runCompile
+  })
+  useEffect(() => {
+    if (snapshotRevisionRef.current === snapshotRevision) return
+    snapshotRevisionRef.current = snapshotRevision
+    if (!manualSyncRequestedRef.current) return
+    manualSyncRequestedRef.current = false
+    void runCompileRef.current(code)
+  }, [snapshotRevision, code])
+
+  const handleRequestSync = (): void => {
+    if (!onRequestSync || manualSyncLoading) return
+    setManualSyncLoading(true)
+    setManualSyncError(null)
+    manualSyncRequestedRef.current = true
+    void onRequestSync().then(
+      () => setManualSyncLoading(false),
+      (reason: unknown) => {
+        manualSyncRequestedRef.current = false
+        setManualSyncError(reason instanceof Error ? reason.message : String(reason))
+        setManualSyncLoading(false)
+      }
+    )
+  }
+  useEffect(() => {
+    const scope = scopeKey ?? '__default__'
+    if (initializedScopeRef.current === scope) return
+    initializedScopeRef.current = scope
     if (scopeKey && useStore.getState().project?.printStudioDocuments?.[scopeKey] === undefined) {
       useStore.getState().updatePrintStudioDocument(scopeKey, initialSource, savedDocumentSettings ?? null)
     }
-    void runCompile(initialSource, true)
-  }, [])
+    void runCompileRef.current(initialSource)
+  }, [scopeKey, initialSource, savedDocumentSettings])
 
   // Cleanup object URLs
   useEffect(() => {
@@ -476,6 +575,8 @@ export default function EEstimatePrintStudio({
   useEffect(() => {
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+      pendingCompileRef.current?.waiters.forEach((resolve) => resolve())
+      pendingCompileRef.current = null
     }
   }, [])
 
@@ -748,14 +849,22 @@ export default function EEstimatePrintStudio({
   }
 
   const handleDownloadPdf = (): void => {
-    if (!compiledPdfPath || exportingPdf) return
+    if ((!compiledPdfPath && !compiledPdfBytes) || exportingPdf) return
     const fileName = title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'e-estimate'
     setSaveError(null)
     startExportPdf(async () => {
       try {
         // No base64 fallback: the backend copies the cached file, or the save
         // fails loudly in the studio error panel.
-        await window.api.export.pdf('', fileName, undefined, { sourcePath: compiledPdfPath })
+        if (compiledPdfPath) {
+          await window.api.export.pdf('', fileName, undefined, { sourcePath: compiledPdfPath })
+        } else if (compiledPdfBytes) {
+          let binary = ''
+          for (let index = 0; index < compiledPdfBytes.length; index += 0x8000) {
+            binary += String.fromCharCode(...compiledPdfBytes.subarray(index, index + 0x8000))
+          }
+          await window.api.export.pdf(btoa(binary), fileName)
+        }
       } catch (error) {
         setSaveError(error instanceof Error ? error.message : String(error))
       }
@@ -776,13 +885,9 @@ export default function EEstimatePrintStudio({
 
   // Code = raw Typst source (syntax highlighting + folding/lint). Visual = the SAME
   // document decorated with runtime chips + semantic #ee-group-table widgets.
-  const editorExtensions = useMemo<Extension[]>(() => {
-    const extensions: Extension[] = [EditorView.lineWrapping, typst_lezer()]
-    if (visualize) {
-      extensions.push(eeRuntime.of(runtimeData ?? null), visualMarkupExtension())
-    }
-    return extensions
-  }, [visualize, runtimeData])
+  const editorExtensions: Extension[] = visualize
+    ? [EditorView.lineWrapping, typst_lezer(), eeRuntime.of(runtimeData ?? null), visualMarkupExtension()]
+    : [EditorView.lineWrapping, typst_lezer()]
   const currentSettingsKey = usesProjectDocumentSettings
     ? 'project-defaults'
     : JSON.stringify(documentSettings)
@@ -801,6 +906,18 @@ export default function EEstimatePrintStudio({
           </div>
 
           <div className="typst-studio-actions">
+            {onRequestSync && (
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={handleRequestSync}
+                disabled={manualSyncLoading || compileLoading}
+                title="Sync calculation data and refresh this preview"
+                aria-label="Sync calculation data"
+              >
+                <RefreshCw size={15} className={manualSyncLoading ? 'spin' : undefined} />
+              </button>
+            )}
             <button
               className={`btn btn-studio-ai ${copiedAi ? 'copied' : ''}`}
               onClick={() => void handleCopyAiPrompt()}
@@ -845,7 +962,7 @@ export default function EEstimatePrintStudio({
             <button
               className="btn ghost"
               type="button"
-              disabled={!compiledPdfPath || compileLoading || exportingPdf || !!compileError || lastCompiledSource !== code}
+              disabled={(!compiledPdfPath && !compiledPdfBytes) || compileLoading || exportingPdf || !!compileError || lastCompiledSource !== code}
               onClick={() => void handleDownloadPdf()}
               title="Download the current compiled PDF"
             >
@@ -1239,7 +1356,7 @@ export default function EEstimatePrintStudio({
               >
                 {compileLoading ? (
                   <>
-                    <Zap size={13} className="spin" /> Compiling…
+                    <Zap size={13} className="spin" /> {compilePhase}
                   </>
                 ) : (
                   <>
@@ -1280,6 +1397,12 @@ export default function EEstimatePrintStudio({
                 {notice}
               </div>
             )}
+            {snapshotStale && (
+              <div className="typst-notice-banner" role="status">
+                This is a draft: project inputs changed since the last Sync. Stored calculation values may not match current local edits. Use the Sync icon to refresh.
+              </div>
+            )}
+            {manualSyncError && <div className="typst-error-banner" role="alert">Sync failed: {manualSyncError}</div>}
             {compileError && (
               <div className="typst-error-banner">
                 <b>Compilation Error:</b> {compileError}
@@ -1290,6 +1413,13 @@ export default function EEstimatePrintStudio({
 
             {/* Smooth Scrollable Preview Area */}
             <div ref={scrollContainerRef} className="typst-preview-scroll-area">
+              {compileLoading && !compiledPdfUrl && (
+                <div className="typst-preview-loading" role="status" aria-live="polite">
+                  <RefreshCw size={28} className="spin" aria-hidden="true" />
+                  <strong>{compilePhase}</strong>
+                  <span>Print Studio is open. The preview will appear here when it is ready.</span>
+                </div>
+              )}
               {compiledPdfUrl && (
                 <PdfPageStack src={compiledPdfUrl} zoom={zoom} />
               )}

@@ -1,7 +1,7 @@
 /** Native Typst DATA Dashboard PDF compilation. */
 import { supabase } from './supabase'
 import { contentHash, createBoundedCache, figureCacheKey, type BoundedCache, type FigureRefLike } from './typist-output/compileCache'
-import type { DataSheet } from './dataSheets'
+import { calculateDataSheets, type DataSheet } from './dataSheets'
 import type { EestimateProject, Margins, Orientation, PaperSize } from '../types/project'
 import {
   dataSheetsCompileInputs,
@@ -134,19 +134,23 @@ export async function buildDataFigureBundle(
         identity: 'project-data'
       })
     }
-    for (const figure of [...(sheet.recipe.sourceFigures ?? [])].sort((a, b) => a.sequence - b.sequence)) {
-      const stampedAt = updatedAtByPath.get(figure.objectPath)
-      const data = await download(
-        figure.objectPath,
-        stampedAt === undefined ? figure : { ...figure, updatedAt: stampedAt }
-      )
-      if (!data) continue
-      figures.push({
-        data,
-        caption: [figure.page ? `Published source page ${figure.page}` : 'Published source figure', figure.after].filter(Boolean).join(' — '),
-        identity: figure.key
-      })
-    }
+    const published = await Promise.all(
+      [...(sheet.recipe.sourceFigures ?? [])]
+        .sort((a, b) => a.sequence - b.sequence)
+        .map(async (figure) => {
+          const stampedAt = updatedAtByPath.get(figure.objectPath)
+          const data = await download(
+            figure.objectPath,
+            stampedAt === undefined ? figure : { ...figure, updatedAt: stampedAt }
+          )
+          return data ? {
+            data,
+            caption: [figure.page ? `Published source page ${figure.page}` : 'Published source figure', figure.after].filter(Boolean).join(' — '),
+            identity: figure.key
+          } : null
+        })
+    )
+    figures.push(...published.filter((figure): figure is NonNullable<typeof figure> => figure !== null))
     figurePaths[sheet.id] = figures.map((figure, index) => {
       const path = `/__eestimate_data/${safeName(sheet.id)}-${index}-${safeName(figure.identity)}.${extensionOf(figure.data)}`
       shadowFiles[path] = figure.data
@@ -174,7 +178,8 @@ export async function buildDataSheetsPrintPdf({
   const { shadowFiles, figurePaths } = await buildDataFigureBundle(sheets, onPhase)
   onPhase(`compiling ${sheets.length} DATA sheet${sheets.length === 1 ? '' : 's'} with Typst`)
   const mainContent = resolvedDataTypstSource(project)
-  const inputs = dataSheetsCompileInputs(sheets, {
+  const calculatedSheets = await calculateDataSheets(sheets)
+  const inputs = dataSheetsCompileInputs(calculatedSheets, {
     projectName: project.meta.name,
     sorYear: project.meta.sorYear,
     sorZone: project.meta.sorZone,

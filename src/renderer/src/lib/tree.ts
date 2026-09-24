@@ -99,6 +99,41 @@ export function uniqueChildName(parent: ProjectNode | null, requestedName: strin
   return `${base} (${suffix})`
 }
 
+/** Component/Sub-component names are workbook identifiers and must be global. */
+export function structureNameKey(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
+}
+
+export function findStructureNameConflict(
+  root: ProjectNode | null,
+  requestedName: string,
+  excludeId?: string | null
+): ProjectNode | null {
+  const wanted = structureNameKey(requestedName)
+  if (!root || !wanted) return null
+  if (
+    root.id !== excludeId &&
+    (root.kind === 'component' || root.kind === 'subcomponent') &&
+    structureNameKey(root.name) === wanted
+  ) return root
+  for (const child of root.children) {
+    const conflict = findStructureNameConflict(child, requestedName, excludeId)
+    if (conflict) return conflict
+  }
+  return null
+}
+
+/** Validate a creation batch against the project and against itself. */
+export function structureNamesAreAvailable(root: ProjectNode, names: string[]): boolean {
+  const seen = new Set<string>()
+  for (const name of names) {
+    const key = structureNameKey(name)
+    if (!key || seen.has(key) || findStructureNameConflict(root, name)) return false
+    seen.add(key)
+  }
+  return true
+}
+
 export type ReorderEdge = 'above' | 'below'
 
 /**

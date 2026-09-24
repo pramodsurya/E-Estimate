@@ -3,6 +3,7 @@ const fs = require('node:fs')
 const Module = require('node:module')
 const path = require('node:path')
 const ts = require('typescript')
+const readExcelRust = require('./read-excel-rust.cjs')
 
 const root = path.resolve(__dirname, '..')
 
@@ -230,7 +231,7 @@ async function runTests() {
   assert.ok(dashboard.includes('window.api.excel.compile(payload)'), 'dashboard compiles via the native command')
   assert.ok(dashboard.includes('roundedGrandTotal'), 'dashboard sends the rounded grand total')
   assert.ok(!dashboard.includes('buildSeigniorageWorkbook'), 'old ExcelJS builder is no longer referenced')
-  const rustCompiler = fs.readFileSync(path.join(root, 'src-tauri/src/excel_compile.rs'), 'utf8')
+  const rustCompiler = readExcelRust(root)
   assert.ok(rustCompiler.includes('SeignioragePayload'), 'Rust reads a seigniorage payload')
   assert.ok(rustCompiler.includes('roundedGrandTotal') || rustCompiler.includes('rounded_grand_total'), 'Rust reads the rounded grand total')
   assert.ok(rustCompiler.includes('permitBasis') || rustCompiler.includes('permit_basis'), 'Rust reads the permit basis')

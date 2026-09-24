@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, FileSpreadsheet, FileText, Scale } from 'lucide-react'
 import type { EestimateProject, MaterialRateOverride } from '../../types/project'
+import { excelPrintSettings, resolveExcelDocumentSettings } from '../../lib/excel-output/excelDocumentSettings'
 import {
   buildComparativeStatement,
   collectHandTypedRates,
@@ -379,8 +380,12 @@ export default function ComparativeStatementPanel({
   // from nothing selected would make that the most tedious path.
   const scope = useMemo(() => comparativeScope(project), [project])
   const allItemIds = useMemo(() => scope.flatMap(scopeItemIds), [scope])
-  const [chosen, setChosen] = useState<Set<string>>(() => new Set())
-  const [scopeReady, setScopeReady] = useState(false)
+  const [chosen, setChosen] = useState<Set<string>>(() => new Set(allItemIds))
+  const [prevAllItemIds, setPrevAllItemIds] = useState(allItemIds)
+  if (prevAllItemIds !== allItemIds) {
+    setPrevAllItemIds(allItemIds)
+    setChosen(new Set(allItemIds))
+  }
   const [includeLead, setIncludeLead] = useState(true)
   /** What each side will use where a box is left blank — see `fallbackRate`. */
   const [periods, setPeriods] = useState<MaterialRatePeriod[]>([])
@@ -413,11 +418,7 @@ export default function ComparativeStatementPanel({
 
   const handTyped = useMemo(() => collectHandTypedRates(project), [project])
 
-  useEffect(() => {
-    if (scopeReady) return
-    setChosen(new Set(allItemIds))
-    setScopeReady(true)
-  }, [allItemIds, scopeReady])
+  // Scope ready on initial render
 
   const toggleItems = (ids: string[], on: boolean): void => {
     setChosen((current) => {
@@ -451,6 +452,7 @@ export default function ComparativeStatementPanel({
       })
       const payload = {
         kind: 'comparative',
+        printSettings: excelPrintSettings(resolveExcelDocumentSettings(project)),
         preferPath: true,
         comparative: {
           projectName: project.meta.name || project.root.name,
@@ -646,7 +648,13 @@ export default function ComparativeStatementPanel({
 
   // A hand-typed rate was a judgement made under one schedule. Fill in the
   // column whose year matches it, and ask for the other.
-  useEffect(() => {
+  const [prevHandTypedSync, setPrevHandTypedSync] = useState(() => ({ handTyped, leftYear, rightYear }))
+  if (
+    prevHandTypedSync.handTyped !== handTyped ||
+    prevHandTypedSync.leftYear !== leftYear ||
+    prevHandTypedSync.rightYear !== rightYear
+  ) {
+    setPrevHandTypedSync({ handTyped, leftYear, rightYear })
     setAnswers((current) => {
       const next: Record<Side, RateAnswers> = {
         left: { ...current.left },
@@ -662,7 +670,7 @@ export default function ComparativeStatementPanel({
       }
       return next
     })
-  }, [handTyped, leftYear, rightYear])
+  }
 
   const sideFor = (side: Side, year: string): ComparativeSide => {
     // The adopted circular first, then anything hand-typed on top of it: a box

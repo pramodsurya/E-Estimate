@@ -23,7 +23,7 @@ function loadTsModule(filePath) {
   return loadedModule.exports
 }
 
-const { reorderSibling, canReorderBetween, uniqueChildName, patchNode, addChildren, removeNode, moveNode, canMoveNode } = loadTsModule(
+const { reorderSibling, canReorderBetween, uniqueChildName, findStructureNameConflict, structureNamesAreAvailable, patchNode, addChildren, removeNode, moveNode, canMoveNode } = loadTsModule(
   path.join(root, 'src/renderer/src/lib/tree.ts')
 )
 
@@ -147,6 +147,22 @@ assert.equal(uniqueChildName(namedParent, 'Guide Wall'), 'Guide Wall (3)')
 assert.equal(uniqueChildName(namedParent, 'guide wall'), 'guide wall (3)')
 assert.equal(uniqueChildName(namedParent, 'New Structure'), 'New Structure')
 assert.equal(uniqueChildName(namedParent, '  Bund  '), 'Bund (2)')
+
+const structureRoot = {
+  id: 'root', kind: 'title', name: 'Project', children: [
+    { id: 'c1', kind: 'component', name: 'Main Canal', children: [
+      { id: 's1', kind: 'subcomponent', name: 'Cross Drainage', children: [] }
+    ] },
+    { id: 'c2', kind: 'component', name: 'Approach Road', children: [] }
+  ]
+}
+assert.equal(findStructureNameConflict(structureRoot, ' main   canal ').id, 'c1')
+assert.equal(findStructureNameConflict(structureRoot, 'CROSS DRAINAGE').id, 's1')
+assert.equal(findStructureNameConflict(structureRoot, 'Main Canal', 'c1'), null, 'edit may retain its own name')
+assert.equal(findStructureNameConflict(structureRoot, 'New Work'), null)
+assert.equal(structureNamesAreAvailable(structureRoot, ['New Work', 'New Sub']), true)
+assert.equal(structureNamesAreAvailable(structureRoot, ['New Work', 'new   work']), false)
+assert.equal(structureNamesAreAvailable(structureRoot, ['Approach Road']), false)
 
 // --- The source tree is never mutated ---------------------------------------
 

@@ -22,7 +22,8 @@ import {
   dashboardDataCompileSignature,
   dashboardItemIsSynced,
   dashboardItemsSignature,
-  dashboardLeadCompileSignature
+  dashboardLeadCompileSignature,
+  dashboardSeigniorageCompileSignature
 } from './dashboardSync'
 import { resolveProjectPrintSettings, type ProjectPrintSettings } from './projectPrintSettings'
 
@@ -103,6 +104,7 @@ export function projectDashboardIsReady(
     snapshot?.dataCompileSignature === dashboardDataCompileSignature(project, items) &&
     snapshot?.leadCompileSignature === dashboardLeadCompileSignature(project) &&
     Boolean(snapshot?.seigniorageSyncedAt) &&
+    snapshot?.seigniorageCompileSignature === dashboardSeigniorageCompileSignature(project, items) &&
     items.every((item) => dashboardItemIsSynced(snapshot, item)) &&
     collectComponentDashboards(project.root).every((component) => {
       const componentItems = collectProjectItems(component)
@@ -126,9 +128,10 @@ export function resolveProjectEstimatedCost(project: EestimateProject): number |
 
 export function computeProjectPrintInputs(
   project: EestimateProject,
-  items = collectProjectItems(project.root)
+  items = collectProjectItems(project.root),
+  options?: { useStoredSnapshot?: boolean }
 ): ProjectPrintInputs {
-  const snapshot = dashboardContextMatches(project.dashboardSnapshot, project)
+  const snapshot = options?.useStoredSnapshot || dashboardContextMatches(project.dashboardSnapshot, project)
     ? project.dashboardSnapshot
     : undefined
   const rates = snapshot?.projectRates ?? {}
@@ -145,7 +148,7 @@ export function computeProjectPrintInputs(
 
   const rateOf = (node: ProjectNode): number | undefined => {
     const rate = rates[node.id]
-    return dashboardItemIsSynced(snapshot, node) && typeof rate === 'number' ? rate : undefined
+    return (options?.useStoredSnapshot || dashboardItemIsSynced(snapshot, node)) && typeof rate === 'number' ? rate : undefined
   }
 
   const itemRows = items.map((node) => {

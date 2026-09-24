@@ -313,6 +313,23 @@ export function materializeSections(
   return out
 }
 
+/**
+ * Keep the sections consistent when the component length is edited outside the
+ * setup wizard (Edit length, geometry import): drop breaks beyond the new
+ * length and re-materialize, carrying over the dimensions of sections that
+ * still cover the same chainage. Unconfigured data only takes the length.
+ */
+export function resizeGuideWallSections(data: GuideWallData, lengthM: number): GuideWallData {
+  const next: GuideWallData = {
+    ...data,
+    lengthM,
+    breaks: data.breaks.filter((b) => b > 0 && b < lengthM)
+  }
+  if (!data.configured || data.sections.length === 0) return next
+  next.sections = materializeSections(next, data.sections)
+  return next
+}
+
 /** Copy every dimension (not the chainage range) from one section onto another. */
 export function copySectionDimensions(
   target: GuideWallSection,
@@ -340,6 +357,8 @@ export interface GuideWallQtyRow {
   side: string
   lengthM: number
   formula: string
+  /** Cross-sectional factor multiplied by the visible Excel length cell. */
+  quantityFactor: number
   qty: number
   /** Effective material code for this row (default or section override). */
   code: string
@@ -355,13 +374,15 @@ export function wallBottomWidth(p: GuideWallWallParams): number {
 
 function wallFormula(p: GuideWallWallParams, len: number, doubled: boolean): {
   formula: string
+  quantityFactor: number
   qty: number
 } {
   const bottom = wallBottomWidth(p)
   const area = ((p.topWidth + bottom) / 2) * p.height
   return {
     formula: `((${f2(p.topWidth)}+${f2(bottom)})/2 × ${f2(p.height)}) × ${f2(len)}${doubled ? ' × 2' : ''}`,
-    qty: area * len * (doubled ? 2 : 1)
+    qty: area * len * (doubled ? 2 : 1),
+    quantityFactor: area * (doubled ? 2 : 1)
   }
 }
 
@@ -373,13 +394,14 @@ export function wallQuantityRows(data: GuideWallData): GuideWallQtyRow[] {
     if (len <= 1e-6) continue
     const code = effectiveWallRef(data, section).code
     const push = (side: string, params: GuideWallWallParams, doubled: boolean): void => {
-      const { formula, qty } = wallFormula(params, len, doubled)
+      const { formula, quantityFactor, qty } = wallFormula(params, len, doubled)
       out.push({
         fromCh: section.fromCh,
         toCh: section.toCh,
         side,
         lengthM: round3(len),
         formula,
+        quantityFactor,
         qty: round3(qty),
         code,
         sectionId: section.id
@@ -408,6 +430,7 @@ export function baseQuantityRows(data: GuideWallData): GuideWallQtyRow[] {
       side: 'Base',
       lengthM: round3(len),
       formula: `${f2(section.baseWidth)} × ${f2(section.baseThickness)} × ${f2(len)}`,
+      quantityFactor: section.baseWidth * section.baseThickness,
       qty: round3(section.baseWidth * section.baseThickness * len),
       code: effectiveBaseRef(data, section).code,
       sectionId: section.id

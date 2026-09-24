@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ArrowDownAZ,
   ArrowLeft,
@@ -69,11 +69,11 @@ export default function AddItemModal(): JSX.Element {
   const [preparingVariants, setPreparingVariants] = useState(false)
   const [variantError, setVariantError] = useState<string | null>(null)
 
-  const parentName = useMemo(() => {
+  const parentName = (() => {
     if (!project) return ''
     if (!parentId) return project.root.name
     return findNode(project.root, parentId)?.name ?? project.root.name
-  }, [project, parentId])
+  })()
   const projectData = project?.projectData ?? []
   const add = (m: MasterItem): void =>
     setSelected((prev) => new Map(prev).set(itemKey(m), m))
@@ -577,6 +577,11 @@ function Column({
     if (!expanded[key]) void load(key)
   }
 
+  const loadRef = useRef(load)
+  useEffect(() => {
+    loadRef.current = load
+  })
+
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search), 250)
     return () => window.clearTimeout(timer)
@@ -590,38 +595,24 @@ function Column({
       categories.forEach((c) => (next[c.key] = true))
       return next
     })
-    categories.forEach((c) => void load(c.key))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch])
+    categories.forEach((c) => void loadRef.current(c.key))
+  }, [debouncedSearch, categories])
 
   const q = debouncedSearch.trim()
-  const parsedSearch = useMemo(() => parseMasterSearch(q), [q])
-  const loadedItems = useMemo(
-    () =>
-      categories.flatMap((category) => {
+  const parsedSearch = (parseMasterSearch(q))
+  const loadedItems = (categories.flatMap((category) => {
         const entry = cache[category.key]
         return entry?.status === 'loaded' ? entry.items : []
-      }),
-    [cache, categories]
-  )
-  const lexicalMatches = useMemo(
-    () => (q ? rankMasterItems(loadedItems, parsedSearch) : []),
-    [loadedItems, parsedSearch, q]
-  )
+      }))
+  const lexicalMatches = (q ? rankMasterItems(loadedItems, parsedSearch) : [])
   const searchSettled =
     !q ||
     categories.every((category) => {
       const status = cache[category.key]?.status
       return status === 'loaded' || status === 'error'
     })
-  const semanticCandidates = useMemo(
-    () => semanticCandidateMatches(lexicalMatches),
-    [lexicalMatches]
-  )
-  const semanticSignature = useMemo(
-    () => `${parsedSearch.normalized}|${semanticCandidates.map((match) => match.key).join('|')}`,
-    [parsedSearch.normalized, semanticCandidates]
-  )
+  const semanticCandidates = (semanticCandidateMatches(lexicalMatches))
+  const semanticSignature = (`${parsedSearch.normalized}|${semanticCandidates.map((match) => match.key).join('|')}`)
 
   useEffect(() => {
     if (
@@ -671,7 +662,7 @@ function Column({
     }
   }, [parsedSearch, q, searchSettled, semanticCandidates, semanticSignature])
 
-  const rankedMatches = useMemo(() => {
+  const rankedMatches = (() => {
     if (
       semanticRanking?.status !== 'ready' ||
       semanticRanking.signature !== semanticSignature
@@ -679,11 +670,8 @@ function Column({
       return lexicalMatches
     }
     return applySemanticScores(lexicalMatches, semanticRanking.scores)
-  }, [lexicalMatches, semanticRanking, semanticSignature])
-  const searchMatches = useMemo(
-    () => new Map(rankedMatches.map((match) => [match.key, match])),
-    [rankedMatches]
-  )
+  })()
+  const searchMatches = (new Map(rankedMatches.map((match) => [match.key, match])))
 
   return (
     <div className="additem-col">

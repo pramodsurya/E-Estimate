@@ -8,6 +8,7 @@ export interface ComponentTemplateDef {
   id: ComponentTemplateId
   name: string
   description: string
+  comingSoon?: boolean
 }
 
 export const COMPONENT_TEMPLATES: ComponentTemplateDef[] = [
@@ -26,6 +27,7 @@ export const COMPONENT_TEMPLATES: ComponentTemplateDef[] = [
   {
     id: 'canal',
     name: 'Canal',
+    comingSoon: true,
     description:
       'New irrigation canal along a chainage. Alignment, design levels, earthwork, LA width and lining in chapters.'
   }

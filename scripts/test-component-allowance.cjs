@@ -32,7 +32,7 @@ assert.match(
 )
 assert.match(
   modalSource,
-  /setStep\('location'\)/,
+  /setPage\(2\)/,
   'Add Component must open the locate step for a custom component'
 )
 
@@ -131,8 +131,38 @@ assert.match(
 )
 assert.match(
   componentDashboard,
-  /Edit location/,
-  'The allowance card must offer location editing'
+  /Change Work Location/,
+  'The allowance card must offer work-location editing'
+)
+assert.doesNotMatch(
+  componentDashboard,
+  /Edit location|Edit length/,
+  'The allowance card must not use the old location labels'
+)
+assert.doesNotMatch(
+  componentDashboard,
+  /toFixed\(6\)/,
+  'The allowance card must not show coordinates'
+)
+assert.match(
+  componentDashboard,
+  /component-location-compact/,
+  'The allowance card must stay a compact strip'
+)
+assert.match(
+  componentDashboard,
+  /Village \$\{/,
+  'The allowance card must mention the village in one line'
+)
+assert.match(
+  componentDashboard,
+  /Mandal \$\{/,
+  'The allowance card must mention the mandal in one line'
+)
+assert.match(
+  componentDashboard,
+  /District \$\{/,
+  'The allowance card must mention the district in one line'
 )
 assert.match(
   componentDashboard,

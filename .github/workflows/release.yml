@@ -35,9 +35,14 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - run: cargo test --manifest-path src-tauri/estimate-core/Cargo.toml
 
   release:
     needs: check

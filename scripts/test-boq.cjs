@@ -3,6 +3,7 @@ const fs = require('node:fs')
 const Module = require('node:module')
 const path = require('node:path')
 const ts = require('typescript')
+const readExcelRust = require('./read-excel-rust.cjs')
 
 const root = path.resolve(__dirname, '..')
 
@@ -378,7 +379,7 @@ for (const dashboardPath of [
   assert.ok(dashboard.includes('window.api.excel.compile(payload)'), `${dashboardPath} compiles via the native command`)
   assert.ok(!dashboard.includes('buildBoqWorkbook'), `${dashboardPath} no longer references the old ExcelJS builder`)
 }
-const rustCompiler = fs.readFileSync(path.join(root, 'src-tauri/src/excel_compile.rs'), 'utf8')
+const rustCompiler = readExcelRust(root)
 assert.ok(rustCompiler.includes('BoqPayload'), 'Rust reads a boq payload')
 assert.ok(rustCompiler.includes('totalCost') || rustCompiler.includes('total_cost'), 'Rust reads the BOQ total')
 console.log('boq: all assertions passed')

@@ -1,5 +1,5 @@
 import { Calculator, FilePlus2, Search, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   fetchSorItems,
   SOR_CATEGORIES,
@@ -126,9 +126,8 @@ export default function ProjectSsrDataEditor({
       .finally(() => { if (active) setSeigniorageChargesLoading(false) })
     return () => { active = false }
   }, [])
-  const resolvedSections = useMemo(() => resolveProjectSsrSections(value.sections), [value.sections])
-  const previewRate = useMemo(
-    () => projectDataRate({
+  const resolvedSections = (resolveProjectSsrSections(value.sections))
+  const previewRate = (projectDataRate({
       ...value,
       id: '',
       code: '',
@@ -137,16 +136,11 @@ export default function ProjectSsrDataEditor({
       seigniorage: { applicable: true },
       createdAt: '',
       updatedAt: ''
-    }),
-    [value]
-  )
-  const sectionTotals = useMemo(
-    () => Object.fromEntries(resolvedSections.map((section) => [
+    }))
+  const sectionTotals = (Object.fromEntries(resolvedSections.map((section) => [
       section.key,
       section.lines.reduce((total, line) => total + line.amount, 0)
-    ])) as Record<RateAnalysisSectionKey, number>,
-    [resolvedSections]
-  )
+    ])) as Record<RateAnalysisSectionKey, number>)
   const subtotal = sectionTotals.materials + sectionTotals.machinery + sectionTotals.labour
   const overheadAmount = subtotal * Math.max(0, value.overheadPercent || 0) / 100
 
@@ -519,10 +513,15 @@ function SorResourcePicker({
   const [error, setError] = useState('')
   const [addingCode, setAddingCode] = useState('')
 
-  useEffect(() => {
-    let active = true
+  const [prevCategory, setPrevCategory] = useState(category)
+  if (category !== prevCategory) {
+    setPrevCategory(category)
     setLoading(true)
     setError('')
+  }
+
+  useEffect(() => {
+    let active = true
     void fetchSorItems(category)
       .then((rows) => {
         if (active) setItems(rows)
@@ -536,13 +535,13 @@ function SorResourcePicker({
     return () => { active = false }
   }, [category])
 
-  const matches = useMemo(() => {
+  const matches = (() => {
     const normalized = query.trim().toLowerCase()
     const rows = normalized
       ? items.filter((item) => `${item.code} ${item.description}`.toLowerCase().includes(normalized))
       : items
     return rows.slice(0, 150)
-  }, [items, query])
+  })()
 
   const choose = async (item: MasterItem): Promise<void> => {
     if (addingCode) return

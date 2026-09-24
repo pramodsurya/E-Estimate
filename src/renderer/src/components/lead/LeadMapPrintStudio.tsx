@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Download, Eraser, LoaderCircle, LockKeyhole, Printer, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Download, Eraser, LoaderCircle, LockKeyhole, Minimize2, Printer, X } from 'lucide-react'
 import L from 'leaflet'
 import {
   MapContainer,
@@ -108,14 +108,13 @@ export default function LeadMapPrintStudio({
   const [status, setStatus] = useState('')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
+  const [minimized, setMinimized] = useState(false)
+  const minimizedRef = useRef(false)
   const pageRef = useRef<HTMLElement>(null)
   const printFrameRef = useRef<HTMLIFrameElement>(null)
   const captureEpochRef = useRef(0)
   const layout = normalizeLeadPrintSettings(printSettings)
-  const routes = useMemo(
-    () => buildRouteLines(variants, applications, assignments, points, site, mapDirections),
-    [applications, assignments, mapDirections, points, site, variants]
-  )
+  const routes = (buildRouteLines(variants, applications, assignments, points, site, mapDirections))
   const storedMapImage = useStore((state) =>
     Boolean(state.project?.printStudioShadowFiles?.[LEAD_MAP_IMAGE_PATH])
   )
@@ -128,14 +127,42 @@ export default function LeadMapPrintStudio({
     }
   }, [previewUrl])
 
+  const handleCloseOrMinimize = (): void => {
+    if (downloading) {
+      minimizedRef.current = true
+      setMinimized(true)
+      useStore.getState().upsertAppNotification({
+        id: 'lead-map-image',
+        kind: 'map',
+        status: 'running',
+        title: 'Fixing route map in background',
+        message: 'Downloading map tiles and stitching image in background. You can continue working in other tabs.'
+      })
+    } else {
+      onClose()
+    }
+  }
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape' || downloading) return
+      if (event.key !== 'Escape') return
       if (previewUrl) {
         setPreviewUrl(null)
         return
       }
-      onClose()
+      if (downloading) {
+        minimizedRef.current = true
+        setMinimized(true)
+        useStore.getState().upsertAppNotification({
+          id: 'lead-map-image',
+          kind: 'map',
+          status: 'running',
+          title: 'Fixing route map in background',
+          message: 'Downloading map tiles and stitching image in background. You can continue working in other tabs.'
+        })
+      } else {
+        onClose()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -157,7 +184,8 @@ export default function LeadMapPrintStudio({
         kind: 'map',
         status: 'running',
         title: 'Fixing route map',
-        message: 'Capturing the adjusted map image.'
+        message: 'Capturing the adjusted map image…',
+        progress: 0
       })
       await prepareLeadMapForCapture(pageRef.current)
       if (epoch !== captureEpochRef.current) return
@@ -166,7 +194,33 @@ export default function LeadMapPrintStudio({
         layout,
         signatureFooter,
         true,
-        current.printStudioShadowFiles ?? {}
+        current.printStudioShadowFiles ?? {},
+        (step, downloaded, total) => {
+          if (step === 'tiles') {
+            const pct = total > 0 ? Math.min(80, Math.round((downloaded / total) * 80)) : 0
+            const msg = `Downloading map tiles (${downloaded}/${total})…`
+            setStatus(msg)
+            useStore.getState().upsertAppNotification({
+              id: notificationId,
+              kind: 'map',
+              status: 'running',
+              title: 'Fixing route map',
+              message: msg,
+              progress: pct
+            })
+          } else if (step === 'stitching') {
+            const msg = 'Stitching map image…'
+            setStatus(msg)
+            useStore.getState().upsertAppNotification({
+              id: notificationId,
+              kind: 'map',
+              status: 'running',
+              title: 'Fixing route map',
+              message: msg,
+              progress: 85
+            })
+          }
+        }
       )
       if (epoch !== captureEpochRef.current) return
       const typstSource = injectSavedLeadMapTypst(
@@ -189,7 +243,8 @@ export default function LeadMapPrintStudio({
         kind: 'map',
         status: 'running',
         title: 'Route map fixed',
-        message: 'The map is locked. Saving continues in the background; you can close Map Print Studio.'
+        message: 'The map is locked. Saving continues in the background; you can close Map Print Studio.',
+        progress: 95
       })
       await useStore.getState().saveProject({ requireSaved: true })
       if (epoch !== captureEpochRef.current) return
@@ -199,8 +254,12 @@ export default function LeadMapPrintStudio({
         kind: 'map',
         status: 'complete',
         title: 'Route map image ready',
-        message: 'The fixed image is stored in the project and is ready to download.'
+        message: 'The fixed image is stored in the project and is ready to download.',
+        progress: 100
       }, true)
+      if (minimizedRef.current) {
+        onClose()
+      }
     } catch (error) {
       if (committed) useStore.getState().clearLeadMapPrint()
       const message = formatMapCaptureError(error)
@@ -210,8 +269,12 @@ export default function LeadMapPrintStudio({
         kind: 'map',
         status: 'error',
         title: 'Route map could not be fixed',
-        message
+        message,
+        progress: undefined
       }, true)
+      if (minimizedRef.current) {
+        onClose()
+      }
     } finally {
       setDownloading(false)
       setBusy(false)
@@ -270,6 +333,39 @@ export default function LeadMapPrintStudio({
     }
   }
 
+  if (minimized) {
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          left: -99999,
+          top: 0,
+          width: 1400,
+          height: 1000,
+          pointerEvents: 'none',
+          opacity: 0,
+          zIndex: -1000
+        }}
+        aria-hidden="true"
+      >
+        <div className="lead-print-scroll">
+          <LeadMapPrintPage
+            ref={pageRef}
+            variants={variants}
+            applications={applications}
+            assignments={assignments}
+            points={points}
+            site={site}
+            mapDirections={mapDirections}
+            printSettings={layout}
+            signatureFooter={signatureFooter}
+            interactive={false}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="lead-print-overlay" role="dialog" aria-modal="true">
       <div className="lead-print-shell map-layout-editor">
@@ -304,8 +400,18 @@ export default function LeadMapPrintStudio({
                 <Download size={14} /> Download Image
               </button>
             )}
-            <button className="btn ghost" type="button" disabled={downloading} onClick={onClose}>
-              <X size={14} /> Close
+            {downloading && (
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={handleCloseOrMinimize}
+                title="Continue downloading map tiles and stitching in background"
+              >
+                <Minimize2 size={14} /> Run in background
+              </button>
+            )}
+            <button className="btn ghost" type="button" onClick={handleCloseOrMinimize}>
+              <X size={14} /> {downloading ? 'Close (background)' : 'Close'}
             </button>
           </div>
         </div>
@@ -380,10 +486,7 @@ export function LeadMapPrintPage({
   ref
 }: LeadMapPrintPageProps): JSX.Element {
   const layout = normalizeLeadPrintSettings(printSettings)
-  const routes = useMemo(
-    () => buildRouteLines(variants, applications, assignments, points, site, mapDirections),
-    [applications, assignments, mapDirections, points, site, variants]
-  )
+  const routes = (buildRouteLines(variants, applications, assignments, points, site, mapDirections))
   const update = onUpdatePrintSettings ?? (() => undefined)
   return (
     <article
@@ -424,8 +527,8 @@ function RouteMap({
   onViewChange: (view: { lat: number; lon: number; zoom: number }) => void
   onViewReset: () => void
 }): JSX.Element {
-  const points = useMemo(() => uniqueRoutePoints(routes), [routes])
-  const bounds = useMemo(() => routeBounds(routes), [routes])
+  const points = (uniqueRoutePoints(routes))
+  const bounds = (routeBounds(routes))
   if (!bounds || routes.length === 0) {
     return <div className="lead-print-empty">No mapped applied Lead routes are available.</div>
   }
@@ -443,11 +546,12 @@ function RouteMap({
         width: interactive ? `${layout.mapBoxWidthPercent}%` : '100%'
       }}
     >
-      <MapContainer
-        center={center}
-        zoom={layout.mapView?.zoom ?? 13}
-        maxZoom={18}
-        style={{ position: 'absolute', inset: 0, height: 'auto', width: 'auto' }}
+        <MapContainer
+          center={center}
+          zoom={layout.mapView?.zoom ?? 13}
+          maxZoom={22}
+          preferCanvas
+          style={{ position: 'absolute', inset: 0, height: 'auto', width: 'auto' }}
         zoomControl={interactive}
         scrollWheelZoom={interactive}
         doubleClickZoom={interactive}

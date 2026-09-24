@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { ChevronDown, ChevronRight, Database, RefreshCw, Timer, Truck } from 'lucide-react'
 import { projectItemGroups, type ItemUsageBranch } from '../../lib/projectItems'
 import { useStore } from '../../store/useStore'
@@ -23,18 +23,12 @@ export default function DataPanel(): JSX.Element | null {
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState('')
 
-  const groups = useMemo(
-    () => (project ? projectItemGroups(project.root) : []),
-    [project]
-  )
+  const groups = (project ? projectItemGroups(project.root) : [])
 
   const snapshotValid = project
     ? dashboardContextMatches(project.dashboardSnapshot, project)
     : false
-  const currentSignature = useMemo(
-    () => (project ? dashboardDataCompileSignature(project) : ''),
-    [project]
-  )
+  const currentSignature = (project ? dashboardDataCompileSignature(project) : '')
   const compiled =
     snapshotValid &&
     Boolean(project?.dashboardSnapshot?.dataSyncedAt) &&

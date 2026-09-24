@@ -447,7 +447,7 @@ export function resolveComponentPrintPart(
   node: ProjectNode,
   recipes: Record<string, RateAnalysisRecipe> = {},
   rateOf: (item: ProjectNode) => number | undefined = () => undefined,
-  options?: { itemScope?: 'all' | 'direct' }
+  options?: { itemScope?: 'all' | 'direct'; deferBundInputs?: boolean }
 ): ComponentPrintPart {
   const scopeKey = componentScopeKey(node)
   const storedTypstSource = project.printStudioDocuments?.[scopeKey]
@@ -461,7 +461,9 @@ export function resolveComponentPrintPart(
   let prelude = componentCompilePrelude()
   if (isBund) {
     defaultTypst = injectBundLayout(defaultComponentTypstSource(), { ...project, printStudioDocuments: undefined }, node, renderData)
-    compileInputs = { ...compileInputs, ...bundCompileInputs(project, node) }
+    if (!options?.deferBundInputs) {
+      compileInputs = { ...compileInputs, ...bundCompileInputs(project, node) }
+    }
     prelude = `${prelude}\n${bundVariablesPrelude()}`
   } else if (isGuideWall) {
     defaultTypst = injectGuideWallLayout(defaultComponentTypstSource(), { ...project, printStudioDocuments: undefined }, node, renderData)

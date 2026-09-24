@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, Check, Eraser, Ruler, Undo2, X } from 'lucide-react'
+import { Check, Ruler, X } from 'lucide-react'
 import type { GuideWallData, ProjectNode } from '../../types/project'
 import { formatChainage, materializeSections, polylineLengthM } from '../../lib/guideWall'
 import AlignmentMap from './AlignmentMap'
-import AlignmentUploadButton from './AlignmentUploadButton'
 
 interface Props {
   node: ProjectNode
@@ -11,35 +10,30 @@ interface Props {
   onDone: (data: GuideWallData) => void
   /** Present only when re-editing an already configured guide wall. */
   onCancel?: () => void
-  /** Open directly on a step ("Edit sections" jumps to step 2). */
-  initialStep?: 1 | 2
 }
 
-type Step = 1 | 2
-
 /**
- * Pre-dashboard setup: sections (continuous interval or discontinuous marks).
- * Length and alignment arrive from component creation (step 1 survives only to
- * acquire a missing length). Which side(s) carry a wall is
- * edited any time on the dashboard. "Edit setup" returns here with everything
- * preserved.
+ * Pre-dashboard setup: one sections screen. Alignment and length always
+ * arrive from component creation, so there is no alignment step here — the
+ * length box below only covers data saved before that contract (or edited
+ * back to zero), and the map only previews or places section marks.
+ * Which side(s) carry a wall is edited any time on the dashboard.
  */
 export default function GuideWallSetup({
   node,
   data,
   onDone,
-  onCancel,
-  initialStep
+  onCancel
 }: Props): JSX.Element {
-  // Length and alignment arrive from component creation, so the setup opens
-  // straight at sections; step 1 survives only to acquire a missing length.
-  const [step, setStep] = useState<Step>(data.lengthM > 0 ? 2 : (initialStep ?? 1))
   const [draft, setDraft] = useState<GuideWallData>(data)
   const [manualBreak, setManualBreak] = useState('')
 
   const drawnLength = useMemo(() => polylineLengthM(draft.alignment), [draft.alignment])
   const effectiveLength =
     draft.source === 'map' ? (draft.lengthM > 0 ? draft.lengthM : Math.round(drawnLength)) : draft.lengthM
+  // Length (and usually the alignment) arrives from component creation; the
+  // box below only rescues records that predate that contract.
+  const hasPresetLength = data.lengthM > 0 || data.alignment.length >= 2
 
   const patch = (partial: Partial<GuideWallData>): void => setDraft((d) => ({ ...d, ...partial }))
 
@@ -54,20 +48,12 @@ export default function GuideWallSetup({
   const removeBreak = (ch: number): void =>
     setDraft((d) => ({ ...d, breaks: d.breaks.filter((b) => b !== ch) }))
 
-  const canNext =
-    step === 1
-      ? effectiveLength > 0
-      : draft.sectionMode === 'continuous'
-        ? draft.intervalM > 0
-        : true
+  const canFinish =
+    effectiveLength > 0 && (draft.sectionMode === 'continuous' ? draft.intervalM > 0 : true)
 
-  const goNext = (): void => {
+  const finish = (): void => {
+    if (!canFinish) return
     const length = effectiveLength
-    if (step === 1) {
-      setDraft((d) => ({ ...d, lengthM: length }))
-      setStep(2)
-      return
-    }
     // Re-materialize the section list; dimensions of sections that still cover
     // the same chainage are carried over.
     const next: GuideWallData = {
@@ -79,8 +65,6 @@ export default function GuideWallSetup({
     onDone({ ...next, sections: materializeSections(next, draft.sections) })
   }
 
-  const stepTitle = step === 1 ? 'Alignment and length' : 'Sections'
-
   return (
     <div className="gw-setup">
       <div className="gw-setup-header">
@@ -88,9 +72,7 @@ export default function GuideWallSetup({
           <span className="component-section-label">
             <Ruler size={15} /> Guide wall setup — {node.name}
           </span>
-          <h2>
-            {data.lengthM > 0 ? 'Sections' : `Step ${step} of 2 · ${stepTitle}`}
-          </h2>
+          <h2>Sections</h2>
         </div>
         {onCancel && (
           <button className="btn ghost" onClick={onCancel}>
@@ -99,74 +81,15 @@ export default function GuideWallSetup({
         )}
       </div>
 
-      {step === 1 && (
-        <div className="gw-setup-body">
-          <div className="gw-setup-fields">
-            <div className="field">
-              <label className="field-label">Length source</label>
-              <label className="gw-radio">
-                <input
-                  type="radio"
-                  checked={draft.source === 'map'}
-                  onChange={() => patch({ source: 'map' })}
-                />
-                Draw the alignment on the map
-              </label>
-              <label className="gw-radio">
-                <input
-                  type="radio"
-                  checked={draft.source === 'manual'}
-                  onChange={() => patch({ source: 'manual' })}
-                />
-                Enter the length manually (no map)
-              </label>
-            </div>
-
-            {draft.source === 'map' ? (
-              <>
-                <div className="settings-note">
-                  Click the map to add points along the wall — or upload a line file instead.
-                  <AlignmentUploadButton
-                    onAlignment={(points) => patch({ alignment: points, lengthM: 0, source: 'map' })}
-                  />
-                  the arrow on the line shows the chainage direction.
-                </div>
-                <div className="map-tools">
-                  <button
-                    className="btn ghost"
-                    disabled={!draft.alignment.length}
-                    onClick={() =>
-                      patch({ alignment: draft.alignment.slice(0, -1), lengthM: 0 })
-                    }
-                  >
-                    <Undo2 size={14} /> Undo point
-                  </button>
-                  <button
-                    className="btn ghost"
-                    disabled={!draft.alignment.length}
-                    onClick={() => patch({ alignment: [], lengthM: 0 })}
-                  >
-                    <Eraser size={14} /> Clear
-                  </button>
-                </div>
-                <div className="latlng-display">
-                  {draft.alignment.length >= 2
-                    ? `Drawn length: ${Math.round(drawnLength).toLocaleString('en-IN')} m (${draft.alignment.length} points)`
-                    : 'Click at least two points to form the alignment.'}
-                </div>
-                <div className="field">
-                  <label className="field-label">Design length (m) — overrides the drawn length</label>
-                  <input
-                    className="text-input"
-                    type="number"
-                    min={0}
-                    placeholder={drawnLength ? String(Math.round(drawnLength)) : '0'}
-                    value={draft.lengthM || ''}
-                    onChange={(e) => patch({ lengthM: Number(e.target.value) || 0 })}
-                  />
-                </div>
-              </>
-            ) : (
+      <div className="gw-setup-body">
+        <div className="gw-setup-fields">
+          <div className="field">
+            {data.lengthM > 0 && (
+              <div className="latlng-display">
+                {`Length: ${Math.round(effectiveLength).toLocaleString('en-IN')} m — from component creation`}
+              </div>
+            )}
+            {!hasPresetLength && (
               <div className="field">
                 <label className="field-label">Total length (m)</label>
                 <input
@@ -179,142 +102,108 @@ export default function GuideWallSetup({
                 />
               </div>
             )}
+            <label className="field-label">Section spacing</label>
+            <label className="gw-radio">
+              <input
+                type="radio"
+                checked={draft.sectionMode === 'continuous'}
+                onChange={() => patch({ sectionMode: 'continuous' })}
+              />
+              Continuous — a section every fixed interval
+            </label>
+            <label className="gw-radio">
+              <input
+                type="radio"
+                checked={draft.sectionMode === 'discontinuous'}
+                onChange={() => patch({ sectionMode: 'discontinuous' })}
+              />
+              Discontinuous — sections only at marked chainages
+            </label>
           </div>
-          {draft.source === 'map' && (
-            <AlignmentMap
-              points={draft.alignment}
-              mode="draw"
-              totalLengthM={effectiveLength}
-              onAddPoint={(p) => setDraft((d) => ({ ...d, alignment: [...d.alignment, p] }))}
-              fallbackCenter={node.location ?? null}
-            />
-          )}
-        </div>
-      )}
 
-      {step === 2 && (
-        <div className="gw-setup-body">
-          <div className="gw-setup-fields">
+          {draft.sectionMode === 'continuous' ? (
             <div className="field">
-              {data.lengthM > 0 && (
-                <div className="latlng-display">
-                  {`Length: ${Math.round(effectiveLength).toLocaleString('en-IN')} m — from component creation`}
-                </div>
-              )}
-              <label className="field-label">Section spacing</label>
-              <label className="gw-radio">
-                <input
-                  type="radio"
-                  checked={draft.sectionMode === 'continuous'}
-                  onChange={() => patch({ sectionMode: 'continuous' })}
-                />
-                Continuous — a section every fixed interval
-              </label>
-              <label className="gw-radio">
-                <input
-                  type="radio"
-                  checked={draft.sectionMode === 'discontinuous'}
-                  onChange={() => patch({ sectionMode: 'discontinuous' })}
-                />
-                Discontinuous — sections only at marked chainages
-              </label>
-            </div>
-
-            {draft.sectionMode === 'continuous' ? (
-              <div className="field">
-                <label className="field-label">Interval (m)</label>
-                <input
-                  className="text-input"
-                  type="number"
-                  min={1}
-                  value={draft.intervalM || ''}
-                  onChange={(e) => patch({ intervalM: Number(e.target.value) || 0 })}
-                />
-                <div className="settings-note">
-                  {draft.intervalM > 0 && effectiveLength > 0
-                    ? `${Math.ceil(effectiveLength / draft.intervalM)} sections over ${formatChainage(effectiveLength)} m.`
-                    : 'Chainage runs 0 to the total length; a measurement row is generated per interval.'}
-                </div>
+              <label className="field-label">Interval (m)</label>
+              <input
+                className="text-input"
+                type="number"
+                min={1}
+                value={draft.intervalM || ''}
+                onChange={(e) => patch({ intervalM: Number(e.target.value) || 0 })}
+              />
+              <div className="settings-note">
+                {draft.intervalM > 0 && effectiveLength > 0
+                  ? `${Math.ceil(effectiveLength / draft.intervalM)} sections over ${formatChainage(effectiveLength)} m.`
+                  : 'Chainage runs 0 to the total length; a measurement row is generated per interval.'}
               </div>
-            ) : (
-              <>
-                <div className="settings-note">
-                  {draft.source === 'map'
-                    ? 'Click on the drawn line to place a section mark (or type a chainage below). Chainages run 0 → first mark → next mark → end.'
-                    : 'Type each section chainage. Chainages run 0 → first mark → next mark → end.'}
-                </div>
-                <div className="field">
-                  <label className="field-label">Add section at chainage (m)</label>
-                  <div className="gw-inline-add">
-                    <input
-                      className="text-input"
-                      type="number"
-                      min={0}
-                      max={effectiveLength}
-                      value={manualBreak}
-                      onChange={(e) => setManualBreak(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          addBreak(Number(manualBreak))
-                          setManualBreak('')
-                        }
-                      }}
-                    />
-                    <button
-                      className="btn"
-                      onClick={() => {
-                        addBreak(Number(manualBreak))
-                        setManualBreak('')
-                      }}
-                    >
-                      Add
-                    </button>
-                  </div>
-                </div>
-                <div className="gw-break-chips">
-                  {draft.breaks.length ? (
-                    draft.breaks.map((ch) => (
-                      <span key={ch} className="gw-chip">
-                        Ch {formatChainage(ch)}
-                        <button onClick={() => removeBreak(ch)} title="Remove">
-                          <X size={12} />
-                        </button>
-                      </span>
-                    ))
-                  ) : (
-                    <span className="latlng-display">No section marks yet — 0 to end is one section.</span>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-          {draft.source === 'map' && (
-            <AlignmentMap
-              points={draft.alignment}
-              mode={draft.sectionMode === 'discontinuous' ? 'mark' : 'view'}
-              totalLengthM={effectiveLength}
-              onPlaceBreak={addBreak}
-              ticks={draft.sectionMode === 'discontinuous' ? draft.breaks : []}
-              fallbackCenter={node.location ?? null}
-            />
-          )}
-        </div>
-      )}
-
-      <div className="gw-setup-footer">
-        <button className="btn ghost" disabled={step === 1 || data.lengthM > 0} onClick={() => setStep(1)}>
-          <ArrowLeft size={14} /> Back
-        </button>
-        <button className="btn" disabled={!canNext} onClick={goNext}>
-          {step === 2 ? (
-            <>
-              <Check size={14} /> Finish setup
-            </>
+            </div>
           ) : (
             <>
-              Next <ArrowRight size={14} />
+              <div className="settings-note">
+                {draft.source === 'map'
+                  ? 'Click on the drawn line to place a section mark (or type a chainage below). Chainages run 0 → first mark → next mark → end.'
+                  : 'Type each section chainage. Chainages run 0 → first mark → next mark → end.'}
+              </div>
+              <div className="field">
+                <label className="field-label">Add section at chainage (m)</label>
+                <div className="gw-inline-add">
+                  <input
+                    className="text-input"
+                    type="number"
+                    min={0}
+                    max={effectiveLength}
+                    value={manualBreak}
+                    onChange={(e) => setManualBreak(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        addBreak(Number(manualBreak))
+                        setManualBreak('')
+                      }
+                    }}
+                  />
+                  <button
+                    className="btn"
+                    onClick={() => {
+                      addBreak(Number(manualBreak))
+                      setManualBreak('')
+                    }}
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+              <div className="gw-break-chips">
+                {draft.breaks.length ? (
+                  draft.breaks.map((ch) => (
+                    <span key={ch} className="gw-chip">
+                      Ch {formatChainage(ch)}
+                      <button onClick={() => removeBreak(ch)} title="Remove">
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))
+                ) : (
+                  <span className="latlng-display">No section marks yet — 0 to end is one section.</span>
+                )}
+              </div>
             </>
           )}
+        </div>
+        {draft.source === 'map' && (
+          <AlignmentMap
+            points={draft.alignment}
+            mode={draft.sectionMode === 'discontinuous' ? 'mark' : 'view'}
+            totalLengthM={effectiveLength}
+            onPlaceBreak={addBreak}
+            ticks={draft.sectionMode === 'discontinuous' ? draft.breaks : []}
+            fallbackCenter={node.location ?? null}
+          />
+        )}
+      </div>
+
+      <div className="gw-setup-footer">
+        <button className="btn" disabled={!canFinish} onClick={finish}>
+          <Check size={14} /> Finish setup
         </button>
       </div>
     </div>

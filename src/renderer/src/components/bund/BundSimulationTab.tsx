@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { CircleHelp, Gem, Trash2 } from 'lucide-react'
 import type { ProjectNode, BundData, BundSection, BundChainageUnit } from '../../types/project'
@@ -358,16 +358,13 @@ export default function BundSimulationTab({
   const finishSimulationJob = useStore((s) => s.finishBundSimulationJob)
   const appendSimulationRuns = useStore((s) => s.appendBundSimulationRuns)
   const cancelSimulationJob = useStore((s) => s.cancelBundSimulationJob)
-  const sections = useMemo(() => orderedSections(data), [data])
-  const critical = useMemo(() => steepestSection(data), [data])
+  const sections = (orderedSections(data))
+  const critical = (steepestSection(data))
   const [selectedId, setSelectedId] = useState<string | null>(critical?.id ?? sections[0]?.id ?? null)
   const selected: BundSection | null =
     sections.find((s) => s.id === selectedId) ?? sections[0] ?? null
 
-  const sim = useMemo(
-    () => normalizeBundSimulationData(data, data.simulation),
-    [data]
-  )
+  const sim = (normalizeBundSimulationData(data, data.simulation))
 
   /** The loading case whose dedicated tab is open. */
   const [activeCase, setActiveCase] = useState<BundSimulationCaseId>(
@@ -385,12 +382,12 @@ export default function BundSimulationTab({
    * first point of the embankment line. Section.groundLevel (centre-line
    * ground) is often blank, so the toe geometry is the honest source.
    */
-  const toeLevel = useMemo(() => {
+  const toeLevel = (() => {
     if (!selected) return null
     const emb = simulationEmbankmentLine(data, selected)
     if (emb && emb.length > 0) return emb[0][1]
     return selected.upstreamGroundLevel ?? selected.groundLevel ?? null
-  }, [data, selected])
+  })()
 
   /** Per-case analysis method — each case keeps its own choice. FEM is not
    * offered on the staged-drawdown cases: rapid drawdown is limit-equilibrium
@@ -408,13 +405,9 @@ export default function BundSimulationTab({
     tolerance: 0.02,
     maxIterations: 3000
   })
-  const controls = useMemo(
-    () =>
-      choice === 'fem-ssrm'
+  const controls = (choice === 'fem-ssrm'
         ? { analysisType: 'fem-ssrm' as const, method: 'fem-ssrm' as const, ...fem }
-        : { analysisType: 'lem' as const, method: choice, slices: lem.slices },
-    [choice, lem.slices, fem]
-  )
+        : { analysisType: 'lem' as const, method: choice, slices: lem.slices })
   const activeChoice = ANALYSIS_CHOICES.find((c) => c.id === choice)
   const caseMeta = BUND_SIMULATION_CASES[activeCase]
   const study = CASE_STUDY[activeCase]
@@ -441,7 +434,7 @@ export default function BundSimulationTab({
       )
     })
 
-  const currentFingerprints = useMemo(() => {
+  const currentFingerprints = (() => {
     if (!selected) return {} as Partial<Record<BundSimulationCaseId, string>>
     return Object.fromEntries(
       ALL_CASES.flatMap((caseId) => {
@@ -456,25 +449,19 @@ export default function BundSimulationTab({
         return request ? [[caseId, requestFingerprint(request)]] : []
       })
     ) as Partial<Record<BundSimulationCaseId, string>>
-  }, [data, selected, sim, controls])
+  })()
 
   /**
    * Newest-first history across every analysed section; each case tab lists
    * the runs that belong to it.
    */
-  const completedRuns = useMemo(
-    () => [...sim.results].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    [sim.results]
-  )
-  const caseRuns = useMemo(
-    () => completedRuns.filter((r) => r.caseId === activeCase),
-    [completedRuns, activeCase]
-  )
+  const completedRuns = ([...sim.results].sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
+  const caseRuns = (completedRuns.filter((r) => r.caseId === activeCase))
   /**
    * Runs executed in one press share a group id (Case II's two pool levels)
    * and display as a single run; the governing (lowest-FS) result leads.
    */
-  const caseRunGroups = useMemo(() => {
+  const caseRunGroups = (() => {
     const groups: { key: string; runs: BundSimulationRun[] }[] = []
     const byKey = new Map<string, { key: string; runs: BundSimulationRun[] }>()
     for (const r of caseRuns) {
@@ -495,18 +482,14 @@ export default function BundSimulationTab({
       })
     }
     return groups
-  }, [caseRuns])
+  })()
   /** Explicitly opened run group; falls back to the newest of this case. */
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   /** Run groups checked for deletion in the currently open case tab. */
   const [selectedRunGroupIds, setSelectedRunGroupIds] = useState<string[]>([])
-  const activeGroup = useMemo(
-    () =>
-      (selectedGroupId && caseRunGroups.find((g) => g.key === selectedGroupId)) ||
+  const activeGroup = ((selectedGroupId && caseRunGroups.find((g) => g.key === selectedGroupId)) ||
       caseRunGroups[0] ||
-      null,
-    [caseRunGroups, selectedGroupId]
-  )
+      null)
   const visibleRunGroupIds = caseRunGroups.map((group) => group.key)
   const selectedVisibleRunGroupIds = selectedRunGroupIds.filter((id) =>
     visibleRunGroupIds.includes(id)
@@ -572,6 +555,7 @@ export default function BundSimulationTab({
     const jobs = caseJobs(caseId, water, toeLevel, data.design.topLevel)
     // One press of Run = one run row: Case II's two pool levels share a group
     // id so their results travel and display together.
+    // eslint-disable-next-line react-hooks/purity -- reached only from the Run click handler; never called during render
     const groupId = `${Date.now()}-${caseId}`
     const started = startSimulationJob({
       projectId,

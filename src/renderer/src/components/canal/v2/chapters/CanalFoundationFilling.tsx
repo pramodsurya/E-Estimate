@@ -1,35 +1,487 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Pencil, Plus, Save, Trash2, X } from 'lucide-react'
-import type { CanalData, CanalFoundationFillKind, CanalFoundationFillReach } from '../../../../types/project'
-import { canalAutomaticFilterLengthsAtSection, canalFoundationDepthAtSection, canalFoundationFillQuantity, canalFoundationRlAt, canalFoundationWidthsAtSection, canalSandBlanketWidthsAtSection, orderedCanalSections } from '../../../../lib/canal'
-import { newId } from '../../../../lib/tree'
+import { useState } from 'react'
+import { Layers, Shield, Sparkles, Check, ChevronRight } from 'lucide-react'
+import type {
+  CanalData,
+  CanalBankTier,
+  CanalBankDesignConfig,
+  CanalTierFoundationConfig
+} from '../../../../types/project'
+import {
+  defaultCanalBankDesignConfig,
+  defaultCanalTierFoundationConfig,
+  canalSectionBankTier,
+  canalSectionBankFillHeight,
+  canalTierFoundationQuantities,
+  orderedCanalSections
+} from '../../../../lib/canal'
 import CanalSectionDiagram from '../../CanalSectionDiagram'
 
-const FOUNDATION = [['5-1', 'Rubble-and-sand filling'], ['5-2', 'Sand filling'], ['5-3', 'Rubble-and-murum filling']] as const
-const BLANKETS = [['5-4', '25 cm sand blanket'], ['5-5', 'Variable-thickness sand blanket']] as const
-const LABELS: Record<CanalFoundationFillKind, string> = { '5-1':'Rubble-and-sand foundation filling','5-2':'Sand filling below foundations','5-3':'Rubble-and-murum foundation filling','5-4':'25 cm sand blanket below embankment','5-5':'Variable-thickness sand blanket below embankment','5-7':'Horizontal graded filter drain','5-10':'Vertical / inclined graded foundation filter' }
-const n3 = (v:number):string => v.toLocaleString('en-IN',{maximumFractionDigits:3})
-type Draft={workReachId:string;fromChainage:number;toChainage:number;stage:'reach'|'works';previewSectionId:string;foundation:'none'|'5-1'|'5-2'|'5-3';foundationPercentage:number;blanket:'none'|'5-4'|'5-5';blanketWidthMode:'automatic'|'manual';blanketLeftWidth:number;blanketRightWidth:number;blanketThickness:number;horizontalFilter:boolean;filterLengthMode:'automatic'|'manual';filterLeftLength:number;filterRightLength:number;filterThickness:number;rockToe:boolean;rockToeFilter:boolean;rockToeSide:'left'|'right'|'both';rockToeWidth:number;rockToeHeight:number;filterWidth:number;filterDepth:number}
+const FOUNDATION_OPTIONS = [
+  { value: 'none', label: 'None' },
+  { value: '5-1', label: 'Rubble-and-sand foundation filling (IRR-CAW-5-1)' },
+  { value: '5-2', label: 'Sand filling below foundations (IRR-CAW-5-2)' },
+  { value: '5-3', label: 'Rubble-and-murum foundation filling (IRR-CAW-5-3)' }
+] as const
 
-function emptyDraft(data:CanalData):Draft{const sections=orderedCanalSections(data);const source=data.foundationExcavationReaches.find(r=>r.kind==='foundation');const first=sections.find(s=>s.chainage>=(source?.fromChainage??0))??sections[0];const widths=first?canalFoundationWidthsAtSection(data,first):{left:0,right:0};const filters=first?canalAutomaticFilterLengthsAtSection(data,first):{left:0,right:0};return{workReachId:newId(),fromChainage:source?.fromChainage??sections[0]?.chainage??0,toChainage:source?.toChainage??sections.at(-1)?.chainage??0,stage:'reach',previewSectionId:first?.id??'',foundation:'none',foundationPercentage:100,blanket:'none',blanketWidthMode:'automatic',blanketLeftWidth:widths.left,blanketRightWidth:widths.right,blanketThickness:.25,horizontalFilter:false,filterLengthMode:'automatic',filterLeftLength:filters.left,filterRightLength:filters.right,filterThickness:.25,rockToe:false,rockToeFilter:false,rockToeSide:'both',rockToeWidth:.5,rockToeHeight:0,filterWidth:.5,filterDepth:.5}}
-function draftFromRows(rows:CanalFoundationFillReach[]):Draft{const first=rows[0],f=rows.find(r=>['5-1','5-2','5-3'].includes(r.kind)),b=rows.find(r=>['5-4','5-5'].includes(r.kind)),h=rows.find(r=>r.kind==='5-7'),x=rows.find(r=>r.kind==='5-10');return{workReachId:first.workReachId,fromChainage:first.fromChainage,toChainage:first.toChainage,stage:'works',previewSectionId:'',foundation:(f?.kind as Draft['foundation'])??'none',foundationPercentage:f?.percentage??100,blanket:(b?.kind as Draft['blanket'])??'none',blanketWidthMode:b?.blanketWidthMode??'automatic',blanketLeftWidth:b?.blanketLeftWidth??0,blanketRightWidth:b?.blanketRightWidth??0,blanketThickness:b?.thickness??.25,horizontalFilter:Boolean(h),filterLengthMode:h?.blanketWidthMode??'automatic',filterLeftLength:h?.blanketLeftWidth??0,filterRightLength:h?.blanketRightWidth??0,filterThickness:h?.thickness??.25,rockToe:Boolean(x),rockToeFilter:false,rockToeSide:x?.side??'both',rockToeWidth:.5,rockToeHeight:x?.height??0,filterWidth:.5,filterDepth:.5}}
-function rowsFromDraft(d:Draft):CanalFoundationFillReach[]{const base={workReachId:d.workReachId,fromChainage:d.fromChainage,toChainage:d.toChainage,percentage:d.foundationPercentage,foundationDepth:0,blanketWidthMode:d.blanketWidthMode,blanketLeftWidth:d.blanketLeftWidth,blanketRightWidth:d.blanketRightWidth};const make=(kind:CanalFoundationFillKind,width:number,thickness:number,height:number,side:CanalFoundationFillReach['side'],overrides:Partial<CanalFoundationFillReach>={}):CanalFoundationFillReach=>({...base,id:`${d.workReachId}-${kind}`,kind,width,thickness,height,side,material:{code:`IRR-CAW-${kind}`},...overrides});const blanketThickness=d.blanket==='5-4'?.25:d.blanket==='5-5'?d.blanketThickness:0;return[...(d.foundation!=='none'?[make(d.foundation,0,0,0,'both')]:[]),...(d.blanket!=='none'?[make(d.blanket,d.blanketLeftWidth+d.blanketRightWidth,blanketThickness,0,'both')]:[]),...(d.horizontalFilter?[make('5-7',d.filterLeftLength+d.filterRightLength,d.filterThickness,0,'both',{blanketWidthMode:d.filterLengthMode,blanketLeftWidth:d.filterLeftLength,blanketRightWidth:d.filterRightLength})]:[]),...(d.rockToe?[make('5-10',.5,d.filterThickness,d.rockToeHeight,d.rockToeSide)]:[])]}
-function Sketch({draft}:{draft:Draft}):JSX.Element{return <svg className="canal-treatment-sketch" viewBox="0 0 720 235"><defs><pattern id="fw-hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line y2="10" stroke="#f0b84b" strokeWidth="4"/></pattern></defs><path d="M45 155 L190 155 L265 65 L325 65 L350 155 L370 155 L395 65 L455 65 L530 155 L675 155" fill="none" stroke="#58aee8" strokeWidth="5"/><line x1="30" y1="155" x2="690" y2="155" stroke="#9aa4ae" strokeWidth="3"/>{draft.foundation!=='none'&&<rect x="190" y="155" width="340" height="35" fill="url(#fw-hatch)" stroke="#f0b84b" strokeWidth="3"/>}{draft.blanket!=='none'&&<rect x="190" y="147" width="340" height="13" fill="#60d1b2"/>}{draft.rockToe&&<path d="M500 150 L515 150 L465 78 L450 88 Z" fill="#8b7bb9" stroke="#b6a8e7" strokeWidth="3"/>}<text x="360" y="220" textAnchor="middle">Selected works for this reach</text></svg>}
+const BLANKET_OPTIONS = [
+  { value: 'none', label: 'None' },
+  { value: '5-4', label: '25 cm sand blanket below embankment (IRR-CAW-5-4)' },
+  { value: '5-5', label: 'Variable-thickness sand blanket below embankment (IRR-CAW-5-5)' }
+] as const
 
-export default function CanalFoundationFilling({data,onCommit}:{data:CanalData;onCommit:(update:(current:CanalData)=>CanalData)=>void}):JSX.Element{
- const sections=useMemo(()=>orderedCanalSections(data),[data]);const[draft,setDraft]=useState<Draft|null>(null);const patch=(v:Partial<Draft>):void=>setDraft(d=>d?{...d,...v}:d)
- useEffect(()=>{if(!draft||draft.stage!=='works')return;const rows=rowsFromDraft(draft);onCommit(c=>({...c,foundationFillReaches:[...c.foundationFillReaches.filter(r=>r.workReachId!==draft.workReachId),...rows]}))},[draft])
- const groups=useMemo(()=>{const map=new Map<string,CanalFoundationFillReach[]>();for(const row of data.foundationFillReaches)map.set(row.workReachId,[...(map.get(row.workReachId)??[]),row]);return[...map.values()]},[data.foundationFillReaches]);const preview=draft?rowsFromDraft(draft):[]
- const reachSections=draft?sections.filter(s=>s.chainage>=draft.fromChainage&&s.chainage<=draft.toChainage):[];const previewSection=reachSections.find(s=>s.id===draft?.previewSectionId)??reachSections[0];const availableBlanketWidths=previewSection?canalFoundationWidthsAtSection(data,previewSection):{left:0,right:0,total:0};const automaticFilterLengths=previewSection?canalAutomaticFilterLengthsAtSection(data,previewSection):{left:0,right:0,total:0};const blanketThickness=draft?.blanket==='5-4'?.25:draft?.blanketThickness??.25;const blanketTopRl=previewSection?(canalFoundationRlAt(data,previewSection.chainage)??0)+(draft?.foundation!=='none'?canalFoundationDepthAtSection(data,previewSection)*(draft?.foundationPercentage??0)/100:0)+blanketThickness:0;const automaticBlanketWidths=previewSection?canalSandBlanketWidthsAtSection(data,previewSection,blanketTopRl):{left:0,right:0,total:0};const displayedBlanketWidths=draft?.blanketWidthMode==='manual'?{left:Math.min(draft.blanketLeftWidth,availableBlanketWidths.left),right:Math.min(draft.blanketRightWidth,availableBlanketWidths.right),total:Math.min(draft.blanketLeftWidth,availableBlanketWidths.left)+Math.min(draft.blanketRightWidth,availableBlanketWidths.right)}:automaticBlanketWidths;const displayedFilterLengths=draft?.filterLengthMode==='manual'?{left:Math.min(draft.filterLeftLength,availableBlanketWidths.left),right:Math.min(draft.filterRightLength,availableBlanketWidths.right),total:Math.min(draft.filterLeftLength,availableBlanketWidths.left)+Math.min(draft.filterRightLength,availableBlanketWidths.right)}:automaticFilterLengths
- return <section className="canal-chapter"><header className="canal-v2-section-header"><div><span className="canal-v2-section-kicker">Foundation Filling &amp; Filters</span><h2>Foundation treatment reaches</h2><p>Create the reach first. Then choose foundation filling, sand blanket and foundation filters independently.</p></div><button className="btn primary" disabled={draft!=null} onClick={()=>setDraft(emptyDraft(data))}><Plus size={14}/> Add reach</button></header>
- <div className="canal-flow-strip"><span>1 · Create reach</span><b>→</b><span>2 · Foundation filling</span><b>→</b><span>3 · Blanket</span><b>→</b><span>4 · Filters</span><b>→</b><span>5 · Save</span></div>
- {groups.length===0&&!draft&&<div className="canal-zoned-empty">No foundation-work reach has been added.</div>}
- <div className="canal-excavation-reach-summaries">{groups.filter(rs=>rs[0]?.workReachId!==draft?.workReachId).map((rows,i)=>{const first=rows[0];return <div className="canal-excavation-reach-summary" key={first.workReachId}><div><strong>Foundation-work reach {i+1}</strong><span>Ch {n3(first.fromChainage)} → {n3(first.toChainage)} m</span><span className="canal-reach-actions"><button className="btn ghost" disabled={draft!=null} onClick={()=>setDraft(draftFromRows(rows))}><Pencil size={13}/> Edit</button><button className="btn ghost" disabled={draft!=null} onClick={()=>onCommit(c=>({...c,foundationFillReaches:c.foundationFillReaches.filter(r=>r.workReachId!==first.workReachId)}))}><Trash2 size={13}/> Remove</button></span></div><div>{rows.map(row=>{const measured=canalFoundationFillQuantity(data,row);return <span key={row.id}>{LABELS[row.kind]} <strong>{n3(measured.quantity)} {measured.unit}</strong></span>})}</div></div>})}</div>
- {draft&&<div className="canal-earthwork-card canal-treatment-editor"><div className="canal-zoned-reaches-head"><strong>{groups.some(rs=>rs[0]?.workReachId===draft.workReachId)?'Edit foundation-work reach':'New foundation-work reach'}</strong><button className="btn ghost" onClick={()=>setDraft(null)}><X size={14}/> Cancel</button></div>
- <div className="canal-bank-grid"><label className="canal-bank-field"><span>From section</span><select disabled={draft.stage==='works'} value={draft.fromChainage} onChange={e=>patch({fromChainage:Number(e.target.value)})}>{sections.map((s,i)=><option key={s.id} value={s.chainage}>{i+1} · Ch {s.chainage} m</option>)}</select></label><label className="canal-bank-field"><span>To section</span><select disabled={draft.stage==='works'} value={draft.toChainage} onChange={e=>patch({toChainage:Number(e.target.value)})}>{sections.map((s,i)=><option key={s.id} value={s.chainage}>{i+1} · Ch {s.chainage} m</option>)}</select></label></div>
- {draft.stage==='reach'?<div className="canal-reach-editor-actions"><button className="btn primary" disabled={draft.toChainage<=draft.fromChainage} onClick={()=>{const selected=sections.find(s=>s.chainage>=draft.fromChainage&&s.chainage<=draft.toChainage);patch({stage:'works',previewSectionId:selected?.id??''})}}>Continue to works</button></div>:<><div className="canal-foundation-work-groups">
- <section className="canal-foundation-work-group group-foundation"><strong>1. Foundation Filling</strong><small>Select one replacement item and the share of the local excavation void.</small><label className="canal-bank-field"><span>Selection</span><select value={draft.foundation} onChange={e=>patch({foundation:e.target.value as Draft['foundation']})}><option value="none">None</option>{FOUNDATION.map(([c,l])=><option key={c} value={c}>{l}</option>)}</select></label>{draft.foundation!=='none'&&<><label className="canal-bank-field"><span>Foundation filling (%)</span><input type="number" min="0" max="100" step="any" value={draft.foundationPercentage} onChange={e=>patch({foundationPercentage:Math.min(100,Math.max(0,Number(e.target.value)))})}/></label><div className="canal-foundation-rule"><strong>Applied separately at every section</strong><span>{n3(draft.foundationPercentage)}% of each section’s available excavation depth.</span></div></>}</section>
- <section className="canal-foundation-work-group group-blanket"><strong>2. Sand Blanket</strong><small>Independent foundation-treatment layer. Automatic mode spans the full foundation and is interrupted only where canal excavation cuts through its level.</small><label className="canal-bank-field"><span>Selection</span><select value={draft.blanket} onChange={e=>patch({blanket:e.target.value as Draft['blanket']})}><option value="none">None</option>{BLANKETS.map(([c,l])=><option key={c} value={c}>{l}</option>)}</select></label>{draft.blanket!=='none'&&<><label className="canal-bank-field"><span>Width mode</span><select value={draft.blanketWidthMode} onChange={e=>patch({blanketWidthMode:e.target.value as Draft['blanketWidthMode']})}><option value="automatic">Automatic — full valid foundation width</option><option value="manual">Manual left/right widths</option></select></label>{draft.blanketWidthMode==='automatic'?<div className="canal-foundation-rule"><strong>Selected-section extent</strong><span>Left {n3(availableBlanketWidths.left)} m · Right {n3(availableBlanketWidths.right)} m</span><span>The blanket continues below the canal when the canal formation remains above it.</span></div>:<div className="canal-bank-grid"><label className="canal-bank-field"><span>Left width (m)</span><input type="number" min="0" step="any" value={draft.blanketLeftWidth} onChange={e=>patch({blanketLeftWidth:Math.max(0,Number(e.target.value))})}/></label><label className="canal-bank-field"><span>Right width (m)</span><input type="number" min="0" step="any" value={draft.blanketRightWidth} onChange={e=>patch({blanketRightWidth:Math.max(0,Number(e.target.value))})}/></label></div>}<label className="canal-bank-field"><span>Thickness (m)</span><input type="number" min="0" step="any" disabled={draft.blanket==='5-4'} value={draft.blanket==='5-4'?.25:draft.blanketThickness} onChange={e=>patch({blanketThickness:Math.max(0,Number(e.target.value))})}/></label><small className="canal-dimension-note">25 cm = 0.25 m actual vertical thickness. The diagram is drawn to the RL scale.</small></>}</section>
- <section className="canal-foundation-work-group group-rocktoe"><strong>3. Filters</strong><small>Independent graded drainage system. It does not select or change the sand blanket.</small><label className="canal-check-row"><input type="checkbox" checked={draft.horizontalFilter} onChange={e=>patch({horizontalFilter:e.target.checked,rockToe:e.target.checked?draft.rockToe:false})}/><span>Provide horizontal graded filter drain</span></label>{draft.horizontalFilter&&<><label className="canal-bank-field"><span>Filter length calculation</span><select value={draft.filterLengthMode} onChange={e=>patch({filterLengthMode:e.target.value as Draft['filterLengthMode']})}><option value="automatic">Automatic — drainage rule</option><option value="manual">Manual entry</option></select></label>{draft.filterLengthMode==='manual'?<div className="canal-bank-grid"><label className="canal-bank-field"><span>Left filter length (m)</span><input type="number" min="0" step="any" value={draft.filterLeftLength} onChange={e=>patch({filterLeftLength:Math.max(0,Number(e.target.value))})}/></label><label className="canal-bank-field"><span>Right filter length (m)</span><input type="number" min="0" step="any" value={draft.filterRightLength} onChange={e=>patch({filterRightLength:Math.max(0,Number(e.target.value))})}/></label></div>:<div className="canal-foundation-rule"><strong>Automatic filter lengths</strong><span>Left {n3(automaticFilterLengths.left)} m · Right {n3(automaticFilterLengths.right)} m</span><span>{data.design.bankSectionType==='zoned'?'Outer toe to impervious-hearting toe.':'Half of each toe-to-canal foundation width.'}</span></div>}<label className="canal-bank-field"><span>Filter thickness (m)</span><input type="number" min="0" step="any" value={draft.filterThickness} onChange={e=>patch({filterThickness:Math.max(0,Number(e.target.value))})}/></label><div className="canal-foundation-rule"><strong>IRR-CAW-5-7</strong><span>Horizontal graded filter drain · Left {n3(displayedFilterLengths.left)} m · Right {n3(displayedFilterLengths.right)} m</span></div><label className="canal-check-row"><input type="checkbox" checked={draft.rockToe} onChange={e=>patch({rockToe:e.target.checked})}/><span>Add vertical / inclined chimney filter connected to the horizontal filter</span></label>{draft.rockToe&&<><label className="canal-bank-field"><span>Location</span><select value={draft.rockToeSide} onChange={e=>patch({rockToeSide:e.target.value as Draft['rockToeSide']})}><option value="left">Left bank</option><option value="right">Right bank</option><option value="both">Both banks</option></select></label><div className="canal-bank-grid"><label className="canal-bank-field"><span>Code-fixed width (m)</span><input type="number" disabled value={0.5}/></label><label className="canal-bank-field"><span>Height (m, 0 = auto to FSL)</span><input type="number" min="0" step="any" value={draft.rockToeHeight} onChange={e=>patch({rockToeHeight:Math.max(0,Number(e.target.value))})}/></label></div><div className="canal-foundation-rule"><strong>IRR-CAW-5-10</strong><span>0.5 m vertical / inclined graded filter media</span></div></>}</>}</section></div>
- <div className="canal-foundation-section-preview"><label className="canal-bank-field"><span>Cross-section preview</span><select value={previewSection?.id??''} onChange={e=>patch({previewSectionId:e.target.value})}>{reachSections.map((s,i)=><option key={s.id} value={s.id}>{i+1} · Ch {n3(s.chainage)} m</option>)}</select></label>{previewSection?<CanalSectionDiagram data={data} section={previewSection} showFoundationExcavation foundationFillKind={draft.foundation==='none'?undefined:draft.foundation} foundationFillPercent={draft.foundationPercentage} sandBlanketKind={draft.blanket==='none'?undefined:draft.blanket} sandBlanketLeftWidth={displayedBlanketWidths.left} sandBlanketRightWidth={displayedBlanketWidths.right} sandBlanketThickness={draft.blanket==='5-4'?.25:draft.blanketThickness} sandBlanketAutomatic={draft.blanketWidthMode==='automatic'} horizontalFilterOn={draft.horizontalFilter} horizontalFilterLeftLength={displayedFilterLengths.left} horizontalFilterRightLength={displayedFilterLengths.right} horizontalFilterThickness={draft.filterThickness} chimneyFilterOn={draft.rockToe} chimneyFilterSide={draft.rockToeSide} chimneyFilterWidth={.5} chimneyFilterHeight={draft.rockToeHeight}/>:<div className="canal-diagram-empty">No cross-section lies inside this reach.</div>}</div><div className="canal-earthwork-summary">{preview.length?preview.map(row=>{const measured=canalFoundationFillQuantity(data,row);return <span key={row.kind}>{LABELS[row.kind]} <strong>{n3(measured.quantity)} {measured.unit}</strong></span>}):<span>No foundation work selected.</span>}</div><div className="canal-reach-editor-actions"><button className="btn ghost" onClick={()=>patch({stage:'reach'})}>Change reach</button><button className="btn primary" disabled={preview.length===0||(draft.foundation!=='none'&&draft.foundationPercentage<=0)||(draft.blanket==='5-5'&&draft.blanketThickness<=0)||(draft.blanket!=='none'&&displayedBlanketWidths.total<=0)||(draft.horizontalFilter&&draft.filterThickness<=0)||(draft.rockToe&&!draft.horizontalFilter)} onClick={()=>{const rows=rowsFromDraft(draft);onCommit(c=>({...c,foundationFillReaches:[...c.foundationFillReaches.filter(r=>r.workReachId!==draft.workReachId),...rows]}));setDraft(null)}}><Save size={14}/> Save reach</button></div></>}</div>}</section>
+const n3 = (v: number | undefined | null): string =>
+  (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 })
+
+function getTierBadgeText(tier: CanalBankTier): string {
+  const f = tier.foundationTreatment
+  if (!f) return 'No works'
+  const parts: string[] = []
+  if (f.foundation !== 'none') parts.push(`Fill ${f.foundation}`)
+  if (f.blanket !== 'none') parts.push(f.blanket === '5-4' ? '25cm Blanket' : 'Var Blanket')
+  if (f.horizontalFilter) parts.push('Filter')
+  if (f.rockToe) parts.push('Chimney')
+  return parts.length ? parts.join(' · ') : 'No works'
+}
+
+export default function CanalFoundationFilling({
+  data,
+  onCommit
+}: {
+  data: CanalData
+  onCommit: (update: (current: CanalData) => CanalData) => void
+}): JSX.Element {
+  const [activeSide, setActiveSide] = useState<'left' | 'right'>('left')
+  const [selectedTierId, setSelectedTierId] = useState<string>('')
+  const [selectedSectionId, setSelectedSectionId] = useState<string>('')
+
+  const bankConfig: CanalBankDesignConfig = data.design.bankConfig ?? defaultCanalBankDesignConfig(data.mode)
+  const isSymmetrical = bankConfig.linkSymmetrical
+  const activeTiers: CanalBankTier[] = isSymmetrical
+    ? (bankConfig.leftTiers ?? [])
+    : (activeSide === 'left' ? (bankConfig.leftTiers ?? []) : (bankConfig.rightTiers ?? []))
+
+  const sortedTiers = [...activeTiers].sort((a, b) => a.minFillHeight - b.minFillHeight)
+  const currentTier = sortedTiers.find((t) => t.id === selectedTierId) ?? sortedTiers[0]
+  const treatment: CanalTierFoundationConfig = currentTier?.foundationTreatment ?? defaultCanalTierFoundationConfig()
+
+  const patchTreatment = (patch: Partial<CanalTierFoundationConfig>): void => {
+    if (!currentTier) return
+    const updated: CanalTierFoundationConfig = { ...treatment, ...patch }
+    onCommit((current) => {
+      const cfg = current.design.bankConfig ?? defaultCanalBankDesignConfig(current.mode)
+      const updateList = (tiers: CanalBankTier[]): CanalBankTier[] =>
+        tiers.map((t) => (t.id === currentTier.id ? { ...t, foundationTreatment: updated } : t))
+      const isSym = cfg.linkSymmetrical
+      const newLeftTiers = (isSym || activeSide === 'left') ? updateList(cfg.leftTiers ?? []) : (cfg.leftTiers ?? [])
+      const newRightTiers = (isSym || activeSide === 'right') ? updateList(cfg.rightTiers ?? []) : (cfg.rightTiers ?? [])
+
+      return {
+        ...current,
+        design: {
+          ...current.design,
+          bankConfig: {
+            ...cfg,
+            leftTiers: newLeftTiers,
+            rightTiers: newRightTiers
+          }
+        }
+      }
+    })
+  }
+
+  const sections = orderedCanalSections(data)
+  const sectionsInTier = sections.filter((s) => {
+    const leftT = canalSectionBankTier(data, s, 'left')
+    const rightT = canalSectionBankTier(data, s, 'right')
+    return leftT?.id === currentTier?.id || rightT?.id === currentTier?.id
+  })
+  const previewSection = sections.find((s) => s.id === selectedSectionId) ?? sectionsInTier[0] ?? sections[0]
+
+  const tierSummary = canalTierFoundationQuantities(data, currentTier?.id)
+  const grandSummary = canalTierFoundationQuantities(data)
+
+  return (
+    <section className="canal-chapter">
+      <header className="canal-v2-section-header">
+        <div>
+          <span className="canal-v2-section-kicker">Bund Foundation &amp; Filters</span>
+          <h2>Bund Foundation &amp; Filters</h2>
+          <p>
+            Configure bund foundation filling, sand blanket, and drainage filters by bank height tier.
+            Works apply automatically to cross-sections matching each tier bracket.
+          </p>
+        </div>
+      </header>
+
+      {/* Symmetrical vs Left/Right Selector (if asymmetrical) */}
+      {!isSymmetrical && (
+        <div className="canal-bank-side-pills" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <button
+            type="button"
+            className={`canal-tier-zoning-pill ${activeSide === 'left' ? 'active-zoned' : ''}`}
+            onClick={() => setActiveSide('left')}
+          >
+            Left Bund Tiers
+          </button>
+          <button
+            type="button"
+            className={`canal-tier-zoning-pill ${activeSide === 'right' ? 'active-zoned' : ''}`}
+            onClick={() => setActiveSide('right')}
+          >
+            Right Bund Tiers
+          </button>
+        </div>
+      )}
+
+      {/* Height Tier Continuum / Selector */}
+      <div className="canal-tier-continuum" style={{ marginBottom: 16 }}>
+        <div className="canal-tier-continuum-header">
+          <strong>Bank Height Tiers</strong>
+          <span>Click a tier to configure its foundation treatment and filters</span>
+        </div>
+        <div className="canal-tier-bracket-track">
+          {sortedTiers.map((tier) => {
+            const isSelected = tier.id === (currentTier?.id ?? '')
+            const badge = getTierBadgeText(tier)
+            const hasWorks = badge !== 'No works'
+            return (
+              <button
+                key={tier.id}
+                type="button"
+                className={`canal-tier-bracket-chip ${tier.sectionType === 'zoned' ? 'is-zoned' : 'is-homogeneous'} ${isSelected ? 'selected' : ''}`}
+                onClick={() => setSelectedTierId(tier.id)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <strong>{tier.name}</strong>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      padding: '2px 6px',
+                      borderRadius: 4,
+                      background: hasWorks ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                      color: hasWorks ? '#4ade80' : 'var(--text-dim)'
+                    }}
+                  >
+                    {badge}
+                  </span>
+                </div>
+                <small>
+                  {tier.minFillHeight} m → {tier.maxFillHeight < 9000 ? `${tier.maxFillHeight} m` : 'above'}
+                </small>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {currentTier && (
+        <div className="canal-earthwork-card" style={{ display: 'grid', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+            <div>
+              <strong style={{ fontSize: 16 }}>{currentTier.name} Foundation &amp; Filter Settings</strong>
+              <div style={{ color: 'var(--text-dim)', fontSize: 12 }}>
+                Height range: {currentTier.minFillHeight} m to {currentTier.maxFillHeight < 9000 ? `${currentTier.maxFillHeight} m` : 'top'} · {sectionsInTier.length} sections in this tier
+              </div>
+            </div>
+          </div>
+
+          <div className="canal-foundation-work-groups">
+            {/* 1. Foundation Filling Card */}
+            <section className="canal-foundation-work-group group-foundation">
+              <strong>1. Foundation Filling</strong>
+              <small>Replaces excavated void beneath bund footprint with firm fill material.</small>
+              <label className="canal-bank-field">
+                <span>Selection</span>
+                <select
+                  value={treatment.foundation}
+                  onChange={(e) => patchTreatment({ foundation: e.target.value as CanalTierFoundationConfig['foundation'] })}
+                >
+                  {FOUNDATION_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {treatment.foundation !== 'none' && (
+                <>
+                  <label className="canal-bank-field">
+                    <span>Foundation filling (%)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="any"
+                      value={treatment.foundationPercentage}
+                      onChange={(e) => patchTreatment({ foundationPercentage: Math.min(100, Math.max(0, Number(e.target.value))) })}
+                    />
+                  </label>
+                  <div className="canal-foundation-rule">
+                    <strong>Bund footprint void replacement</strong>
+                    <span>{treatment.foundationPercentage}% of foundation excavation depth below the bund footprint.</span>
+                  </div>
+                </>
+              )}
+            </section>
+
+            {/* 2. Sand Blanket Card */}
+            <section className="canal-foundation-work-group group-blanket">
+              <strong>2. Sand Blanket</strong>
+              <small>Horizontal drainage blanket placed across the stripped bund foundation plane.</small>
+              <label className="canal-bank-field">
+                <span>Selection</span>
+                <select
+                  value={treatment.blanket}
+                  onChange={(e) => patchTreatment({ blanket: e.target.value as CanalTierFoundationConfig['blanket'] })}
+                >
+                  {BLANKET_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {treatment.blanket !== 'none' && (
+                <>
+                  <label className="canal-bank-field">
+                    <span>Width mode</span>
+                    <select
+                      value={treatment.blanketWidthMode}
+                      onChange={(e) => patchTreatment({ blanketWidthMode: e.target.value as CanalTierFoundationConfig['blanketWidthMode'] })}
+                    >
+                      <option value="automatic">Automatic — full valid bund foundation width</option>
+                      <option value="manual">Manual left / right widths</option>
+                    </select>
+                  </label>
+
+                  {treatment.blanketWidthMode === 'manual' ? (
+                    <div className="canal-bank-grid">
+                      <label className="canal-bank-field">
+                        <span>Left width (m)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={treatment.blanketLeftWidth}
+                          onChange={(e) => patchTreatment({ blanketLeftWidth: Math.max(0, Number(e.target.value)) })}
+                        />
+                      </label>
+                      <label className="canal-bank-field">
+                        <span>Right width (m)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={treatment.blanketRightWidth}
+                          onChange={(e) => patchTreatment({ blanketRightWidth: Math.max(0, Number(e.target.value)) })}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="canal-foundation-rule">
+                      <strong>Automatic extent</strong>
+                      <span>Follows outer toe to canal bed boundary under each bund.</span>
+                    </div>
+                  )}
+
+                  <label className="canal-bank-field">
+                    <span>Thickness (m)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      disabled={treatment.blanket === '5-4'}
+                      value={treatment.blanket === '5-4' ? 0.25 : treatment.blanketThickness}
+                      onChange={(e) => patchTreatment({ blanketThickness: Math.max(0, Number(e.target.value)) })}
+                    />
+                  </label>
+                  <small className="canal-dimension-note">
+                    {treatment.blanket === '5-4' ? '25 cm fixed thickness per SSR IRR-CAW-5-4.' : 'Custom thickness for IRR-CAW-5-5.'}
+                  </small>
+                </>
+              )}
+            </section>
+
+            {/* 3. Filters Card */}
+            <section className="canal-foundation-work-group group-rocktoe">
+              <strong>3. Drainage Filters</strong>
+              <small>Graded filter drains protecting downstream bund toe and relieving seepage pressures.</small>
+
+              <label className="canal-check-row">
+                <input
+                  type="checkbox"
+                  checked={treatment.horizontalFilter}
+                  onChange={(e) => patchTreatment({ horizontalFilter: e.target.checked })}
+                />
+                <span>Provide horizontal graded filter drain (IRR-CAW-5-7)</span>
+              </label>
+
+              {treatment.horizontalFilter && (
+                <>
+                  <label className="canal-bank-field">
+                    <span>Filter length calculation</span>
+                    <select
+                      value={treatment.filterLengthMode}
+                      onChange={(e) => patchTreatment({ filterLengthMode: e.target.value as CanalTierFoundationConfig['filterLengthMode'] })}
+                    >
+                      <option value="automatic">Automatic — drainage rule</option>
+                      <option value="manual">Manual entry</option>
+                    </select>
+                  </label>
+
+                  {treatment.filterLengthMode === 'manual' ? (
+                    <div className="canal-bank-grid">
+                      <label className="canal-bank-field">
+                        <span>Left filter length (m)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={treatment.filterLeftLength}
+                          onChange={(e) => patchTreatment({ filterLeftLength: Math.max(0, Number(e.target.value)) })}
+                        />
+                      </label>
+                      <label className="canal-bank-field">
+                        <span>Right filter length (m)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={treatment.filterRightLength}
+                          onChange={(e) => patchTreatment({ filterRightLength: Math.max(0, Number(e.target.value)) })}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="canal-foundation-rule">
+                      <strong>Automatic filter length</strong>
+                      <span>Outer toe to impervious-hearting toe (zoned) or half bund foundation width (homogeneous).</span>
+                    </div>
+                  )}
+
+                  <label className="canal-bank-field">
+                    <span>Filter thickness (m)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={treatment.filterThickness}
+                      onChange={(e) => patchTreatment({ filterThickness: Math.max(0, Number(e.target.value)) })}
+                    />
+                  </label>
+
+                  <label className="canal-check-row" style={{ marginTop: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={treatment.rockToe}
+                      onChange={(e) => patchTreatment({ rockToe: e.target.checked })}
+                    />
+                    <span>Add vertical / inclined chimney filter (IRR-CAW-5-10)</span>
+                  </label>
+
+                  {treatment.rockToe && (
+                    <>
+                      <label className="canal-bank-field">
+                        <span>Location</span>
+                        <select
+                          value={treatment.rockToeSide}
+                          onChange={(e) => patchTreatment({ rockToeSide: e.target.value as CanalTierFoundationConfig['rockToeSide'] })}
+                        >
+                          <option value="left">Left bund only</option>
+                          <option value="right">Right bund only</option>
+                          <option value="both">Both bunds</option>
+                        </select>
+                      </label>
+                      <div className="canal-bank-grid">
+                        <label className="canal-bank-field">
+                          <span>Code-fixed width (m)</span>
+                          <input type="number" disabled value={0.5} />
+                        </label>
+                        <label className="canal-bank-field">
+                          <span>Height (m, 0 = auto to FSL)</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={treatment.rockToeHeight}
+                            onChange={(e) => patchTreatment({ rockToeHeight: Math.max(0, Number(e.target.value)) })}
+                          />
+                        </label>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </section>
+          </div>
+
+          {/* Cross-Section Live Preview */}
+          <div className="canal-foundation-section-preview" style={{ marginTop: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <label className="canal-bank-field" style={{ minWidth: 320, maxWidth: 500 }}>
+                <span>Cross-section preview</span>
+                <select
+                  value={previewSection?.id ?? ''}
+                  onChange={(e) => setSelectedSectionId(e.target.value)}
+                >
+                  {sections.map((s, idx) => {
+                    const lTier = canalSectionBankTier(data, s, 'left')
+                    const rTier = canalSectionBankTier(data, s, 'right')
+                    const fillH = canalSectionBankFillHeight(data, s, 'left')
+                    const inThis = lTier?.id === currentTier.id || rTier?.id === currentTier.id
+                    return (
+                      <option key={s.id} value={s.id}>
+                        {idx + 1} · Ch {n3(s.chainage)} m (Fill {n3(fillH)}m · {lTier?.name ?? 'Tier'}) {inThis ? '★' : ''}
+                      </option>
+                    )
+                  })}
+                </select>
+              </label>
+              {previewSection && (
+                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+                  Active section: Ch {n3(previewSection.chainage)} m · Left Fill: {n3(canalSectionBankFillHeight(data, previewSection, 'left'))} m
+                </div>
+              )}
+            </div>
+
+            {previewSection ? (
+              <CanalSectionDiagram
+                data={data}
+                section={previewSection}
+                showFoundationExcavation
+                resolveSavedFoundationWorks
+              />
+            ) : (
+              <div className="canal-diagram-empty">No cross-sections found. Add sections in Chapter 4.</div>
+            )}
+          </div>
+
+          {/* Quantities Summary */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 8 }}>
+            <div className="canal-earthwork-summary" style={{ display: 'grid', gap: 6, padding: 14, borderRadius: 8, background: 'var(--surface-2)' }}>
+              <strong style={{ fontSize: 13, color: 'var(--accent)' }}>{currentTier.name} Quantities</strong>
+              <div style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+                <span>Foundation filling: <strong>{n3(tierSummary.foundationVolume)} cu.m</strong></span>
+                <span>Sand blanket: <strong>{n3(tierSummary.blanketQuantity)} {tierSummary.blanketUnit}</strong></span>
+                <span>Horizontal filter drain: <strong>{n3(tierSummary.filterVolume)} cu.m</strong></span>
+                <span>Chimney filter: <strong>{n3(tierSummary.chimneyVolume)} cu.m</strong></span>
+              </div>
+            </div>
+
+            <div className="canal-earthwork-summary" style={{ display: 'grid', gap: 6, padding: 14, borderRadius: 8, background: 'var(--surface-2)' }}>
+              <strong style={{ fontSize: 13, color: 'var(--text)' }}>Total Project Bund Foundation Quantities</strong>
+              <div style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+                <span>Foundation filling ({grandSummary.foundationCode}): <strong>{n3(grandSummary.foundationVolume)} cu.m</strong></span>
+                <span>Sand blanket ({grandSummary.blanketCode}): <strong>{n3(grandSummary.blanketQuantity)} {grandSummary.blanketUnit}</strong></span>
+                <span>Horizontal filter drain (IRR-CAW-5-7): <strong>{n3(grandSummary.filterVolume)} cu.m</strong></span>
+                <span>Chimney filter (IRR-CAW-5-10): <strong>{n3(grandSummary.chimneyVolume)} cu.m</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  )
 }

@@ -61,6 +61,9 @@ export interface TypstDocParagraph {
   isBlank?: boolean
   pageBreakBefore?: boolean
   backgroundHex?: string
+  /** Original Univer text-stream range represented by this paragraph. */
+  sourceStartIndex?: number
+  sourceEndIndex?: number
   table?: TypstDocTable
   runs: TypstDocTextRun[]
 }
@@ -70,6 +73,9 @@ export interface TypstDocTableCell {
   colSpan: number
   rowSpan: number
   backgroundHex?: string
+  /** Original Univer text-stream range represented by this table cell. */
+  sourceStartIndex?: number
+  sourceEndIndex?: number
 }
 
 export interface TypstDocTable {
@@ -218,17 +224,32 @@ function listNumber(value: number, glyphType: unknown): string {
   return String(value)
 }
 
-function parseTableText(segment: string): string[][] {
-  const rows: string[][] = []
-  let row: string[] | null = null
+interface ParsedTableTextCell {
+  text: string
+  sourceStartIndex: number
+  sourceEndIndex: number
+}
+
+function parseTableText(segment: string, baseIndex: number): ParsedTableTextCell[][] {
+  const rows: ParsedTableTextCell[][] = []
+  let row: ParsedTableTextCell[] | null = null
   let cell: string | null = null
-  for (const char of segment) {
+  let cellStart = baseIndex
+  for (let i = 0; i < segment.length; i += 1) {
+    const char = segment[i]
     if (char === '\x1b') {
       row = []
     } else if (char === '\x1c') {
       cell = ''
+      cellStart = baseIndex + i + 1
     } else if (char === '\x1d') {
-      if (row && cell !== null) row.push(cell.replace(/\r/g, '\n').replace(/\n+$/, ''))
+      if (row && cell !== null) {
+        row.push({
+          text: cell.replace(/\r/g, '\n').replace(/\n+$/, ''),
+          sourceStartIndex: cellStart,
+          sourceEndIndex: baseIndex + i
+        })
+      }
       cell = null
     } else if (char === '\x1e') {
       if (row) rows.push(row)
@@ -246,14 +267,19 @@ function convertTable(data: IDocumentData, tableRange: UniverTableRange): TypstD
   const table = data.tableSource?.[tableRange.tableId]
   const stream = data.body?.dataStream ?? ''
   if (!table || tableRange.endIndex <= tableRange.startIndex) return null
-  const textRows = parseTableText(stream.slice(tableRange.startIndex, tableRange.endIndex + 1))
+  const textRows = parseTableText(
+    stream.slice(tableRange.startIndex, tableRange.endIndex + 1),
+    tableRange.startIndex
+  )
   const columnsPt = table.tableColumns.map((column) => numberUnitPt(column.size?.width) ?? 72)
   const rows = table.tableRows.map((row, rowIndex) => ({
     cells: row.tableCells.map((cell, cellIndex) => ({
-      text: textRows[rowIndex]?.[cellIndex] ?? '',
+      text: textRows[rowIndex]?.[cellIndex]?.text ?? '',
       colSpan: Math.max(1, Number(cell.columnSpan) || 1),
       rowSpan: Math.max(1, Number(cell.rowSpan) || 1),
-      backgroundHex: cell.backgroundColor?.rgb ?? undefined
+      backgroundHex: cell.backgroundColor?.rgb ?? undefined,
+      sourceStartIndex: textRows[rowIndex]?.[cellIndex]?.sourceStartIndex,
+      sourceEndIndex: textRows[rowIndex]?.[cellIndex]?.sourceEndIndex
     }))
   }))
   return {
@@ -449,6 +475,7 @@ export function parseDocumentToTypstData(
   const listCounters = new Map<string, number>()
   const documentTextStyle = parseTextStyle(data.documentStyle?.textStyle as TextStyleLike | undefined)
   let pageBreakBefore = false
+  let paragraphStartIndex = 0
 
   const flushTextRun = (): void => {
     if (!pendingText) return
@@ -517,6 +544,8 @@ export function parseDocumentToTypstData(
         isBlank: paragraphRuns.every((run) => !run.text && !run.inlineImage && !run.tab),
         pageBreakBefore,
         backgroundHex: pStyle?.shading?.backgroundColor?.rgb ?? undefined,
+        sourceStartIndex: paragraphStartIndex,
+        sourceEndIndex: breakIndex,
         runs: paragraphRuns.map((run) => ({
           ...run,
           ...mergeStyles(documentTextStyle, paragraphTextStyle, run)
@@ -527,6 +556,7 @@ export function parseDocumentToTypstData(
     pageBreakBefore = false
     paragraphIndex += 1
     currentRuns = []
+    paragraphStartIndex = breakIndex + 1
   }
 
   for (let index = 0; index < stream.length; index += 1) {
@@ -546,6 +576,7 @@ export function parseDocumentToTypstData(
       }
       pageBreakBefore = false
       index = Math.max(index, tableRange.endIndex)
+      paragraphStartIndex = tableRange.endIndex + 1
       continue
     }
 

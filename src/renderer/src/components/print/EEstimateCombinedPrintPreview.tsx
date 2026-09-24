@@ -27,7 +27,7 @@ export default function EEstimateCombinedPrintPreview({
   captureContent,
   onClose
 }: Props): JSX.Element {
-  const initialParts = useRef(parts)
+  const [initialParts] = useState(parts)
   const printFrameRef = useRef<HTMLIFrameElement>(null)
   const [activePart, setActivePart] = useState('Preparing PDF parts…')
   const [completedParts, setCompletedParts] = useState<string[]>([])
@@ -44,7 +44,7 @@ export default function EEstimateCombinedPrintPreview({
       try {
         const completed: string[] = []
         const outputs: Uint8Array[] = []
-        for (const part of initialParts.current) {
+        for (const part of initialParts) {
           if (!active) return
           setActivePart(part.label)
           outputs.push(await part.build())
@@ -77,7 +77,7 @@ export default function EEstimateCombinedPrintPreview({
       active = false
       if (createdUrl) URL.revokeObjectURL(createdUrl)
     }
-  }, [])
+  }, [initialParts])
 
   const download = async (): Promise<void> => {
     if (!pdfBase64 || saving) return
@@ -118,9 +118,9 @@ export default function EEstimateCombinedPrintPreview({
               {error || <><LoaderCircle className="spin" size={14} /> {activePart}</>}
             </div>
             <div className="eestimate-combined-part-list">
-              {initialParts.current.map((part, index) => {
+              {initialParts.map((part, index) => {
                 const done = completedParts.includes(part.id)
-                const currentIndex = initialParts.current.findIndex((item) => !completedParts.includes(item.id))
+                const currentIndex = initialParts.findIndex((item) => !completedParts.includes(item.id))
                 const current = !done && currentIndex === index
                 return (
                   <span key={part.id} className={done ? 'done' : current ? 'active' : ''}>

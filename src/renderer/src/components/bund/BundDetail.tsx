@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useStore } from '../../store/useStore'
 import type { ProjectNode } from '../../types/project'
 import { migrateBundData } from '../../lib/bund'
@@ -15,7 +15,7 @@ import BundDashboardV2 from './v2/BundDashboardV2'
 export default function BundDetail({ node }: { node: ProjectNode }): JSX.Element | null {
   const setBund = useStore((s) => s.setBund)
   const raw = node.bund
-  const data = useMemo(() => (raw ? migrateBundData(raw) : null), [raw])
+  const data = (raw ? migrateBundData(raw) : null)
   const [editingSetup, setEditingSetup] = useState<{ open: boolean; step: 1 | 2 }>({
     open: false,
     step: 1

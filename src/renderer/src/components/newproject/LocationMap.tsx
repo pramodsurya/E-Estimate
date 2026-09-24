@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import { MapContainer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -25,9 +25,14 @@ function ClickPicker({ onPick }: { onPick: (lat: number, lng: number) => void })
 
 function Recenter({ lat, lng, token }: { lat: number; lng: number; token: number }): null {
   const map = useMap()
+  const latest = useRef({ lat, lng, map })
   useEffect(() => {
-    if (token > 0) map.flyTo([lat, lng], Math.max(map.getZoom(), 12))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    latest.current = { lat, lng, map }
+  }, [lat, lng, map])
+  useEffect(() => {
+    if (token <= 0) return
+    const { lat: latestLat, lng: latestLng, map: latestMap } = latest.current
+    latestMap.flyTo([latestLat, latestLng], Math.max(latestMap.getZoom(), 12))
   }, [token])
   return null
 }
@@ -49,7 +54,8 @@ export default function LocationMap({
     <div className="map-wrap">
       <MapContainer
         center={value ? [value.lat, value.lng] : TELANGANA_CENTER}
-        zoom={value ? 12 : 7}
+        zoom={value ? 14 : 7}
+        maxZoom={22}
         scrollWheelZoom
         keyboard={false}
         whenReady={onReady}

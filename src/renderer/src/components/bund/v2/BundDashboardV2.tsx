@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Mountain, Pencil, Settings2 } from 'lucide-react'
 import { useStore } from '../../../store/useStore'
 import { findNode } from '../../../lib/tree'
@@ -9,8 +9,8 @@ import type {
   ProjectNode
 } from '../../../types/project'
 import {
-  formationRows,
   migrateBundData,
+  formationRows,
   orderedSections,
   rowsTotal,
   topLevelFromFreeBoard
@@ -254,20 +254,17 @@ export default function BundDashboardV2({
   const variant = isRepair ? 'repair' : 'new'
 
   // Dynamic chapter list based on the chosen combination
-  const chapters = useMemo(
-    () => getBundV2Chapters(data.embankmentType ?? 'homogeneous', data.mode ?? 'new'),
-    [data.embankmentType, data.mode]
-  )
+  const chapters = (getBundV2Chapters(data.embankmentType ?? 'homogeneous', data.mode ?? 'new'))
 
-  const sections = useMemo(() => orderedSections(data), [data])
-  const totalEarthwork = useMemo(() => rowsTotal(formationRows(data)), [data])
+  const sections = (orderedSections(data))
+  const totalEarthwork = rowsTotal(formationRows(data))
 
-  const variantBadgeText = useMemo(() => {
+  const variantBadgeText = (() => {
     if (isZoned) {
       return isRepair ? 'Zoned bund repair' : 'New zoned bund'
     }
     return isRepair ? 'Homogeneous bund repair' : 'New homogeneous bund'
-  }, [isZoned, isRepair])
+  })()
 
   // State update dispatchers
   const commitBundUpdate = (update: (current: BundData) => BundData): void => {

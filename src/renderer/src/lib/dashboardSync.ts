@@ -265,7 +265,7 @@ async function fetchDashboardSourceGroup(
         )
         return {
           id: item.id,
-          rate: dashboardRateFromRecipe(recipe),
+          rate: await dashboardRateFromRecipe(recipe),
           recipe
         }
       })
@@ -283,7 +283,7 @@ async function fetchDashboardSourceGroup(
   } catch (reason) {
     fetchFailure = errorMessage(reason)
   }
-  const fetchedRate = fetchedRecipe ? dashboardRateFromRecipe(fetchedRecipe) : null
+  const fetchedRate = fetchedRecipe ? await dashboardRateFromRecipe(fetchedRecipe) : null
   return group.map((item) => {
     const saved = rateAnalysisOverrideForNode(project, item)
     const sourceFailure =
@@ -338,7 +338,7 @@ function leanSnapshotRecipe(recipe: RateAnalysisRecipe): RateAnalysisRecipe {
   }
 }
 
-function dashboardRateFromRecipe(recipe: RateAnalysisRecipe): number | null {
+async function dashboardRateFromRecipe(recipe: RateAnalysisRecipe): Promise<number | null> {
   const usesAdjustedInputs = recipe.sections.some((section) =>
     section.lines.some((line) => Boolean(line.linkedRate || line.rateOverride))
   )
@@ -357,7 +357,8 @@ function dashboardRateFromRecipe(recipe: RateAnalysisRecipe): number | null {
     return recipe.publishedRate
   }
   try {
-    const rate = calculateRateAnalysis(recipe).ratePerUnit
+    const summary = await calculateRateAnalysis(recipe)
+    const rate = summary.ratePerUnit
     return Number.isFinite(rate) ? rate : null
   } catch {
     return null
@@ -517,6 +518,20 @@ export function dashboardLeadCompileSignature(project: EestimateProject): string
   })
 }
 
+/** Local project state whose quantities and DATA classifications feed Seigniorage. */
+export function dashboardSeigniorageCompileSignature(
+  project: EestimateProject,
+  items = collectDashboardItems(project.root)
+): string {
+  return JSON.stringify({
+    data: dashboardDataCompileSignature(project, items),
+    quantities: items
+      .map((item) => ({ id: item.id, quantity: readFinalValueFromSnapshot(item) }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    overrides: project.seigniorageOverrides ?? {}
+  })
+}
+
 /** Compile the aggregate DATA rows represented by a dashboard snapshot. */
 export function compileDataDashboardEntries(
   project: EestimateProject,
@@ -582,11 +597,10 @@ export function compileDataDashboardEntries(
       // edited in, however long ago that was — the sheet would print the
       // current year over an old number.
       const priced = dashboardRecipeForNode(project, snapshot, item) ?? resolution.recipe
-      try {
-        const calculated = calculateRateAnalysis(priced).ratePerUnit
-        if (Number.isFinite(calculated)) baseRate = calculated
-      } catch {
-        // Keep the synced source rate when a project edit is incomplete.
+      if (typeof priced.publishedRate === 'number' && Number.isFinite(priced.publishedRate)) {
+        baseRate = priced.publishedRate
+      } else if (priced.recalculation?.calculatedRate != null && Number.isFinite(Number(priced.recalculation.calculatedRate))) {
+        baseRate = Number(priced.recalculation.calculatedRate)
       }
     }
     const rate = baseRate === null ? null : baseRate + leadRate
@@ -1154,6 +1168,7 @@ export async function syncSeigniorageDashboardSnapshot(
     syncedAt,
     projectSyncedAt: undefined,
     seigniorageSyncedAt: syncedAt,
+    seigniorageCompileSignature: dashboardSeigniorageCompileSignature(project, items),
     context: dashboardContext(project),
     seigniorageCharges,
     seignioragePolicies

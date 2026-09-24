@@ -12,7 +12,9 @@ use typst::introspection::{Introspector, MetadataElem};
 use typst_pdf::PdfOptions;
 use typst_world::World as TypstDiskWorld;
 
-static COMPILE_QUEUE: Mutex<()> = Mutex::new(());
+use once_cell::sync::Lazy;
+
+static COMPILE_QUEUE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 /// Rust side of the JS INVALIDATION spec
 /// (`src/renderer/src/lib/typist-output/compileCache.ts`): the client
@@ -30,7 +32,8 @@ struct CachedDoc {
     printed: Vec<String>,
 }
 
-static RESULT_CACHE: Mutex<HashMap<String, CachedDoc>> = Mutex::new(HashMap::new());
+static RESULT_CACHE: Lazy<Mutex<HashMap<String, CachedDoc>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 static CACHE_INIT: Once = Once::new();
 static UNIQUE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -162,9 +165,13 @@ async fn fetch_figure_refs(refs: &[FigureRef]) -> Result<Vec<(String, Vec<u8>)>,
         .map_err(|e| e.to_string())?;
     let mut out = Vec::with_capacity(refs.len());
     for figure in refs {
-        let parsed = reqwest::Url::parse(&figure.url).map_err(|e| format!("figure {}: {e}", figure.path))?;
+        let parsed =
+            reqwest::Url::parse(&figure.url).map_err(|e| format!("figure {}: {e}", figure.path))?;
         if parsed.scheme() != "http" && parsed.scheme() != "https" {
-            return Err(format!("figure {}: only http(s) URLs are supported", figure.path));
+            return Err(format!(
+                "figure {}: only http(s) URLs are supported",
+                figure.path
+            ));
         }
         let mut request = client.get(parsed);
         if let Some(headers) = &figure.headers {
@@ -178,11 +185,21 @@ async fn fetch_figure_refs(refs: &[FigureRef]) -> Result<Vec<(String, Vec<u8>)>,
             }
             request = request.headers(map);
         }
-        let response = request.send().await.map_err(|e| format!("figure {}: {e}", figure.path))?;
+        let response = request
+            .send()
+            .await
+            .map_err(|e| format!("figure {}: {e}", figure.path))?;
         if !response.status().is_success() {
-            return Err(format!("figure {}: HTTP {}", figure.path, response.status()));
+            return Err(format!(
+                "figure {}: HTTP {}",
+                figure.path,
+                response.status()
+            ));
         }
-        let bytes = response.bytes().await.map_err(|e| format!("figure {}: {e}", figure.path))?;
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| format!("figure {}: {e}", figure.path))?;
         if bytes.is_empty() {
             return Err(format!("figure {}: empty download", figure.path));
         }
@@ -204,22 +221,44 @@ fn cache_lookup(key: &str) -> Option<CachedDoc> {
     }
     // Refresh recency.
     let entry = cache.remove(key)?;
-    cache.insert(key.to_string(), CachedDoc { path: entry.path.clone(), bytes_len: entry.bytes_len, printed: entry.printed.clone() });
-    Some(CachedDoc { path: entry.path, bytes_len: entry.bytes_len, printed: entry.printed })
+    cache.insert(
+        key.to_string(),
+        CachedDoc {
+            path: entry.path.clone(),
+            bytes_len: entry.bytes_len,
+            printed: entry.printed.clone(),
+        },
+    );
+    Some(CachedDoc {
+        path: entry.path,
+        bytes_len: entry.bytes_len,
+        printed: entry.printed,
+    })
 }
 
 fn cache_store(key: String, path: PathBuf, bytes_len: u64, printed: Vec<String>) {
-    let Ok(mut cache) = RESULT_CACHE.lock() else { return };
+    let Ok(mut cache) = RESULT_CACHE.lock() else {
+        return;
+    };
     while cache.len() >= RESULT_CACHE_MAX {
-        let Some(victim) = cache.keys().next().cloned() else { break };
+        let Some(victim) = cache.keys().next().cloned() else {
+            break;
+        };
         if let Some(evicted) = cache.remove(&victim) {
             let _ = fs::remove_file(evicted.path);
         }
     }
-    cache.insert(key, CachedDoc { path, bytes_len, printed });
+    cache.insert(
+        key,
+        CachedDoc {
+            path,
+            bytes_len,
+            printed,
+        },
+    );
 }
 
-async fn compile_once(req: TypstCompileRequest, fetched: Vec<(String, Vec<u8>)>) -> TypstCompileResult {
+fn compile_once(req: TypstCompileRequest, fetched: Vec<(String, Vec<u8>)>) -> TypstCompileResult {
     let start = Instant::now();
     if req.main_content.trim().is_empty() {
         return TypstCompileResult {
@@ -417,7 +456,7 @@ async fn compile_once(req: TypstCompileRequest, fetched: Vec<(String, Vec<u8>)>)
         }
     };
 
-    let printed_content = document
+    let printed_content: Vec<String> = document
         .introspector()
         .query(&Selector::Elem(MetadataElem::ELEM, None))
         .iter()
@@ -465,7 +504,10 @@ async fn compile_once(req: TypstCompileRequest, fetched: Vec<(String, Vec<u8>)>)
         Some(hash) => sanitize_file_stem(hash),
         None => {
             let n = UNIQUE_COUNTER.fetch_add(1, Ordering::Relaxed);
-            format!("uncached-{}", sanitize_file_stem(&format!("{n}-{}", start.elapsed().as_nanos())))
+            format!(
+                "uncached-{}",
+                sanitize_file_stem(&format!("{n}-{}", start.elapsed().as_nanos()))
+            )
         }
     };
     let pdf_path = dir.join(format!("{stem}.pdf"));
@@ -520,6 +562,8 @@ pub async fn typst_compile(req: TypstCompileRequest) -> Result<TypstCompileResul
         Some(refs) if !refs.is_empty() => fetch_figure_refs(&refs).await?,
         _ => Vec::new(),
     };
-    let _guard = COMPILE_QUEUE.lock().map_err(|e| e.to_string())?;
-    Ok(compile_once(req, fetched).await)
+    let _guard = COMPILE_QUEUE.lock().await;
+    tokio::task::spawn_blocking(move || compile_once(req, fetched))
+        .await
+        .map_err(|error| format!("Typst compiler worker failed: {error}"))
 }

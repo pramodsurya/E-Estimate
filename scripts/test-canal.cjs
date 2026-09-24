@@ -95,6 +95,16 @@ const withManual = canal.materializeCanalSections(continuous, [...first, manualS
 assert.equal(withManual.find((section) => section.chainage === 155.5)?.id, manualSection.id, 'manual section survives continuous regeneration')
 assert.deepEqual(withManual.map((section) => section.chainage), [...canal.canalChainages(continuous), 155.5].sort((a, b) => a - b), 'manual section is sorted among generated chainages')
 
+// A component-level length edit resizes the canal sections, not just lengthM.
+const grownCanal = canal.resizeCanalSections({ ...continuous, configured: true, sections: first }, 250)
+assert.equal(grownCanal.sections.at(-1).chainage, 250, 'extending adds sections up to the new end')
+const shrunkCanal = canal.resizeCanalSections(grownCanal, 120)
+assert.ok(
+  shrunkCanal.sections.every((section) => section.chainage <= 120),
+  'shortening drops sections past the new end'
+)
+assert.equal(shrunkCanal.lengthM, 120)
+
 // --- sync is a safe no-op until later chapters land ---------------------------------
 const fakeRoot = {
   id: 'r',
@@ -231,7 +241,7 @@ assert.equal(canal.migrateCanalData({ ...fresh, design: { ...fresh.design, bankS
 const makeCanal = (overrides = {}) => ({
   ...fresh,
   lengthM: 1000,
-  design: { ...canal.defaultCanalDesign(), bedLevelAtStart: 100, ...overrides },
+  design: { ...canal.defaultCanalDesign(), bedLevelAtStart: 100, bankConfig: { ...canal.defaultCanalBankDesignConfig(), mode: 'legacy' }, ...overrides },
   sections: [{ id: 'reference', chainage: 0, ground: [{ offset: -10, rl: 102.1 }, { offset: 10, rl: 102.1 }] }]
 })
 const flatGround = (rl, spread = 20) => [
@@ -365,7 +375,7 @@ near(
 const strippingBands = canal.canalStrippingBands({ ...makeCanal(), strippingDepth: 0.6 }, fillSection)
 assert.equal(strippingBands.length, 0, 'new canal has no stripping work')
 const foundationReachCanal = { ...makeCanal(), foundationExcavationReaches: [{ id: 'f1', fromChainage: 0, toChainage: 100, foundationRl: 98.4, bands: canal.defaultCanalExcavationBands() }] }
-near(canal.canalSectionAreas(foundationReachCanal, fillSection).filling, 62.955, 0.01, 'new bank fill is measured from the excavated foundation plane')
+near(canal.canalSectionAreas(foundationReachCanal, fillSection).filling, 61.155, 0.01, 'new bank fill is measured from the excavated foundation plane')
 const foundationBands = canal.canalFoundationExcavationBands(foundationReachCanal, fillSection)
 assert.ok(foundationBands.length > 0, 'foundation excavation is drawn below the bank footprint')
 near(Math.min(...foundationBands.flat().map((point) => point.rl)), 98.4, 1e-9, 'drawn foundation excavation uses the active reach depth')
@@ -643,7 +653,7 @@ near(itemByCode(fillSynced, 'IRR-CAW-2-7').computedQuantity, 4753.5, 1, 'bank fi
 // Repair canal: stripping is classified with the cut bands.
 const repairFill = { ...levelMake(), mode: 'repair', sections: fillTwo.sections }
 const repairSynced = canal.syncCanalItems(canalComponent(repairFill), 'c')
-near(itemByCode(repairSynced, 'IRR-CAW-1-1').computedQuantity, 1542, 1, 'repair stripping is classified with excavation')
+near(itemByCode(repairSynced, 'IRR-CAW-1-1').computedQuantity, 1362, 1, 'repair stripping is classified with excavation')
 
 // Lining reach: bed + slope areas combine under one code; plugs count.
 const liningSynced = canal.syncCanalItems(canalComponent(liningCanal), 'c')
@@ -663,7 +673,7 @@ const treatCanal = {
   sections: fillTwo.sections
 }
 const treatSynced = canal.syncCanalItems(canalComponent(treatCanal), 'c')
-near(itemByCode(treatSynced, 'IRR-CAW-5-1').computedQuantity, 1542, 1, 'foundation replacement fill reaches the estimate')
+near(itemByCode(treatSynced, 'IRR-CAW-5-1').computedQuantity, 1362, 1, 'foundation replacement fill reaches the estimate')
 assert.equal(
   treatSynced.children[0].canal.materialItems.find((entry) => entry.code === 'IRR-CAW-5-1').role,
   'foundation',
@@ -734,20 +744,350 @@ assert.equal(measured55.quantity, 60, '5-5 bills plan area times thickness')
 
 // Repair banks bill the PMW repair items, never CAW new-work codes: the
 // SSR splits homogeneous formation (3-17, placed without compaction) from
-// its compaction (3-18). Repair fill fixture measures 6295.5 cu.m.
+// its compaction (3-18). Repair fill fixture measures 6115.5 cu.m.
 const repairSyncedBanking = canal.syncCanalItems(canalComponent(repairFill), 'c')
-near(itemByCode(repairSyncedBanking, 'IRR-PMW-3-17').computedQuantity, 6295.5, 1, 'repair formation bills PMW-3-17')
-near(itemByCode(repairSyncedBanking, 'IRR-PMW-3-18').computedQuantity, 6295.5, 1, 'repair compaction bills PMW-3-18')
+near(itemByCode(repairSyncedBanking, 'IRR-PMW-3-17').computedQuantity, 6115.5, 1, 'repair formation bills PMW-3-17')
+near(itemByCode(repairSyncedBanking, 'IRR-PMW-3-18').computedQuantity, 6115.5, 1, 'repair compaction bills PMW-3-18')
 assert.equal(itemByCode(repairSyncedBanking, 'IRR-CAW-2-7'), undefined, 'repair bills no CAW bank codes')
 
 // Shared repair helper: homogeneous splits formation and compaction, zoned
 // lists hearting then casing, each carrying its full zone volume.
 const repairItems = canal.canalBankRepairItems(repairFill)
 assert.deepEqual(repairItems.map((item) => item.code), ['IRR-PMW-3-17', 'IRR-PMW-3-18'], 'repair helper splits formation and compaction')
-repairItems.forEach((item) => near(item.quantity, 6295.5, 1, 'repair helper carries full zone volumes'))
+repairItems.forEach((item) => near(item.quantity, 6115.5, 1, 'repair helper carries full zone volumes'))
 const zonedRepair = { ...repairFill, design: { ...repairFill.design, bankSectionType: 'zoned' } }
 const zonedRepairItems = canal.canalBankRepairItems(zonedRepair)
 assert.deepEqual(zonedRepairItems.map((item) => item.code), ['IRR-PMW-3-8', 'IRR-PMW-3-9'], 'zoned repair bills hearting and casing codes')
-near(zonedRepairItems[1].quantity, 6295.5, 1, 'zoned repair casing carries the fill')
+near(zonedRepairItems[1].quantity, 6115.5, 1, 'zoned repair casing carries the fill')
 
-console.log('canal: defaults, geometry, sections, drainage codes, flow inheritance and sync ok')
+// Programmatic cut berm builder logic test
+const bermResults24m = canal.computeProgrammaticBerms(24, 5, {
+  enabled: true,
+  firstBermAtTbl: true,
+  intervalM: 6,
+  minTopClearanceM: 7.5,
+  width: 2
+})
+assert.equal(bermResults24m.length, 4, '4 candidate berms evaluated for 24m cut')
+const placed24m = bermResults24m.filter((b) => b.status === 'placed')
+assert.equal(placed24m.length, 3, 'exactly 3 berms placed for 24m cut')
+assert.equal(placed24m[0].heightAboveBed, 5, 'Berm 1 placed at TBL (5m)')
+assert.equal(placed24m[1].heightAboveBed, 11, 'Berm 2 placed at 11m (5+6)')
+assert.equal(placed24m[2].heightAboveBed, 17, 'Berm 3 placed at 17m (11+6)')
+const omitted24m = bermResults24m.filter((b) => b.status === 'omitted')
+assert.equal(omitted24m.length, 1, 'candidate at 23m omitted because remaining 7m < 7.5m')
+assert.equal(omitted24m[0].heightAboveBed, 23, 'omitted candidate is at 23m')
+
+// Shallow cut: cut height 6m with minClearance 7.5m -> no berms placed
+const bermResults6m = canal.computeProgrammaticBerms(6, 5, {
+  enabled: true,
+  firstBermAtTbl: true,
+  intervalM: 6,
+  minTopClearanceM: 7.5,
+  width: 2
+})
+assert.equal(bermResults6m.filter((b) => b.status === 'placed').length, 0, 'no berms placed when cut height < 7.5m threshold')
+
+// Manual cut berm dynamic per-section discard rule tests:
+const manualConfig = {
+  enabled: true,
+  mode: 'manual',
+  manualBaseSlope: 1.5,
+  manualBerms: [
+    { id: 'mb-1', heightAboveBed: 6, width: 2, slope: 1.0 },
+    { id: 'mb-2', heightAboveBed: 12, width: 2, slope: 0.5 }
+  ]
+}
+
+// User example: berm defined at 12m, but ground cut height at section is 10m -> discard that berm
+const manual10m = canal.computeManualCutBerms(10, 5, manualConfig)
+assert.equal(manual10m.length, 2, 'both manual berm candidates evaluated')
+assert.equal(manual10m[0].status, 'placed', 'Berm at 6m is placed (6m < 10m cut height)')
+assert.equal(manual10m[0].heightAboveBed, 6)
+assert.equal(manual10m[1].status, 'omitted', 'Berm at 12m is DISCARDED (12m >= 10m cut height)')
+assert.equal(manual10m[1].heightAboveBed, 12)
+assert.ok(manual10m[1].reason.includes('DISCARDED'), 'reason explains discard')
+
+// When cut height is 15m > 12m -> both berms placed
+const manual15m = canal.computeManualCutBerms(15, 5, manualConfig)
+assert.equal(manual15m.filter((b) => b.status === 'placed').length, 2, 'both berms placed for 15m cut height')
+
+// When cut height <= TBL -> no berms
+assert.deepEqual(canal.computeManualCutBerms(4.5, 5, manualConfig), [], 'no manual berms below TBL')
+
+// Unified evaluator computeCutBermsForCutHeight test
+const unifiedManual = canal.computeCutBermsForCutHeight(10, 5, manualConfig)
+assert.equal(unifiedManual.filter((b) => b.status === 'placed').length, 1, 'unified evaluator delegates to manual mode')
+
+const unifiedProg = canal.computeCutBermsForCutHeight(24, 5, {
+  ...manualConfig,
+  mode: 'programmatic',
+  firstBermAtTbl: true,
+  intervalM: 6,
+  minTopClearanceM: 7.5
+})
+assert.equal(unifiedProg.filter((b) => b.status === 'placed').length, 3, 'unified evaluator delegates to programmatic mode')
+
+// When cut berms are disabled, side slope continues at design.sideSlope to ground without any kink
+const deepCutData = {
+  ...fresh,
+  design: {
+    ...fresh.design,
+    bedWidth: 3,
+    fullSupplyDepth: 1.5,
+    freeBoard: 0.6,
+    sideSlope: 1.5,
+    bedLevelAtStart: 100,
+    cutBermConfig: { ...canal.defaultCanalCutBermConfig(), enabled: false }
+  }
+}
+const deepSection = {
+  id: 'test-deep-cut',
+  chainage: 0,
+  leftToeRl: 110,
+  rightToeRl: 110,
+  ground: [
+    { offset: -25, rl: 110 },
+    { offset: 25, rl: 110 }
+  ],
+  designPopulated: true
+}
+const profileNoBerm = canal.canalDesignProfile(deepCutData, deepSection)
+// At ground RL 110 (10m above bed), offset must be half-bed (1.5) + sideSlope (1.5) * 10 = 16.5m
+const rightGroundContact = profileNoBerm[profileNoBerm.length - 1]
+near(rightGroundContact.rl, 110, 1e-6, 'ground contact is at RL 110')
+near(rightGroundContact.offset, 16.5, 1e-6, 'right ground contact offset is exactly 16.5m with unkinked 1.5:1 slope')
+const deepSectionNarrow = {
+  id: 'test-deep-cut-narrow',
+  chainage: 0,
+  leftToeRl: 110,
+  rightToeRl: 110,
+  ground: [
+    { offset: -6.65, rl: 110 },
+    { offset: 6.65, rl: 110 }
+  ],
+  designPopulated: true
+}
+const profileNarrow = canal.canalDesignProfile(deepCutData, deepSectionNarrow)
+const rightNarrowContact = profileNarrow[profileNarrow.length - 1]
+near(rightNarrowContact.rl, 110, 1e-6, 'narrow ground: right cut slope touches top layer at RL 110')
+near(rightNarrowContact.offset, 16.5, 1e-6, 'narrow ground: right cut slope reaches offset 16.5m')
+const leftNarrowContact = profileNarrow[0]
+near(leftNarrowContact.rl, 110, 1e-6, 'narrow ground: left cut slope touches top layer at RL 110')
+near(leftNarrowContact.offset, -16.5, 1e-6, 'narrow ground: left cut slope reaches offset -16.5m')
+
+// Verify profileDifferenceBands captures full cutting area between -16.5 and 16.5
+const diffBandsNarrow = canal.profileDifferenceBands(deepSectionNarrow.ground, profileNarrow)
+assert.ok(diffBandsNarrow.length > 0, 'difference bands exist for narrow ground')
+const allDiffOffsets = diffBandsNarrow.flatMap((b) => b.points.map((p) => p.offset))
+near(Math.min(...allDiffOffsets), -16.5, 1e-6, 'diff bands span to left cut toe at -16.5m')
+near(Math.max(...allDiffOffsets), 16.5, 1e-6, 'diff bands span to right cut toe at 16.5m')
+
+// Verify canalSectionAreas cutting area is identical between narrow ground and wide ground
+const areasNarrow = canal.canalSectionAreas(deepCutData, deepSectionNarrow)
+const areasWide = canal.canalSectionAreas(deepCutData, deepSection)
+near(areasNarrow.cutting, areasWide.cutting, 1e-3, 'canalSectionAreas cutting area matches wide ground exactly')
+
+// --- Programmatic Height-Tiered Bank Design --------------------------------------------
+const tieredConfig = {
+  ...canal.defaultCanalBankDesignConfig(),
+  mode: 'tiered'
+}
+
+assert.equal(canal.selectCanalBankTier(tieredConfig, 'left', 1.5)?.id, 'tier-low')
+assert.equal(canal.selectCanalBankTier(tieredConfig, 'left', 3.0)?.id, 'tier-medium')
+assert.equal(canal.selectCanalBankTier(tieredConfig, 'left', 5.0)?.id, 'tier-medium')
+assert.equal(canal.selectCanalBankTier(tieredConfig, 'left', 6.0)?.id, 'tier-high')
+assert.equal(canal.selectCanalBankTier(tieredConfig, 'left', 8.5)?.id, 'tier-high')
+
+// Test asymmetric tiers when linkSymmetrical is false
+const asymmetricConfig = {
+  ...tieredConfig,
+  linkSymmetrical: false,
+  rightTiers: [
+    {
+      id: 'tier-custom-r',
+      name: 'Custom Flat',
+      minFillHeight: 0,
+      maxFillHeight: 9999,
+      crestWidth: 5.0,
+      sectionType: 'homogeneous',
+      baseSlope: 3.0,
+      berms: []
+    }
+  ]
+}
+assert.equal(canal.selectCanalBankTier(asymmetricConfig, 'left', 5.0)?.id, 'tier-medium')
+assert.equal(canal.selectCanalBankTier(asymmetricConfig, 'right', 5.0)?.id, 'tier-custom-r')
+
+// Test profile generation in tiered mode
+// Bank top RL = bed(100) + depth(1.5 + 0.6 = 2.1) = 102.1
+// For a 5.1m fill: ground RL = 102.1 - 5.1 = 97.0
+// Medium bund (tier-medium): crestWidth 3.0, baseSlope 1.5, drop 3.0, shelf 2.0, slopeAfterBerm 2.0
+const mediumFillCanal = makeCanal({
+  bankConfig: tieredConfig
+})
+const mediumFillSection = {
+  id: 'sec-med-fill',
+  chainage: 0,
+  ground: [
+    { offset: -30, rl: 97.0 },
+    { offset: 30, rl: 97.0 }
+  ],
+  designPopulated: true
+}
+const medProfile = canal.canalDesignProfile(mediumFillCanal, mediumFillSection)
+assert.ok(medProfile.length >= 8, 'tiered bank profile generates inner + outer points')
+
+// Verify berm bench exists at RL = 102.1 - 3.0 = 99.1
+const medBermPoints = medProfile.filter((p) => Math.abs(p.rl - 99.1) < 1e-4)
+assert.equal(medBermPoints.length, 4, 'both left and right banks have 2 points for the 99.1m berm shelf')
+near(Math.abs(medBermPoints[1].offset - medBermPoints[0].offset), 2.0, 1e-4, 'shelf width is 2.0m')
+
+// Verify slope after berm is 2.0:
+// From 99.1 to ground 97.0 is a 2.1m drop; with 2.0:1 slope, run is 2.1 * 2.0 = 4.2m
+const rightToe = medProfile[medProfile.length - 1]
+const rightShelfEnd = medBermPoints[medBermPoints.length - 1]
+near(rightToe.rl, 97.0, 1e-4, 'right toe lands at ground RL 97.0')
+near(rightToe.offset - rightShelfEnd.offset, 4.2, 1e-4, 'slope after berm runs at 2.0:1')
+
+// Test minimum clearance gate: if ground is at 98.5 (remaining drop after 3m berm would be 99.1 - 98.5 = 0.6m < 1.0m minClearance)
+const shallowClearanceSection = {
+  id: 'sec-shallow-clearance',
+  chainage: 0,
+  ground: [
+    { offset: -30, rl: 98.5 },
+    { offset: 30, rl: 98.5 }
+  ],
+  designPopulated: true
+}
+const shallowProfile = canal.canalDesignProfile(mediumFillCanal, shallowClearanceSection)
+const shallowBermPoints = shallowProfile.filter((p) => Math.abs(p.rl - 99.1) < 1e-4)
+assert.equal(shallowBermPoints.length, 0, 'berm shelf omitted when within minClearance (1.0m) of ground')
+
+// Test Hearting in tiered mode:
+// All tiers (Low, Medium, High) are homogeneous by default -> zero hearting profiles!
+assert.ok(tieredConfig.leftTiers.every((t) => t.sectionType === 'homogeneous'), 'all tiers homogeneous by default')
+const defaultHomoHearting = canal.canalHeartingProfiles(mediumFillCanal, mediumFillSection)
+assert.equal(defaultHomoHearting.length, 0, 'all tiers homogeneous by default generate zero hearting profiles')
+
+// When user chooses zoned on tier-medium -> hearting profiles generated with default core parameters!
+const zonedTierConfig = {
+  ...tieredConfig,
+  leftTiers: tieredConfig.leftTiers.map((t) => (t.id === 'tier-medium' ? { ...t, sectionType: 'zoned' } : t))
+}
+const zonedFillCanal = makeCanal({ bankConfig: zonedTierConfig })
+const medHearting = canal.canalHeartingProfiles(zonedFillCanal, mediumFillSection)
+assert.equal(medHearting.length, 2, 'when zoned chosen, generates left and right hearting profiles')
+
+// sec-low-fill has fill height 1.5m (tier-low is homogeneous) -> NO hearting profile!
+const lowFillSection = {
+  id: 'sec-low-fill',
+  chainage: 0,
+  ground: [
+    { offset: -30, rl: 100.6 },
+    { offset: 30, rl: 100.6 }
+  ],
+  designPopulated: true
+}
+const lowHearting = canal.canalHeartingProfiles(zonedFillCanal, lowFillSection)
+assert.equal(lowHearting.length, 0, 'homogeneous tier generates zero hearting profiles')
+
+// Defaults test: New canal defaults to tiered bank design, Repair canal defaults to legacy manual bank design
+assert.equal(canal.defaultCanalBankDesignConfig('new').mode, 'tiered', 'new canal bankConfig defaults to tiered')
+assert.equal(canal.defaultCanalBankDesignConfig('repair').mode, 'legacy', 'repair canal bankConfig defaults to legacy')
+assert.equal(canal.defaultCanalData('new').design.bankConfig.mode, 'tiered', 'defaultCanalData(new) defaults to tiered bankConfig')
+assert.equal(canal.defaultCanalData('repair').design.bankConfig.mode, 'legacy', 'defaultCanalData(repair) defaults to legacy bankConfig')
+assert.ok(canal.defaultCanalBankDesignConfig().leftTiers.every((t) => t.sectionType === 'homogeneous'), 'all left tiers homogeneous by default')
+assert.ok(canal.defaultCanalBankDesignConfig().rightTiers.every((t) => t.sectionType === 'homogeneous'), 'all right tiers homogeneous by default')
+// Bund footprint ranges: must isolate left and right bund footprints, excluding the canal bed waterway
+const bundRanges = canal.canalBundFootprintRanges(makeCanal(), fillSection)
+assert.equal(bundRanges.length, 2, 'fill section produces two bund footprints (left and right)')
+assert.ok(bundRanges[0][1] <= -1.5, 'left bund footprint ends at or before left bed edge')
+assert.ok(bundRanges[1][0] >= 1.5, 'right bund footprint starts at or after right bed edge')
+const bundFootprintWidth = canal.canalFillFootprintWidth(makeCanal(), fillSection)
+near(bundFootprintWidth, (bundRanges[0][1] - bundRanges[0][0]) + (bundRanges[1][1] - bundRanges[1][0]), 1e-6, 'bund footprint width equals bund ranges sum')
+
+// Strata percentage calculation: calculates weighted stratum volume shares across cutting sections
+const strataCanalData = {
+  ...levelMake(),
+  design: { ...canal.defaultCanalDesign(), bedWidth: 3, bedLevelAtStart: 100, bedSlope: 0 },
+  sections: [
+    {
+      id: 's0',
+      chainage: 0,
+      ground: flatGround(104),
+      designPopulated: true,
+      strata: [
+        { stratum: 'ordinary-soil', thickness: 2, isHardRock: false, slope: 1.5 },
+        { stratum: 'hdr', thickness: 2, isHardRock: false, slope: 1.0 }
+      ]
+    },
+    {
+      id: 's100',
+      chainage: 100,
+      ground: flatGround(104),
+      designPopulated: true,
+      strata: [
+        { stratum: 'ordinary-soil', thickness: 2, isHardRock: false, slope: 1.5 },
+        { stratum: 'hdr', thickness: 2, isHardRock: false, slope: 1.0 }
+      ]
+    }
+  ]
+}
+const calculatedBands = canal.canalCalculateExcavationPercentagesFromStrata(strataCanalData)
+const totalCalculatedPct = calculatedBands.reduce((sum, b) => sum + b.pct, 0)
+near(totalCalculatedPct, 100, 0.01, 'calculated strata excavation percentages sum to 100%')
+assert.ok(calculatedBands.find((b) => b.code === canal.CANAL_EXC_ALL_SOILS_CODE).pct > 0, 'all soils gets a positive percentage')
+assert.ok(calculatedBands.find((b) => b.code === canal.CANAL_EXC_HDR_CODE).pct > 0, 'hdr gets a positive percentage')
+// Tier Bund Foundation & Filters: configures works by tier without reaches
+const defaultTierConfig = canal.defaultCanalTierFoundationConfig()
+assert.equal(defaultTierConfig.foundation, 'none')
+assert.equal(defaultTierConfig.blanket, 'none')
+assert.equal(defaultTierConfig.horizontalFilter, false)
+
+// Test section bank fill height & tier resolution
+const fillTierCanal = {
+  ...levelMake(),
+  design: {
+    ...levelMake().design,
+    bankConfig: canal.defaultCanalBankDesignConfig('new')
+  },
+  foundationExcavationReaches: [{ id: 'f1', fromChainage: 0, toChainage: 100, kind: 'foundation', foundationRl: 98.4, strippingDepth: 0.6, bands: canal.defaultCanalExcavationBands() }],
+  sections: fillTwo.sections
+}
+const leftTier = canal.canalSectionBankTier(fillTierCanal, fillTwo.sections[0], 'left')
+assert.ok(leftTier, 'resolves bank tier from fill height')
+
+// Configure 25cm blanket and horizontal filter on that tier
+const tierWithWorks = {
+  ...leftTier,
+  foundationTreatment: {
+    ...defaultTierConfig,
+    blanket: '5-4',
+    horizontalFilter: true,
+    filterThickness: 0.25
+  }
+}
+const updatedBankConfig = {
+  ...fillTierCanal.design.bankConfig,
+  leftTiers: fillTierCanal.design.bankConfig.leftTiers.map((t) => (t.id === leftTier.id ? tierWithWorks : t)),
+  rightTiers: fillTierCanal.design.bankConfig.rightTiers.map((t) => (t.id === leftTier.id ? tierWithWorks : t))
+}
+const tieredWorksCanal = {
+  ...fillTierCanal,
+  design: { ...fillTierCanal.design, bankConfig: updatedBankConfig }
+}
+
+const tierQuantities = canal.canalTierFoundationQuantities(tieredWorksCanal, leftTier.id)
+assert.ok(tierQuantities.blanketQuantity > 0, 'tier calculates sand blanket plan area')
+assert.ok(tierQuantities.filterVolume > 0, 'tier calculates horizontal filter volume')
+
+const tieredSynced = canal.syncCanalItems(canalComponent(tieredWorksCanal), 'c')
+assert.ok(itemByCode(tieredSynced, 'IRR-CAW-5-4'), 'tier-based sand blanket bills in estimate')
+assert.ok(itemByCode(tieredSynced, 'IRR-CAW-5-7'), 'tier-based horizontal filter bills in estimate')
+
+console.log('canal: defaults, geometry, sections, drainage codes, flow inheritance, programmatic berms, manual berms with discard rules and sync ok')
+
+
+

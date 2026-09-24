@@ -26,6 +26,11 @@ assert.deepEqual(
   ['guide-wall', 'bund', 'canal'],
   'component registry offers guide-wall, bund and canal'
 )
+assert.equal(
+  registry.COMPONENT_TEMPLATES.find((entry) => entry.id === 'canal')?.comingSoon,
+  true,
+  'Canal remains listed with a coming-soon label'
+)
 
 const retiredModules = [
   'src/renderer/src/components/sluice',

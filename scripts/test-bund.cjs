@@ -493,6 +493,38 @@ const kept = bund.materializeSections(mat, [
 assert.equal(kept.find((s) => s.chainage === 60).pre.length, 6, 'existing survey is carried over')
 assert.equal(kept.find((s) => s.chainage === 30).pre.length, 0, 'new chainages start empty')
 
+// Editing the component length outside the setup wizard resizes the sections,
+// so the dashboard's cross-section span follows the new length.
+const resizedUp = bund.resizeBundSections({ ...mat, sections: kept }, 180)
+assert.deepEqual(
+  resizedUp.sections.map((s) => s.chainage),
+  [0, 30, 60, 90, 120, 150, 180],
+  'extending the length adds sections up to the new end'
+)
+assert.equal(
+  resizedUp.sections.find((s) => s.chainage === 60).pre.length,
+  6,
+  'survey at a surviving chainage is carried into the resized list'
+)
+const resizedDown = bund.resizeBundSections(resizedUp, 90)
+assert.deepEqual(
+  resizedDown.sections.map((s) => s.chainage),
+  [0, 30, 60, 90],
+  'shortening the length drops sections past the new end'
+)
+const beforeSetup = bund.defaultBundData()
+assert.equal(bund.resizeBundSections(beforeSetup, 45).lengthM, 45)
+assert.equal(
+  bund.resizeBundSections(beforeSetup, 45).sections.length,
+  0,
+  'nothing is materialized before the setup wizard runs'
+)
+const discontinuous = restorationData({ lengthM: 100, sectionMode: 'discontinuous', breaks: [40, 80] })
+discontinuous.sections = bund.materializeSections(discontinuous, [])
+const trimmed = bund.resizeBundSections(discontinuous, 50)
+assert.deepEqual(trimmed.breaks, [40], 'breaks past the new end are dropped')
+assert.deepEqual(trimmed.sections.map((s) => s.chainage), [0, 40, 50])
+
 // Discontinuous mode ignores breaks outside the bund.
 const disc = restorationData()
 disc.lengthM = 100

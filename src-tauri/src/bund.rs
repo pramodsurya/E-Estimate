@@ -63,11 +63,7 @@ fn analysis_engine_launch(app: &AppHandle) -> Option<AnalysisEngineLaunch> {
             let python = std::env::var("EESTIMATE_PYTHON").unwrap_or_else(|_| "python".to_string());
             return Some(AnalysisEngineLaunch {
                 command: PathBuf::from(python),
-                args: vec![
-                    "-X".into(),
-                    "utf8".into(),
-                    script.to_string_lossy().into(),
-                ],
+                args: vec!["-X".into(), "utf8".into(), script.to_string_lossy().into()],
             });
         }
         let exe = project_root()
@@ -101,8 +97,7 @@ fn engine_failure_detail(stderr: &str) -> String {
     let detail = stderr
         .lines()
         .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .last()
+        .rfind(|line| !line.is_empty())
         .unwrap_or("")
         .to_string();
     if detail.is_empty() {
@@ -248,8 +243,14 @@ pub async fn bund_simulate(
         }
     }
 
-    let mut stdout = child.stdout.take().ok_or_else(|| "Missing stdout.".to_string())?;
-    let mut stderr = child.stderr.take().ok_or_else(|| "Missing stderr.".to_string())?;
+    let mut stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "Missing stdout.".to_string())?;
+    let mut stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| "Missing stderr.".to_string())?;
 
     let app_progress = app.clone();
     let run_id_progress = run_id.clone();
@@ -294,7 +295,8 @@ pub async fn bund_simulate(
                         BundSimulationProgress {
                             run_id: run_id_progress.clone(),
                             phase,
-                            message: "Searching trial slip circles for the critical surface.".into(),
+                            message: "Searching trial slip circles for the critical surface."
+                                .into(),
                             at: iso_now(),
                         },
                     )
@@ -387,18 +389,9 @@ pub async fn bund_simulate(
     )
     .await;
 
-    let last_line = stdout
-        .trim()
-        .lines()
-        .last()
-        .unwrap_or("")
-        .trim();
+    let last_line = stdout.trim().lines().last().unwrap_or("").trim();
     match serde_json::from_str::<serde_json::Value>(last_line) {
-        Ok(parsed)
-            if parsed.get("schemaVersion").and_then(|v| v.as_i64()) == Some(1) =>
-        {
-            Ok(parsed)
-        }
+        Ok(parsed) if parsed.get("schemaVersion").and_then(|v| v.as_i64()) == Some(1) => Ok(parsed),
         Ok(_) | Err(_) => Ok(serde_json::json!({
             "schemaVersion": 1,
             "runId": run_id,

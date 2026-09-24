@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useStore } from '../../store/useStore'
 import type { ProjectNode } from '../../types/project'
 import { migrateGuideWallData } from '../../lib/guideWall'
@@ -13,15 +13,12 @@ import GuideWallDashboard from './GuideWallDashboard'
 export default function GuideWallDetail({ node }: { node: ProjectNode }): JSX.Element | null {
   const setGuideWall = useStore((s) => s.setGuideWall)
   const raw = node.guideWall
-  const data = useMemo(() => (raw ? migrateGuideWallData(raw) : null), [raw])
-  const [editingSetup, setEditingSetup] = useState<{ open: boolean; step: 1 | 2 }>({
-    open: false,
-    step: 1
-  })
+  const data = (raw ? migrateGuideWallData(raw) : null)
+  const [editingSetup, setEditingSetup] = useState(false)
 
   if (!data) return null
 
-  const showSetup = !data.configured || editingSetup.open
+  const showSetup = !data.configured || editingSetup
 
   return (
     <div className="gw-workspace">
@@ -29,18 +26,17 @@ export default function GuideWallDetail({ node }: { node: ProjectNode }): JSX.El
         <GuideWallSetup
           node={node}
           data={data}
-          initialStep={editingSetup.open ? editingSetup.step : 1}
-          onCancel={data.configured ? () => setEditingSetup({ open: false, step: 1 }) : undefined}
+          onCancel={data.configured ? () => setEditingSetup(false) : undefined}
           onDone={(next) => {
             setGuideWall(node.id, next)
-            setEditingSetup({ open: false, step: 1 })
+            setEditingSetup(false)
           }}
         />
       ) : (
         <GuideWallDashboard
           node={node}
           data={data}
-          onEditSetup={(step) => setEditingSetup({ open: true, step })}
+          onEditSetup={() => setEditingSetup(true)}
         />
       )}
     </div>

@@ -64,6 +64,7 @@ function loadTsModule(filePath, mocks = {}) {
 
 const gwApi = loadTsModule(path.join(root, 'src/renderer/src/lib/typist-output/guidewall/guideWallTypst.ts'), {
   '../../nodeSettings': {
+    resolveNodeSettingsOverrides: () => ({}),
     resolveNodeSettings: () => ({
       pageSize: 'A4',
       orientation: 'portrait',

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CheckCircle2, Eye, Layers, Mountain, Pencil, ShieldCheck } from 'lucide-react'
 import type {
   BundCasingSoilType,
@@ -200,24 +200,18 @@ export default function CasingHeartingMaterialGeometry({
   data: BundData
   onCommitBund: (update: (current: BundData) => BundData) => void
 }): JSX.Element {
-  const sections = useMemo(() => orderedSections(data), [data])
-  const highest = useMemo(() => steepestSection(data) ?? sections[0] ?? null, [data, sections])
+  const sections = (orderedSections(data))
+  const highest = (steepestSection(data) ?? sections[0] ?? null)
   const [selectedSectionId, setSelectedSectionId] = useState<string>(highest?.id ?? sections[0]?.id ?? '')
   const [viewMode, setViewMode] = useState<'full' | 'core'>('full')
   const [materialPicker, setMaterialPicker] = useState<'casing' | 'hearting' | null>(null)
 
-  const previewSection: BundSection | null = useMemo(() => {
+  const previewSection: BundSection | null = (() => {
     return sections.find((s) => s.id === selectedSectionId) ?? highest ?? sections[0] ?? null
-  }, [sections, selectedSectionId, highest])
+  })()
 
-  const selectedCasingSoil = useMemo(
-    () => CASING_SOIL_OPTIONS.find((s) => s.id === data.casingSoilType),
-    [data.casingSoilType]
-  )
-  const selectedHeartingSoil = useMemo(
-    () => HEARTING_SOIL_OPTIONS.find((s) => s.id === data.heartingSoilType),
-    [data.heartingSoilType]
-  )
+  const selectedCasingSoil = (CASING_SOIL_OPTIONS.find((s) => s.id === data.casingSoilType))
+  const selectedHeartingSoil = (HEARTING_SOIL_OPTIONS.find((s) => s.id === data.heartingSoilType))
 
   const handleSelectCasingSoil = (soilId: BundCasingSoilType): void => {
     onCommitBund((current) => ({
@@ -293,10 +287,10 @@ export default function CasingHeartingMaterialGeometry({
     }))
   }
 
-  const totalEarthwork = useMemo(() => rowsTotal(formationRows(data)), [data])
-  const casingTotal = useMemo(() => rowsTotal(casingRows(data)), [data])
-  const heartingTotal = useMemo(() => rowsTotal(heartingRows(data)), [data])
-  const zonedCodes = useMemo(() => zonedSsrCodePair(data), [data])
+  const totalEarthwork = (rowsTotal(formationRows(data)))
+  const casingTotal = (rowsTotal(casingRows(data)))
+  const heartingTotal = (rowsTotal(heartingRows(data)))
+  const zonedCodes = (zonedSsrCodePair(data))
 
   const setZonedSsrBasis = (
     zonedRepairKind: BundData['zonedRepairKind'],
@@ -329,7 +323,7 @@ export default function CasingHeartingMaterialGeometry({
     })
   }
 
-  const curSectionMetrics = useMemo(() => {
+  const curSectionMetrics = (() => {
     if (!previewSection) return null
     try {
       const zoned = zonedRepairAreas(data, previewSection)
@@ -348,7 +342,7 @@ export default function CasingHeartingMaterialGeometry({
     } catch {
       return null
     }
-  }, [data, previewSection])
+  })()
 
   return (
     <div className="bund-v2-section">

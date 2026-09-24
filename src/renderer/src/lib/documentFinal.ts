@@ -30,6 +30,21 @@ export function parseFixableNumber(text: string | null | undefined): number | nu
   return Number.isFinite(value) ? value : null
 }
 
+/**
+ * Strict form used by Fix Final Quantity. The selected paragraph/table cell
+ * must contain only a number so its converted Excel cell is a valid numeric
+ * precedent. Thousands separators, sign and decimals are allowed; labels,
+ * currency symbols and units are not.
+ */
+export function parseNumericOnlyFinal(text: string | null | undefined): number | null {
+  const raw = text?.trim()
+  if (!raw) return null
+  const numeric = /^[+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+)$/
+  if (!numeric.test(raw)) return null
+  const value = Number(raw.replace(/,/g, ''))
+  return Number.isFinite(value) ? value : null
+}
+
 export interface DocumentParagraph {
   /** Index into `body.paragraphs`. */
   index: number
@@ -83,7 +98,7 @@ export function resolveDocumentFinal(node: ProjectNode): DocumentFinalResolution
   }
 
   const currentText = stream.slice(fixed.startIndex, fixed.endIndex)
-  const live = parseFixableNumber(currentText)
+  const live = parseNumericOnlyFinal(currentText)
   // Still a number: take it live, so editing the figure updates the estimate.
   if (live !== null) return { value: live, needsRefix: false, currentText }
   // No longer a number: the offsets drifted onto other text.
@@ -96,7 +111,7 @@ export function createDocumentFinal(
   endIndex: number,
   text: string
 ): DocumentFinalNumber | null {
-  const value = parseFixableNumber(text)
+  const value = parseNumericOnlyFinal(text)
   if (value === null) return null
   return { startIndex, endIndex, capturedValue: value, capturedText: text }
 }

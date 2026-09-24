@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import type { CanalData, CanalFilterDrainReach, CanalFoundationFillKind, CanalPoint, CanalSection } from '../../types/project'
 import {
   canalBedLevelAt,
@@ -14,6 +13,7 @@ import {
   canalHeartingProfiles,
   canalServiceRoadSegments,
   canalSectionAreas,
+  canalSectionBankTier,
   canalStrippingBands,
   orderCanalPoints,
   profileDifferenceBands
@@ -117,13 +117,22 @@ export default function CanalSectionDiagram({
   /** Explicit rock-toe/drain works for a live preview. Saved works are used when omitted. */
   filterDrainWorks?: CanalFilterDrainReach[]
 }): JSX.Element {
+  const isTiered = data.design.bankConfig?.mode === 'tiered'
+  const leftTier = isTiered ? canalSectionBankTier(data, section, 'left') : null
+  const rightTier = isTiered ? canalSectionBankTier(data, section, 'right') : null
+  const tierTreatment = leftTier?.foundationTreatment ?? rightTier?.foundationTreatment
+
   const savedRows = resolveSavedFoundationWorks
     ? data.foundationFillReaches.filter((row) => section.chainage >= row.fromChainage && section.chainage <= row.toChainage)
     : []
   const savedFoundation = savedRows.find((row) => row.kind === '5-1' || row.kind === '5-2' || row.kind === '5-3')
+    ?? (tierTreatment?.foundation && tierTreatment.foundation !== 'none' ? { kind: tierTreatment.foundation, percentage: tierTreatment.foundationPercentage } : undefined)
   const savedBlanket = savedRows.find((row) => row.kind === '5-4' || row.kind === '5-5')
+    ?? (tierTreatment?.blanket && tierTreatment.blanket !== 'none' ? { kind: tierTreatment.blanket, blanketWidthMode: tierTreatment.blanketWidthMode, blanketLeftWidth: tierTreatment.blanketLeftWidth, blanketRightWidth: tierTreatment.blanketRightWidth, thickness: tierTreatment.blanketThickness } : undefined)
   const savedHorizontalFilter = savedRows.find((row) => row.kind === '5-7')
+    ?? (tierTreatment?.horizontalFilter ? { kind: '5-7' as const, blanketWidthMode: tierTreatment.filterLengthMode, blanketLeftWidth: tierTreatment.filterLeftLength, blanketRightWidth: tierTreatment.filterRightLength, thickness: tierTreatment.filterThickness } : undefined)
   const savedChimney = savedRows.find((row) => row.kind === '5-10')
+    ?? (tierTreatment?.rockToe ? { kind: '5-10' as const, side: tierTreatment.rockToeSide, height: tierTreatment.rockToeHeight } : undefined)
   const resolvedFoundationKind = foundationFillKind ?? (savedFoundation?.kind as Extract<CanalFoundationFillKind, '5-1' | '5-2' | '5-3'> | undefined)
   const resolvedFoundationPercent = foundationFillPercent ?? savedFoundation?.percentage
   const resolvedBlanketKind = sandBlanketKind ?? (savedBlanket?.kind as Extract<CanalFoundationFillKind, '5-4' | '5-5'> | undefined)
@@ -147,12 +156,24 @@ export default function CanalSectionDiagram({
   const resolvedChimneySide = chimneyFilterOn ? chimneyFilterSide : savedChimney?.side ?? chimneyFilterSide
   const resolvedChimneyHeight = chimneyFilterOn ? chimneyFilterHeight : savedChimney?.height ?? chimneyFilterHeight
   const resolvedFilterDrainWorks = filterDrainWorks ?? data.filterDrainReaches.filter((row) => section.chainage >= row.fromChainage && section.chainage <= row.toChainage)
-  const view = useMemo(() => {
+  const view = (() => {
     const design = canalDesignProfile(data, section)
-    const ground = orderCanalPoints(section.ground)
+    const rawGround = orderCanalPoints(section.ground)
+    let ground = rawGround
+    if (design.length >= 2 && rawGround.length >= 2) {
+      const minDesign = design[0].offset
+      const maxDesign = design[design.length - 1].offset
+      const minGround = rawGround[0].offset
+      const maxGround = rawGround[rawGround.length - 1].offset
+      if (minDesign < minGround - 1e-6 || maxDesign > maxGround + 1e-6) {
+        const leftExt = minDesign < minGround - 1e-6 ? [{ offset: minDesign, rl: rawGround[0].rl }] : []
+        const rightExt = maxDesign > maxGround + 1e-6 ? [{ offset: maxDesign, rl: rawGround[rawGround.length - 1].rl }] : []
+        ground = [...leftExt, ...rawGround, ...rightExt]
+      }
+    }
     const bands =
       design.length >= 2 && ground.length >= 2
-        ? profileDifferenceBands(section.ground, design)
+        ? profileDifferenceBands(ground, design)
         : []
     const hearting = canalHeartingProfiles(data, section)
     const stripping = canalStrippingBands(data, section)
@@ -319,6 +340,21 @@ export default function CanalSectionDiagram({
       minRl -= 0.5
       maxRl += 0.5
     }
+
+    const rawSpanX = maxX - minX
+    const rawSpanY = maxRl - minRl
+
+    // Generous breathing margins so diagram never clips or touches borders
+    const padX = Math.max(1.5, rawSpanX * 0.08)
+    // Extra top padding (16%) gives headroom so the readout text doesn't overlap cut hatching
+    const padYTop = Math.max(1.2, rawSpanY * 0.16)
+    const padYBottom = Math.max(0.6, rawSpanY * 0.08)
+
+    minX -= padX
+    maxX += padX
+    minRl -= padYBottom
+    maxRl += padYTop
+
     const usableW = WIDTH - PAD_LEFT - PAD_RIGHT
     const usableH = HEIGHT - PAD_TOP - PAD_BOTTOM
     const spanX = maxX - minX
@@ -351,9 +387,9 @@ export default function CanalSectionDiagram({
       gridY: niceTicks(minRl, maxRl, 6),
       exaggeration: usableH / spanY / (usableW / spanX)
     }
-  }, [data, section, showFoundationExcavation, foundationFillKind, foundationFillDepth, foundationFillPercent, sandBlanketKind, sandBlanketLeftWidth, sandBlanketRightWidth, sandBlanketThickness, sandBlanketAutomatic, horizontalFilterOn, horizontalFilterLeftLength, horizontalFilterRightLength, horizontalFilterThickness, chimneyFilterOn, chimneyFilterSide, chimneyFilterWidth, chimneyFilterHeight, resolvedFilterDrainWorks])
+  })()
 
-  const areas = useMemo(() => canalSectionAreas(data, section), [data, section])
+  const areas = (canalSectionAreas(data, section))
   const foundationArea = view?.foundation.reduce((sum, points) => sum + polygonArea(points), 0) ?? 0
   const bed = canalBedLevelAt(data, section.chainage)
   const hydraulicLevels = bed == null ? null : {
@@ -590,16 +626,8 @@ export default function CanalSectionDiagram({
 
       {hasDesign && bed != null && (
         <g className="canal-diagram-labels">
-          <text
-            x={view.toX(0)}
-            y={view.toY(bed) + 16}
-            textAnchor="middle"
-            className="canal-diagram-label"
-          >
-            B = {f2(data.design.bedWidth)} m
-          </text>
           <text x={view.toX(0)} y={view.toY(bed) - 8} textAnchor="middle" className="canal-diagram-label">
-            Centre-line 0 · Bed RL {f2(bed)}
+            Centre-line 0 · Bed RL {f2(bed)} · B = {f2(data.design.bedWidth)} m
           </text>
         </g>
       )}

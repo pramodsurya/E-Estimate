@@ -1,12 +1,23 @@
-import { useEffect, useMemo, useReducer, useState } from 'react'
+import { useEffect, useReducer, useState } from 'react'
 import L from 'leaflet'
 import { ImageOverlay, LayerGroup, useMap, useMapEvents } from 'react-leaflet'
+import { R2_TILE_ROOT as TILE_ROOT } from '../../lib/r2Tiles'
 
-const TILE_ROOT = 'https://pub-1f022f4a6cbd43dab0ae7f7752d325b4.r2.dev/tiles'
 const TOPO_ATTRIBUTION = 'Toposheet imagery: supplied KMZ'
 const TOPO_PANE = 'eestimate-toposheet'
+const TOPO_PANE_FALLBACK = 'eestimate-toposheet-fallback'
 const EMPTY_IMAGE =
   'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
+
+// Cloudflare R2 pyramid: every tile is 512x512. Mosaic levels are 0..7,
+// transparent per-sheet levels are 0..3 (probed against the bucket).
+const MOSAIC_MAX_LEVEL = 7
+const TRANSPARENT_MAX_LEVEL = 3
+// The mosaic spans 4.5 deg lon; at 512px a level-5 tile is ~0.14 deg wide,
+// which matches a ~zoom-12 viewport. level = floor(zoom) - offset, so the
+// sharpest native level is used instead of a fixed under-sampled one.
+const MOSAIC_ZOOM_OFFSET = 7
+const TRANSPARENT_ZOOM_OFFSET = 11
 
 const MOSAIC_BOUNDS = {
   west: 77,
@@ -213,6 +224,8 @@ interface VisibleTile {
   key: string
   url: string
   bounds: L.LatLngBoundsExpression
+  /** Coarse ancestor tiles render in the lower pane. */
+  pane: string
 }
 
 /**
@@ -244,10 +257,11 @@ function tileRange(
   const divisions = 2 ** level
   const width = (east - west) / divisions
   const height = (north - south) / divisions
-  const minX = Math.max(Math.floor((view.getWest() - west) / width), 0)
-  const maxX = Math.min(Math.floor((view.getEast() - west) / width), divisions - 1)
-  const minY = Math.max(Math.floor((north - view.getNorth()) / height), 0)
-  const maxY = Math.min(Math.floor((north - view.getSouth()) / height), divisions - 1)
+  // Pad by half a tile so panning pulls neighbours in before they are needed.
+  const minX = Math.max(Math.floor((view.getWest() - width / 2 - west) / width), 0)
+  const maxX = Math.min(Math.floor((view.getEast() + width / 2 - west) / width), divisions - 1)
+  const minY = Math.max(Math.floor((north - view.getNorth() - height / 2) / height), 0)
+  const maxY = Math.min(Math.floor((north - view.getSouth() + height / 2) / height), divisions - 1)
   const tiles: Array<{ x: number; y: number; bounds: L.LatLngBoundsExpression }> = []
   if (minX > maxX || minY > maxY) return tiles
   for (let y = minY; y <= maxY; y += 1) {
@@ -266,18 +280,132 @@ function tileRange(
   return tiles
 }
 
+/**
+ * Sharpest native level for the current zoom. `qualityBias` pushes toward
+ * full resolution (print captures pass 4), then the level is clamped to the
+ * levels that actually exist in the bucket.
+ */
+function levelForZoom(
+  zoom: number,
+  offset: number,
+  maxLevel: number,
+  qualityBias: number
+): number {
+  return Math.min(Math.max(Math.floor(zoom) - offset + qualityBias, 0), maxLevel)
+}
+
+/** One pane can hold at most this many tiles before we step the level down. */
+const MAX_TILES_PER_LEVEL = 256
+
+function mosaicTilesAtLevel(
+  view: L.LatLngBounds,
+  level: number,
+  pane: string
+): VisibleTile[] {
+  return tileRange(
+    view,
+    MOSAIC_BOUNDS.west,
+    MOSAIC_BOUNDS.south,
+    MOSAIC_BOUNDS.east,
+    MOSAIC_BOUNDS.north,
+    level
+  ).map((tile) => ({
+    key: `mosaic:${pane}:${level}:${tile.x}:${tile.y}`,
+    url: `${TILE_ROOT}/mosaic/${level}/${tile.x}_${tile.y}.png`,
+    bounds: tile.bounds,
+    pane
+  }))
+}
+
+function mosaicTilesFor(
+  map: L.Map,
+  paneReady: boolean,
+  qualityBias: number,
+  _revision?: number
+): VisibleTile[] {
+  if (!paneReady) return []
+  const view = safeViewBounds(map)
+  if (!view) return []
+  let level = levelForZoom(map.getZoom(), MOSAIC_ZOOM_OFFSET, MOSAIC_MAX_LEVEL, qualityBias)
+  let primary = mosaicTilesAtLevel(view, level, TOPO_PANE)
+  while (level > 0 && primary.length > MAX_TILES_PER_LEVEL) {
+    level -= 1
+    primary = mosaicTilesAtLevel(view, level, TOPO_PANE)
+  }
+  if (level === 0) return primary
+  const fallback = mosaicTilesAtLevel(view, level - 1, TOPO_PANE_FALLBACK)
+  return fallback.concat(primary)
+}
+
+function transparentTilesAtLevel(
+  view: L.LatLngBounds,
+  level: number,
+  pane: string
+): VisibleTile[] {
+  const visible: VisibleTile[] = []
+  for (const [sheetId, west, south] of TRANSPARENT_SHEETS) {
+    const east = west + 0.25
+    const north = south + 0.25
+    if (!view.intersects([[south, west], [north, east]])) continue
+    for (const tile of tileRange(view, west, south, east, north, level)) {
+      visible.push({
+        key: `${sheetId}:${pane}:${level}:${tile.x}:${tile.y}`,
+        url: `${TILE_ROOT}/transparent/${sheetId}/${level}/${tile.x}_${tile.y}.png`,
+        bounds: tile.bounds,
+        pane
+      })
+    }
+  }
+  return visible
+}
+
+function transparentTilesFor(
+  map: L.Map,
+  paneReady: boolean,
+  qualityBias: number,
+  _revision?: number
+): VisibleTile[] {
+  if (!paneReady || (qualityBias === 0 && map.getZoom() < 10)) return []
+  const view = safeViewBounds(map)
+  if (!view) return []
+  let level = levelForZoom(
+    map.getZoom(),
+    TRANSPARENT_ZOOM_OFFSET,
+    TRANSPARENT_MAX_LEVEL,
+    qualityBias
+  )
+  let primary = transparentTilesAtLevel(view, level, TOPO_PANE)
+  while (level > 0 && primary.length > MAX_TILES_PER_LEVEL) {
+    level -= 1
+    primary = transparentTilesAtLevel(view, level, TOPO_PANE)
+  }
+  if (level === 0) return primary
+  const fallback = transparentTilesAtLevel(view, level - 1, TOPO_PANE_FALLBACK)
+  return fallback.concat(primary)
+}
+
 function useToposheetMapState(): { map: L.Map; revision: number; paneReady: boolean } {
   const map = useMap()
   const [revision, bump] = useReducer((value: number) => value + 1, 0)
-  const [paneReady, setPaneReady] = useState(false)
-  useMapEvents({ moveend: bump, zoomend: bump, resize: bump })
-  useEffect(() => {
-    let pane = map.getPane(TOPO_PANE)
-    if (!pane) pane = map.createPane(TOPO_PANE)
-    pane.style.zIndex = '250'
-    pane.style.pointerEvents = 'none'
-    setPaneReady(true)
-  }, [map])
+  const ensurePanes = (targetMap: L.Map): boolean => {
+    for (const [name, zIndex] of [
+      [TOPO_PANE_FALLBACK, '249'],
+      [TOPO_PANE, '250']
+    ] as const) {
+      const pane = targetMap.getPane(name) ?? targetMap.createPane(name)
+      pane.style.zIndex = zIndex
+      pane.style.pointerEvents = 'none'
+    }
+    return true
+  }
+
+  const [prevMap, setPrevMap] = useState(map)
+  const [paneReady, setPaneReady] = useState(() => ensurePanes(map))
+  if (prevMap !== map) {
+    setPrevMap(map)
+    setPaneReady(ensurePanes(map))
+  }
+  useMapEvents({ moveend: bump, zoomend: bump, zoom: bump, viewreset: bump, resize: bump })
   useEffect(() => {
     map.attributionControl?.addAttribution(TOPO_ATTRIBUTION)
     return () => {
@@ -315,7 +443,7 @@ function TileImages({ tiles }: { tiles: VisibleTile[] }): JSX.Element {
           key={tile.key}
           url={tile.url}
           bounds={tile.bounds}
-          pane={TOPO_PANE}
+          pane={tile.pane}
           interactive={false}
           errorOverlayUrl={EMPTY_IMAGE}
           alt="Toposheet"
@@ -327,48 +455,12 @@ function TileImages({ tiles }: { tiles: VisibleTile[] }): JSX.Element {
 
 export function KmzOpaqueToposheetLayer({ qualityBias = 0 }: { qualityBias?: number }): JSX.Element {
   const { map, revision, paneReady } = useToposheetMapState()
-  const tiles = useMemo<VisibleTile[]>(() => {
-    if (!paneReady) return []
-    const view = safeViewBounds(map)
-    if (!view) return []
-    const level = Math.min(Math.max(Math.floor(map.getZoom()) - 8 + qualityBias, 0), 7)
-    return tileRange(
-      view,
-      MOSAIC_BOUNDS.west,
-      MOSAIC_BOUNDS.south,
-      MOSAIC_BOUNDS.east,
-      MOSAIC_BOUNDS.north,
-      level
-    ).map((tile) => ({
-      key: `mosaic:${level}:${tile.x}:${tile.y}`,
-      url: `${TILE_ROOT}/mosaic/${level}/${tile.x}_${tile.y}.png`,
-      bounds: tile.bounds
-    }))
-  }, [map, paneReady, qualityBias, revision])
+  const tiles = mosaicTilesFor(map, paneReady, qualityBias, revision)
   return <LayerGroup>{paneReady && <TileImages tiles={tiles} />}</LayerGroup>
 }
 
 export function KmzTransparentToposheetLayer({ qualityBias = 0 }: { qualityBias?: number }): JSX.Element {
   const { map, revision, paneReady } = useToposheetMapState()
-  const tiles = useMemo<VisibleTile[]>(() => {
-    if (!paneReady || (qualityBias === 0 && map.getZoom() < 10)) return []
-    const view = safeViewBounds(map)
-    if (!view) return []
-    const level = Math.min(Math.max(Math.floor(map.getZoom()) - 12 + qualityBias, 0), 3)
-    const visible: VisibleTile[] = []
-    for (const [sheetId, west, south] of TRANSPARENT_SHEETS) {
-      const east = west + 0.25
-      const north = south + 0.25
-      if (!view.intersects([[south, west], [north, east]])) continue
-      for (const tile of tileRange(view, west, south, east, north, level)) {
-        visible.push({
-          key: `${sheetId}:${level}:${tile.x}:${tile.y}`,
-          url: `${TILE_ROOT}/transparent/${sheetId}/${level}/${tile.x}_${tile.y}.png`,
-          bounds: tile.bounds
-        })
-      }
-    }
-    return visible
-  }, [map, paneReady, qualityBias, revision])
+  const tiles = transparentTilesFor(map, paneReady, qualityBias, revision)
   return <LayerGroup>{paneReady && <TileImages tiles={tiles} />}</LayerGroup>
 }

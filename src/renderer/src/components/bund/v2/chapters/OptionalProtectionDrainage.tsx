@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import type { BundData, BundSoilBand, TemplateMaterialRef } from '../../../../types/project'
 import {
@@ -32,7 +32,6 @@ import {
   formatChainage,
   horizontalFilterLengthAt,
   horizontalFilterMeasure,
-  horizontalFilterRows,
   horizontalFilterThicknessM,
   lowestStrippedLevelAt,
   orderedSections,
@@ -40,9 +39,9 @@ import {
   pitchingThicknessM,
   revetmentFilterThicknessM,
   revetmentOptionForCode,
-  rockToeFilterRows,
   rockToeExcavationAvailable,
   rockToeExcavationRows,
+  rockToeFilterRows,
   rockToeHeightAt,
   rockToeRows,
   rowsTotal,
@@ -57,9 +56,10 @@ import {
   toeDrainTopWidthAt,
   toeLiningDevelopedWidthAt,
   turfingRows,
+  horizontalFilterRows,
+  verticalFilterRows,
   verticalFilterHeightAt,
   verticalFilterMeasure,
-  verticalFilterRows,
   verticalFilterWidthM
 } from '../../../../lib/bund'
 import { fetchSsrItems, type MasterItem } from '../../../../lib/masterData'
@@ -281,36 +281,30 @@ export default function OptionalProtectionDrainage({
   onCommit: (update: (current: BundData) => BundData) => void
   chapter?: 5 | 6 | 7 | 8 | 9 | 10
 }): JSX.Element {
-  const sections = useMemo(() => orderedSections(data), [data])
-  const highest = useMemo(() => steepestSection(data) ?? sections[0] ?? null, [data, sections])
+  const sections = (orderedSections(data))
+  const highest = (steepestSection(data) ?? sections[0] ?? null)
   const [selectedId, setSelectedId] = useState<string | null>(highest?.id ?? null)
   const [picker, setPicker] = useState<string | null>(null)
-  const selected = sections.find((section) => section.id === selectedId) ?? highest
+  const validSelectedId = (selectedId && sections.some((section) => section.id === selectedId))
+    ? selectedId
+    : (highest?.id ?? null)
+  if (selectedId !== validSelectedId) {
+    setSelectedId(validSelectedId)
+  }
+  const selected = sections.find((section) => section.id === validSelectedId) ?? highest
   const isZoned = data.embankmentType === 'zoned'
 
-  useEffect(() => {
-    if (!selectedId || !sections.some((section) => section.id === selectedId)) {
-      setSelectedId(highest?.id ?? null)
-    }
-  }, [highest?.id, sections, selectedId])
-
-  const measurement = useMemo(() => pitchingMeasuredQuantity(data), [data])
-  const turfingTotal = useMemo(() => rowsTotal(turfingRows(data)), [data])
+  const measurement = (pitchingMeasuredQuantity(data))
+  const turfingTotal = rowsTotal(turfingRows(data))
   const upstreamToeEnabled = Boolean(data.upstreamToe.excavationMaterial)
-  const upstreamToeTotal = useMemo(
-    () => rowsTotal(toeExcavationRows(data, data.upstreamToe)),
-    [data]
-  )
+  const upstreamToeTotal = rowsTotal(toeExcavationRows(data, data.upstreamToe))
   const upstreamBands = data.excavationBands?.['ustoe-exc'] ?? defaultBundExcavationRows()
   const upstreamBandPct = upstreamBands.reduce((sum, band) => sum + (band.pct || 0), 0)
   const downstreamToeEnabled = Boolean(data.downstreamToe.excavationMaterial)
-  const downstreamToeTotal = useMemo(
-    () => rowsTotal(toeExcavationRows(data, data.downstreamToe)),
-    [data]
-  )
+  const downstreamToeTotal = rowsTotal(toeExcavationRows(data, data.downstreamToe))
   const downstreamBands = data.excavationBands?.['dstoe-exc'] ?? defaultBundExcavationRows(undefined, 'channel')
   const downstreamBandPct = downstreamBands.reduce((sum, band) => sum + (band.pct || 0), 0)
-  const automaticDrainInvert = useMemo(() => automaticToeDrainInvertLevel(data), [data])
+  const automaticDrainInvert = (automaticToeDrainInvertLevel(data))
   const selectedDrainInvert = selected ? toeDrainInvertLevelAt(selected, data) : null
   const selectedDrainDepth = selected ? toeDrainDepthAt(selected, data) : data.downstreamToe.depth
   const selectedDrainTopWidth = selected ? toeDrainTopWidthAt(selected, data) : data.downstreamToe.topWidth
@@ -320,24 +314,18 @@ export default function OptionalProtectionDrainage({
   const selectedDrainDevelopedWidth = selected
     ? toeLiningDevelopedWidthAt(selected, data, data.downstreamToe)
     : 0
-  const downstreamBuildMeasurement = useMemo(
-    () => toeBuildMeasurement(data, data.downstreamToe),
-    [data]
-  )
-  const downstreamDrainPlatform = useMemo(
-    () => selected ? toeDrainPlatformAt(selected, data) : null,
-    [data, selected]
-  )
-  const rockToeTotal = useMemo(() => rowsTotal(rockToeRows(data)), [data])
-  const rockToeFilterTotal = useMemo(() => rowsTotal(rockToeFilterRows(data)), [data])
-  const rockToeExcavationTotal = useMemo(() => rowsTotal(rockToeExcavationRows(data)), [data])
+  const downstreamBuildMeasurement = (toeBuildMeasurement(data, data.downstreamToe))
+  const downstreamDrainPlatform = (selected ? toeDrainPlatformAt(selected, data) : null)
+  const rockToeTotal = rowsTotal(rockToeRows(data))
+  const rockToeFilterTotal = rowsTotal(rockToeFilterRows(data))
+  const rockToeExcavationTotal = rowsTotal(rockToeExcavationRows(data))
   const rockToeExcavation = rockToeExcavationAvailable(data)
   const rockToeBands = data.excavationBands?.['rocktoe-exc'] ?? defaultBundExcavationRows()
   const rockToeBandPct = rockToeBands.reduce((sum, band) => sum + (band.pct || 0), 0)
   const rockToeDisplayHeight = selected ? rockToeHeightAt(selected, data) : data.rockToeHeight
   const rockToeFaceSlope = selected ? downstreamToeFaceSlope(selected, data) : data.design.dsSlope
-  const horizontalFilterTotal = useMemo(() => rowsTotal(horizontalFilterRows(data)), [data])
-  const verticalFilterTotal = useMemo(() => rowsTotal(verticalFilterRows(data)), [data])
+  const horizontalFilterTotal = rowsTotal(horizontalFilterRows(data))
+  const verticalFilterTotal = rowsTotal(verticalFilterRows(data))
   const horizontalFilterMeasureType = horizontalFilterMeasure(data)
   const verticalFilterMeasureType = verticalFilterMeasure(data)
   const filterBaseLevel = selected ? lowestStrippedLevelAt(selected, data) : null
@@ -351,13 +339,13 @@ export default function OptionalProtectionDrainage({
   const horizontalThickness = horizontalFilterThicknessM(data)
   const verticalWidth = verticalFilterWidthM(data)
   const verticalHeight = selected ? verticalFilterHeightAt(selected, data) : data.verticalFilterHeight
-  const chuteRows = useMemo(() => chuteDrainRows(data), [data])
-  const chuteLength = useMemo(() => chuteDrainTotalLength(data), [data])
-  const chuteExcavation = useMemo(() => chuteDrainExcavationQuantity(data), [data])
-  const chuteProtection = useMemo(() => chuteDrainProtectionMeasurement(data), [data])
+  const chuteRows = (chuteDrainRows(data))
+  const chuteLength = (chuteDrainTotalLength(data))
+  const chuteExcavation = (chuteDrainExcavationQuantity(data))
+  const chuteProtection = (chuteDrainProtectionMeasurement(data))
   const selectedSystem = revetmentOptionForCode(data.pitchingMaterial?.code)
   const quantityText = `${n3(measurement.quantity)} ${measurement.measure === 'volume' ? 'cu.m' : 'sq.m'}`
-  const diagramData = useMemo<BundData>(() => chapter === 5
+  const diagramData: BundData = chapter === 5
     ? {
         ...data,
         upstreamToe: {
@@ -366,16 +354,15 @@ export default function OptionalProtectionDrainage({
           buildMaterial: null
         }
       }
-    : data,
-  [chapter, data])
-  const referencePhreaticData = useMemo<BundData>(() => ({
+    : data
+  const referencePhreaticData: BundData = {
     ...data,
     design: { ...data.design, berms: [] },
     rockToeMaterial: null,
     rockToeFilterMaterial: null,
     horizontalFilterMaterial: null,
     verticalFilterMaterial: null
-  }), [data])
+  }
 
   const selectRevetmentCode = (code: string): void => {
     const option = revetmentOptionForCode(code)

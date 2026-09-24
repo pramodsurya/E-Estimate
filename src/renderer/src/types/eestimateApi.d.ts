@@ -1,9 +1,46 @@
-import type { EestimateProject } from './project'
-import type { BundSimulationEngineRequest } from '../lib/bundSimulation'
-import type {
-  BundSimulationEngineResponse
-} from './bundSimulation'
-import type { BundSimulationProgressUpdate } from '../store/useStore'
+import type { CanalData } from './project'
+import type { RateAnalysisRecipe, RateAnalysisSummary } from './rateAnalysis'
+
+export interface CanalQuantityRow {
+  from_ch: number
+  to_ch: number
+  length_m: number
+  area_from: number
+  area_to: number
+  mean_area: number
+  qty: number
+  item_code?: string
+  description?: string
+}
+
+export interface CanalEarthworkTotals {
+  excavation: number
+  stripping: number
+  foundationExcavation: number
+  cutoffTrench: number
+}
+
+export interface CanalLiningTotals {
+  reaches: number
+  length: number
+  liningBedArea: number
+  liningSlopeArea: number
+  modelWallVolume: number
+  soffitVolume: number
+  stepsVolume: number
+  sleepersVolume: number
+  plugsSlope: number
+  plugsBed: number
+  masticLongitudinal: number
+  masticTransverse: number
+  tarfeltLength: number
+}
+
+export interface CanalCalculationResult {
+  earthwork: CanalEarthworkTotals
+  lining: CanalLiningTotals
+  summary_rows: CanalQuantityRow[]
+}
 
 export interface TypstCompileResult {
   ok: boolean
@@ -70,6 +107,17 @@ export interface EestimateApi {
     cancel: (runId: string) => Promise<boolean>
     /** Shell phase updates survive Simulation-tab navigation. */
     onProgress: (cb: (progress: BundSimulationProgressUpdate) => void) => () => void
+  }
+  canal: {
+    /** Fast Rust calculation of canal earthwork and lining quantities. */
+    calculateQuantities: (data: CanalData) => Promise<CanalCalculationResult>
+  }
+  rateAnalysis: {
+    /** Fast Rust calculation of SSR rate buildup. */
+    calculate: (recipe: RateAnalysisRecipe) => Promise<RateAnalysisSummary>
+    calculateBase: (recipe: RateAnalysisRecipe) => Promise<RateAnalysisSummary>
+    /** Fast Rust batch recalculation of multiple SSR recipes. */
+    batchCalculate: (recipes: RateAnalysisRecipe[]) => Promise<RateAnalysisSummary[]>
   }
   typst: {
     compile: (

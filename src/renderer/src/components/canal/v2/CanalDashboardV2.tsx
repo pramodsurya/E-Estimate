@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Pencil, Settings2, Waves } from 'lucide-react'
 import { useStore } from '../../../store/useStore'
 import { findNode } from '../../../lib/tree'
 import type { CanalData, CanalDesign, ProjectNode } from '../../../types/project'
 import { migrateCanalData, canalDesignProfile, canalFlowLabel, canalGroundProfileBetweenToes, canalShowsFoundationFilling, orderedCanalSections } from '../../../lib/canal'
 import CanalDesignLevels from './chapters/CanalDesignLevels'
-import CanalCrossSections from './chapters/CanalCrossSections'
 import CanalBankDesign from './chapters/CanalBankDesign'
+import CanalCutDesign from './chapters/CanalCutDesign'
+import CanalCrossSections from './chapters/CanalCrossSections'
 import CanalEarthwork from './chapters/CanalEarthwork'
 import CanalJungleLa from './chapters/CanalJungleLa'
 import CanalFoundationFilling from './chapters/CanalFoundationFilling'
@@ -26,8 +27,9 @@ function getCanalChapters(mode: CanalData['mode'], showFoundationFilling: boolea
   const chapters: CanalChapterDefinition[] = [
     { id: 'design-levels', number: 1, title: 'Design Levels', shortTitle: 'Design' },
     { id: 'bank-design', number: 2, title: 'Bank Design', shortTitle: 'Bank Design' },
-    { id: 'cross-sections', number: 3, title: 'Cross-Sections', shortTitle: 'Sections' },
-    { id: 'earthwork', number: 4, title: 'Earthwork', shortTitle: 'Earthwork' }
+    { id: 'cut-design', number: 3, title: 'Cut Design', shortTitle: 'Cut Design' },
+    { id: 'cross-sections', number: 4, title: 'Cross-Sections', shortTitle: 'Sections' },
+    { id: 'earthwork', number: 5, title: 'Earthwork', shortTitle: 'Earthwork' }
   ]
   chapters.push({
     id: 'jungle-la',
@@ -35,7 +37,7 @@ function getCanalChapters(mode: CanalData['mode'], showFoundationFilling: boolea
     title: mode === 'new' ? 'Jungle Cutting & LA' : 'Jungle Cutting',
     shortTitle: mode === 'new' ? 'Jungle & LA' : 'Jungle'
   })
-  if (showFoundationFilling) chapters.push({ id: 'foundation-filling', number: chapters.length + 1, title: 'Foundation Filling & Filters', shortTitle: 'Foundation & Filters' })
+  if (showFoundationFilling) chapters.push({ id: 'foundation-filling', number: chapters.length + 1, title: 'Bund Foundation & Filters', shortTitle: 'Bund Foundation & Filters' })
   chapters.push(
     { id: 'filters-drains', number: chapters.length + 1, title: 'Rock Toe & Drainage', shortTitle: 'Rock Toe & Drainage' },
     { id: 'lining', number: chapters.length + 2, title: 'Lining', shortTitle: 'Lining' },
@@ -57,7 +59,7 @@ export default function CanalDashboardV2({
   const showFoundationFilling = useMemo(() => canalShowsFoundationFilling(data), [data])
   const chapters = useMemo(() => getCanalChapters(data.mode, showFoundationFilling), [data.mode, showFoundationFilling])
   const sections = useMemo(() => orderedCanalSections(data), [data])
-  useEffect(() => { if (!chapters.some((chapter) => chapter.id === activeChapter)) setActiveChapter('earthwork') }, [activeChapter, chapters])
+  const visibleChapter = chapters.some((chapter) => chapter.id === activeChapter) ? activeChapter : 'earthwork'
 
   const commitDesign = (patch: Partial<CanalDesign>): void => {
     const state = useStore.getState()
@@ -97,7 +99,7 @@ export default function CanalDashboardV2({
             <span>{data.mode === 'new' ? 'New canal' : 'Canal repair'}</span>
             <span>
               {data.lengthM > 0
-                ? `${Math.round(data.lengthM).toLocaleString('en-IN')} m long`
+                ? `${Math.round(data.lengthM || 0).toLocaleString('en-IN')} m long`
                 : 'Length not set'}
             </span>
             <span>{sections.length} cross-sections</span>
@@ -125,7 +127,7 @@ export default function CanalDashboardV2({
           <button
             key={chapter.id}
             type="button"
-            className={`canal-v2-chapter${activeChapter === chapter.id ? ' active' : ''}`}
+            className={`canal-v2-chapter${visibleChapter === chapter.id ? ' active' : ''}`}
             onClick={() => setActiveChapter(chapter.id)}
           >
             <span className="canal-v2-chapter-number">{chapter.number}</span>
@@ -135,21 +137,24 @@ export default function CanalDashboardV2({
       </nav>
 
       <main className="canal-v2-content">
-        {activeChapter === 'design-levels' && (
+        {visibleChapter === 'design-levels' && (
           <CanalDesignLevels design={data.design} onCommit={commitDesign} />
         )}
-        {activeChapter === 'cross-sections' && (
-          <CanalCrossSections data={data} onCommit={commitCanal} />
-        )}
-        {activeChapter === 'bank-design' && (
+        {visibleChapter === 'bank-design' && (
           <CanalBankDesign data={data} sections={sections} onCommit={commitDesign} />
         )}
-        {activeChapter === 'earthwork' && <CanalEarthwork data={data} onCommit={commitCanal} />}
-        {activeChapter === 'jungle-la' && <CanalJungleLa data={data} onCommit={commitCanal} />}
-        {activeChapter === 'foundation-filling' && <CanalFoundationFilling data={data} onCommit={commitCanal} />}
-        {activeChapter === 'filters-drains' && <CanalFiltersDrains data={data} onCommit={commitCanal} />}
-        {activeChapter === 'lining' && <CanalLining data={data} onCommit={commitCanal} />}
-        {activeChapter === 'roads-access' && <CanalRoadsAccess data={data} onCommit={commitCanal} />}
+        {visibleChapter === 'cut-design' && (
+          <CanalCutDesign data={data} sections={sections} onCommit={commitDesign} />
+        )}
+        {visibleChapter === 'cross-sections' && (
+          <CanalCrossSections data={data} onCommit={commitCanal} />
+        )}
+        {visibleChapter === 'earthwork' && <CanalEarthwork data={data} onCommit={commitCanal} />}
+        {visibleChapter === 'jungle-la' && <CanalJungleLa data={data} onCommit={commitCanal} />}
+        {visibleChapter === 'foundation-filling' && <CanalFoundationFilling data={data} onCommit={commitCanal} />}
+        {visibleChapter === 'filters-drains' && <CanalFiltersDrains data={data} onCommit={commitCanal} />}
+        {visibleChapter === 'lining' && <CanalLining data={data} onCommit={commitCanal} />}
+        {visibleChapter === 'roads-access' && <CanalRoadsAccess data={data} onCommit={commitCanal} />}
       </main>
     </div>
   )

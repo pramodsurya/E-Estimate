@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useStore } from '../../store/useStore'
 import type { ProjectNode } from '../../types/project'
 import { migrateCanalData } from '../../lib/canal'
@@ -13,7 +13,7 @@ import CanalDashboardV2 from './v2/CanalDashboardV2'
 export default function CanalDetail({ node }: { node: ProjectNode }): JSX.Element | null {
   const setCanal = useStore((s) => s.setCanal)
   const raw = node.canal
-  const data = useMemo(() => (raw ? migrateCanalData(raw) : null), [raw])
+  const data = (raw ? migrateCanalData(raw) : null)
   const [editingSetup, setEditingSetup] = useState<{ open: boolean; step: 1 | 2 }>({
     open: false,
     step: 1

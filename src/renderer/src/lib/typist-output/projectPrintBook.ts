@@ -9,7 +9,7 @@
 
 import type { EestimateProject, ProjectNode } from '../../types/project'
 import { computeProjectPrintInputs } from '../projectPrintInputs'
-import { collectDataSheets } from '../dataSheets'
+import { calculateDataSheets, collectDataSheets } from '../dataSheets'
 import { buildDataFigureBundle } from '../dataSheetPrint'
 import { contentHash, createBoundedCache, type BoundedCache } from './compileCache'
 import {
@@ -28,6 +28,8 @@ import {
 } from './itemTypst'
 import { applyDocumentSettingsToTypst } from './documentSettings'
 import { resolveComponentPrintPart } from './componentTypst'
+import { prepareBundCompileInputs } from './bund/bundCompileWorker'
+import { findNode } from '../tree'
 import {
   dataSheetsCompileInputs,
   dataSignatureSettings,
@@ -362,11 +364,13 @@ function emitComponentBranch(
   node: ProjectNode,
   recipes: ReturnType<typeof computeProjectPrintInputs>['recipes'],
   rateOf: ReturnType<typeof computeProjectPrintInputs>['rateOf'],
-  parts: ProjectTypstPart[]
+  parts: ProjectTypstPart[],
+  deferBundInputs = false
 ): void {
   const hasSubcomponents = node.children.some((child) => child.kind === 'subcomponent')
   const resolved = resolveComponentPrintPart(project, node, recipes, rateOf, {
-    itemScope: hasSubcomponents ? 'direct' : 'all'
+    itemScope: hasSubcomponents ? 'direct' : 'all',
+    deferBundInputs
   })
   parts.push({
     id: resolved.scopeKey,
@@ -389,15 +393,16 @@ function emitComponentBranch(
   }
 
   for (const child of node.children) {
-    if (child.kind === 'subcomponent') emitComponentBranch(project, child, recipes, rateOf, parts)
+    if (child.kind === 'subcomponent') emitComponentBranch(project, child, recipes, rateOf, parts, deferBundInputs)
   }
 }
 
 export function collectProjectTypstParts(
   project: EestimateProject,
-  abstractSource?: string
+  abstractSource?: string,
+  options?: { deferBundInputs?: boolean; useStoredSnapshot?: boolean }
 ): ProjectTypstPart[] {
-  const { recipes, rateOf, seigniorage } = computeProjectPrintInputs(project)
+  const { recipes, rateOf, seigniorage } = computeProjectPrintInputs(project, undefined, options)
   const parts: ProjectTypstPart[] = []
   const rootPages = project.root.children.filter((child) => child.kind === 'page')
   const cover = rootPages.find((page) => page.pageTemplate === 'front')
@@ -450,11 +455,11 @@ export function collectProjectTypstParts(
     kind: 'abstract',
     source: abstractSource ?? resolvedProjectTypstSource(project),
     prelude: projectCompilePrelude(),
-    inputs: projectCompileInputs(project)
+    inputs: projectCompileInputs(project, options?.useStoredSnapshot)
   })
 
   for (const child of project.root.children) {
-    if (child.kind === 'component') emitComponentBranch(project, child, recipes, rateOf, parts)
+    if (child.kind === 'component') emitComponentBranch(project, child, recipes, rateOf, parts, options?.deferBundInputs)
   }
 
   parts.push(leadPart, seignioragePart, dataPart)
@@ -524,16 +529,27 @@ export function assembleProjectBookCompile(
 }
 
 /** Assemble the dashboard book with the same downloaded DATA figures as standalone DATA printing. */
-export async function assembleProjectBookCompileWithAssets(
+export async function collectProjectTypstPartsWithAssets(
   project: EestimateProject,
   abstractSource?: string
-): Promise<ProjectBookCompile> {
-  const parts = collectProjectTypstParts(project, abstractSource)
+): Promise<ProjectTypstPart[]> {
+  const parts = collectProjectTypstParts(project, abstractSource, { deferBundInputs: true, useStoredSnapshot: true })
+  for (const part of parts) {
+    if (part.kind !== 'component' || !part.id.startsWith('component-')) continue
+    const nodeId = part.id.slice('component-'.length)
+    const node = findNode(project.root, nodeId)
+    if (node?.templateId === 'bund' && node.bund) {
+      part.inputs = { ...part.inputs, ...await prepareBundCompileInputs(project, nodeId) }
+    }
+  }
   const dataPart = parts.find((part) => part.kind === 'data')
   if (dataPart) {
     const sheets = collectDataSheets(project, project.dashboardSnapshot?.dataDashboardEntries ?? [])
-    const figures = await buildDataFigureBundle(sheets, () => undefined)
-    dataPart.inputs = dataSheetsCompileInputs(sheets, {
+    const [calculatedSheets, figures] = await Promise.all([
+      calculateDataSheets(sheets),
+      buildDataFigureBundle(sheets, () => undefined)
+    ])
+    dataPart.inputs = dataSheetsCompileInputs(calculatedSheets, {
       projectName: project.meta.name,
       sorYear: project.meta.sorYear,
       sorZone: project.meta.sorZone,
@@ -542,6 +558,14 @@ export async function assembleProjectBookCompileWithAssets(
     })
     dataPart.shadowFiles = figures.shadowFiles
   }
+  return parts
+}
+
+export async function assembleProjectBookCompileWithAssets(
+  project: EestimateProject,
+  abstractSource?: string
+): Promise<ProjectBookCompile> {
+  const parts = await collectProjectTypstPartsWithAssets(project, abstractSource)
   return assembleProjectBookFromParts(parts, project.meta.name || project.root.name || 'Estimate')
 }
 

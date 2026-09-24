@@ -18,7 +18,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 estimate-core = { path = "estimate-core" }
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-process = "2"
@@ -39,6 +39,9 @@ time = { version = "0.3", features = ["formatting"] }
 once_cell = "1"
 rust_xlsxwriter = { version = "0.99", features = ["serde"] }
 
+[dev-dependencies]
+zip = "8.6"
+
 # First Typst/krilla debug build is 30Ã¢â‚¬â€œ90 min. Incremental after that only if
 # artifacts stay on local disk Ã¢â‚¬â€ `npm run dev` sets CARGO_TARGET_DIR under
 # %LOCALAPPDATA%\e-estimate\cargo-target so OneDrive cannot wipe `target/`.
@@ -53,5 +56,4 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
-
 

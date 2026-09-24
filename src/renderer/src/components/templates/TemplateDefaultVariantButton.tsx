@@ -31,10 +31,20 @@ export default function TemplateDefaultVariantButton({
   const [open, setOpen] = useState(false)
   const [chosen, setChosen] = useState<DataVariantSelection | undefined>(selection)
 
-  useEffect(() => {
+  const [prevSync, setPrevSync] = useState(() => ({ code, defaultCode, selection, year }))
+  if (
+    prevSync.code !== code ||
+    prevSync.defaultCode !== defaultCode ||
+    prevSync.selection !== selection ||
+    prevSync.year !== year
+  ) {
+    setPrevSync({ code, defaultCode, selection, year })
     setOpen(false)
     setSpec(null)
     setChosen(selection)
+  }
+
+  useEffect(() => {
     if (!year || code !== defaultCode) return
     let cancelled = false
     void fetchDataVariantSpecs([code], year).then((found) => {

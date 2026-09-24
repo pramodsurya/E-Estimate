@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, Check, X } from 'lucide-react'
 import { SSR_CATEGORIES, fetchSsrItems, type MasterItem } from '../../lib/masterData'
 import { fetchDataVariantSpecs, type DataVariantSpec } from '../../lib/dataVariants'
@@ -67,10 +67,15 @@ export default function MaterialPicker({
   const [variantSelection, setVariantSelection] = useState<DataVariantSelection | undefined>()
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
+  const [prevCategory, setPrevCategory] = useState(category)
+  if (prevCategory !== category) {
+    setPrevCategory(category)
     setLoading(true)
     setLoadError(null)
+  }
+
+  useEffect(() => {
+    let cancelled = false
     void fetchSsrItems(category)
       .then((list) => {
         if (cancelled) return
@@ -99,37 +104,33 @@ export default function MaterialPicker({
   // A plain substring filter used to require the whole typed phrase to appear
   // verbatim, so natural queries like "excavation drain seating" found nothing.
   const q = debouncedSearch.trim()
-  const parsedSearch = useMemo(() => parseMasterSearch(q), [q])
-  const selectableItems = useMemo(
-    () =>
-      allowedCodes?.length
+  const parsedSearch = (parseMasterSearch(q))
+  const selectableItems = (allowedCodes?.length
         ? items.filter((item) => allowedCodes.includes(item.code))
-        : items,
-    [allowedCodes, items]
-  )
-  const lexicalMatches = useMemo(
-    () => (q ? rankMasterItems(selectableItems, parsedSearch) : []),
-    [parsedSearch, q, selectableItems]
-  )
-  const semanticCandidates = useMemo(
-    () => semanticCandidateMatches(lexicalMatches),
-    [lexicalMatches]
-  )
-  const semanticSignature = useMemo(
-    () => `${parsedSearch.normalized}|${semanticCandidates.map((match) => match.key).join('|')}`,
-    [parsedSearch.normalized, semanticCandidates]
-  )
+        : items)
+  const lexicalMatches = (q ? rankMasterItems(selectableItems, parsedSearch) : [])
+  const semanticCandidates = (semanticCandidateMatches(lexicalMatches))
+  const semanticSignature = (`${parsedSearch.normalized}|${semanticCandidates.map((match) => match.key).join('|')}`)
+
+  const shouldSkipSemantic =
+    !q || loading || !shouldUseSemanticSearch(parsedSearch) || semanticCandidates.length < 2
+
+  const [prevSemanticKey, setPrevSemanticKey] = useState(() => ({
+    semanticSignature,
+    shouldSkipSemantic
+  }))
+  if (
+    prevSemanticKey.semanticSignature !== semanticSignature ||
+    prevSemanticKey.shouldSkipSemantic !== shouldSkipSemantic
+  ) {
+    setPrevSemanticKey({ semanticSignature, shouldSkipSemantic })
+    if (shouldSkipSemantic) {
+      setSemanticRanking(null)
+    }
+  }
 
   useEffect(() => {
-    if (
-      !q ||
-      loading ||
-      !shouldUseSemanticSearch(parsedSearch) ||
-      semanticCandidates.length < 2
-    ) {
-      setSemanticRanking(null)
-      return
-    }
+    if (shouldSkipSemantic) return
 
     let active = true
     const updateProgress = (progress: SemanticSearchProgress): void => {
@@ -162,14 +163,14 @@ export default function MaterialPicker({
     return () => {
       active = false
     }
-  }, [loading, parsedSearch, q, semanticCandidates, semanticSignature])
+  }, [loading, parsedSearch, q, semanticCandidates, semanticSignature, shouldSkipSemantic])
 
-  const rankedMatches = useMemo(() => {
+  const rankedMatches = (() => {
     if (semanticRanking?.status !== 'ready' || semanticRanking.signature !== semanticSignature) {
       return lexicalMatches
     }
     return applySemanticScores(lexicalMatches, semanticRanking.scores)
-  }, [lexicalMatches, semanticRanking, semanticSignature])
+  })()
 
   const rows: Array<{ item: MasterItem; match?: MasterSearchMatch }> = q
     ? rankedMatches.slice(0, MAX_PICKER_RESULTS).map((match) => ({ item: match.item, match }))

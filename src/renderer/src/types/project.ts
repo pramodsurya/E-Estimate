@@ -1007,6 +1007,110 @@ export interface CanalBankMaterialAllocation {
   watering: boolean;
 }
 
+export interface CanalManualCutBerm {
+  id: string;
+  /** Vertical elevation of the shelf above the canal bed (m). */
+  heightAboveBed: number;
+  /** Horizontal shelf width (m). Default 2.0 m. */
+  width: number;
+  /** Cutting side slope (H : 1V) to apply after this berm up to the next berm or ground. */
+  slope: number;
+}
+
+export interface CanalCutBermConfig {
+  /** True enables cut berms in deep cutting. */
+  enabled: boolean;
+  /** 'programmatic' (default) uses interval & clearance rules; 'manual' uses user-defined berms. */
+  mode?: 'programmatic' | 'manual';
+  /** True places the first berm at TBL level (FSD + Freeboard) in programmatic mode. */
+  firstBermAtTbl: boolean;
+  /** Vertical spacing between consecutive berms (m). Default 6.0 m. */
+  intervalM: number;
+  /** Minimum remaining vertical space from last berm to GL (m). Default 7.5 m. */
+  minTopClearanceM: number;
+  /** Horizontal shelf width of each cut berm (m). Default 2.0 m. */
+  width: number;
+  /** Base cut slope (H : 1V) above TBL before the first manual berm. */
+  manualBaseSlope?: number;
+  /** User-defined manual cut berms with heights, widths, and subsequent slopes. */
+  manualBerms?: CanalManualCutBerm[];
+}
+
+export interface CanalStrataSlopeConfig {
+  allSoilsSlope: number;
+  hdrSlope: number;
+  ffSlope: number;
+  hrSlope: number;
+}
+
+/** A single berm shelf in an embankment height tier. */
+export interface CanalBankBermStep {
+  id: string;
+  /** Vertical drop from the crest or previous stage down to this berm shelf (m). */
+  dropHeight: number;
+  /** Horizontal width of this berm bench (m). */
+  shelfWidth: number;
+  /** Downward slope (H : 1V) after this berm bench continuing to ground or the next berm. */
+  slopeAfterBerm: number;
+}
+
+export interface CanalTierFoundationConfig {
+  foundation: 'none' | '5-1' | '5-2' | '5-3';
+  foundationPercentage: number;
+  blanket: 'none' | '5-4' | '5-5';
+  blanketWidthMode: 'automatic' | 'manual';
+  blanketLeftWidth: number;
+  blanketRightWidth: number;
+  blanketThickness: number;
+  horizontalFilter: boolean;
+  filterLengthMode: 'automatic' | 'manual';
+  filterLeftLength: number;
+  filterRightLength: number;
+  filterThickness: number;
+  rockToe: boolean;
+  rockToeSide: 'left' | 'right' | 'both';
+  rockToeWidth: number;
+  rockToeHeight: number;
+}
+
+/** A single fill-height bracket / tier governing canal bank geometry and zoning. */
+export interface CanalBankTier {
+  id: string;
+  name: string;
+  /** Minimum fill height for this tier (m, inclusive). */
+  minFillHeight: number;
+  /** Maximum fill height for this tier (m, exclusive or 9999 for top tier). */
+  maxFillHeight: number;
+  /** Crest width for this tier (m). */
+  crestWidth: number;
+  /** Embankment construction type: homogeneous single soil or impervious zoned (hearting + casing). */
+  sectionType: 'homogeneous' | 'zoned';
+  /** Downward slope from crest to first berm or ground (H : 1V). */
+  baseSlope: number;
+  /** Ordered berm benches descending from crest downward. */
+  berms: CanalBankBermStep[];
+  /** Optional custom hearting top width override (m). */
+  heartingTopWidth?: number;
+  /** Optional custom hearting side slope override (H : 1V). */
+  heartingSideSlope?: number;
+  /** Optional bund foundation filling, sand blanket, and filter drainage configuration for this tier. */
+  foundationTreatment?: CanalTierFoundationConfig;
+}
+
+/** Programmatic height-tiered bank & bund design configuration. */
+export interface CanalBankDesignConfig {
+  /** Mode: 'legacy' (fixed slope & manual outer berms) or 'tiered' (height-tiered rules). */
+  mode: 'legacy' | 'tiered';
+  /** Whether both left and right banks share the exact same tiers and rules. Default true. */
+  linkSymmetrical: boolean;
+  /** Minimum vertical ground clearance below the lowest berm to omit it and avoid ground collisions (m). Default 1.0 m. */
+  minClearanceToGround: number;
+  /** Left bank (or symmetrical) height tiers ordered by minFillHeight ascending. */
+  leftTiers: CanalBankTier[];
+  /** Right bank height tiers (used when linkSymmetrical is false). */
+  rightTiers: CanalBankTier[];
+}
+
 export interface CanalDesign {
   /** Design bed RL at canal Ch 0 (m). */
   bedLevelAtStart: number;
@@ -1032,6 +1136,12 @@ export interface CanalDesign {
   rightBankOuterSlope: number;
   /** Repeatable shelves on the two canal-side and two outer-bank faces. */
   berms: CanalBerm[];
+  /** Programmatic cut berm builder configuration. */
+  cutBermConfig?: CanalCutBermConfig;
+  /** Cutting side slopes by geological strata. */
+  strataSlopes?: CanalStrataSlopeConfig;
+  /** Programmatic height-tiered bank & bund design configuration. */
+  bankConfig?: CanalBankDesignConfig;
   /** Chainage reaches carrying service-road platforms on either canal bank. */
   serviceRoadReaches: CanalServiceRoadReach[];
   /** Bank material arrangement. */
@@ -1084,6 +1194,18 @@ export interface CanalPoint {
   rl: number;
 }
 
+//** One soil stratum layer varying with depth at a canal cross-section. */
+export interface CanalSoilStratum {
+  id: string;
+  name: string;
+  /** Layer thickness (m) at this cross-section. */
+  thickness: number;
+  /** Cutting side slope (H : 1V) for this stratum. */
+  slope: number;
+  description?: string;
+  color?: string;
+}
+
 /** One chainage cross-section along 0..lengthM. */
 export interface CanalSection {
   id: string;
@@ -1102,6 +1224,8 @@ export interface CanalSection {
   designPopulated?: boolean;
   /** Important generated canal breakpoints shown in the Section Levels table. */
   designPointOffsets?: number[];
+  /** Soil and rock stratigraphy varying according to depth at this section. */
+  strata?: CanalSoilStratum[];
 }
 
 export type CanalBermFace = 'left-outer' | 'left-canal' | 'right-canal' | 'right-outer';
@@ -1740,6 +1864,8 @@ export interface LeadVariant {
 export interface LeadApplication {
   id: string
   variantId: string
+  /** Original route Lead retained when a weighted Lead becomes the adopted rate. */
+  sourceVariantId?: string
   /** Selected optional DATA add-on that owns this Lead application, when applicable. */
   addonId?: string
   itemKey: string
@@ -2013,6 +2139,8 @@ export interface DashboardDataSnapshot {
   }>
   /** Last total Seigniorage Dashboard Sync. */
   seigniorageSyncedAt?: string
+  /** Local quantity/DATA state represented by the Seigniorage snapshot. */
+  seigniorageCompileSignature?: string
   seignioragePolicies: Record<string, SeigniorageApplicabilityPolicy>
   leadApplicability?: Record<string, unknown>
   /** Current-year Public Health Table 6/7 quotes keyed by Lead variant id. */

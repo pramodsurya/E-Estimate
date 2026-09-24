@@ -11,7 +11,6 @@ import {
   rateAnalysisOverrideForNode
 } from './projectItems'
 import { scopedLeadRateAddition } from './leadApplications'
-import { calculateRateAnalysis } from './rateAnalysis'
 
 export function colLabel(index: number): string {
   let n = index
@@ -68,12 +67,14 @@ export function getItemRate(project: EestimateProject | null, node: ProjectNode)
   if (!project) return null
   const recipe = rateAnalysisOverrideForNode(project, node)
   if (!recipe) return null
-  try {
-    const r = calculateRateAnalysis(recipe).ratePerUnit
-    return Number.isFinite(r) ? r : null
-  } catch {
-    return null
+  if (typeof recipe.publishedRate === 'number' && Number.isFinite(recipe.publishedRate)) {
+    return recipe.publishedRate
   }
+  if (recipe.recalculation?.calculatedRate) {
+    const r = Number(recipe.recalculation.calculatedRate)
+    if (Number.isFinite(r)) return r
+  }
+  return null
 }
 
 /** Lead rate additions assigned to this exact Item/component usage. */

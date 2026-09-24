@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useRef } from 'react'
 import EEstimateCombinedPrintPreview, {
   type CombinedPdfPart
 } from '../print/EEstimateCombinedPrintPreview'
@@ -34,7 +34,7 @@ export default function LeadCombinedPrintPreview({
   const mapPageRef = useRef<HTMLElement>(null)
   const mapCaptureRef = useRef<LeadMapCaptureResult | null>(null)
   const layout = normalizeLeadPrintSettings(mapProps.printSettings)
-  const parts = useMemo<CombinedPdfPart[]>(() => [
+  const parts: CombinedPdfPart[] = [
     {
       id: 'lead-statement',
       label: 'Compiling Lead Statement…',
@@ -81,7 +81,7 @@ export default function LeadCombinedPrintPreview({
         }
       }
     }
-  ], [compilePrelude, entries, layout, mapProps.signatureFooter, project, typstSource])
+  ]
 
   return (
     <EEstimateCombinedPrintPreview

@@ -192,7 +192,7 @@ export default function AlignmentMap({
 
   return (
     <div className={`gw-map ${mode !== 'view' ? 'gw-map-editing' : ''}`}>
-      <MapContainer center={center} zoom={hasLine || fallbackCenter ? 14 : 7} scrollWheelZoom>
+      <MapContainer center={center} zoom={hasLine || fallbackCenter ? 14 : 7} maxZoom={22} scrollWheelZoom>
         <MapLayers />
         <ClickHandler mode={mode} points={points} onAddPoint={onAddPoint} onPlaceBreak={onPlaceBreak} />
         {hasLine && <FitToAlignment points={points} />}

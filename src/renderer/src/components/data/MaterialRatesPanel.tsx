@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Check, Coins, RefreshCw, RotateCcw, Undo2 } from 'lucide-react'
 import {
   circularsFromPeriods,
@@ -92,9 +92,14 @@ export default function MaterialRatesPanel(): JSX.Element | null {
     []
   )
 
+  const loadRef = useRef(load)
   useEffect(() => {
-    void load(false)
-  }, [load, sorYear, project?.id])
+    loadRef.current = load
+  }, [load])
+
+  useEffect(() => {
+    void loadRef.current(false)
+  }, [sorYear, project?.id])
 
   /** Effective view = saved overrides with the staged edits laid over them. */
   const overrides = useMemo(() => {

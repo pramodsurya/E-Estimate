@@ -25,7 +25,9 @@ export default function MapLayers({
       return (
         <TileLayer
           attribution={OSM_ATTRIBUTION}
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxNativeZoom={19}
+          maxZoom={22}
           detectRetina={printQuality}
         />
       )
@@ -35,7 +37,8 @@ export default function MapLayers({
         <TileLayer
           attribution={SATELLITE_ATTRIBUTION}
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          maxZoom={19}
+          maxNativeZoom={19}
+          maxZoom={22}
           detectRetina={printQuality}
         />
       )
@@ -46,39 +49,63 @@ export default function MapLayers({
           <TileLayer
             attribution={SATELLITE_ATTRIBUTION}
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            maxZoom={19}
+            maxNativeZoom={19}
+            maxZoom={22}
             detectRetina={printQuality}
           />
           <KmzTransparentToposheetLayer qualityBias={toposheetQualityBias} />
         </LayerGroup>
       )
     }
-    return <KmzOpaqueToposheetLayer qualityBias={toposheetQualityBias} />
+    return (
+      <LayerGroup>
+        <TileLayer
+          attribution={OSM_ATTRIBUTION}
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxNativeZoom={19}
+          maxZoom={22}
+          detectRetina={printQuality}
+        />
+        <KmzOpaqueToposheetLayer qualityBias={toposheetQualityBias} />
+      </LayerGroup>
+    )
   }
   return (
     <LayersControl position="topright" collapsed>
       <LayersControl.BaseLayer checked={selected === 'map'} name="Map">
         <TileLayer
           attribution={OSM_ATTRIBUTION}
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxNativeZoom={19}
+          maxZoom={22}
         />
       </LayersControl.BaseLayer>
       <LayersControl.BaseLayer checked={selected === 'satellite'} name="Satellite">
         <TileLayer
           attribution={SATELLITE_ATTRIBUTION}
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          maxZoom={19}
+          maxNativeZoom={19}
+          maxZoom={22}
         />
       </LayersControl.BaseLayer>
       <LayersControl.BaseLayer checked={selected === 'toposheet'} name="Toposheet">
-        <KmzOpaqueToposheetLayer qualityBias={toposheetQualityBias} />
+        <LayerGroup>
+          <TileLayer
+            attribution={OSM_ATTRIBUTION}
+            url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maxNativeZoom={19}
+            maxZoom={22}
+          />
+          <KmzOpaqueToposheetLayer qualityBias={toposheetQualityBias} />
+        </LayerGroup>
       </LayersControl.BaseLayer>
       <LayersControl.BaseLayer checked={selected === 'toposheet_transparent'} name="Transparent Toposheet">
         <LayerGroup>
           <TileLayer
             attribution={SATELLITE_ATTRIBUTION}
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            maxZoom={19}
+            maxNativeZoom={19}
+            maxZoom={22}
           />
           <KmzTransparentToposheetLayer qualityBias={toposheetQualityBias} />
         </LayerGroup>

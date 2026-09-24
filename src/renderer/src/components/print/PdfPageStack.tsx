@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy } from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
@@ -112,7 +112,7 @@ export default function PdfPageStack({ src, zoom = 100 }: { src: string; zoom?: 
   const generationRef = useRef(0)
 
   /** Drop the rendered page furthest from anything on screen. */
-  const evictFurthest = useCallback((): void => {
+  const evictFurthest = ((): void => {
     const held = imagesRef.current
     if (held.size <= RETAINED_PAGES) return
     const visible = [...visibleRef.current]
@@ -132,9 +132,9 @@ export default function PdfPageStack({ src, zoom = 100 }: { src: string; zoom?: 
     if (victim === null) return
     URL.revokeObjectURL(held.get(victim) as string)
     held.delete(victim)
-  }, [])
+  })
 
-  const drainQueue = useCallback(async (): Promise<void> => {
+  const drainQueue = (async (): Promise<void> => {
     if (drawingRef.current) return
     drawingRef.current = true
     const generation = generationRef.current
@@ -179,24 +179,20 @@ export default function PdfPageStack({ src, zoom = 100 }: { src: string; zoom?: 
     } finally {
       drawingRef.current = false
     }
-  }, [evictFurthest])
+  })
 
-  const request = useCallback(
-    (index: number): void => {
+  const request = ((index: number): void => {
       if (imagesRef.current.has(index) || queueRef.current.includes(index)) return
       queueRef.current.push(index)
       void drainQueue()
-    },
-    [drainQueue]
-  )
+    })
 
   /**
    * Hand a page its place in the viewport watch. Created on first use rather
    * than in an effect, because a page's own effect runs before its parent's —
    * and by then the container ref is already attached, which is what this needs.
    */
-  const observe = useCallback(
-    (element: HTMLElement): (() => void) => {
+  const observe = ((element: HTMLElement): (() => void) => {
       if (!observerRef.current) {
         observerRef.current = new IntersectionObserver(
           (entries) => {
@@ -220,18 +216,21 @@ export default function PdfPageStack({ src, zoom = 100 }: { src: string; zoom?: 
         observer.unobserve(element)
         visibleRef.current.delete(Number(element.dataset.pageIndex))
       }
-    },
-    [request]
-  )
+    })
+
+  const [prevSrc, setPrevSrc] = useState(src)
+  if (src !== prevSrc) {
+    setPrevSrc(src)
+    setShapes([])
+    setImages(new Map())
+    setError(null)
+  }
 
   // Open the document and read every page's shape. Nothing is drawn here.
   useEffect(() => {
     generationRef.current += 1
     const generation = generationRef.current
     const held = imagesRef.current
-    setShapes([])
-    setImages(new Map())
-    setError(null)
 
     const open = async (): Promise<void> => {
       const response = await fetch(src)
@@ -265,10 +264,11 @@ export default function PdfPageStack({ src, zoom = 100 }: { src: string; zoom?: 
       }
     })
 
+    const visible = visibleRef.current
     return () => {
       generationRef.current += 1
       queueRef.current = []
-      visibleRef.current.clear()
+      visible.clear()
       held.forEach((url) => URL.revokeObjectURL(url))
       held.clear()
       observerRef.current?.disconnect()

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Code2,
   Copy,
@@ -68,14 +68,15 @@ export default function TypstStudioModal({
 
   // Track if user explicitly edited the raw code
   const [isRawCodeDirty, setIsRawCodeDirty] = useState(false)
+  const [prevVisualOptions, setPrevVisualOptions] = useState(visualOptions)
 
   // When visual options change, regenerate code if not dirty
-  useEffect(() => {
+  if (visualOptions !== prevVisualOptions) {
+    setPrevVisualOptions(visualOptions)
     if (generateTypstFromOptions && !isRawCodeDirty) {
-      const regenerated = generateTypstFromOptions(visualOptions)
-      setCode(regenerated)
+      setCode(generateTypstFromOptions(visualOptions))
     }
-  }, [visualOptions, generateTypstFromOptions, isRawCodeDirty])
+  }
 
   // Debounced compilation
   useEffect(() => {
@@ -176,10 +177,10 @@ export default function TypstStudioModal({
   }
 
   // Line numbers calculation
-  const lineCount = useMemo(() => code.split('\n').length, [code])
-  const lineNumbers = useMemo(() => {
+  const lineCount = (code.split('\n').length)
+  const lineNumbers = (() => {
     return Array.from({ length: lineCount }, (_, i) => i + 1).join('\n')
-  }, [lineCount])
+  })()
 
   // Handle Tab key in code editor
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {

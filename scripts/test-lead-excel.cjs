@@ -3,6 +3,7 @@ const fs = require('node:fs')
 const Module = require('node:module')
 const path = require('node:path')
 const ts = require('typescript')
+const readExcelRust = require('./read-excel-rust.cjs')
 
 const root = path.resolve(__dirname, '..')
 
@@ -191,7 +192,7 @@ async function runTests() {
   )
   assert.ok(!session.includes('exportLeadWorkbook'), 'old ExcelJS builder must be gone from the session')
   assert.ok(!session.includes('excel-output/leadExcel'), 'old builder module must no longer be imported')
-  const rustCompiler = fs.readFileSync(path.join(root, 'src-tauri/src/excel_compile.rs'), 'utf8')
+  const rustCompiler = readExcelRust(root)
   assert.ok(rustCompiler.includes('LeadPayload'), 'Rust must read a lead payload')
   assert.ok(rustCompiler.includes('weightedLead') || rustCompiler.includes('weighted_lead'), 'Rust must read the weighted lead proof')
   assert.ok(rustCompiler.includes('avgLead') || rustCompiler.includes('avg_lead'), 'Rust must read the avg lead audit')

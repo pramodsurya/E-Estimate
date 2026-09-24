@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowUpDown, ClipboardCopy, Plus, Trash2 } from 'lucide-react'
 import type { CanalBermFace, CanalData, CanalPoint, CanalSection } from '../../../../types/project'
 import {
@@ -14,8 +14,9 @@ import {
 import { formatChainage } from '../../../../lib/guideWall'
 import { newId } from '../../../../lib/tree'
 import CanalSectionDiagram from '../../CanalSectionDiagram'
+import CanalSectionSoilProfile from './CanalSectionSoilProfile'
 
-const n2 = (value: number): string => value.toLocaleString('en-IN', { maximumFractionDigits: 2 })
+const n2 = (value: number | undefined | null): string => (Number(value) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })
 type GroundMode = 'average' | 'separate'
 
 function DraftNumber({ label, value, allowBlank = false, onCommit }: {
@@ -72,9 +73,14 @@ function GroundPointRow({ offsetValue, existingLevel, cutLevel, proposedLevel, o
   onCommit: (point: CanalPoint) => void
   onRemove: (() => void) | null
 }): JSX.Element {
+  const [prevValues, setPrevValues] = useState({ offsetValue, existingLevel })
   const [offset, setOffset] = useState(n2(offsetValue))
   const [rl, setRl] = useState(existingLevel == null ? '' : n2(existingLevel))
-  useEffect(() => { setOffset(n2(offsetValue)); setRl(existingLevel == null ? '' : n2(existingLevel)) }, [offsetValue, existingLevel])
+  if (prevValues.offsetValue !== offsetValue || prevValues.existingLevel !== existingLevel) {
+    setPrevValues({ offsetValue, existingLevel })
+    setOffset(n2(offsetValue))
+    setRl(existingLevel == null ? '' : n2(existingLevel))
+  }
   const commit = (): void => {
     const next = { offset: Number(offset), rl: Number(rl) }
     if (rl.trim() !== '' && Number.isFinite(next.offset) && Number.isFinite(next.rl)) onCommit(next)
@@ -95,39 +101,56 @@ export default function CanalCrossSections({ data, onCommit }: {
   data: CanalData
   onCommit: (update: (current: CanalData) => CanalData) => void
 }): JSX.Element {
-  const sections = useMemo(() => orderedCanalSections(data), [data])
+  const sections = (orderedCanalSections(data))
   const [selectedId, setSelectedId] = useState<string | null>(sections[0]?.id ?? null)
   const selected = sections.find((section) => section.id === selectedId) ?? sections[0] ?? null
   const [message, setMessage] = useState<string | null>(null)
-  const [groundMode, setGroundMode] = useState<GroundMode>(data.mode === 'repair' ? 'separate' : 'average')
-  const [averageRl, setAverageRl] = useState<number | null>(null)
-  const [leftRl, setLeftRl] = useState<number | null>(null)
-  const [rightRl, setRightRl] = useState<number | null>(null)
+
+  const computeInitialGround = (sel: CanalSection | null): {
+    left: number | null
+    right: number | null
+    average: number | null
+    mode: GroundMode
+  } => {
+    const points = sel ? orderCanalPoints(sel.ground) : []
+    if (points.length < 2) {
+      return {
+        left: null,
+        right: null,
+        average: null,
+        mode: data.mode === 'repair' ? 'separate' : 'average'
+      }
+    }
+    const left = points[0].rl
+    const right = points[points.length - 1].rl
+    return {
+      left,
+      right,
+      average: (left + right) / 2,
+      mode: Math.abs(left - right) < 1e-9 ? 'average' : 'separate'
+    }
+  }
+
+  const [prevSelectedId, setPrevSelectedId] = useState<string | null>(selected?.id ?? null)
+  const [groundMode, setGroundMode] = useState<GroundMode>(() => computeInitialGround(selected).mode)
+  const [averageRl, setAverageRl] = useState<number | null>(() => computeInitialGround(selected).average)
+  const [leftRl, setLeftRl] = useState<number | null>(() => computeInitialGround(selected).left)
+  const [rightRl, setRightRl] = useState<number | null>(() => computeInitialGround(selected).right)
+
+  if (prevSelectedId !== (selected?.id ?? null)) {
+    const next = computeInitialGround(selected)
+    setPrevSelectedId(selected?.id ?? null)
+    setGroundMode(next.mode)
+    setAverageRl(next.average)
+    setLeftRl(next.left)
+    setRightRl(next.right)
+  }
+
   const [checked, setChecked] = useState<Set<string>>(() => new Set())
   const [creatingSection, setCreatingSection] = useState(false)
   const [newSectionChainage, setNewSectionChainage] = useState('')
 
-  const sectionSummaries = useMemo(
-    () => new Map(sections.map((section) => [section.id, canalSectionAreas(data, section)])),
-    [data, sections]
-  )
-
-  useEffect(() => {
-    const points = selected ? orderCanalPoints(selected.ground) : []
-    if (points.length < 2) {
-      setAverageRl(null)
-      setLeftRl(null)
-      setRightRl(null)
-      setGroundMode(data.mode === 'repair' ? 'separate' : 'average')
-      return
-    }
-    const left = points[0].rl
-    const right = points[points.length - 1].rl
-    setLeftRl(left)
-    setRightRl(right)
-    setAverageRl((left + right) / 2)
-    setGroundMode(Math.abs(left - right) < 1e-9 ? 'average' : 'separate')
-  }, [selected?.id])
+  const sectionSummaries = (new Map(sections.map((section) => [section.id, canalSectionAreas(data, section)])))
 
   const updateSection = (sectionId: string, patch: Partial<CanalSection>): void =>
     onCommit((current) => ({
@@ -148,6 +171,20 @@ export default function CanalCrossSections({ data, onCommit }: {
     const withCandidate = { ...source, sections: source.sections.map((item) => item.id === section.id ? candidate : item) }
     const offsets = canalDesignProfile(withCandidate, candidate).map((point) => Math.round(point.offset * 1000) / 1000)
     return { ...candidate, designPointOffsets: [...new Set(offsets)].sort((a, b) => a - b) }
+  }
+
+  const updateToeRls = (section: CanalSection, left: number | null, right: number | null): void => {
+    if (left != null && right != null && (section.ground.length <= 2 || section.isManual || !section.designPopulated)) {
+      onCommit((current) => ({
+        ...current,
+        sections: current.sections.map((item) => item.id === section.id ? populatedSection(current, section, left, right) : item)
+      }))
+    } else {
+      updateSection(section.id, {
+        leftToeRl: left,
+        rightToeRl: right
+      })
+    }
   }
 
   const requestedGround = (): { left: number; right: number } | null => {
@@ -237,31 +274,6 @@ export default function CanalCrossSections({ data, onCommit }: {
     }
     setMessage(`Ground copied from Ch ${formatChainage(source.chainage)}.`)
   }
-  const commitBermDesign = (change: (current: CanalData['design']) => CanalData['design']): void => onCommit((current) => {
-    const next = { ...current, design: change(current.design) }
-    return {
-      ...next,
-      sections: next.sections.map((section) => {
-        const ground = section.ground.length <= 2 ? sectionGround(section) : null
-        return ground ? populatedSection(next, section, ground.left, ground.right) : section
-      })
-    }
-  })
-  const addBerm = (face: CanalBermFace): void => commitBermDesign((current) => ({
-      ...current,
-      berms: [...current.berms, {
-        id: newId(),
-        face,
-        heightAboveBed: Math.min(current.fullSupplyDepth, Math.max(0.1, current.fullSupplyDepth + current.freeBoard - 0.1)),
-        width: 3
-      }]
-  }))
-  const patchBerm = (id: string, patch: { heightAboveBed?: number; width?: number }): void => commitBermDesign((current) => ({
-    ...current, berms: current.berms.map((berm) => berm.id === id ? { ...berm, ...patch } : berm)
-  }))
-  const removeBerm = (id: string): void => commitBermDesign((current) => ({
-    ...current, berms: current.berms.filter((berm) => berm.id !== id)
-  }))
 
   const createSection = (): void => {
     const chainage = Math.round(Number(newSectionChainage) * 100) / 100
@@ -315,8 +327,8 @@ export default function CanalCrossSections({ data, onCommit }: {
     <section className="canal-v2-section" aria-labelledby="canal-cross-title">
       <header className="canal-v2-section-header">
         <div>
-          <span className="canal-v2-section-kicker">Chapter 3</span>
-          <h2 id="canal-cross-title">3. Canal Cross-Sections</h2>
+          <span className="canal-v2-section-kicker">Chapter 4</span>
+          <h2 id="canal-cross-title">4. Canal Cross-Sections</h2>
           <p>Enter the ground level and populate the Chapter 1 canal design at each chainage.</p>
         </div>
         <div className="canal-cross-header-actions">
@@ -360,6 +372,7 @@ export default function CanalCrossSections({ data, onCommit }: {
             {sections.map((section, index) => {
               const areas = sectionSummaries.get(section.id)
               const populated = section.ground.length >= 2
+              const bucket = areas ? (areas.cutting > 0.001 && areas.filling > 0.001 ? 'Partial' : areas.cutting > 0.001 ? 'Cutting' : 'Embankment') : null
               return (
                 <div key={section.id} className={`canal-cross-row${section.id === selected?.id ? ' is-active' : ''}`}>
                   <input type="checkbox" checked={checked.has(section.id)} onChange={() => setChecked((current) => {
@@ -372,24 +385,31 @@ export default function CanalCrossSections({ data, onCommit }: {
                   <button type="button" className="canal-cross-row-select" onClick={() => setSelectedId(section.id)}>
                     <span className="canal-cross-row-index">{index + 1}</span>
                     <span className="canal-cross-row-main">
-                      <strong>Ch {formatChainage(section.chainage)} m</strong>
+                      <strong>Ch {formatChainage(section.chainage)} m{bucket ? ` · ${bucket}` : ''}</strong>
                       <small>{populated && areas ? `Cut ${n2(areas.cutting)} · Fill ${n2(areas.filling)} m²` : 'No ground entered'}</small>
                     </span>
                   </button>
                   <div className="canal-cross-row-ground">
                     <div className="canal-cross-row-mode">
-                      <button type="button" className={(section.groundEntryMode ?? 'average') === 'average' ? 'is-active' : ''} onClick={() => updateSection(section.id, {
-                        groundEntryMode: 'average',
-                        rightToeRl: section.leftToeRl ?? orderCanalPoints(section.ground)[0]?.rl ?? null
-                      })}>1 RL</button>
+                      <button type="button" className={(section.groundEntryMode ?? 'average') === 'average' ? 'is-active' : ''} onClick={() => {
+                        const rl = section.leftToeRl ?? orderCanalPoints(section.ground)[0]?.rl ?? null
+                        if (rl != null) {
+                          updateToeRls(section, rl, rl)
+                        } else {
+                          updateSection(section.id, { groundEntryMode: 'average' })
+                        }
+                      }}>1 RL</button>
                       <button type="button" className={section.groundEntryMode === 'separate' ? 'is-active' : ''} onClick={() => updateSection(section.id, { groundEntryMode: 'separate' })}>Left + Right</button>
                     </div>
                     <div className={`canal-cross-row-fields${section.groundEntryMode === 'separate' ? '' : ' is-average'}`}>
-                      <DraftNumber label={section.groundEntryMode === 'separate' ? 'Left toe RL' : 'Average RL'} value={section.leftToeRl ?? orderCanalPoints(section.ground)[0]?.rl ?? null} allowBlank onCommit={(value) => updateSection(section.id, {
-                        leftToeRl: value,
-                        ...(section.groundEntryMode === 'separate' ? {} : { rightToeRl: value })
-                      })} />
-                      {section.groundEntryMode === 'separate' && <DraftNumber label="Right toe RL" value={section.rightToeRl ?? orderCanalPoints(section.ground).at(-1)?.rl ?? null} allowBlank onCommit={(value) => updateSection(section.id, { rightToeRl: value })} />}
+                      <DraftNumber label={section.groundEntryMode === 'separate' ? 'Left toe RL' : 'Average RL'} value={section.leftToeRl ?? orderCanalPoints(section.ground)[0]?.rl ?? null} allowBlank onCommit={(value) => {
+                        const right = section.groundEntryMode === 'separate' ? (section.rightToeRl ?? value) : value
+                        updateToeRls(section, value, right)
+                      }} />
+                      {section.groundEntryMode === 'separate' && <DraftNumber label="Right toe RL" value={section.rightToeRl ?? orderCanalPoints(section.ground).at(-1)?.rl ?? null} allowBlank onCommit={(value) => {
+                        const left = section.leftToeRl ?? value
+                        updateToeRls(section, left, value)
+                      }} />}
                     </div>
                   </div>
                   </div>
@@ -406,15 +426,16 @@ export default function CanalCrossSections({ data, onCommit }: {
                 {sections.map((section, index) => {
                   const areas = sectionSummaries.get(section.id)
                   const populated = section.ground.length >= 2
+                  const bucket = areas ? (areas.cutting > 0.001 && areas.filling > 0.001 ? 'Partial' : areas.cutting > 0.001 ? 'Cutting' : 'Embankment') : null
                   return (
                     <button
                       key={section.id}
                       type="button"
                       className={section.id === selected.id ? 'is-active' : ''}
                       onClick={() => setSelectedId(section.id)}
-                      title={populated && areas ? `Cut ${n2(areas.cutting)} m² · Fill ${n2(areas.filling)} m²` : 'Not populated'}
+                      title={populated && areas ? `Cut ${n2(areas.cutting)} m² · Fill ${n2(areas.filling)} m² · ${bucket}` : 'Not populated'}
                     >
-                      <b>{index + 1}</b> Ch {formatChainage(section.chainage)}
+                      <b>{index + 1}</b> Ch {formatChainage(section.chainage)}{bucket ? ` [${bucket[0]}]` : ''}
                     </button>
                   )
                 })}
@@ -463,29 +484,6 @@ export default function CanalCrossSections({ data, onCommit }: {
         </div>
       </div>
 
-      <section className="canal-cross-ground canal-berm-design">
-        <div className="canal-cross-panel-title">Canal Berm Design<small>Berm levels are entered as vertical height above the canal bed. A berm appears only where that face reaches the entered height.</small></div>
-        <div className="canal-berm-columns">
-          {([
-            ['left-outer', 'Left outer-bank berm'],
-            ['left-canal', 'Left canal-side berm'],
-            ['right-canal', 'Right canal-side berm'],
-            ['right-outer', 'Right outer-bank berm']
-          ] as Array<[CanalBermFace, string]>).map(([face, title]) => {
-            const berms = data.design.berms.filter((berm) => berm.face === face)
-            return <section className="canal-berm-face" key={face}>
-              <header><strong>{title}</strong><button type="button" className="btn ghost" onClick={() => addBerm(face)}><Plus size={13} /> Add berm</button></header>
-              {berms.length === 0 ? <small>No berms.</small> : <div className="canal-berm-list">{berms.map((berm, index) => <div className="canal-berm-row" key={berm.id}>
-                <strong>Berm {index + 1}</strong>
-                <label><span>Height above bed (m)</span><input type="number" min={0} step="any" value={berm.heightAboveBed} onChange={(event) => patchBerm(berm.id, { heightAboveBed: Math.max(0, Number(event.target.value) || 0) })} /></label>
-                <label><span>Width (m)</span><input type="number" min={0} step="any" value={berm.width} onChange={(event) => patchBerm(berm.id, { width: Math.max(0, Number(event.target.value) || 0) })} /></label>
-                <button type="button" className="canal-earthwork-remove" aria-label={`Remove ${title}`} onClick={() => removeBerm(berm.id)}><Trash2 size={14} /></button>
-              </div>)}</div>}
-            </section>
-          })}
-        </div>
-      </section>
-
       {selected && (
         <section className="canal-cross-ground canal-section-levels">
           <div className="canal-section-levels-head">
@@ -532,6 +530,17 @@ export default function CanalCrossSections({ data, onCommit }: {
             </table>
           </div>
         </section>
+      )}
+
+      {/* After Section Levels: Soil Strata Depth Variation */}
+      {selected && (
+        <CanalSectionSoilProfile
+          data={data}
+          section={displayedSection ?? selected}
+          sections={sections}
+          checkedSections={checked}
+          onCommit={onCommit}
+        />
       )}
     </section>
   )

@@ -127,6 +127,10 @@ assert.equal(source.includes('#for (index, comp) in EE.at("components"'), false,
 assert.equal(source.includes('#render-project-component'), false, 'project.typ must not render components')
 assert.equal(source.includes('render-component-item(item)'), false, 'project.typ must not print component items')
 assert(source.includes('counter(page)'), 'book chrome must number pages')
+assert(
+  source.includes('or EE.at("district", default: "") != "" ['),
+  'location guard must compare district (a bare string after `or` fails when village and mandal are empty)'
+)
 assert(source.includes('GENERAL ABSTRACT'), 'template is the General Abstract')
 
 const compiler = NodeCompiler.create({ workspace: root })
@@ -136,6 +140,25 @@ const pdf = compiler.pdf({
 })
 
 assert(pdf?.length > 8_000, 'project Typst (General Abstract only) must compile')
+
+// Regression: with village and mandal both empty the location guard must still
+// compile. It once ended in `or EE.at("district", ...)` without `!= ""`, so a
+// boolean `or` string fault surfaced only when both earlier operands were false.
+const emptyPlacePdf = compiler.pdf({
+  mainFileContent: prelude + '\n' + source,
+  inputs: { 'ee-data': JSON.stringify({ ...payload, village: '', mandal: '' }) }
+})
+
+assert(emptyPlacePdf?.length > 8_000, 'project Typst must compile with empty village and mandal')
+
+// Different-location projects carry empty place strings; the abstract must
+// still compile with the location block hidden (no blank space reserved).
+const noPlacePdf = compiler.pdf({
+  mainFileContent: prelude + '\n' + source,
+  inputs: { 'ee-data': JSON.stringify({ ...payload, village: '', mandal: '', district: '' }) }
+})
+
+assert(noPlacePdf?.length > 8_000, 'project Typst must compile with hidden location')
 
 const out = path.join(root, 'tmp/pdfs/project-typst.pdf')
 fs.mkdirSync(path.dirname(out), { recursive: true })
@@ -152,7 +175,12 @@ function loadBookApi() {
       computeProjectPrintInputs: () => ({ recipes: {}, rateOf: () => undefined, seigniorage: { rows: [] } })
     },
     '../dataSheets': {
-      collectDataSheets: () => []
+      collectDataSheets: () => [],
+      calculateDataSheets: async (sheets) => sheets
+    },
+    './compileCache': {
+      contentHash: () => 'test-book',
+      createBoundedCache: () => ({ get: () => undefined, set: () => undefined })
     },
     '../dataSheetPrint': {
       buildDataFigureBundle: async () => ({ shadowFiles: {}, figurePaths: {} })
@@ -196,6 +224,15 @@ function loadBookApi() {
         },
         shadowFiles: {}
       })
+    },
+    './bund/bundCompileWorker': {
+      prepareBundCompileInputs: async () => ({ 'ee-bund': '{}' })
+    },
+    '../tree': {
+      findNode: (root, id) => {
+        const visit = (node) => node.id === id ? node : node.children?.map(visit).find(Boolean)
+        return visit(root)
+      }
     },
     './dataTypst': {
       dataSheetsCompileInputs: () => ({ 'ee-data': '{}' }),
@@ -261,16 +298,16 @@ const remapped = remapSysInputBindings(
   '#let EE = json(bytes(sys.inputs.at("ee-data")))\n#let Bund = json(bytes(sys.inputs.at("ee-bund")))',
   { 'ee-data': 'ee-part-component-c1', 'ee-bund': 'ee-bund-component-c1' }
 )
-assert(remapped.includes('json("ee-part-component-c1.json")'), 'ee-data remapped to part JSON file')
-assert(remapped.includes('json("ee-bund-component-c1.json")'), 'ee-bund remapped to part JSON file')
+assert(remapped.includes('json("../ee-part-component-c1.json")'), 'ee-data remapped to part JSON file')
+assert(remapped.includes('json("../ee-bund-component-c1.json")'), 'ee-bund remapped to part JSON file')
 assert.equal(remapped.includes('sys.inputs.at("ee-data")'), false, 'original ee-data gone')
 
 const remappedDefault = remapSysInputBindings(
   '#let EE = json(bytes(sys.inputs.at("ee-data", default: "{}")))\n#let Cover = json.decode(sys.inputs.at("ee-cover"))',
   { 'ee-data': 'ee-part-general-abstract', 'ee-cover': 'ee-part-front-cover' }
 )
-assert(remappedDefault.includes('json("ee-part-general-abstract.json")'), 'default: at() remapped')
-assert(remappedDefault.includes('json("ee-part-front-cover.json")'), 'json.decode cover remapped')
+assert(remappedDefault.includes('json("../ee-part-general-abstract.json")'), 'default: at() remapped')
+assert(remappedDefault.includes('json("../ee-part-front-cover.json")'), 'json.decode cover remapped')
 assert.equal(remappedDefault.includes('ee-data'), false, 'unmapped ee-data must not remain')
 
 assert(typstSourcePrintsChildItems('#for (index, item) in EE.items.enumerate() [\n  #render-component-item(item)\n]'))
@@ -345,14 +382,10 @@ assert(
   book.inputs['ee-part-front-cover'].includes('1 Cr'),
   'cover input JSON carries estimated cost'
 )
-const abstractJsonFile = Buffer.from(book.shadowFiles['parts/ee-part-general-abstract.json'], 'base64').toString('utf8')
+const abstractJsonFile = Buffer.from(book.shadowFiles['ee-part-general-abstract.json'], 'base64').toString('utf8')
 assert(
   abstractJsonFile.includes('Restoration of Mallampet Tank'),
-  'abstract JSON shadow file next to parts/*.typ contains the project name'
-)
-assert(
-  book.shadowFiles['ee-part-general-abstract.json'] === book.shadowFiles['parts/ee-part-general-abstract.json'],
-  'JSON binding also available at temp root'
+  'abstract JSON shadow file at the temp root contains the project name'
 )
 assert(book.shadowFiles['telangana-emblem.svg'], 'cover emblem kept at temp root')
 assert(
@@ -372,16 +405,16 @@ for (const [vpath, payloadB64] of Object.entries(book.shadowFiles)) {
   if (vpath.endsWith('.typ')) {
     const text = bytes.toString('utf8')
     if (vpath.includes('component-c1') && vpath.endsWith('.typ')) {
-      assert(text.includes('json("ee-part-component-c1.json")'), 'component part remaps ee-data to JSON file')
+      assert(text.includes('json("../ee-part-component-c1.json")'), 'component part remaps ee-data to JSON file')
       assert.equal(text.includes('sys.inputs.at("ee-data")'), false, 'saved component Typst must not keep unmapped ee-data')
       assert(text.includes('Earthwork') || text.includes('EE.component'), 'component saved source is in the part')
     }
     if (vpath.includes('general-abstract') && vpath.endsWith('.typ')) {
-      assert(text.includes('json("ee-part-general-abstract.json")'), 'abstract part remaps ee-data to JSON file')
+      assert(text.includes('json("../ee-part-general-abstract.json")'), 'abstract part remaps ee-data to JSON file')
       assert.equal(text.includes('sys.inputs.at("ee-data")'), false, 'abstract must not keep unmapped ee-data')
     }
     if (vpath.includes('front-cover') && vpath.endsWith('.typ')) {
-      assert(text.includes('json("ee-part-front-cover.json")'), 'cover part remaps ee-cover to JSON file')
+      assert(text.includes('json("../ee-part-front-cover.json")'), 'cover part remaps ee-cover to JSON file')
       assert(text.includes('#image("telangana-emblem.svg"'), 'cover part keeps relative emblem path')
     }
   }

@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useOptimistic, useTransition } from 'react'
 import { ChevronDown, ChevronRight, ChevronUp, Pencil, Plus, Ruler, Trash2 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { ProjectNode } from '../../types/project'
@@ -8,7 +8,10 @@ import { bundDetailId } from '../../lib/bund'
 import { canalDetailId } from '../../lib/canal'
 import { NodeIcon, isRenamable, nodeDisplayName } from '../nodeVisual'
 
-const TreeNode = memo(function TreeNode({
+// The React Compiler memoizes this component. A React.memo wrapper here
+// tripped a compiler invariant ("Expected a node for all identifiers"), so
+// memoization is left to the compiler.
+function TreeNode({
   node,
   depth
 }: {
@@ -19,7 +22,17 @@ const TreeNode = memo(function TreeNode({
   const renaming = useStore((s) => s.renamingId === node.id)
   const expandedFlag = useStore((s) => s.expanded[node.id])
   const root = useStore((s) => s.project?.root)
-  const actions = useStore.getState()
+  const select = useStore((s) => s.select)
+  const beginRename = useStore((s) => s.beginRename)
+  const cancelRename = useStore((s) => s.cancelRename)
+  const renameNode = useStore((s) => s.renameNode)
+  const toggleExpand = useStore((s) => s.toggleExpand)
+  const moveNodeUp = useStore((s) => s.moveNodeUp)
+  const moveNodeDown = useStore((s) => s.moveNodeDown)
+  const deleteNode = useStore((s) => s.deleteNode)
+  const addComponent = useStore((s) => s.addComponent)
+  const openAddItem = useStore((s) => s.openAddItem)
+  const openSettings = useStore((s) => s.openSettings)
 
   // Template-generated items (e.g. the Guide Wall CCDW items) are driven by the
   // component's Detailed dashboard, so they are not shown as tree nodes.
@@ -33,6 +46,11 @@ const TreeNode = memo(function TreeNode({
   const isOpen = expandedFlag ?? (node.kind === 'title' || isTemplate)
   const renamable = isRenamable(node)
   const displayName = nodeDisplayName(node)
+  const [, startTransition] = useTransition()
+  const [optimisticName, setOptimisticName] = useOptimistic(
+    displayName,
+    (_current, next: string) => next
+  )
   // The pinned Front Page / Introduction and template-generated items are fixed.
   const pinnedPage = Boolean(node.pageTemplate)
   // Only ordinary rows can be reordered; the arrows show on hover like the rest
@@ -56,14 +74,14 @@ const TreeNode = memo(function TreeNode({
         // — the reader is free to rename either.
         data-tour-page={node.pageTemplate || undefined}
         style={{ paddingLeft: 6 + depth * 12 }}
-        onClick={() => actions.select(node.id)}
-        onDoubleClick={() => renamable && actions.beginRename(node.id)}
+        onClick={() => select(node.id)}
+        onDoubleClick={() => renamable && beginRename(node.id)}
       >
         <span
           className="twisty"
           onClick={(e) => {
             e.stopPropagation()
-            if (hasChildren) actions.toggleExpand(node.id)
+            if (hasChildren) toggleExpand(node.id)
           }}
         >
           {hasChildren ? isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} /> : null}
@@ -74,15 +92,20 @@ const TreeNode = memo(function TreeNode({
         {renaming ? (
           <RenameInput
             initial={displayName}
-            onCommit={(v) => actions.renameNode(node.id, v)}
-            onCancel={actions.cancelRename}
+            onCommit={(v) => {
+              startTransition(async () => {
+                setOptimisticName(v)
+                renameNode(node.id, v)
+              })
+            }}
+            onCancel={cancelRename}
           />
         ) : (
           <span
             className={`node-label ${!renamable ? 'locked' : ''}`}
-            title={node.itemDescription || displayName}
+            title={node.itemDescription || optimisticName}
           >
-            {displayName}
+            {optimisticName}
           </span>
         )}
         {!renaming && (
@@ -95,7 +118,7 @@ const TreeNode = memo(function TreeNode({
                   disabled={!canUp}
                   onClick={(e) => {
                     e.stopPropagation()
-                    actions.moveNodeUp(node.id)
+                    moveNodeUp(node.id)
                   }}
                 >
                   <ChevronUp size={14} />
@@ -106,7 +129,7 @@ const TreeNode = memo(function TreeNode({
                   disabled={!canDown}
                   onClick={(e) => {
                     e.stopPropagation()
-                    actions.moveNodeDown(node.id)
+                    moveNodeDown(node.id)
                   }}
                 >
                   <ChevronDown size={14} />
@@ -119,7 +142,7 @@ const TreeNode = memo(function TreeNode({
                 title="Add Component"
                 onClick={(e) => {
                   e.stopPropagation()
-                  actions.addComponent(node.id)
+                  addComponent(node.id)
                 }}
               >
                 <Plus size={14} />
@@ -131,7 +154,7 @@ const TreeNode = memo(function TreeNode({
                 title="Add Item"
                 onClick={(e) => {
                   e.stopPropagation()
-                  actions.openAddItem(node.id)
+                  openAddItem(node.id)
                 }}
               >
                 <Plus size={14} />
@@ -143,7 +166,7 @@ const TreeNode = memo(function TreeNode({
               title="Settings"
               onClick={(e) => {
                 e.stopPropagation()
-                actions.openSettings(node.id)
+                openSettings(node.id)
               }}
             >
               <Pencil size={13} />
@@ -159,7 +182,7 @@ const TreeNode = memo(function TreeNode({
                       `Delete ${displayName}? The DATA count will decrease by one.`
                     )
                   ) {
-                    actions.deleteNode(node.id)
+                    deleteNode(node.id)
                   }
                 }}
               >
@@ -173,7 +196,7 @@ const TreeNode = memo(function TreeNode({
                 onClick={(event) => {
                   event.stopPropagation()
                   if (window.confirm(`Delete the page "${displayName}"?`)) {
-                    actions.deleteNode(node.id)
+                    deleteNode(node.id)
                   }
                 }}
               >
@@ -191,7 +214,7 @@ const TreeNode = memo(function TreeNode({
                       `Delete ${displayName} and everything inside it (items, pages, sub-components)?`
                     )
                   ) {
-                    actions.deleteNode(node.id)
+                    deleteNode(node.id)
                   }
                 }}
               >
@@ -216,7 +239,7 @@ const TreeNode = memo(function TreeNode({
       {isOpen && visibleChildren.map((c) => <TreeNode key={c.id} node={c} depth={depth + 1} />)}
     </>
   )
-})
+}
 
 export default TreeNode
 

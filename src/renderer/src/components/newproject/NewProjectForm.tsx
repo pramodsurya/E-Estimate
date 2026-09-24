@@ -53,6 +53,7 @@ export function ProjectDetailsForm({
   const [loadError, setLoadError] = useState<string | null>(null)
   const hasSorZones = sorYear === '2026-27'
 
+  const initialSorYear = initialMeta?.sorYear
   useEffect(() => {
     let alive = true
     void (async () => {
@@ -60,8 +61,8 @@ export function ProjectDetailsForm({
         const loaded = await fetchSorYears()
         if (!alive) return
         const base = loaded.length ? loaded : FALLBACK_YEARS
-        const list = initialMeta?.sorYear && !base.includes(initialMeta.sorYear)
-          ? [initialMeta.sorYear, ...base]
+        const list = initialSorYear && !base.includes(initialSorYear)
+          ? [initialSorYear, ...base]
           : base
         setYears(list)
         setSorYear((current) => current || list[0] || '')
@@ -75,21 +76,30 @@ export function ProjectDetailsForm({
     return () => {
       alive = false
     }
-  }, [])
+  }, [initialSorYear])
 
-  useEffect(() => {
+  const [prevHasSorZones, setPrevHasSorZones] = useState(hasSorZones)
+  if (prevHasSorZones !== hasSorZones) {
+    setPrevHasSorZones(hasSorZones)
     if (!hasSorZones) setSorZone('zone_3')
-  }, [hasSorZones])
+  }
 
-  useEffect(() => {
+  const [prevSorYear, setPrevSorYear] = useState(sorYear)
+  if (prevSorYear !== sorYear) {
+    setPrevSorYear(sorYear)
     if (!sorYear) {
       setAreaAllowance(null)
       setAllowanceError(null)
-      return
+      setResolvingAllowance(false)
+    } else {
+      setResolvingAllowance(true)
+      setAllowanceError(null)
     }
+  }
+
+  useEffect(() => {
+    if (!sorYear) return
     let alive = true
-    setResolvingAllowance(true)
-    setAllowanceError(null)
     void resolveManualAreaAllowance(manualAllowanceType || null, sorYear)
       .then((resolved) => {
         if (alive) setAreaAllowance(resolved)

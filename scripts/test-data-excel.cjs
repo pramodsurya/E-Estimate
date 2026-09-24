@@ -5,6 +5,7 @@ const path = require('node:path');
 const ts = require('typescript');
 const os = require('node:os');
 const { execSync } = require('child_process');
+const readExcelRust = require('./read-excel-rust.cjs');
 
 const root = 'C:/Users/napra/OneDrive/Desktop/Software E-estimate';
 
@@ -97,7 +98,19 @@ const dataTypst = loadTs(path.join(root, 'src/renderer/src/lib/typist-output/dat
 });
 
 const dataExcel = loadTs(path.join(root, 'src/renderer/src/lib/excel-output/dataExcel.ts'), {
-  '../typist-output/dataTypst': dataTypst
+  '../typist-output/dataTypst': dataTypst,
+  '../dataSheets': { calculateDataSheets: async (sheets) => sheets },
+  './excelDocumentSettings': {
+    resolveExcelDocumentSettings: (project) => documentSettings.resolveProjectDocumentSettings(project.projectPrintSettings),
+    excelPrintSettings: (settings) => ({
+      pageSize: settings.pageSize,
+      orientation: settings.orientation,
+      marginsMm: settings.margins,
+      fontName: 'Times New Roman',
+      fontSizePt: settings.fontSizePt
+    })
+  },
+  './excelSignature': { excelSignatureSettings: () => ({ placement: 'subject_end', rows: [] }) }
 });
 
 async function runTest() {
@@ -294,6 +307,7 @@ async function runTest() {
   // 3. Payload content: everything the old ExcelJS read-back asserted must be
   // present in the payload the native compiler receives (no xlsx reader remains).
   assert.equal(payload.projectName, 'Test Irrigation Project', 'Payload carries project name');
+  assert.deepEqual(payload.dataSignature, { placement: 'subject_end', rows: [] }, 'DATA signature setting is included in the native payload');
   assert.equal(payload.sorYear, '2026-27', 'Payload carries SOR year');
   assert.equal(payload.sorZone, 'ZONE-3', 'Payload carries SOR zone');
   assert.equal(payload.recipes.length, 2, 'Two SSR recipe payloads (Reach 1 + Reach 2)');
@@ -311,7 +325,7 @@ async function runTest() {
   console.log('Payload verified: 2 SSR recipes + 1 SOR row, scopes, allowance, avg + weighted lead details.');
 
   // 4. Static contract: the Rust data path must accept exactly this shape.
-  const rustCompiler = fs.readFileSync(path.join(root, 'src-tauri/src/excel_compile.rs'), 'utf8');
+  const rustCompiler = readExcelRust(root);
   assert.ok(rustCompiler.includes('pub recipes: Vec<ExcelRecipe>'), 'Rust data path reads recipes');
   assert.ok(rustCompiler.includes('pub sor: Vec<ExcelSorItem>'), 'Rust data path reads sor rows');
   console.log('Rust contract verified: recipes + sor payload fields present.');
@@ -378,7 +392,7 @@ async function runTest() {
   assert.ok(!rustTypst.includes('comemo::evict'), 'memoization survives across compiles');
   assert.ok(rustTypst.includes('content_hash') && rustTypst.includes('prefer_path') && rustTypst.includes('figure_refs'), 'Rust accepts hash + fast-path + figure refs');
   assert.ok(rustTypst.includes('pdf_path') && rustTypst.includes('cache_hit'), 'Rust reports path + hit flag');
-  const rustExcel = fs.readFileSync(path.join(root, 'src-tauri/src/excel_compile.rs'), 'utf8');
+  const rustExcel = readExcelRust(root);
   assert.ok(rustExcel.includes('prefer_path') && rustExcel.includes('file_path'), 'Excel accepts the fast path');
   const rustExport = fs.readFileSync(path.join(root, 'src-tauri/src/export.rs'), 'utf8');
   assert.ok(rustExport.includes('source_path') && rustExport.includes('e-estimate-compile-cache'), 'Export copies from the guarded cache dir');

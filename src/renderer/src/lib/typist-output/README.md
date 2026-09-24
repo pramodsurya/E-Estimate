@@ -1,5 +1,9 @@
 # Default Typst designs
 
+Calculation and shared-output changes must follow
+[`../estimate-output/BUILDER-AI-README.md`](../estimate-output/BUILDER-AI-README.md).
+Typst templates are renderers, not calculation drivers.
+
 Edit these actual Typst files to change the software defaults:
 
 | File | Content and descriptive data root |

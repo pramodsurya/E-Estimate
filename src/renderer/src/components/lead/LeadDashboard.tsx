@@ -54,9 +54,12 @@ export default function LeadDashboard(): JSX.Element | null {
   const snapshotValid = project
     ? dashboardContextMatches(project.dashboardSnapshot, project)
     : false
-  const entries: CompiledLeadDashboardEntry[] = snapshotValid
-    ? project?.dashboardSnapshot?.leadDashboardEntries ?? []
-    : []
+  const entries: CompiledLeadDashboardEntry[] = useMemo(() => {
+    if (!project || !dashboardContextMatches(project.dashboardSnapshot, project)) {
+      return []
+    }
+    return project.dashboardSnapshot?.leadDashboardEntries ?? []
+  }, [project])
 
   const materialCount = useMemo(
     () => new Set(entries.map((entry) => entry.materialName.trim().toLowerCase())).size,
@@ -85,11 +88,13 @@ export default function LeadDashboard(): JSX.Element | null {
   const [editingHeader, setEditingHeader] = useState(false)
   const [draftTitle, setDraftTitle] = useState(statementTitle)
   const [draftSubtitle, setDraftSubtitle] = useState(statementSubtitle)
+  const [prevHeader, setPrevHeader] = useState({ title: statementTitle, subtitle: statementSubtitle })
 
-  useEffect(() => {
+  if (statementTitle !== prevHeader.title || statementSubtitle !== prevHeader.subtitle) {
+    setPrevHeader({ title: statementTitle, subtitle: statementSubtitle })
     setDraftTitle(statementTitle)
     setDraftSubtitle(statementSubtitle)
-  }, [statementTitle, statementSubtitle])
+  }
 
   const handleSaveHeader = async (): Promise<void> => {
     updateLeadPrintOverrides({
@@ -114,10 +119,12 @@ export default function LeadDashboard(): JSX.Element | null {
   // --- Notes / Remarks Editing State ---
   const [editingNotes, setEditingNotes] = useState(false)
   const [draftNotes, setDraftNotes] = useState(statementNotes)
+  const [prevNotes, setPrevNotes] = useState(statementNotes)
 
-  useEffect(() => {
+  if (statementNotes !== prevNotes) {
+    setPrevNotes(statementNotes)
     setDraftNotes(statementNotes)
-  }, [statementNotes])
+  }
 
   const handleSaveNotes = async (): Promise<void> => {
     updateLeadPrintOverrides({
@@ -171,18 +178,52 @@ export default function LeadDashboard(): JSX.Element | null {
 
   if (!project) return null
 
-  const syncDashboard = async (): Promise<void> => {
-    if (syncing) return
+  const syncDashboard = async (): Promise<boolean> => {
+    if (syncing) return false
     setSyncing(true)
     setError('')
     try {
       const next = await syncLeadDashboardSnapshot(project)
-      if (useStore.getState().project?.id === project.id) setDashboardSnapshot(next)
+      if (useStore.getState().project !== project) {
+        setError('Lead changed while Sync was running. Sync again before opening output.')
+        return false
+      }
+      setDashboardSnapshot(next)
+      const synced = useStore.getState().project
+      const ready = Boolean(
+        synced &&
+        synced.id === project.id &&
+        dashboardContextMatches(synced.dashboardSnapshot, synced) &&
+        synced.dashboardSnapshot?.leadSyncedAt &&
+        synced.dashboardSnapshot?.leadCompileSignature === dashboardLeadCompileSignature(synced)
+      )
+      if (!ready) {
+        setError('Lead Sync finished without producing a valid output snapshot.')
+        return false
+      }
+      return true
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : 'Unable to sync the Lead Dashboard.')
+      return false
     } finally {
       setSyncing(false)
     }
+  }
+
+  const openLeadOutput = async (output: 'preview' | 'studio'): Promise<void> => {
+    if (output === 'studio') {
+      setPrintStudioOpen(true)
+      return
+    }
+    if (!compiled && !(await syncDashboard())) return
+    const current = useStore.getState().project
+    if (!current || current.id !== project.id ||
+      !dashboardContextMatches(current.dashboardSnapshot, current) ||
+      current.dashboardSnapshot?.leadCompileSignature !== dashboardLeadCompileSignature(current)) {
+      setError('Lead changed after Sync. Sync again before opening output.')
+      return
+    }
+    if (output === 'preview') setPrintPreview(true)
   }
 
   const chart = project.leadChart ?? {
@@ -242,13 +283,14 @@ export default function LeadDashboard(): JSX.Element | null {
           </button>
           <button
             className="btn ghost"
-            onClick={() => setPrintPreview(true)}
+            disabled={syncing}
+            onClick={() => void openLeadOutput('preview')}
           >
             <Printer size={15} /> Print Preview
           </button>
           <button
             className="btn ghost"
-            onClick={() => setPrintStudioOpen(true)}
+            onClick={() => void openLeadOutput('studio')}
           >
             <Eye size={15} /> Open Print Studio
           </button>
@@ -689,7 +731,11 @@ export default function LeadDashboard(): JSX.Element | null {
       {printStudioOpen && (
         <LeadPrintStudioSession
           project={project}
-          entries={entries}
+          entries={project.dashboardSnapshot?.leadDashboardEntries ?? []}
+          snapshotStale={!compiled}
+          onRequestSync={async () => {
+            if (!(await syncDashboard())) throw new Error('Lead Sync did not complete. Check the dashboard error and retry.')
+          }}
           variants={chart.variants ?? []}
           applications={chart.applications ?? []}
           assignments={chart.assignments ?? []}

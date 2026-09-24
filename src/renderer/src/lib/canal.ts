@@ -22,6 +22,13 @@ import type {
   CanalMaterialItem,
   CanalPoint,
   CanalSection,
+  CanalSoilStratum,
+  CanalCutBermConfig,
+  CanalStrataSlopeConfig,
+  CanalBankBermStep,
+  CanalBankTier,
+  CanalBankDesignConfig,
+  CanalTierFoundationConfig,
   GuideWallPoint,
   TemplateMaterialRef,
   ProjectNode
@@ -150,7 +157,197 @@ export function parseCanalDetailId(selectedId: string | null): string | null {
   return componentId ? componentId : null
 }
 
-export function defaultCanalDesign(): CanalDesign {
+export function defaultCanalCutBermConfig(): CanalCutBermConfig {
+  return {
+    enabled: false,
+    mode: 'programmatic',
+    firstBermAtTbl: true,
+    intervalM: 6.0,
+    minTopClearanceM: 7.5,
+    width: 2.0,
+    manualBaseSlope: 1.5,
+    manualBerms: [
+      { id: 'manual-berm-1', heightAboveBed: 6.0, width: 2.0, slope: 1.0 },
+      { id: 'manual-berm-2', heightAboveBed: 12.0, width: 2.0, slope: 0.75 }
+    ]
+  }
+}
+
+export function defaultCanalStrataSlopeConfig(): CanalStrataSlopeConfig {
+  return {
+    allSoilsSlope: 1.5,
+    hdrSlope: 0.75,
+    ffSlope: 0.5,
+    hrSlope: 0.25
+  }
+}
+
+export function defaultCanalTierFoundationConfig(): CanalTierFoundationConfig {
+  return {
+    foundation: 'none',
+    foundationPercentage: 100,
+    blanket: 'none',
+    blanketWidthMode: 'automatic',
+    blanketLeftWidth: 0,
+    blanketRightWidth: 0,
+    blanketThickness: 0.25,
+    horizontalFilter: false,
+    filterLengthMode: 'automatic',
+    filterLeftLength: 0,
+    filterRightLength: 0,
+    filterThickness: 0.25,
+    rockToe: false,
+    rockToeSide: 'both',
+    rockToeWidth: 0.5,
+    rockToeHeight: 0
+  }
+}
+
+export function defaultCanalBankDesignConfig(canalMode: 'new' | 'repair' = 'new'): CanalBankDesignConfig {
+  return {
+    mode: canalMode === 'repair' ? 'legacy' : 'tiered',
+    linkSymmetrical: true,
+    minClearanceToGround: 1.0,
+    leftTiers: [
+      {
+        id: 'tier-low',
+        name: 'Low Bund',
+        minFillHeight: 0,
+        maxFillHeight: 3.0,
+        crestWidth: 2.0,
+        sectionType: 'homogeneous',
+        baseSlope: 1.5,
+        berms: [],
+        foundationTreatment: defaultCanalTierFoundationConfig()
+      },
+      {
+        id: 'tier-medium',
+        name: 'Medium Bund',
+        minFillHeight: 3.0,
+        maxFillHeight: 6.0,
+        crestWidth: 3.0,
+        sectionType: 'homogeneous',
+        baseSlope: 1.5,
+        berms: [
+          {
+            id: 'tier-med-b1',
+            dropHeight: 3.0,
+            shelfWidth: 2.0,
+            slopeAfterBerm: 2.0
+          }
+        ],
+        heartingTopWidth: 1.5,
+        heartingSideSlope: 1.0,
+        foundationTreatment: defaultCanalTierFoundationConfig()
+      },
+      {
+        id: 'tier-high',
+        name: 'High Bund',
+        minFillHeight: 6.0,
+        maxFillHeight: 9999,
+        crestWidth: 4.0,
+        sectionType: 'homogeneous',
+        baseSlope: 1.5,
+        berms: [
+          {
+            id: 'tier-high-b1',
+            dropHeight: 3.0,
+            shelfWidth: 2.0,
+            slopeAfterBerm: 2.0
+          },
+          {
+            id: 'tier-high-b2',
+            dropHeight: 3.0,
+            shelfWidth: 2.5,
+            slopeAfterBerm: 2.5
+          }
+        ],
+        heartingTopWidth: 2.0,
+        heartingSideSlope: 1.0,
+        foundationTreatment: defaultCanalTierFoundationConfig()
+      }
+    ],
+    rightTiers: [
+      {
+        id: 'tier-low-r',
+        name: 'Low Bund',
+        minFillHeight: 0,
+        maxFillHeight: 3.0,
+        crestWidth: 2.0,
+        sectionType: 'homogeneous',
+        baseSlope: 1.5,
+        berms: [],
+        foundationTreatment: defaultCanalTierFoundationConfig()
+      },
+      {
+        id: 'tier-medium-r',
+        name: 'Medium Bund',
+        minFillHeight: 3.0,
+        maxFillHeight: 6.0,
+        crestWidth: 3.0,
+        sectionType: 'homogeneous',
+        baseSlope: 1.5,
+        berms: [
+          {
+            id: 'tier-med-b1-r',
+            dropHeight: 3.0,
+            shelfWidth: 2.0,
+            slopeAfterBerm: 2.0
+          }
+        ],
+        heartingTopWidth: 1.5,
+        heartingSideSlope: 1.0,
+        foundationTreatment: defaultCanalTierFoundationConfig()
+      },
+      {
+        id: 'tier-high-r',
+        name: 'High Bund',
+        minFillHeight: 6.0,
+        maxFillHeight: 9999,
+        crestWidth: 4.0,
+        sectionType: 'homogeneous',
+        baseSlope: 1.5,
+        berms: [
+          {
+            id: 'tier-high-b1-r',
+            dropHeight: 3.0,
+            shelfWidth: 2.0,
+            slopeAfterBerm: 2.0
+          },
+          {
+            id: 'tier-high-b2-r',
+            dropHeight: 3.0,
+            shelfWidth: 2.5,
+            slopeAfterBerm: 2.5
+          }
+        ],
+        heartingTopWidth: 2.0,
+        heartingSideSlope: 1.0,
+        foundationTreatment: defaultCanalTierFoundationConfig()
+      }
+    ]
+  }
+}
+
+export function selectCanalBankTier(
+  config: CanalBankDesignConfig | undefined,
+  side: 'left' | 'right',
+  fillHeight: number
+): CanalBankTier | null {
+  if (!config || config.mode !== 'tiered') return null
+  const tiers = (config.linkSymmetrical ? config.leftTiers : (side === 'left' ? config.leftTiers : config.rightTiers)) ?? []
+  if (tiers.length === 0) return null
+  const sorted = [...tiers].sort((a, b) => a.minFillHeight - b.minFillHeight)
+  const h = Math.max(0, fillHeight)
+  for (const tier of sorted) {
+    if (h >= tier.minFillHeight - 1e-6 && h < tier.maxFillHeight - 1e-6) {
+      return tier
+    }
+  }
+  return sorted[sorted.length - 1]
+}
+
+export function defaultCanalDesign(canalMode: 'new' | 'repair' = 'new'): CanalDesign {
   return {
     bedLevelAtStart: 0,
     discharge: 2,
@@ -164,6 +361,9 @@ export function defaultCanalDesign(): CanalDesign {
     rightBankCrestWidth: 2,
     rightBankOuterSlope: 2,
     berms: [],
+    cutBermConfig: defaultCanalCutBermConfig(),
+    strataSlopes: defaultCanalStrataSlopeConfig(),
+    bankConfig: defaultCanalBankDesignConfig(canalMode),
     serviceRoadReaches: [],
     bankSectionType: 'homogeneous',
     zonedReaches: [],
@@ -192,10 +392,10 @@ export function defaultCanalDesign(): CanalDesign {
   }
 }
 
-export function defaultCanalData(): CanalData {
+export function defaultCanalData(mode: 'new' | 'repair' = 'new'): CanalData {
   return {
     configured: false,
-    mode: 'new',
+    mode,
     source: 'map',
     alignment: [],
     lengthM: 0,
@@ -204,7 +404,7 @@ export function defaultCanalData(): CanalData {
     sectionMode: 'continuous',
     intervalM: 100,
     breaks: [],
-    design: defaultCanalDesign(),
+    design: defaultCanalDesign(mode),
     strippingDepth: 0.6,
     foundationExcavationReaches: [],
     foundationFillReaches: [],
@@ -248,13 +448,26 @@ function normalizeCanalSection(value: unknown): CanalSection | null {
     designPopulated: section.designPopulated !== false,
     designPointOffsets: Array.isArray(section.designPointOffsets)
       ? section.designPointOffsets.filter((offset): offset is number => Number.isFinite(offset))
-      : []
+      : [],
+    strata: Array.isArray(section.strata)
+      ? section.strata
+          .filter((s): s is CanalSoilStratum => Boolean(s && typeof s === 'object' && typeof (s as CanalSoilStratum).name === 'string' && Number.isFinite((s as CanalSoilStratum).thickness) && Number.isFinite((s as CanalSoilStratum).slope)))
+          .map((s) => ({
+            id: typeof s.id === 'string' ? s.id : newId(),
+            name: s.name,
+            thickness: Math.max(0, s.thickness),
+            slope: Math.max(0.01, s.slope),
+            description: typeof s.description === 'string' ? s.description : undefined,
+            color: typeof s.color === 'string' ? s.color : undefined
+          }))
+      : undefined
   }
 }
 
 /** Forward-compatible loader: old/partial canal state gains fresh defaults. */
 export function migrateCanalData(raw: CanalData): CanalData {
-  const design = { ...defaultCanalDesign(), ...(raw.design ?? {}) }
+  const canalMode = raw.mode === 'repair' ? 'repair' : 'new'
+  const design = { ...defaultCanalDesign(canalMode), ...(raw.design ?? {}) }
   const normalizeBands = (value: unknown): CanalExcavationBand[] => Array.isArray(value)
     ? value.filter((band) => band && typeof band === 'object').map((band, index) => {
         const row = band as Partial<CanalExcavationBand>
@@ -330,7 +543,7 @@ export function migrateCanalData(raw: CanalData): CanalData {
       }))
     : defaultCanalBankMaterialAllocations()
   return {
-    ...defaultCanalData(),
+    ...defaultCanalData(canalMode),
     ...raw,
     source:
       raw.source === 'manual' || (raw.source as string) === 'skip' ? 'manual' : 'map',
@@ -565,6 +778,23 @@ export function materializeCanalSections(
     !generatedChainages.has(section.chainage)
   )
   return [...generated, ...manual].sort((a, b) => a.chainage - b.chainage)
+}
+
+/**
+ * Keep the sections consistent when the component length is edited outside the
+ * setup wizard (Edit length, geometry import): drop breaks beyond the new
+ * length and re-materialize, carrying over every section whose chainage
+ * survives. Unconfigured data only takes the length.
+ */
+export function resizeCanalSections(data: CanalData, lengthM: number): CanalData {
+  const next: CanalData = {
+    ...data,
+    lengthM,
+    breaks: lengthM > 0 ? data.breaks.filter((b) => b > 0 && b < lengthM) : []
+  }
+  if (!data.configured) return next
+  next.sections = lengthM > 0 ? materializeCanalSections(next, data.sections) : []
+  return next
 }
 
 export function newManualCanalSection(chainage: number): CanalSection {
@@ -896,19 +1126,16 @@ export function canalServiceRoadQuantities(data: CanalData, reach: CanalDesign['
 
 /**
  * Automatic hearting level check for one bank foundation at a chainage.
- * A zoned reach only makes the section eligible; the hydraulic/foundation
- * rules can still suppress hearting at that location.
+ * In tiered mode, applicability is governed by the matched tier's sectionType.
+ * In legacy mode, a zoned reach makes the section eligible.
  */
 export function canalHeartingLevelAt(
   data: CanalData,
   chainage: number,
-  preparedGroundRl: number
+  preparedGroundRl: number,
+  bank?: 'left' | 'right'
 ): CanalHeartingLevel | null {
-  if (data.design.bankSectionType !== 'zoned') return null
-  const inZonedReach = data.design.zonedReaches.some(
-    (reach) => chainage >= reach.fromChainage && chainage <= reach.toChainage
-  )
-  if (!inZonedReach || !Number.isFinite(preparedGroundRl)) return null
+  if (!Number.isFinite(preparedGroundRl)) return null
   const bed = canalBedLevelAt(data, chainage)
   if (bed == null) return null
   const fsl = bed + data.design.fullSupplyDepth
@@ -920,6 +1147,28 @@ export function canalHeartingLevelAt(
   const topRl = fsl + adjustment
   const height = topRl - preparedGroundRl
   if (height < Math.max(0, data.design.minimumHeartingHeight)) return null
+
+  if (data.design.bankSectionType === 'zoned' && (data.design.zonedReaches ?? []).length > 0) {
+    const inZonedReach = data.design.zonedReaches.some(
+      (reach) => chainage >= reach.fromChainage && chainage <= reach.toChainage
+    )
+    if (!inZonedReach) return null
+    return { fsl, topRl, preparedGroundRl, height }
+  }
+
+  if (data.design.bankConfig?.mode === 'tiered') {
+    const bankTopRl = bed + canalSectionDepth(data.design)
+    const fillHeight = Math.max(0, bankTopRl - preparedGroundRl)
+    const tier = selectCanalBankTier(data.design.bankConfig, bank ?? 'left', fillHeight)
+    if (!tier || tier.sectionType !== 'zoned') return null
+    return { fsl, topRl, preparedGroundRl, height }
+  }
+
+  if (data.design.bankSectionType !== 'zoned') return null
+  const inZonedReach = data.design.zonedReaches.some(
+    (reach) => chainage >= reach.fromChainage && chainage <= reach.toChainage
+  )
+  if (!inZonedReach) return null
   return { fsl, topRl, preparedGroundRl, height }
 }
 
@@ -932,24 +1181,40 @@ export function canalHeartingProfiles(data: CanalData, section: CanalSection): C
   const profiles: CanalHeartingProfile[] = []
   for (const bank of ['left', 'right'] as const) {
     const direction = bank === 'left' ? -1 : 1
-    const crestWidth = bank === 'left' ? design.leftBankCrestWidth : design.rightBankCrestWidth
-    if (!(crestWidth > 0)) continue
+    const defaultCrestWidth = bank === 'left' ? design.leftBankCrestWidth : design.rightBankCrestWidth
     const innerFace = bank === 'left' ? 'left-canal' : 'right-canal'
     const halfTopCanal = design.bedWidth / 2 + design.sideSlope * canalSectionDepth(design) +
       design.berms.filter((berm) => berm.face === innerFace && berm.heightAboveBed > 0 && berm.heightAboveBed < canalSectionDepth(design)).reduce((sum, berm) => sum + Math.max(0, berm.width), 0)
+
+    const initialCentre = direction * (halfTopCanal + defaultCrestWidth / 2)
+    const initialExistingGroundRl = canalGroundLevelAt(ground, initialCentre)
+    const initialFoundationRl = canalFoundationRlAt(data, section.chainage)
+    const initialPreparedGroundRl = initialExistingGroundRl == null ? null : (initialFoundationRl == null ? initialExistingGroundRl : Math.min(initialExistingGroundRl, initialFoundationRl))
+
+    const bankTopRl = bed + canalSectionDepth(design)
+    const fillHeight = initialPreparedGroundRl != null ? Math.max(0, bankTopRl - initialPreparedGroundRl) : 0
+    const isLegacyZoned = design.bankSectionType === 'zoned' && (design.zonedReaches ?? []).length > 0
+    const tier = design.bankConfig?.mode === 'tiered' && !isLegacyZoned ? selectCanalBankTier(design.bankConfig, bank, fillHeight) : null
+
+    const crestWidth = tier && tier.crestWidth > 0 ? tier.crestWidth : defaultCrestWidth
+    if (!(crestWidth > 0)) continue
+
     const centre = direction * (halfTopCanal + crestWidth / 2)
     const existingGroundRl = canalGroundLevelAt(ground, centre)
     if (existingGroundRl == null) continue
     const foundationRl = canalFoundationRlAt(data, section.chainage)
     const preparedGroundRl = foundationRl == null ? existingGroundRl : Math.min(existingGroundRl, foundationRl)
-    const level = canalHeartingLevelAt(data, section.chainage, preparedGroundRl)
+    const level = canalHeartingLevelAt(data, section.chainage, preparedGroundRl, bank)
     if (!level) continue
-    const topWidth = Math.min(Math.max(0.01, design.heartingTopWidth), crestWidth)
+    const configuredTopWidth = tier?.heartingTopWidth ?? design.heartingTopWidth
+    const topWidth = Math.min(Math.max(0.01, configuredTopWidth), crestWidth)
     const halfWidth = topWidth / 2
     const leftTop = centre - halfWidth
     const rightTop = centre + halfWidth
-    const leftRun = Math.max(0, design.heartingLeftSlope) * level.height
-    const rightRun = Math.max(0, design.heartingRightSlope) * level.height
+    const leftSlope = tier?.heartingSideSlope ?? design.heartingLeftSlope
+    const rightSlope = tier?.heartingSideSlope ?? design.heartingRightSlope
+    const leftRun = Math.max(0, leftSlope) * level.height
+    const rightRun = Math.max(0, rightSlope) * level.height
     const leftBottomOffset = leftTop - leftRun
     const rightBottomOffset = rightTop + rightRun
     const leftGroundRl = canalGroundLevelAt(ground, leftBottomOffset) ?? existingGroundRl
@@ -1103,26 +1368,185 @@ function canalSideProfile(
   }
   const innerTopOffset = offset
   const limit = dir === 1 ? ground[ground.length - 1].offset : ground[0].offset
-  const groundAtInnerTop = canalGroundLevelAt(ground, innerTopOffset)
+  const groundAtInnerTop = canalGroundLevelAt(ground, innerTopOffset) ?? (
+    (dir === 1 && innerTopOffset >= ground[ground.length - 1].offset) ? ground[ground.length - 1].rl
+    : (dir === -1 && innerTopOffset <= ground[0].offset) ? ground[0].rl
+    : null
+  )
   if (groundAtInnerTop != null && groundAtInnerTop >= top - 1e-9) {
+    const cutBermCfg = design.cutBermConfig ?? defaultCanalCutBermConfig()
+
+    // If cut berms are not enabled: continue excavation at standard canal design side slope without changing slope
+    if (!cutBermCfg.enabled) {
+      const continuingCut = designGroundToe(
+        offset,
+        (distance) => level + distance / innerSlope,
+        dir,
+        ground
+      )
+      if (continuingCut) {
+        points.push(continuingCut.crossing)
+      } else {
+        const targetGroundRl = dir === 1 ? ground[ground.length - 1].rl : ground[0].rl
+        if (targetGroundRl > level + 1e-6) {
+          const rise = targetGroundRl - level
+          const run = innerSlope * rise
+          points.push({ offset: offset + dir * run, rl: targetGroundRl })
+        } else {
+          const run = Math.max(0, dir * (limit - offset))
+          if (run > 1e-6) points.push({ offset: limit, rl: level + run / innerSlope })
+        }
+      }
+      return points
+    }
+
+    const cutHeight = groundAtInnerTop - bed
+    const tblHeight = depth
+    const isManual = cutBermCfg.mode === 'manual'
+    const manualBerms = isManual
+      ? (cutBermCfg.manualBerms ?? []).slice().sort((a, b) => a.heightAboveBed - b.heightAboveBed)
+      : []
+    const progBerms = computeCutBermsForCutHeight(cutHeight, tblHeight, cutBermCfg).filter((b) => b.status === 'placed')
+
+    if (progBerms.length > 0) {
+      for (const berm of progBerms) {
+        const targetLevel = bed + berm.heightAboveBed
+        if (targetLevel > level + 1e-6) {
+          let liftSlope: number
+          if (isManual) {
+            const prevManualBerm = manualBerms.find((mb) => Math.abs(bed + mb.heightAboveBed - level) < 0.05)
+            liftSlope = prevManualBerm?.slope ?? cutBermCfg.manualBaseSlope ?? innerSlope
+          } else {
+            liftSlope = getStratumCutSlopeAtRl(level, section, design)
+          }
+          liftSlope = Math.max(0.01, liftSlope)
+          const rise = targetLevel - level
+          const run = liftSlope * rise
+          const crossing = designGroundToe(offset, (dist) => level + dist / liftSlope, dir, ground, run)
+          if (crossing) {
+            points.push(crossing.crossing)
+            return points
+          }
+          offset += dir * run
+          level = targetLevel
+          points.push({ offset, rl: level })
+        }
+        if (berm.width > 0) {
+          const shelfCrossing = designGroundToe(offset, () => level, dir, ground, berm.width)
+          if (shelfCrossing) {
+            points.push(shelfCrossing.crossing)
+            return points
+          }
+          offset += dir * berm.width
+          points.push({ offset, rl: level })
+        }
+      }
+    }
+
+    // Slope from bottom of the final lift (at current `level`) up to natural ground.
+    // If no berm was placed, do not alter slope; continue at standard design inner slope.
+    let finalLiftSlope: number
+    if (progBerms.length === 0) {
+      finalLiftSlope = innerSlope
+    } else if (isManual) {
+      const prevManualBerm = manualBerms.find((mb) => Math.abs(bed + mb.heightAboveBed - level) < 0.05)
+      finalLiftSlope = prevManualBerm?.slope ?? cutBermCfg.manualBaseSlope ?? innerSlope
+    } else {
+      finalLiftSlope = getStratumCutSlopeAtRl(level, section, design)
+    }
+    finalLiftSlope = Math.max(0.01, finalLiftSlope)
     const continuingCut = designGroundToe(
-      innerTopOffset,
-      (distance) => top + distance / innerSlope,
+      offset,
+      (distance) => level + distance / finalLiftSlope,
       dir,
       ground
     )
-    if (continuingCut) points.push(continuingCut.crossing)
-    else {
-      const run = Math.max(0, dir * (limit - innerTopOffset))
-      if (run > 1e-6) points.push({ offset: limit, rl: top + run / innerSlope })
+    if (continuingCut) {
+      points.push(continuingCut.crossing)
+    } else {
+      const targetGroundRl = dir === 1 ? ground[ground.length - 1].rl : ground[0].rl
+      if (targetGroundRl > level + 1e-6) {
+        const rise = targetGroundRl - level
+        const run = finalLiftSlope * rise
+        points.push({ offset: offset + dir * run, rl: targetGroundRl })
+      } else {
+        const run = Math.max(0, dir * (limit - offset))
+        if (run > 1e-6) points.push({ offset: limit, rl: level + run / finalLiftSlope })
+      }
     }
     return points
   }
-  const crestWidth = side === 'left' ? design.leftBankCrestWidth : design.rightBankCrestWidth
-  const outerSlope = Math.max(0.01, side === 'left' ? design.leftBankOuterSlope : design.rightBankOuterSlope)
+  const bankConfig = design.bankConfig
+  const isTiered = bankConfig?.mode === 'tiered'
+  const fillHeight = Math.max(0, top - (groundAtInnerTop ?? bed))
+  const tier = isTiered ? selectCanalBankTier(bankConfig, side, fillHeight) : null
+
+  const crestWidth = tier && tier.crestWidth > 0
+    ? tier.crestWidth
+    : (side === 'left' ? design.leftBankCrestWidth : design.rightBankCrestWidth)
+
   offset = innerTopOffset + dir * Math.max(0, crestWidth)
   level = top
   if (crestWidth > 0) points.push({ offset, rl: level })
+
+  if (tier) {
+    const minClearance = bankConfig?.minClearanceToGround ?? 1.0
+    let currentSlope = Math.max(0.01, tier.baseSlope > 0 ? tier.baseSlope : (side === 'left' ? design.leftBankOuterSlope : design.rightBankOuterSlope))
+    const bermSteps = tier.berms ?? []
+
+    for (const step of bermSteps) {
+      const drop = Math.max(0.01, step.dropHeight)
+      const targetLevel = level - drop
+      const run = currentSlope * drop
+      const crossing = designGroundToe(offset, (dist) => level - dist / currentSlope, dir, ground, run)
+      if (crossing) {
+        points.push(crossing.crossing)
+        return points
+      }
+      const candidateOffset = offset + dir * run
+      const gAtBerm = canalGroundLevelAt(ground, candidateOffset)
+      if (gAtBerm != null && (targetLevel - gAtBerm < minClearance)) {
+        // Berm is within minimum clearance of ground; omit shelf and descend smoothly to ground
+        break
+      }
+      offset = candidateOffset
+      level = targetLevel
+      points.push({ offset, rl: level })
+
+      if (step.shelfWidth > 0) {
+        const shelfCrossing = designGroundToe(offset, () => level, dir, ground, step.shelfWidth)
+        if (shelfCrossing) {
+          points.push(shelfCrossing.crossing)
+          return points
+        }
+        offset += dir * step.shelfWidth
+        points.push({ offset, rl: level })
+      }
+
+      if (step.slopeAfterBerm > 0) {
+        currentSlope = Math.max(0.01, step.slopeAfterBerm)
+      }
+    }
+
+    const outerRun = Math.max(0, dir * (limit - offset))
+    const outerRlAtRun = (run: number): number => level - run / currentSlope
+    const bank = designGroundToe(offset, outerRlAtRun, dir, ground)
+    if (bank) {
+      points.push(bank.crossing)
+    } else {
+      const targetGroundRl = dir === 1 ? ground[ground.length - 1].rl : ground[0].rl
+      if (level > targetGroundRl + 1e-6) {
+        const drop = level - targetGroundRl
+        const run = currentSlope * drop
+        points.push({ offset: offset + dir * run, rl: targetGroundRl })
+      } else if (outerRun > 1e-6) {
+        points.push({ offset: limit, rl: outerRlAtRun(outerRun) })
+      }
+    }
+    return points
+  }
+
+  const outerSlope = Math.max(0.01, side === 'left' ? design.leftBankOuterSlope : design.rightBankOuterSlope)
   for (const berm of outerBerms) {
     const targetLevel = bed + berm.heightAboveBed
     const drop = Math.max(0, level - targetLevel)
@@ -1140,8 +1564,18 @@ function canalSideProfile(
   const outerRun = Math.max(0, dir * (limit - offset))
   const outerRlAtRun = (run: number): number => level - run / outerSlope
   const bank = designGroundToe(offset, outerRlAtRun, dir, ground)
-  if (bank) points.push(bank.crossing)
-  else if (outerRun > 1e-6) points.push({ offset: limit, rl: outerRlAtRun(outerRun) })
+  if (bank) {
+    points.push(bank.crossing)
+  } else {
+    const targetGroundRl = dir === 1 ? ground[ground.length - 1].rl : ground[0].rl
+    if (level > targetGroundRl + 1e-6) {
+      const drop = level - targetGroundRl
+      const run = outerSlope * drop
+      points.push({ offset: offset + dir * run, rl: targetGroundRl })
+    } else if (outerRun > 1e-6) {
+      points.push({ offset: limit, rl: outerRlAtRun(outerRun) })
+    }
+  }
   return points
 }
 
@@ -1155,6 +1589,37 @@ export function canalDesignProfile(data: CanalData, section: CanalSection): Cana
   const right = canalSideProfile(data, section, 'right')
   if (left.length < 2 || right.length < 2) return []
   return [...left.slice().reverse(), ...right.slice(1)]
+}
+
+/** Calculate the embankment fill height of the left or right bank at a section. */
+export function canalSectionBankFillHeight(
+  data: CanalData,
+  section: CanalSection,
+  side: 'left' | 'right'
+): number {
+  const bed = canalBedLevelAt(data, section.chainage) ?? data.design.bedLevelAtStart
+  const depth = canalSectionDepth(data.design)
+  const top = bed + depth
+  const dir = side === 'left' ? -1 : 1
+  const innerFace = side === 'left' ? 'left-canal' : 'right-canal'
+  const halfTopCanal = data.design.bedWidth / 2 + data.design.sideSlope * depth +
+    (data.design.berms ?? [])
+      .filter((b) => b.face === innerFace && b.heightAboveBed > 0 && b.heightAboveBed < depth)
+      .reduce((sum, b) => sum + Math.max(0, b.width), 0)
+  const innerTopOffset = dir * halfTopCanal
+  const ground = orderCanalPoints(section.ground ?? [])
+  const groundAtInnerTop = canalGroundLevelAt(ground, innerTopOffset)
+  return Math.max(0, top - (groundAtInnerTop ?? bed))
+}
+
+/** Select the active height tier governing the left or right bank at a section. */
+export function canalSectionBankTier(
+  data: CanalData,
+  section: CanalSection,
+  side: 'left' | 'right'
+): CanalBankTier | null {
+  const fillHeight = canalSectionBankFillHeight(data, section, side)
+  return selectCanalBankTier(data.design.bankConfig, side, fillHeight)
 }
 
 /**
@@ -1181,15 +1646,26 @@ export function canalGroundProfileBetweenToes(
     ).reduce((sum, berm) => sum + Math.max(0, berm.width), 0)
   const leftBermWidth = activeBermWidth('left')
   const rightBermWidth = activeBermWidth('right')
+  const cutBermCfg = design.cutBermConfig ?? defaultCanalCutBermConfig()
+  const progBermWidthForCut = (cutDepth: number): number => {
+    if (!cutBermCfg.enabled || cutDepth <= canalSectionDepth(design)) return 0
+    const berms = computeCutBermsForCutHeight(cutDepth, canalSectionDepth(design), cutBermCfg)
+    return berms.filter((b) => b.status === 'placed').reduce((sum, b) => sum + Math.max(0, b.width), 0)
+  }
+  const leftCutDepth = Math.max(0, leftToeRl - bed)
+  const rightCutDepth = Math.max(0, rightToeRl - bed)
+  const leftProgBermWidth = progBermWidthForCut(leftCutDepth)
+  const rightProgBermWidth = progBermWidthForCut(rightCutDepth)
+
   const leftSpread = Math.max(
     spread,
     halfTop + leftBermWidth + design.leftBankCrestWidth + design.leftBankOuterSlope * Math.max(0, top - leftToeRl) + 1,
-    design.bedWidth / 2 + activeBermWidth('left', true) + design.sideSlope * Math.max(0, leftToeRl - bed) + 1
+    design.bedWidth / 2 + activeBermWidth('left', true) + leftProgBermWidth + design.sideSlope * leftCutDepth + 5
   )
   const rightSpread = Math.max(
     spread,
     halfTop + rightBermWidth + design.rightBankCrestWidth + design.rightBankOuterSlope * Math.max(0, top - rightToeRl) + 1,
-    design.bedWidth / 2 + activeBermWidth('right', true) + design.sideSlope * Math.max(0, rightToeRl - bed) + 1
+    design.bedWidth / 2 + activeBermWidth('right', true) + rightProgBermWidth + design.sideSlope * rightCutDepth + 5
   )
   let ground: CanalPoint[] = [
     { offset: -leftSpread, rl: leftToeRl },
@@ -1256,9 +1732,21 @@ export function profileDifferenceBands(
   groundInput: CanalPoint[],
   designInput: CanalPoint[]
 ): CanalDifferenceBand[] {
-  const ground = orderCanalPoints(groundInput)
+  const rawGround = orderCanalPoints(groundInput)
   const design = orderCanalPoints(designInput)
-  if (ground.length < 2 || design.length < 2) return []
+  if (rawGround.length < 2 || design.length < 2) return []
+
+  let ground = rawGround
+  const minDesign = design[0].offset
+  const maxDesign = design[design.length - 1].offset
+  const minGround = rawGround[0].offset
+  const maxGround = rawGround[rawGround.length - 1].offset
+  if (minDesign < minGround - 1e-6 || maxDesign > maxGround + 1e-6) {
+    const leftExt = minDesign < minGround - 1e-6 ? [{ offset: minDesign, rl: rawGround[0].rl }] : []
+    const rightExt = maxDesign > maxGround + 1e-6 ? [{ offset: maxDesign, rl: rawGround[rawGround.length - 1].rl }] : []
+    ground = [...leftExt, ...rawGround, ...rightExt]
+  }
+
   const minOffset = Math.max(ground[0].offset, design[0].offset)
   const maxOffset = Math.min(ground[ground.length - 1].offset, design[design.length - 1].offset)
   if (!(maxOffset > minOffset)) return []
@@ -1337,7 +1825,7 @@ function polygonArea(points: CanalPoint[]): number {
   return Math.abs(sum) / 2
 }
 
-const round3 = (n: number): number => Math.round(n * 1000) / 1000
+export const round3 = (n: number): number => Math.round(n * 1000) / 1000
 
 export function canalFoundationRlAt(data: CanalData, chainage: number): number | null {
   if (data.mode !== 'new') return null
@@ -1361,31 +1849,59 @@ export function canalFoundationDepthAt(data: CanalData, chainage: number, ground
   return foundationRl == null || !Number.isFinite(groundRl) ? 0 : Math.max(0, (groundRl as number) - foundationRl)
 }
 
-function canalFillFootprintWidth(data: CanalData, section: CanalSection): number {
+/**
+ * Bund footprint offset ranges at a section.
+ * The bunds are strictly outside the canal bed (i.e. left bund: offset <= -halfBed, right bund: offset >= +halfBed).
+ * Beneath the canal bed (-halfBed to +halfBed) is the canal prism, not the bund.
+ */
+export function canalBundFootprintRanges(data: CanalData, section: CanalSection): Array<[number, number]> {
   const design = canalDesignProfile(data, section)
-  if (design.length < 2) return 0
-  return profileDifferenceBands(section.ground, design).filter((band) => !band.cutting).reduce((sum, band) => {
-    const offsets = band.points.map((point) => point.offset)
-    return sum + Math.max(0, Math.max(...offsets) - Math.min(...offsets))
-  }, 0)
+  if (design.length < 2) return []
+  const ground = orderCanalPoints(section.ground)
+  if (ground.length < 2) return []
+  const halfBed = Math.max(0, data.design.bedWidth / 2)
+  const ranges: Array<[number, number]> = []
+
+  for (const band of profileDifferenceBands(ground, design).filter((b) => !b.cutting)) {
+    const offsets = band.points.map((p) => p.offset)
+    const from = Math.min(...offsets)
+    const to = Math.max(...offsets)
+    // Left bund: outside left bed edge
+    if (Math.min(to, -halfBed) > from + 1e-4) {
+      ranges.push([from, Math.min(to, -halfBed)])
+    }
+    // Right bund: outside right bed edge
+    if (to > Math.max(from, halfBed) + 1e-4) {
+      ranges.push([Math.max(from, halfBed), to])
+    }
+  }
+  return ranges
 }
 
-/** Foundation-excavation polygons beneath the bank-fill footprint at a section. */
+export function canalFillFootprintWidth(data: CanalData, section: CanalSection): number {
+  return canalBundFootprintRanges(data, section).reduce((sum, [from, to]) => sum + Math.max(0, to - from), 0)
+}
+
+/** Foundation-excavation polygons beneath the bund footprint at a section. */
 export function canalFoundationExcavationBands(data: CanalData, section: CanalSection): CanalPoint[][] {
   const foundationRl = canalFoundationRlAt(data, section.chainage)
   if (foundationRl == null) return []
   const ground = orderCanalPoints(section.ground)
-  const design = canalDesignProfile(data, section)
-  if (ground.length < 2 || design.length < 2) return []
-  return profileDifferenceBands(ground, design).filter((band) => !band.cutting).map((band) => {
-    const offsets = band.points.map((point) => point.offset)
-    const from = Math.min(...offsets)
-    const to = Math.max(...offsets)
-    const topOffsets = [from, ...ground.filter((point) => point.offset > from && point.offset < to).map((point) => point.offset), to]
+  if (ground.length < 2) return []
+
+  const ranges = canalBundFootprintRanges(data, section)
+  const out: CanalPoint[][] = []
+  for (const [rFrom, rTo] of ranges) {
+    const topOffsets = [
+      rFrom,
+      ...ground.filter((p) => p.offset > rFrom && p.offset < rTo).map((p) => p.offset),
+      rTo
+    ]
     const top = topOffsets.map((offset) => ({ offset, rl: canalGroundLevelAt(ground, offset) ?? 0 }))
-    if (top.every((point) => point.rl <= foundationRl)) return null
-    return [...top, ...[...top].reverse().map((point) => ({ offset: point.offset, rl: Math.min(point.rl, foundationRl) }))]
-  }).filter((band): band is CanalPoint[] => band != null)
+    if (top.every((p) => p.rl <= foundationRl)) continue
+    out.push([...top, ...[...top].reverse().map((p) => ({ offset: p.offset, rl: Math.min(p.rl, foundationRl) }))])
+  }
+  return out
 }
 
 /** Deepest vertical foundation-excavation depth visible at this cross-section. */
@@ -1477,6 +1993,444 @@ function clipPolygonBelowRl(points: CanalPoint[], topRl: number): CanalPoint[] {
   return output
 }
 
+export function clipPolygonAboveRl(points: CanalPoint[], botRl: number): CanalPoint[] {
+  if (!points.length) return []
+  const output: CanalPoint[] = []
+  for (let index = 0; index < points.length; index += 1) {
+    const current = points[index]
+    const previous = points[(index + points.length - 1) % points.length]
+    const currentInside = current.rl >= botRl
+    const previousInside = previous.rl >= botRl
+    if (currentInside !== previousInside) {
+      const ratio = (botRl - previous.rl) / (current.rl - previous.rl)
+      output.push({ offset: previous.offset + ratio * (current.offset - previous.offset), rl: botRl })
+    }
+    if (currentInside) output.push(current)
+  }
+  return output
+}
+
+export function clipPolygonBand(points: CanalPoint[], botRl: number, topRl: number): CanalPoint[] {
+  return clipPolygonAboveRl(clipPolygonBelowRl(points, topRl), botRl)
+}
+
+export interface ProgrammaticBermStep {
+  index: number;
+  heightAboveBed: number;
+  width: number;
+  status: 'placed' | 'omitted';
+  remainingToGl: number;
+  reason: string;
+}
+
+/**
+ * Programmatic cut berm placement:
+ * 1. Inside main canal core (0 to TBL = FSD + Freeboard): no berms.
+ * 2. Berm 1: preferentially placed at TBL.
+ * 3. Subsequent berms: spaced at intervalM (default 6.0 m).
+ * 4. Threshold rule: A berm is only placed if at least minTopClearanceM (default 7.5 m)
+ *    space exists between the last berm and natural ground level (GL).
+ */
+export function computeProgrammaticBerms(
+  cutHeight: number,
+  tblHeight: number,
+  config: CanalCutBermConfig = defaultCanalCutBermConfig()
+): ProgrammaticBermStep[] {
+  if (!config.enabled || cutHeight <= tblHeight) return []
+
+  const results: ProgrammaticBermStep[] = []
+  const interval = Math.max(1.0, config.intervalM || 6.0)
+  const minClearance = Math.max(0.5, config.minTopClearanceM || 7.5)
+  const width = Math.max(0.5, config.width || 2.0)
+
+  // In shallow cuts where total cut above bed < minClearance, no berms are placed
+  if (cutHeight < minClearance) {
+    results.push({
+      index: 1,
+      heightAboveBed: tblHeight,
+      width,
+      status: 'omitted',
+      remainingToGl: round3(cutHeight - tblHeight),
+      reason: `No berm needed: total cut height (${round3(cutHeight)} m) is less than the ${minClearance} m minimum height threshold.`
+    })
+    return results
+  }
+
+  // 1. First berm at TBL
+  let lastPlacedHeight = tblHeight
+  const remainingAboveTbl = cutHeight - tblHeight
+
+  if (config.firstBermAtTbl) {
+    results.push({
+      index: 1,
+      heightAboveBed: round3(tblHeight),
+      width,
+      status: 'placed',
+      remainingToGl: round3(remainingAboveTbl),
+      reason: `Berm 1 placed at TBL (${round3(tblHeight)} m) with ${round3(remainingAboveTbl)} m remaining space to GL.`
+    })
+  } else {
+    lastPlacedHeight = 0
+  }
+
+  // 2. Subsequent berms
+  let stepIndex = results.filter((r) => r.status === 'placed').length + 1
+
+  while (true) {
+    const spaceFromLastBerm = cutHeight - lastPlacedHeight
+    const nextCandidateHeight = lastPlacedHeight + interval
+
+    // Check if remaining space from the last placed berm to GL is at least minClearance (7.5m)
+    if (spaceFromLastBerm < minClearance) {
+      if (nextCandidateHeight <= cutHeight + interval) {
+        results.push({
+          index: stepIndex,
+          heightAboveBed: round3(nextCandidateHeight),
+          width,
+          status: 'omitted',
+          remainingToGl: round3(spaceFromLastBerm),
+          reason: `Candidate Berm at ${round3(nextCandidateHeight)} m OMITTED: only ${round3(spaceFromLastBerm)} m space exists from last berm to GL (< ${minClearance} m threshold).`
+        })
+      }
+      break
+    }
+
+    // Space exists (>= minClearance), place the berm at lastPlacedHeight + interval
+    if (nextCandidateHeight < cutHeight) {
+      const remainingAfterCandidate = cutHeight - nextCandidateHeight
+      results.push({
+        index: stepIndex,
+        heightAboveBed: round3(nextCandidateHeight),
+        width,
+        status: 'placed',
+        remainingToGl: round3(remainingAfterCandidate),
+        reason: `Berm ${stepIndex} placed at ${round3(nextCandidateHeight)} m (+${interval} m) with ${round3(remainingAfterCandidate)} m remaining to GL.`
+      })
+      lastPlacedHeight = nextCandidateHeight
+      stepIndex += 1
+    } else {
+      break
+    }
+  }
+
+  return results
+}
+
+/**
+ * Manual cut berm evaluation with dynamic per-section discard rule:
+ * If the section's ground cut height <= berm heightAboveBed, the berm is DISCARDED (omitted)
+ * from that section. Only berms with heightAboveBed < cutHeight are placed.
+ */
+export function computeManualCutBerms(
+  cutHeight: number,
+  tblHeight: number,
+  config: CanalCutBermConfig = defaultCanalCutBermConfig()
+): ProgrammaticBermStep[] {
+  if (!config.enabled || cutHeight <= tblHeight) return []
+  const manualBerms = (config.manualBerms ?? []).slice().sort((a, b) => a.heightAboveBed - b.heightAboveBed)
+  const results: ProgrammaticBermStep[] = []
+
+  let stepIdx = 1
+  for (const mb of manualBerms) {
+    if (mb.heightAboveBed > tblHeight) {
+      if (mb.heightAboveBed < cutHeight) {
+        const remainingToGl = round3(cutHeight - mb.heightAboveBed)
+        results.push({
+          index: stepIdx,
+          heightAboveBed: round3(mb.heightAboveBed),
+          width: Math.max(0.5, mb.width || 2.0),
+          status: 'placed',
+          remainingToGl,
+          reason: `Manual Berm ${stepIdx} placed at ${round3(mb.heightAboveBed)} m (ground cut height ${round3(cutHeight)} m > ${round3(mb.heightAboveBed)} m). Slope after: ${mb.slope || 1.0} : 1.`
+        })
+        stepIdx += 1
+      } else {
+        results.push({
+          index: stepIdx,
+          heightAboveBed: round3(mb.heightAboveBed),
+          width: Math.max(0.5, mb.width || 2.0),
+          status: 'omitted',
+          remainingToGl: round3(cutHeight - mb.heightAboveBed),
+          reason: `Manual Berm at ${round3(mb.heightAboveBed)} m DISCARDED: ground cut height (${round3(cutHeight)} m) is below or at berm level (${round3(mb.heightAboveBed)} m).`
+        })
+        stepIdx += 1
+      }
+    }
+  }
+  return results
+}
+
+/**
+ * Unified cut berm evaluator that delegates to either programmatic (rule-based)
+ * or manual (user-defined benches with section discard rule).
+ */
+export function computeCutBermsForCutHeight(
+  cutHeight: number,
+  tblHeight: number,
+  config: CanalCutBermConfig = defaultCanalCutBermConfig()
+): ProgrammaticBermStep[] {
+  if (!config.enabled) return []
+  if (config.mode === 'manual') {
+    return computeManualCutBerms(cutHeight, tblHeight, config)
+  }
+  return computeProgrammaticBerms(cutHeight, tblHeight, config)
+}
+
+/** Standard default soil strata based on cutting depth below GL. */
+export function defaultSectionStrata(gl: number, cbl: number, defaultSlope: number = 1.5): CanalSoilStratum[] {
+  const totalCut = Math.max(0, gl - cbl)
+  if (totalCut <= 0.001) return []
+
+  const strata: CanalSoilStratum[] = []
+  if (totalCut <= 1.5) {
+    strata.push({
+      id: 'stratum-all-soils',
+      name: 'All Soils + SDR',
+      thickness: round3(totalCut),
+      slope: defaultSlope,
+      description: 'Topsoil, ordinary soil, and soft disintegrated rock',
+      color: '#d97706'
+    })
+  } else if (totalCut <= 3.5) {
+    strata.push(
+      {
+        id: 'stratum-all-soils',
+        name: 'All Soils + SDR',
+        thickness: 1.5,
+        slope: defaultSlope,
+        description: 'Topsoil, ordinary soil, and soft disintegrated rock',
+        color: '#d97706'
+      },
+      {
+        id: 'stratum-hdr',
+        name: 'Hard Disintegrated Rock (HDR)',
+        thickness: round3(totalCut - 1.5),
+        slope: 0.75,
+        description: 'Weathered and disintegrated rock layers',
+        color: '#b45309'
+      }
+    )
+  } else if (totalCut <= 6.0) {
+    strata.push(
+      {
+        id: 'stratum-all-soils',
+        name: 'All Soils + SDR',
+        thickness: 1.5,
+        slope: defaultSlope,
+        description: 'Topsoil, ordinary soil, and soft disintegrated rock',
+        color: '#d97706'
+      },
+      {
+        id: 'stratum-hdr',
+        name: 'Hard Disintegrated Rock (HDR)',
+        thickness: 2.0,
+        slope: 0.75,
+        description: 'Weathered and disintegrated rock layers',
+        color: '#b45309'
+      },
+      {
+        id: 'stratum-ff',
+        name: 'Fissured & Fractured Rock (F&F)',
+        thickness: round3(totalCut - 3.5),
+        slope: 0.50,
+        description: 'Fractured and fissured intermediate rock strata',
+        color: '#475569'
+      }
+    )
+  } else {
+    strata.push(
+      {
+        id: 'stratum-all-soils',
+        name: 'All Soils + SDR',
+        thickness: 1.5,
+        slope: defaultSlope,
+        description: 'Topsoil, ordinary soil, and soft disintegrated rock',
+        color: '#d97706'
+      },
+      {
+        id: 'stratum-hdr',
+        name: 'Hard Disintegrated Rock (HDR)',
+        thickness: 2.0,
+        slope: 0.75,
+        description: 'Weathered and disintegrated rock layers',
+        color: '#b45309'
+      },
+      {
+        id: 'stratum-ff',
+        name: 'Fissured & Fractured Rock (F&F)',
+        thickness: 2.5,
+        slope: 0.50,
+        description: 'Fractured and fissured intermediate rock strata',
+        color: '#475569'
+      },
+      {
+        id: 'stratum-hr',
+        name: 'Hard Rock (HR)',
+        thickness: round3(totalCut - 6.0),
+        slope: 0.25,
+        description: 'Solid sound hard rock requiring blasting/chiselling',
+        color: '#1e293b'
+      }
+    )
+  }
+  return strata
+}
+
+function resolveStratumSlope(stratum: CanalSoilStratum, slopes: CanalStrataSlopeConfig): number {
+  const name = (stratum.name || '').toLowerCase()
+  if (name.includes('hdr') || name.includes('hard disintegrated')) return slopes.hdrSlope ?? 0.75
+  if (name.includes('f&f') || name.includes('fractured') || name.includes('fissured')) return slopes.ffSlope ?? 0.5
+  if (name.includes('hard rock') || name.includes('hr') || name.includes('solid rock')) return slopes.hrSlope ?? 0.25
+  if (name.includes('soil') || name.includes('sdr') || name.includes('ordinary') || name.includes('murrum') || name.includes('gravel')) {
+    return slopes.allSoilsSlope ?? 1.5
+  }
+  return stratum.slope ?? slopes.allSoilsSlope ?? 1.5
+}
+
+/**
+ * Find the stratum at a given RL elevation from the section's soil profile,
+ * and return the corresponding cutting slope (bench-by-bench from bottom up).
+ */
+export function getStratumCutSlopeAtRl(
+  rl: number,
+  section: CanalSection,
+  design: CanalDesign
+): number {
+  const strata = section.strata && section.strata.length > 0 ? section.strata : []
+  const slopes = design.strataSlopes ?? defaultCanalStrataSlopeConfig()
+
+  if (strata.length === 0) {
+    return design.sideSlope ?? 1.5
+  }
+
+  // Calculate cumulative boundary RLs from ground down
+  const points = orderCanalPoints(section.ground ?? [])
+  const gl =
+    section.groundEntryMode === 'separate' && section.leftToeRl != null && section.rightToeRl != null
+      ? (section.leftToeRl + section.rightToeRl) / 2
+      : section.leftToeRl ?? points[0]?.rl ?? 0
+
+  let currentRl = gl
+  for (const stratum of strata) {
+    const bottomRl = currentRl - stratum.thickness
+    if (rl >= bottomRl - 1e-6) {
+      return resolveStratumSlope(stratum, slopes)
+    }
+    currentRl = bottomRl
+  }
+
+  const bottomStratum = strata[strata.length - 1]
+  return resolveStratumSlope(bottomStratum, slopes)
+}
+
+/**
+ * Find the stratum at a given RL elevation from the section's soil profile.
+ */
+export function getStratumAtRl(
+  rl: number,
+  section: CanalSection
+): CanalSoilStratum | null {
+  const strata = section.strata && section.strata.length > 0 ? section.strata : []
+  if (strata.length === 0) return null
+
+  const points = orderCanalPoints(section.ground ?? [])
+  const gl =
+    section.groundEntryMode === 'separate' && section.leftToeRl != null && section.rightToeRl != null
+      ? (section.leftToeRl + section.rightToeRl) / 2
+      : section.leftToeRl ?? points[0]?.rl ?? 0
+
+  let currentRl = gl
+  for (const stratum of strata) {
+    const bottomRl = currentRl - stratum.thickness
+    if (rl >= bottomRl - 1e-6) {
+      return stratum
+    }
+    currentRl = bottomRl
+  }
+
+  return strata[strata.length - 1] ?? null
+}
+
+export function getSectionStrata(section: CanalSection, gl: number, cbl: number, defaultSlope: number = 1.5): CanalSoilStratum[] {
+  if (section.strata && section.strata.length > 0) return section.strata
+  return defaultSectionStrata(gl, cbl, defaultSlope)
+}
+
+export interface CanalSectionStrataBand {
+  id: string;
+  name: string;
+  fromDepth: number;
+  toDepth: number;
+  thickness: number;
+  topRl: number;
+  bottomRl: number;
+  slope: number;
+  area: number;
+  pctOfCut: number;
+  color: string;
+}
+
+export function calculateSectionStrataBands(data: CanalData, section: CanalSection): CanalSectionStrataBand[] {
+  const points = orderCanalPoints(section.ground)
+  if (points.length < 2) return []
+
+  const gl = section.groundEntryMode === 'separate' && section.leftToeRl != null && section.rightToeRl != null
+    ? (section.leftToeRl + section.rightToeRl) / 2
+    : section.leftToeRl ?? points[0]?.rl ?? 0
+  const cbl = canalBedLevelAt(data, section.chainage) ?? data.design.bedLevelAtStart
+  const totalCut = Math.max(0, gl - cbl)
+  if (totalCut <= 0.001) return []
+
+  const strata = getSectionStrata(section, gl, cbl, data.design.sideSlope)
+  if (!strata.length) return []
+
+  const design = canalDesignProfile(data, section)
+  const diffBands = design.length >= 2 ? profileDifferenceBands(section.ground, design) : []
+  const cutPolygons = diffBands.filter((b) => b.cutting).map((b) => b.points)
+  const totalCutArea = cutPolygons.reduce((sum, p) => sum + polygonArea(p), 0)
+
+  let currentDepth = 0
+  let currentRl = gl
+
+  const result: CanalSectionStrataBand[] = []
+
+  for (let i = 0; i < strata.length; i += 1) {
+    const s = strata[i]
+    const thickness = s.thickness
+    const fromDepth = currentDepth
+    const toDepth = round3(currentDepth + thickness)
+    const topRl = currentRl
+    const bottomRl = round3(currentRl - thickness)
+
+    let stratumArea = 0
+    for (const poly of cutPolygons) {
+      const clipped = clipPolygonBand(poly, bottomRl, topRl)
+      if (clipped.length >= 3) {
+        stratumArea += polygonArea(clipped)
+      }
+    }
+
+    result.push({
+      id: s.id,
+      name: s.name,
+      fromDepth,
+      toDepth,
+      thickness,
+      topRl,
+      bottomRl,
+      slope: s.slope,
+      area: round3(stratumArea),
+      pctOfCut: totalCutArea > 0.001 ? round3((stratumArea / totalCutArea) * 100) : 0,
+      color: s.color || (i === 0 ? '#d97706' : i === 1 ? '#b45309' : i === 2 ? '#475569' : '#1e293b')
+    })
+
+    currentDepth = toDepth
+    currentRl = bottomRl
+  }
+
+  return result
+}
+
 /** Replacement-fill polygons, limited by entered depth and actual excavation void. */
 export function canalFoundationFillBands(data: CanalData, section: CanalSection, depth: number): CanalPoint[][] {
   const bottom = canalFoundationRlAt(data, section.chainage)
@@ -1535,7 +2489,10 @@ export interface CanalBankRepairItem {
  */
 export function canalBankRepairItems(data: CanalData): CanalBankRepairItem[] {
   const volumes = canalBankVolumeTotals(data)
-  const zones: CanalBankMaterialZone[] = data.design.bankSectionType === 'zoned' ? ['hearting', 'casing'] : ['homogeneous']
+  const isTiered = data.design.bankConfig?.mode === 'tiered'
+  const zones: CanalBankMaterialZone[] = isTiered
+    ? (['homogeneous', 'hearting', 'casing'] as CanalBankMaterialZone[]).filter((z) => volumes[z] > 0)
+    : data.design.bankSectionType === 'zoned' ? ['hearting', 'casing'] : ['homogeneous']
   const out: CanalBankRepairItem[] = []
   for (const zone of zones) {
     const quantity = round3(volumes[zone])
@@ -1550,29 +2507,57 @@ export function canalBankRepairItems(data: CanalData): CanalBankRepairItem[] {
 
 /** Bank fill measured above the stripped/prepared plane, split into billable zones. */
 export function canalBankVolumeTotals(data: CanalData): CanalBankVolumeTotals {
+  const isLegacyZoned = data.design.bankSectionType === 'zoned' && (data.design.zonedReaches ?? []).length > 0
+  const isTiered = data.design.bankConfig?.mode === 'tiered' && !isLegacyZoned
+  const isZonedLegacy = data.design.bankSectionType === 'zoned'
+
   const rows = orderedCanalSections(data).filter((section) => canalMeasurableSection(data, section)).map((section) => {
     const totalFill = canalSectionAreas(data, section).filling
-    const hearting = data.design.bankSectionType === 'zoned'
+    if (isTiered) {
+      const heartingProfiles = canalHeartingProfiles(data, section)
+      const heartingArea = heartingProfiles.reduce((sum, profile) => sum + polygonArea(profile.points), 0)
+      if (heartingArea > 0) {
+        const hearting = Math.min(totalFill, heartingArea)
+        return {
+          chainage: section.chainage,
+          totalFill,
+          homogeneous: 0,
+          hearting,
+          casing: Math.max(0, totalFill - hearting)
+        }
+      }
+      return {
+        chainage: section.chainage,
+        totalFill,
+        homogeneous: totalFill,
+        hearting: 0,
+        casing: 0
+      }
+    }
+    const hearting = isZonedLegacy
       ? canalHeartingProfiles(data, section).reduce((sum, profile) => sum + polygonArea(profile.points), 0)
       : 0
     return {
       chainage: section.chainage,
       totalFill,
+      homogeneous: !isZonedLegacy ? totalFill : 0,
       hearting: Math.min(totalFill, hearting),
       casing: Math.max(0, totalFill - hearting)
     }
   })
   let totalFill = 0
+  let homogeneous = 0
   let hearting = 0
   let casing = 0
   for (let index = 1; index < rows.length; index += 1) {
     const length = Math.max(0, rows[index].chainage - rows[index - 1].chainage)
     totalFill += (rows[index - 1].totalFill + rows[index].totalFill) / 2 * length
+    homogeneous += (rows[index - 1].homogeneous + rows[index].homogeneous) / 2 * length
     hearting += (rows[index - 1].hearting + rows[index].hearting) / 2 * length
     casing += (rows[index - 1].casing + rows[index].casing) / 2 * length
   }
   return {
-    homogeneous: round3(data.design.bankSectionType === 'homogeneous' ? totalFill : 0),
+    homogeneous: round3(homogeneous),
     hearting: round3(hearting),
     casing: round3(casing),
     totalFill: round3(totalFill)
@@ -1595,27 +2580,25 @@ export function canalStrippedOrCutLevelAt(
   return proposedRl == null ? strippedRl : Math.min(strippedRl, proposedRl)
 }
 
-/** Stripping polygons below existing ground wherever canal formation is in fill. */
+/** Stripping polygons below existing ground beneath the bund footprint at a section. */
 export function canalStrippingBands(data: CanalData, section: CanalSection): CanalPoint[][] {
   const depth = canalStrippingDepthAt(data, section.chainage)
   const ground = orderCanalPoints(section.ground)
-  const design = canalDesignProfile(data, section)
-  if (!(depth > 0) || ground.length < 2 || design.length < 2) return []
-  return profileDifferenceBands(ground, design)
-    .filter((band) => !band.cutting)
-    .map((band) => {
-      const offsets = band.points.map((point) => point.offset)
-      const from = Math.min(...offsets)
-      const to = Math.max(...offsets)
-      const topOffsets = [
-        from,
-        ...ground.filter((point) => point.offset > from && point.offset < to).map((point) => point.offset),
-        to
-      ]
-      const top = topOffsets.map((offset) => ({ offset, rl: canalGroundLevelAt(ground, offset) ?? 0 }))
-      const bottom = [...top].reverse().map((point) => ({ offset: point.offset, rl: point.rl - depth }))
-      return [...top, ...bottom]
-    })
+  if (!(depth > 0) || ground.length < 2) return []
+
+  const ranges = canalBundFootprintRanges(data, section)
+  const out: CanalPoint[][] = []
+  for (const [rFrom, rTo] of ranges) {
+    const topOffsets = [
+      rFrom,
+      ...ground.filter((p) => p.offset > rFrom && p.offset < rTo).map((p) => p.offset),
+      rTo
+    ]
+    const top = topOffsets.map((offset) => ({ offset, rl: canalGroundLevelAt(ground, offset) ?? 0 }))
+    const bottom = [...top].reverse().map((point) => ({ offset: point.offset, rl: point.rl - depth }))
+    out.push([...top, ...bottom])
+  }
+  return out
 }
 
 export interface CanalEarthworkTotals {
@@ -1628,13 +2611,8 @@ export interface CanalEarthworkTotals {
 /** Mean-sectional-area earthwork totals for all populated canal sections. */
 export function canalEarthworkTotals(data: CanalData): CanalEarthworkTotals {
   const rows = orderedCanalSections(data).filter((section) => canalMeasurableSection(data, section)).map((section) => {
-    const design = canalDesignProfile(data, section)
-    const bands = design.length >= 2 ? profileDifferenceBands(section.ground, design) : []
     const areas = canalSectionAreas(data, section)
-    const strippingWidth = bands.filter((band) => !band.cutting).reduce((sum, band) => {
-      const offsets = band.points.map((point) => point.offset)
-      return sum + Math.max(0, Math.max(...offsets) - Math.min(...offsets))
-    }, 0)
+    const strippingWidth = canalFillFootprintWidth(data, section)
     const cutoffTrench = data.mode === 'new'
       ? canalHeartingProfiles(data, section).reduce((sum, profile) => sum + polygonArea(profile.trench), 0)
       : 0
@@ -1662,6 +2640,62 @@ export function canalEarthworkTotals(data: CanalData): CanalEarthworkTotals {
     foundationExcavation: round3(totals.foundationExcavation),
     cutoffTrench: round3(totals.cutoffTrench)
   }
+}
+
+/**
+ * Auto-calculate canal excavation class share percentages from geological strata (configured in Chapter 4 / Chapter 3).
+ * Evaluates the cut depth profile of each cutting section against soil strata layers.
+ */
+export function canalCalculateExcavationPercentagesFromStrata(data: CanalData): { code: string; label: string; pct: number }[] {
+  const defaultLabels = [
+    { label: 'All soils', code: CANAL_EXC_ALL_SOILS_CODE, defaultThickness: 1.5 },
+    { label: 'Hard disintegrated rock', code: CANAL_EXC_HDR_CODE, defaultThickness: 2.0 },
+    { label: 'Fissured and fractured rock', code: CANAL_EXC_FF_CODE, defaultThickness: 2.5 },
+    { label: 'Hard rock', code: CANAL_EXC_HR_CODE, defaultThickness: 4.0 }
+  ]
+
+  const sections = orderedCanalSections(data).filter((s) => canalMeasurableSection(data, s))
+  const volumes = [0, 0, 0, 0]
+  let totalVolume = 0
+
+  for (let i = 0; i < sections.length; i++) {
+    const s = sections[i]
+    const nextS = sections[i + 1]
+    const length = nextS ? Math.max(0, nextS.chainage - s.chainage) : 0
+    const bed = canalBedLevelAt(data, s.chainage) ?? data.design.bedLevelAtStart
+    const ground = orderCanalPoints(s.ground ?? [])
+    const maxGround = ground.length > 0 ? Math.max(...ground.map((p) => p.rl)) : bed
+    const cutH = Math.max(0, maxGround - bed)
+    const areas = canalSectionAreas(data, s)
+
+    if (cutH > 0 && areas.cutting > 0) {
+      const strata = s.strata && s.strata.length > 0 ? s.strata : null
+      let remainingH = cutH
+      for (let j = 0; j < 4; j++) {
+        const thickness = strata && strata[j] ? strata[j].thickness : defaultLabels[j].defaultThickness
+        const hInLayer = Math.max(0, Math.min(remainingH, thickness))
+        remainingH = Math.max(0, remainingH - hInLayer)
+        const v = (hInLayer / cutH) * areas.cutting * (length || 1)
+        volumes[j] += v
+        totalVolume += v
+      }
+    }
+  }
+
+  if (totalVolume <= 0) {
+    return defaultLabels.map((d, idx) => ({ code: d.code, label: d.label, pct: idx === 0 ? 100 : 0 }))
+  }
+
+  let allocated = 0
+  const result = defaultLabels.map((d, idx) => {
+    if (idx === defaultLabels.length - 1) {
+      return { code: d.code, label: d.label, pct: Math.max(0, round3(100 - allocated)) }
+    }
+    const pct = round3((volumes[idx] / totalVolume) * 100)
+    allocated += pct
+    return { code: d.code, label: d.label, pct }
+  })
+  return result
 }
 
 export function canalFoundationExcavationReachTotal(data: CanalData, reach: CanalFoundationExcavationReach): number {
@@ -1781,6 +2815,249 @@ export function canalFoundationFillQuantity(data: CanalData, reach: CanalFoundat
   return { quantity: round3(length * Math.max(0, reach.width) * Math.max(0, reach.height) * sides), unit: 'cu.m' }
 }
 
+export interface CanalTierFoundationSummary {
+  foundationVolume: number
+  foundationCode: string
+  foundationLabel: string
+  blanketQuantity: number
+  blanketUnit: 'sq.m' | 'cu.m'
+  blanketCode: string
+  blanketLabel: string
+  filterVolume: number
+  chimneyVolume: number
+}
+
+/** Compute foundation filling, blanket, and filter quantities for a specific tier (or across all tiers). */
+export function canalTierFoundationQuantities(data: CanalData, tierId?: string): CanalTierFoundationSummary {
+  const isTiered = data.design.bankConfig?.mode === 'tiered'
+  const defaultSummary: CanalTierFoundationSummary = {
+    foundationVolume: 0,
+    foundationCode: 'IRR-CAW-5-1',
+    foundationLabel: 'None',
+    blanketQuantity: 0,
+    blanketUnit: 'sq.m',
+    blanketCode: 'IRR-CAW-5-4',
+    blanketLabel: 'None',
+    filterVolume: 0,
+    chimneyVolume: 0
+  }
+  if (!isTiered) return defaultSummary
+
+  const sections = orderedCanalSections(data).filter((s) => canalMeasurableSection(data, s))
+  if (sections.length < 2) return defaultSummary
+
+  let activeFoundationCode = 'IRR-CAW-5-1'
+  let activeFoundationLabel = 'Rubble-and-sand foundation filling'
+  let activeBlanketCode = 'IRR-CAW-5-4'
+  let activeBlanketLabel = '25 cm sand blanket below embankment'
+  let activeBlanketUnit: 'sq.m' | 'cu.m' = 'sq.m'
+
+  const sectionRows = sections.map((section) => {
+    const leftTier = canalSectionBankTier(data, section, 'left')
+    const rightTier = canalSectionBankTier(data, section, 'right')
+    const leftTreatment = leftTier?.foundationTreatment ?? defaultCanalTierFoundationConfig()
+    const rightTreatment = rightTier?.foundationTreatment ?? defaultCanalTierFoundationConfig()
+
+    const leftApplies = tierId ? leftTier?.id === tierId : true
+    const rightApplies = tierId ? rightTier?.id === tierId : true
+
+    // 1. Foundation filling area
+    let foundationArea = 0
+    const foundationDepth = canalFoundationDepthAtSection(data, section)
+    if (foundationDepth > 0) {
+      if (leftApplies && leftTreatment.foundation !== 'none') {
+        activeFoundationCode = `IRR-CAW-${leftTreatment.foundation}`
+        activeFoundationLabel = leftTreatment.foundation === '5-1'
+          ? 'Rubble-and-sand foundation filling'
+          : leftTreatment.foundation === '5-2'
+            ? 'Sand filling below foundations'
+            : 'Rubble-and-murum foundation filling'
+        const share = Math.min(100, Math.max(0, leftTreatment.foundationPercentage)) / 100
+        const bands = canalFoundationFillBands(data, section, foundationDepth * share)
+        for (const band of bands) {
+          const meanOffset = band.reduce((sum, p) => sum + p.offset, 0) / (band.length || 1)
+          if (meanOffset < 0) foundationArea += polygonArea(band)
+        }
+      }
+      if (rightApplies && rightTreatment.foundation !== 'none') {
+        activeFoundationCode = `IRR-CAW-${rightTreatment.foundation}`
+        activeFoundationLabel = rightTreatment.foundation === '5-1'
+          ? 'Rubble-and-sand foundation filling'
+          : rightTreatment.foundation === '5-2'
+            ? 'Sand filling below foundations'
+            : 'Rubble-and-murum foundation filling'
+        const share = Math.min(100, Math.max(0, rightTreatment.foundationPercentage)) / 100
+        const bands = canalFoundationFillBands(data, section, foundationDepth * share)
+        for (const band of bands) {
+          const meanOffset = band.reduce((sum, p) => sum + p.offset, 0) / (band.length || 1)
+          if (meanOffset > 0) foundationArea += polygonArea(band)
+        }
+      }
+    }
+
+    // 2. Sand blanket width / plan area
+    const availableWidths = canalFoundationWidthsAtSection(data, section)
+    let blanketWidth = 0
+    let blanketThickness = 0.25
+    if (leftApplies && leftTreatment.blanket !== 'none') {
+      activeBlanketCode = `IRR-CAW-${leftTreatment.blanket}`
+      activeBlanketLabel = leftTreatment.blanket === '5-4'
+        ? '25 cm sand blanket below embankment'
+        : 'Variable-thickness sand blanket below embankment'
+      activeBlanketUnit = leftTreatment.blanket === '5-4' ? 'sq.m' : 'cu.m'
+      blanketThickness = leftTreatment.blanket === '5-4' ? 0.25 : Math.max(0, leftTreatment.blanketThickness)
+      const w = leftTreatment.blanketWidthMode === 'manual'
+        ? Math.min(Math.max(0, leftTreatment.blanketLeftWidth), availableWidths.left)
+        : availableWidths.left
+      blanketWidth += w
+    }
+    if (rightApplies && rightTreatment.blanket !== 'none') {
+      activeBlanketCode = `IRR-CAW-${rightTreatment.blanket}`
+      activeBlanketLabel = rightTreatment.blanket === '5-4'
+        ? '25 cm sand blanket below embankment'
+        : 'Variable-thickness sand blanket below embankment'
+      activeBlanketUnit = rightTreatment.blanket === '5-4' ? 'sq.m' : 'cu.m'
+      blanketThickness = rightTreatment.blanket === '5-4' ? 0.25 : Math.max(0, rightTreatment.blanketThickness)
+      const w = rightTreatment.blanketWidthMode === 'manual'
+        ? Math.min(Math.max(0, rightTreatment.blanketRightWidth), availableWidths.right)
+        : availableWidths.right
+      blanketWidth += w
+    }
+
+    // 3. Horizontal filter drain area
+    let filterArea = 0
+    const autoFilterLengths = canalAutomaticFilterLengthsAtSection(data, section)
+    if (leftApplies && leftTreatment.horizontalFilter) {
+      const len = leftTreatment.filterLengthMode === 'manual'
+        ? Math.min(Math.max(0, leftTreatment.filterLeftLength), availableWidths.left)
+        : autoFilterLengths.left
+      const t = Math.max(0, leftTreatment.filterThickness)
+      filterArea += len * t
+    }
+    if (rightApplies && rightTreatment.horizontalFilter) {
+      const len = rightTreatment.filterLengthMode === 'manual'
+        ? Math.min(Math.max(0, rightTreatment.filterRightLength), availableWidths.right)
+        : autoFilterLengths.right
+      const t = Math.max(0, rightTreatment.filterThickness)
+      filterArea += len * t
+    }
+
+    // 4. Chimney filter area (vertical/inclined filter 5-10)
+    let chimneyArea = 0
+    const bed = canalBedLevelAt(data, section.chainage)
+    const foundationRl = canalFoundationRlAt(data, section.chainage)
+    const base = (foundationRl ?? bed ?? 0) + blanketThickness
+    const autoHeight = bed == null ? 0 : Math.max(0, bed + data.design.fullSupplyDepth - base)
+
+    if (leftApplies && leftTreatment.rockToe && (leftTreatment.rockToeSide === 'left' || leftTreatment.rockToeSide === 'both')) {
+      const h = leftTreatment.rockToeHeight > 0 ? leftTreatment.rockToeHeight : autoHeight
+      chimneyArea += 0.5 * h
+    }
+    if (rightApplies && rightTreatment.rockToe && (rightTreatment.rockToeSide === 'right' || rightTreatment.rockToeSide === 'both')) {
+      const h = rightTreatment.rockToeHeight > 0 ? rightTreatment.rockToeHeight : autoHeight
+      chimneyArea += 0.5 * h
+    }
+
+    return {
+      chainage: section.chainage,
+      foundationArea,
+      blanketWidth,
+      blanketThickness,
+      filterArea,
+      chimneyArea
+    }
+  })
+
+  let foundationVolume = 0
+  let blanketPlanArea = 0
+  let blanketVolume = 0
+  let filterVolume = 0
+  let chimneyVolume = 0
+
+  for (let i = 1; i < sectionRows.length; i++) {
+    const prev = sectionRows[i - 1]
+    const curr = sectionRows[i]
+    const length = Math.max(0, curr.chainage - prev.chainage)
+    foundationVolume += (prev.foundationArea + curr.foundationArea) / 2 * length
+    blanketPlanArea += (prev.blanketWidth + curr.blanketWidth) / 2 * length
+    blanketVolume += ((prev.blanketWidth * prev.blanketThickness) + (curr.blanketWidth * curr.blanketThickness)) / 2 * length
+    filterVolume += (prev.filterArea + curr.filterArea) / 2 * length
+    chimneyVolume += (prev.chimneyArea + curr.chimneyArea) / 2 * length
+  }
+
+  const blanketQuantity = activeBlanketUnit === 'sq.m' ? round3(blanketPlanArea) : round3(blanketVolume)
+
+  return {
+    foundationVolume: round3(foundationVolume),
+    foundationCode: activeFoundationCode,
+    foundationLabel: activeFoundationLabel,
+    blanketQuantity,
+    blanketUnit: activeBlanketUnit,
+    blanketCode: activeBlanketCode,
+    blanketLabel: activeBlanketLabel,
+    filterVolume: round3(filterVolume),
+    chimneyVolume: round3(chimneyVolume)
+  }
+}
+
+/** Summarized estimate items for all height tiers with configured foundation & filter works. */
+export function canalTierFoundationItems(data: CanalData): Array<{ role: CanalItemRole; code: string; label: string; quantity: number; unit: string }> {
+  const isTiered = data.design.bankConfig?.mode === 'tiered'
+  if (!isTiered) return []
+
+  const tiers = data.design.bankConfig?.leftTiers ?? []
+  const hasActiveWorks = tiers.some((t) => {
+    const f = t.foundationTreatment
+    return f && (f.foundation !== 'none' || f.blanket !== 'none' || f.horizontalFilter || f.rockToe)
+  })
+  if (!hasActiveWorks) return []
+
+  const summary = canalTierFoundationQuantities(data)
+  const items: Array<{ role: CanalItemRole; code: string; label: string; quantity: number; unit: string }> = []
+
+  if (summary.foundationVolume > 0 && summary.foundationCode) {
+    items.push({
+      role: 'foundation',
+      code: summary.foundationCode,
+      label: summary.foundationLabel,
+      quantity: summary.foundationVolume,
+      unit: 'cu.m'
+    })
+  }
+
+  if (summary.blanketQuantity > 0 && summary.blanketCode) {
+    items.push({
+      role: 'sand-blanket',
+      code: summary.blanketCode,
+      label: summary.blanketLabel,
+      quantity: summary.blanketQuantity,
+      unit: summary.blanketUnit
+    })
+  }
+
+  if (summary.filterVolume > 0) {
+    items.push({
+      role: 'filter',
+      code: 'IRR-CAW-5-7',
+      label: 'Horizontal graded filter drain',
+      quantity: summary.filterVolume,
+      unit: 'cu.m'
+    })
+  }
+
+  if (summary.chimneyVolume > 0) {
+    items.push({
+      role: 'rock-toe',
+      code: 'IRR-CAW-5-10',
+      label: 'Vertical / inclined chimney filter',
+      quantity: summary.chimneyVolume,
+      unit: 'cu.m'
+    })
+  }
+
+  return items
+}
+
 export function canalFilterDrainQuantity(data: CanalData, reach: CanalFilterDrainReach): { quantity: number; unit: 'cu.m' | 'sq.m' | 'PLUG' | 'MT' } {
   const length = Math.max(0, reach.toChainage - reach.fromChainage)
   const sides = reach.side === 'both' ? 2 : 1
@@ -1855,7 +3132,7 @@ export function canalEffectiveBankAllocations(
   zone: CanalBankMaterialZone
 ): CanalBankMaterialAllocation[] {
   const rows = (data.design.bankMaterialAllocations ?? []).filter((row) => row.zone === zone)
-  if (zone !== 'homogeneous') return rows
+  if (data.design.bankConfig?.mode === 'tiered' || zone !== 'homogeneous') return rows
   const required = canalBankVolumeTotals(data).homogeneous
   const reusablePct = required > 0
     ? Math.min(100, canalSuitableBankExcavation(data) / required * 100)
@@ -2151,55 +3428,70 @@ export function canalLiningReachQuantities(data: CanalData, reach: CanalLiningRe
   }
 }
 
-/** Totals across every reach that is provided. */
+/** Total lining quantities across all active lining reaches. */
 export function canalLiningTotals(data: CanalData): CanalLiningTotals {
-  const totals: CanalLiningTotals = {
-    reaches: 0,
-    length: 0,
-    liningBedArea: 0,
-    liningSlopeArea: 0,
-    modelWallVolume: 0,
-    soffitVolume: 0,
-    stepsVolume: 0,
-    sleepersVolume: 0,
-    plugsSlope: 0,
-    plugsBed: 0,
-    masticLongitudinal: 0,
-    masticTransverse: 0,
-    tarfeltLength: 0
+  const reaches = (data.liningReaches ?? []).filter((reach) => reach.provide ?? true)
+  let length = 0
+  let liningBedArea = 0
+  let liningSlopeArea = 0
+  let modelWallVolume = 0
+  let soffitVolume = 0
+  let stepsVolume = 0
+  let sleepersVolume = 0
+  let plugsSlope = 0
+  let plugsBed = 0
+  let masticLongitudinal = 0
+  let masticTransverse = 0
+  let tarfeltLength = 0
+
+  for (const reach of reaches) {
+    const q = canalLiningReachQuantities(data, reach)
+    length += q.length
+    if (reach.bill?.lining ?? true) {
+      liningBedArea += q.liningBedArea
+      liningSlopeArea += q.liningSlopeArea
+    }
+    if (reach.bill?.modelWall ?? true) {
+      modelWallVolume += q.modelWallVolume
+      soffitVolume += q.soffitVolume
+    }
+    if (reach.bill?.steps ?? true) {
+      stepsVolume += q.stepsVolume
+    }
+    if (reach.bill?.sleepers ?? true) {
+      sleepersVolume += q.sleepersVolume
+    }
+    if (reach.bill?.porousPlugs ?? true) {
+      plugsSlope += q.plugsSlope
+      plugsBed += q.plugsBed
+    }
+    if (reach.bill?.masticJoints ?? true) {
+      masticLongitudinal += q.masticLongitudinal
+      masticTransverse += q.masticTransverse
+    }
+    if (reach.bill?.tarfeltJoints ?? true) {
+      tarfeltLength += q.tarfeltLength
+    }
   }
-  for (const reach of data.liningReaches ?? []) {
-    if (!reach.provide) continue
-    const quantities = canalLiningReachQuantities(data, reach)
-    if (!(quantities.length > 0)) continue
-    totals.reaches += 1
-    totals.length += quantities.length
-    totals.liningBedArea += quantities.liningBedArea
-    totals.liningSlopeArea += quantities.liningSlopeArea
-    totals.modelWallVolume += quantities.modelWallVolume
-    totals.soffitVolume += quantities.soffitVolume
-    totals.stepsVolume += quantities.stepsVolume
-    totals.sleepersVolume += quantities.sleepersVolume
-    totals.plugsSlope += quantities.plugsSlope
-    totals.plugsBed += quantities.plugsBed
-    totals.masticLongitudinal += quantities.masticLongitudinal
-    totals.masticTransverse += quantities.masticTransverse
-    totals.tarfeltLength += quantities.tarfeltLength
-  }
+
   return {
-    ...totals,
-    length: round3(totals.length),
-    liningBedArea: round3(totals.liningBedArea),
-    liningSlopeArea: round3(totals.liningSlopeArea),
-    modelWallVolume: round3(totals.modelWallVolume),
-    soffitVolume: round3(totals.soffitVolume),
-    stepsVolume: round3(totals.stepsVolume),
-    sleepersVolume: round3(totals.sleepersVolume),
-    masticLongitudinal: round3(totals.masticLongitudinal),
-    masticTransverse: round3(totals.masticTransverse),
-    tarfeltLength: round3(totals.tarfeltLength)
+    reaches: reaches.length,
+    length: round3(length),
+    liningBedArea: round3(liningBedArea),
+    liningSlopeArea: round3(liningSlopeArea),
+    modelWallVolume: round3(modelWallVolume),
+    soffitVolume: round3(soffitVolume),
+    stepsVolume: round3(stepsVolume),
+    sleepersVolume: round3(sleepersVolume),
+    plugsSlope,
+    plugsBed,
+    masticLongitudinal: round3(masticLongitudinal),
+    masticTransverse: round3(masticTransverse),
+    tarfeltLength: round3(tarfeltLength)
   }
 }
+
+
 
 /**
  * Write computed quantities into ordinary item children. Jungle, earthwork,
@@ -2309,14 +3601,21 @@ export function syncCanalItems(root: ProjectNode, componentId: string): ProjectN
       if (bill.masticJoints) pushRequired(out, 'lining', refFor('masticJoints'), measured.masticLongitudinal + measured.masticTransverse)
       if (bill.tarfeltJoints) pushRequired(out, 'lining', refFor('tarfeltJoints'), measured.tarfeltLength)
     }
-    // Foundation treatment reaches, each billed under its own SSR code.
-    for (const reach of canal.foundationFillReaches ?? []) {
-      const role: CanalItemRole =
-        reach.kind === '5-4' || reach.kind === '5-5' ? 'sand-blanket'
-        : reach.kind === '5-7' ? 'filter'
-        : reach.kind === '5-10' ? 'rock-toe'
-        : 'foundation'
-      pushRequired(out, role, reach.material, canalFoundationFillQuantity(canal, reach).quantity)
+    // Bund foundation treatment & filters: bill tiered items if configured, or fallback to legacy reach items
+    const tierItems = canalTierFoundationItems(canal)
+    if (tierItems.length > 0) {
+      for (const item of tierItems) {
+        pushRequired(out, item.role, { code: item.code }, item.quantity)
+      }
+    } else {
+      for (const reach of canal.foundationFillReaches ?? []) {
+        const role: CanalItemRole =
+          reach.kind === '5-4' || reach.kind === '5-5' ? 'sand-blanket'
+          : reach.kind === '5-7' ? 'filter'
+          : reach.kind === '5-10' ? 'rock-toe'
+          : 'foundation'
+        pushRequired(out, role, reach.material, canalFoundationFillQuantity(canal, reach).quantity)
+      }
     }
     // Toe, bed and filter drains, each billed under its own SSR code.
     for (const reach of canal.filterDrainReaches ?? []) {

@@ -31,11 +31,7 @@ pub async fn image_embed_remote(payload: EmbedRemotePayload) -> Result<EmbedRemo
         .build()
         .map_err(|e| e.to_string())?;
 
-    let response = client
-        .get(parsed)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
+    let response = client.get(parsed).send().await.map_err(|e| e.to_string())?;
 
     if !response.status().is_success() {
         return Ok(EmbedRemoteResult {

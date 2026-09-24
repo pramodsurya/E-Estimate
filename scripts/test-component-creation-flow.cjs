@@ -12,7 +12,9 @@ const guideWallSetup = read('src/renderer/src/components/guidewall/GuideWallSetu
 const alignmentMap = read('src/renderer/src/components/guidewall/AlignmentMap.tsx')
 const store = read('src/renderer/src/store/useStore.ts')
 const types = read('src/renderer/src/types/project.ts')
-const bundLib = read('src/renderer/src/lib/bund.ts')
+const bundLib = read('src/renderer/src/lib/bund/configuration.ts')
+assert.ok(modal.includes("template.comingSoon ? ' — Coming soon' : ''"), 'Canal must be marked coming soon in the picker')
+assert.ok(!modal.includes('disabled={template.comingSoon}'), 'Canal creation must remain enabled')
 
 // --- Two-page creation wizard -------------------------------------------
 // Page 1 asks name + type only; page 2 locates every component type.
@@ -74,10 +76,11 @@ assert.ok(
   canalSetup.includes('— from component creation'),
   'canal must show the creation length read-only'
 )
-// GuideWall opens straight at sections when the length is preset.
+// GuideWall has a single sections screen and only asks for length on old records.
 assert.ok(
-  guideWallSetup.includes('data.lengthM > 0 ? 2 : (initialStep ?? 1)'),
-  'guidewall must open at sections when creation fed the length'
+  guideWallSetup.includes('const hasPresetLength = data.lengthM > 0 || data.alignment.length >= 2') &&
+    guideWallSetup.includes('{!hasPresetLength && ('),
+  'guidewall must show sections immediately and ask for length only when missing'
 )
 
 // --- Water-side data ------------------------------------------------------
@@ -104,7 +107,7 @@ assert.ok(
 // --- Component page edits creation lengths -------------------------------
 const dashboard = read('src/renderer/src/components/dashboard/ComponentDashboard.tsx')
 const detail = read('src/renderer/src/components/lead/LeadDetailDashboard.tsx')
-assert.ok(dashboard.includes("{isCustom ? 'Edit location' : 'Edit length'}"), 'component page must offer length edits for templates')
+assert.ok(dashboard.includes('Change Work Location'), 'component page must offer work-location edits')
 assert.ok(dashboard.includes('openEditGeometry(node.id)'), 'edits must reopen the creation wizard, not a dashboard editor')
 assert.ok(!dashboard.includes('setLocateMode(isCustom ?'), 'the dashboard must not host its own locate editor')
 assert.ok(modal.includes('state.editNodeId'), 'the wizard must support edit mode')

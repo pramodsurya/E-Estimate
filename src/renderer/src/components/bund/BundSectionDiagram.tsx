@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import type { BundData, BundPoint, BundSection } from '../../types/project'
 import {
   bundLevelingGeometry,
@@ -111,7 +110,7 @@ export default function BundSectionDiagram({
   data: BundData
   section: BundSection
 }): JSX.Element {
-  const view = useMemo(() => {
+  const view = (() => {
     const designProjected = [...projectedProfile(section, data.design)].sort(
       (a, b) => a.offset - b.offset
     )
@@ -254,7 +253,7 @@ export default function BundSectionDiagram({
       gridY: niceTicks(minRl, maxRl, 6),
       exaggeration: scaleY / scaleX
     }
-  }, [data, section])
+  })()
 
   if (!view) {
     return (

@@ -246,6 +246,43 @@ const { avgKm, totalQuantity } = weighted.weightedAverageKm(entries)
 assert.equal(totalQuantity, 950, 'W must sum every weight')
 assert.ok(Math.abs(avgKm - ((350 * 10 + 600 * 20) / 950)) < 1e-9, '(w1*l1+w2*l2)/W must hold')
 assert.deepEqual(weighted.weightedAverageKm([]), { avgKm: 0, totalQuantity: 0 }, 'empty input must not NaN')
+const seigEntries = weighted.weightedLeadEntriesFromSeigniorage(
+  [
+    { id: 's1', variantName: 'Sand source 1', materialName: 'Sand', leadKm: 5 },
+    { id: 's2', variantName: 'Sand source 2', materialName: 'Sand', leadKm: 10 },
+    { id: 's3', variantName: 'Sand source 3', materialName: 'Sand', leadKm: 15 }
+  ],
+  [
+    { variantId: 's1', itemNodeId: 'i1', itemCode: 'A', unit: 'cum' },
+    { variantId: 's1', itemNodeId: 'i2', itemCode: 'B', unit: 'cum' },
+    { variantId: 's2', itemNodeId: 'i3', itemCode: 'C', unit: 'cum' },
+    { variantId: 's3', itemNodeId: 'i4', itemCode: 'D', unit: 'cum' }
+  ],
+  [{
+    materialLabel: 'Ordinary Sand', unit: 'cum', charge: null,
+    quantityTerms: [
+      { itemNodeId: 'i1', quantity: 12 },
+      { itemNodeId: 'i2', quantity: 8 },
+      { itemNodeId: 'i3', quantity: 7 },
+      { itemNodeId: 'i4', quantity: 3 }
+    ]
+  }]
+)
+assert.deepEqual(
+  seigEntries.map((entry) => [entry.variantId, entry.quantity]),
+  [['s1', 20], ['s2', 7], ['s3', 3]],
+  'Seigniorage terms combine only inside the exact Lead-variant bucket'
+)
+const adoptedWeightedEntries = weighted.weightedLeadEntriesFromSeigniorage(
+  [{ id: 's1', variantName: 'Sand source 1', materialName: 'Sand', leadKm: 5 }],
+  [{ variantId: 'weighted', sourceVariantId: 's1', itemNodeId: 'i1', itemCode: 'A', unit: 'cum' }],
+  [{ materialLabel: 'Sand', unit: 'cum', charge: null, quantityTerms: [{ itemNodeId: 'i1', quantity: 12 }] }]
+)
+assert.equal(
+  adoptedWeightedEntries[0].quantity,
+  12,
+  'adopting a weighted Lead must retain the original route bucket'
+)
 assert.deepEqual(
   weighted.unappliedLeadNames(wVariants, wApps),
   ['Stone'],

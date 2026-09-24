@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import type { BundData, BundSoilBand, TemplateMaterialRef } from '../../../../types/project'
 import {
@@ -101,8 +101,8 @@ export default function FoundationExcavationClearance({
   const family = data.strippingExcavationFamily ?? 'seating'
   const bands = data.excavationBands?.stripping ??
     defaultBundExcavationRows(undefined, family === 'foundation' ? 'foundation' : 'channel')
-  const excavationTotal = useMemo(() => rowsTotal(strippingRows(data)), [data])
-  const jungleTotal = useMemo(() => clearanceTotal(data), [data])
+  const excavationTotal = (rowsTotal(strippingRows(data)))
+  const jungleTotal = (clearanceTotal(data))
   const totalPct = bands.reduce((sum, band) => sum + (band.pct || 0), 0)
   const repair = data.mode === 'restoration'
   const excavationLabel = repair ? 'Stripping / corrective cut' : 'Bund Foundation Excavation'

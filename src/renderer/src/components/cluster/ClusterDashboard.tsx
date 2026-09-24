@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import {
   Boxes,
   FolderInput,
@@ -38,7 +38,7 @@ export default function ClusterDashboard(): JSX.Element | null {
   const [newName, setNewName] = useState('')
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
-  const seigniorage = useMemo(() => computeClusterSeigniorage(members), [members])
+  const seigniorage = (computeClusterSeigniorage(members))
 
   if (!cluster) return null
 

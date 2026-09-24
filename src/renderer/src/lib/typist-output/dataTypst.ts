@@ -5,6 +5,7 @@ import type { DataSheet } from '../dataSheets'
 import type {
   RateAnalysisLine,
   RateAnalysisRecipe,
+  RateAnalysisSummary,
   RateAnalysisTextRun
 } from '../../types/rateAnalysis'
 import type { EestimateProject, LeadApplication, LeadVariant, PaperSize, SignatureFooterSettings } from '../../types/project'
@@ -96,7 +97,8 @@ export function buildRateAnalysisRenderData(
   recipe: RateAnalysisRecipe,
   leadApplications: LeadApplication[] = [],
   leadVariants: LeadVariant[] = [],
-  scopeContext?: ScopeContext
+  scopeContext?: ScopeContext,
+  calculatedSummary?: RateAnalysisSummary
 ) {
   const code = recipe.itemCode?.trim() || recipe.itemKey || 'DATA'
   const unit = recipe.unit || 'cum'
@@ -107,7 +109,7 @@ export function buildRateAnalysisRenderData(
   const scopeLabel = scopeContext?.usagePath || scopeContext?.scopeName || scopeContext?.scope || ''
 
   // This is the same semantic result consumed by the React DATA view.
-  const presentation = buildDataPresentation(recipe, leadApplications, leadVariants)
+  const presentation = buildDataPresentation(recipe, leadApplications, leadVariants, calculatedSummary)
   const calculated = presentation.summary
 
   const materialsSection = recipe.sections.find((s) => s.key === 'materials')
@@ -180,6 +182,7 @@ export function buildRateAnalysisRenderData(
     }
 
     return {
+      lead_key: app.variantId,
       material: disposal ? 'Disposal Lead' : variant?.materialName || app.itemCode || 'Material',
       distance_km: variant?.leadKm ?? null, lift_m: variant?.liftM ?? 0,
       lead_type_tag: leadTypeTag, lead_formula: leadFormula,
@@ -339,7 +342,7 @@ export function dataSheetsCompileInputs(sheets: DataSheet[], options: TypstDocum
         scopeName: s.scopeName,
         usagePath: s.usagePath,
         scope: s.scope
-      }),
+      }, s.calculatedSummary),
       figures: options.figurePaths?.[s.id] ?? []
     })),
     signature: signature?.enabled ? {
@@ -359,9 +362,21 @@ export function resolvedDataTypstSource(project: EestimateProject): string {
 export function dataSignatureSettings(project: EestimateProject): SignatureFooterSettings {
   return resolveSignatureFooter(project, DATA_SIGNATURE_SCOPE)
 }
-export function rateAnalysisCompileInputs(recipe: RateAnalysisRecipe, project: EestimateProject | null,
-  applications: LeadApplication[] = [], variants: LeadVariant[] = [], scopeContext?: ScopeContext): Record<string, string> {
-  return { 'ee-data': JSON.stringify({ project: project?.meta.name || 'Estimate', year: project?.meta.sorYear || '',
-    setup: { paper: 'a4', flipped: false, font_size: 10 }, sor: [],
-    recipes: [buildRateAnalysisRenderData(recipe, applications, variants, scopeContext)] }) }
+export async function rateAnalysisCompileInputs(
+  recipe: RateAnalysisRecipe,
+  project: EestimateProject | null,
+  applications: LeadApplication[] = [],
+  variants: LeadVariant[] = [],
+  scopeContext?: ScopeContext
+): Promise<Record<string, string>> {
+  const summary = await window.api.rateAnalysis.calculate(recipe)
+  return {
+    'ee-data': JSON.stringify({
+      project: project?.meta.name || 'Estimate',
+      year: project?.meta.sorYear || '',
+      setup: { paper: 'a4', flipped: false, font_size: 10 },
+      sor: [],
+      recipes: [buildRateAnalysisRenderData(recipe, applications, variants, scopeContext, summary)]
+    })
+  }
 }

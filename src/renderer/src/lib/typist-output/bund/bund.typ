@@ -129,11 +129,11 @@
 }
 #let statement-average(work, index) = if index == 0 { none } else {
   let interval = work.rows.at(index - 1, default: none)
-  if interval == none { none } else { (interval.start_section + interval.end_section) / 2 }
+  if interval == none { none } else { interval.calculation.averageSection.value }
 }
 #let statement-quantity(work, index) = if index == 0 { none } else {
   let interval = work.rows.at(index - 1, default: none)
-  if interval == none { none } else { interval.quantity }
+  if interval == none { none } else { interval.calculation.quantity.value }
 }
 // A work has Section / Average / Total. Fixed, readable number cells let us
 // calculate the number of complete work groups that fit in the current width.
@@ -205,9 +205,7 @@
       }).flatten()
       (..fixed, ..works)
     }).flatten()
-    let total-length = if sections.len() < 2 { 0 } else {
-      sections.last().chainage_m - sections.first().chainage_m
-    }
+    let total-length = Bund.statement_total_length_m
     let fixed-total = if fixed-count == 5 {
       ([*Total*], strong(number(total-length)), [], [], [])
     } else if fixed-count == 2 { ([*Total*], strong(number(total-length))) } else { () }
@@ -445,8 +443,7 @@
       #if is-zoned { set text(size: 7pt) }
       #heading(level: 3)[Ch #section.chainage · Average toe RL #number(section.average_toe_rl) m]
       #v(if is-zoned { 1.5pt } else { 3pt })
-      #let total-area = section.stations.fold(0, (sum, station) =>
-        sum + if station.signed_area_m2 == none { 0 } else { station.signed_area_m2 })
+      #let total-area = section.formation_total_area
       #let section-summary = [
         #table(
           columns: (1fr, 1fr), align: center,

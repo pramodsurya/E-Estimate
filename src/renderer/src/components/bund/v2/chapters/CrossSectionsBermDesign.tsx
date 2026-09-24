@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowUpDown, ClipboardCopy, Plus, Trash2 } from 'lucide-react'
 import type {
   BundBerm,
@@ -115,26 +115,22 @@ export default function CrossSectionsBermDesign({
   data: BundData
   onCommit: (update: (current: BundData) => BundData) => void
 }): JSX.Element {
-  const sections = useMemo(() => orderedSections(data), [data])
-  const sectionSummaries = useMemo(() => new Map(
+  const sections = (orderedSections(data))
+  const sectionSummaries = (new Map(
     sections.map((section) => [section.id, {
       areas: sectionAreas(data, section),
       measurable: hasMeasurableGround(data, section)
     }])
-  ), [data, sections])
+  ))
   const [selectedId, setSelectedId] = useState<string | null>(sections[0]?.id ?? null)
   const selected = sections.find((section) => section.id === selectedId) ?? sections[0] ?? null
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [copyFrom, setCopyFrom] = useState('')
   const [message, setMessage] = useState<string | null>(null)
-  const [rows, setRows] = useState<LevelDraftRow[]>([])
   const toeOrigin = selected ? upstreamToeOffset(selected, data) : 0
 
-  useEffect(() => {
-    if (!selected) {
-      setRows([])
-      return
-    }
+  const buildInitialRows = (): LevelDraftRow[] => {
+    if (!selected) return []
     const offsets = new Set(selected.pre.map((point) => point.offset))
     const hiddenOffsets = new Set(
       (selected.hiddenLevelOffsets ?? []).map((offset) => Math.round(offset * 1000) / 1000)
@@ -147,24 +143,26 @@ export default function CrossSectionsBermDesign({
         }
       })
     }
-    setRows(
-      [...offsets]
-        .sort((a, b) => a - b)
-        .map((offset) => ({
-          id: rowId(),
-          offset: String(Math.round((offset - toeOrigin) * 1000) / 1000),
-          existing: exactLevel(selected.pre, offset)?.toString() ?? ''
-        }))
-    )
+    return [...offsets]
+      .sort((a, b) => a - b)
+      .map((offset) => ({
+        id: rowId(),
+        offset: String(Math.round((offset - toeOrigin) * 1000) / 1000),
+        existing: exactLevel(selected.pre, offset)?.toString() ?? ''
+      }))
+  }
+
+  const syncKey = selected
+    ? `${selected.id}:${selected.pre.length}:${selected.hiddenLevelOffsets?.length ?? 0}:${selected.designPointOffsets?.length ?? 0}:${toeOrigin}`
+    : ''
+  const [prevSyncKey, setPrevSyncKey] = useState(syncKey)
+  const [rows, setRows] = useState<LevelDraftRow[]>(buildInitialRows)
+
+  if (prevSyncKey !== syncKey) {
+    setPrevSyncKey(syncKey)
+    setRows(buildInitialRows())
     setMessage(null)
-  }, [
-    data.design,
-    selected?.designPointOffsets,
-    selected?.hiddenLevelOffsets,
-    selected?.id,
-    selected?.pre,
-    toeOrigin
-  ])
+  }
 
   const updateSection = (
     sectionId: string,

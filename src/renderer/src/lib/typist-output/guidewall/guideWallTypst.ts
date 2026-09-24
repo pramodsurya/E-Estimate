@@ -60,6 +60,7 @@ export interface GuideWallQuantityRowData {
   side: string
   length: string
   formula: string
+  quantityFactor: number
   qty: string
 }
 
@@ -103,6 +104,8 @@ export interface GuideWallRenderData {
   base_groups: GuideWallMaterialBlockData[]
   excavation: GuideWallExcavationBlockData | null
   signature: Array<{ designation: string; office: string }>
+  /** One resolved print contract shared by the Typst and Excel cars. */
+  document_settings: DocumentSettings
 }
 
 export function guideWallScopeKey(node: ProjectNode): string {
@@ -158,6 +161,7 @@ export function buildGuideWallRenderData(
       side: row.side,
       length: fmt3(row.lengthM),
       formula: row.formula,
+      quantityFactor: row.quantityFactor,
       qty: fmt3(row.qty)
     }))
 
@@ -239,7 +243,8 @@ export function buildGuideWallRenderData(
     wall_groups,
     base_groups,
     excavation,
-    signature: signatureRows
+    signature: signatureRows,
+    document_settings: resolveGuideWallDocumentSettings(project, section)
   }
 }
 

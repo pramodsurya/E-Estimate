@@ -2808,6 +2808,45 @@ textarea {
   border-radius: 10px;
   background: var(--bg-card);
 }
+.component-location-card {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.component-location-compact {
+  padding: 10px 14px;
+}
+.component-location-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.component-location-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.component-location-text strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-strong);
+  font-size: 13.5px;
+}
+.component-location-text small {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+.component-location-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.component-location-change {
+  white-space: nowrap;
+}
 .component-panel-heading {
   display: flex;
   align-items: center;

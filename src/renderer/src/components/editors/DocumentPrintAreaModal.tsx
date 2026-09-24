@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { AlertTriangle, Crop } from 'lucide-react'
 import Modal from '../modals/Modal'
 import {
@@ -22,7 +22,7 @@ export default function DocumentPrintAreaModal({
   onApply: (area: DocumentPrintArea | null) => void
   onClose: () => void
 }): JSX.Element {
-  const paragraphs = useMemo(() => documentParagraphs(node.documentData), [node.documentData])
+  const paragraphs = (documentParagraphs(node.documentData))
   const stored = resolvePrintArea(node.documentData, node.documentPrintArea)
 
   const [start, setStart] = useState(stored?.startParagraph ?? 0)
@@ -32,10 +32,7 @@ export default function DocumentPrintAreaModal({
   const low = Math.min(start, end)
   const high = Math.max(start, end)
 
-  const finalPIndex = useMemo(
-    () => finalNumberParagraphIndex(node.documentData, node.documentFinal),
-    [node.documentData, node.documentFinal]
-  )
+  const finalPIndex = (finalNumberParagraphIndex(node.documentData, node.documentFinal))
   const finalExcluded = finalPIndex !== null && (finalPIndex < low || finalPIndex > high)
 
   const beginDrag = (index: number): void => {

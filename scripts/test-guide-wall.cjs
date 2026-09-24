@@ -181,4 +181,20 @@ function makeData() {
   assert.equal(gw.excavationRowLength({ fromCh: null, toCh: null, length: 5 }), 5)
 }
 
+// --- Component-level length edits resize the wall sections -----------------
+{
+  const grown = gw.resizeGuideWallSections(makeData(), 150)
+  assert.deepEqual(
+    grown.sections.map((s) => [s.fromCh, s.toCh]),
+    [[0, 25], [25, 50], [50, 75], [75, 100], [100, 125], [125, 150]],
+    'extending the length adds wall sections to the new end'
+  )
+  const shrunk = gw.resizeGuideWallSections(grown, 50)
+  assert.deepEqual(
+    shrunk.sections.map((s) => [s.fromCh, s.toCh]),
+    [[0, 25], [25, 50]],
+    'shortening the length drops wall sections past the new end'
+  )
+}
+
 console.log('guide wall per-section code tests passed')

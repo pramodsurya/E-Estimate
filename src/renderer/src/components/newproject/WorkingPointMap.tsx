@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import { MapContainer, Marker, Polyline, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -69,16 +69,20 @@ function FitOnToken({
   bounds: [number, number][]
 }): null {
   const map = useMap()
+  const latest = useRef({ bounds, map })
   useEffect(() => {
-    if (token <= 0 || bounds.length === 0) return
-    if (bounds.length === 1) {
-      map.flyTo(bounds[0], Math.max(map.getZoom(), 12))
+    latest.current = { bounds, map }
+  }, [bounds, map])
+  useEffect(() => {
+    const { bounds: latestBounds, map: latestMap } = latest.current
+    if (token <= 0 || latestBounds.length === 0) return
+    if (latestBounds.length === 1) {
+      latestMap.flyTo(latestBounds[0], Math.max(latestMap.getZoom(), 12))
     } else {
-      map.flyToBounds(
-        L.latLngBounds(bounds.map(([lat, lng]) => L.latLng(lat, lng))).pad(0.2)
+      latestMap.flyToBounds(
+        L.latLngBounds(latestBounds.map(([lat, lng]) => L.latLng(lat, lng))).pad(0.2)
       )
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
   return null
 }
@@ -115,8 +119,10 @@ export default function WorkingPointMap({
     <div className="map-wrap">
       <MapContainer
         center={focus ? [focus.lat, focus.lng] : TELANGANA_CENTER}
-        zoom={focus ? 12 : 7}
+        zoom={focus ? 14 : 7}
+        maxZoom={22}
         scrollWheelZoom
+        preferCanvas
         keyboard={false}
       >
         <MapLayers />

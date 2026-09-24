@@ -67,6 +67,14 @@ export function createTauriApi(): EestimateApi {
       cancel: (runId) => invoke<boolean>('bund_cancel', { runId }),
       onProgress: (cb) => subscribe('bund:simulation-progress', cb)
     },
+    canal: {
+      calculateQuantities: (data) => invoke('canal_calculate_quantities', { data })
+    },
+    rateAnalysis: {
+      calculate: (recipe) => invoke('rate_analysis_calculate', { recipe }),
+      calculateBase: (recipe) => invoke('rate_analysis_calculate_base', { recipe }),
+      batchCalculate: (recipes) => invoke('rate_analysis_batch_calculate', { recipes })
+    },
     typst: {
       compile: (mainContent, inputs, shadowFiles, opts?: { contentHash?: string; preferPath?: boolean }) =>
         invoke('typst_compile', {

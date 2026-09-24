@@ -124,7 +124,7 @@ export interface SheetTypstContext {
 const DEFAULT_COL_W = 88
 const DEFAULT_ROW_H = 24
 
-/* eslint-disable no-control-regex */
+ 
 const CONTROL_CHARS = /[\u0000-\u0009\u000B-\u001F\u007F]/g
 
 /* ------------------------------------------------------------------ */

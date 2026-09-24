@@ -39,6 +39,7 @@ import type {
   RateAnalysisRecipe,
   RateAnalysisSectionKey,
   RateAnalysisStoredRow,
+  RateAnalysisSummary,
   RateAnalysisTextRun
 } from '../../types/rateAnalysis'
 
@@ -175,6 +176,16 @@ export default function RateAnalysisTable({
    */
   figureUrls?: Record<string, string>
 }): JSX.Element {
+  const [rustSummary, setRustSummary] = useState<RateAnalysisSummary | null>(null)
+  useEffect(() => {
+    if (recipe.itemSource === 'SOR') return
+    let active = true
+    window.api.rateAnalysis.calculate(recipe).then((res) => {
+      if (active) setRustSummary(res)
+    }).catch(console.error)
+    return () => { active = false }
+  }, [recipe])
+
   if (recipe.itemSource === 'SOR') {
     return (
       <SorDataSheet
@@ -188,7 +199,7 @@ export default function RateAnalysisTable({
     )
   }
 
-  const presentation = buildDataPresentation(recipe, leadApplications, leadVariants)
+  const presentation = buildDataPresentation(recipe, leadApplications, leadVariants, rustSummary ?? undefined)
   const {
     summary, adoptedSummary, calculatedAddon, addonLeadApplications, regularLeadApplications,
     addonLeadTotal, layout, labourRows, abstractRows, publishedAbstractRows,
@@ -985,20 +996,23 @@ function SsrSourceFigures({
   itemCode: string
   resolvedUrls?: Record<string, string>
 }): JSX.Element {
+  const figuresKey = `${figures.length}:${resolvedUrls ? 'resolved' : 'remote'}`
+  const [prevFiguresKey, setPrevFiguresKey] = useState(figuresKey)
   const [loaded, setLoaded] = useState<Array<{
     figure: RateAnalysisFigure
     url?: string
     error?: string
   }>>(() => figures.map((figure) => ({ figure, url: resolvedUrls?.[figure.key] })))
 
+  if (figuresKey !== prevFiguresKey) {
+    setPrevFiguresKey(figuresKey)
+    setLoaded(figures.map((figure) => ({ figure, url: resolvedUrls?.[figure.key] })))
+  }
+
   useEffect(() => {
+    if (resolvedUrls) return
     let cancelled = false
     const objectUrls: string[] = []
-    if (resolvedUrls) {
-      setLoaded(figures.map((figure) => ({ figure, url: resolvedUrls[figure.key] })))
-      return () => undefined
-    }
-    setLoaded(figures.map((figure) => ({ figure })))
 
     void Promise.all(
       figures.map(async (figure) => {

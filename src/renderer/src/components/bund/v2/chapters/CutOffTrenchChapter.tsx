@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 import type { BundData, BundHeartingTrench, BundSection, TemplateMaterialRef } from '../../../../types/project'
 import {
@@ -188,31 +188,27 @@ export default function CutOffTrenchChapter({
   data: BundData
   onCommitBund: (update: (current: BundData) => BundData) => void
 }): JSX.Element {
-  const sections = useMemo(() => orderedSections(data), [data])
-  const highest = useMemo(() => steepestSection(data) ?? sections[0] ?? null, [data, sections])
+  const sections = (orderedSections(data))
+  const highest = (steepestSection(data) ?? sections[0] ?? null)
   const [selectedSectionId, setSelectedSectionId] = useState<string>(highest?.id ?? sections[0]?.id ?? '')
   const [picker, setPicker] = useState<'fill' | 'excavation' | null>(null)
 
-  const previewSection: BundSection | null = useMemo(() => {
+  const previewSection: BundSection | null = (() => {
     return sections.find((s) => s.id === selectedSectionId) ?? highest ?? sections[0] ?? null
-  }, [sections, selectedSectionId, highest])
+  })()
 
   const trench = data.heartingTrench
   const isEnabled = Boolean(trench?.fillMaterial)
-  const resolvedDepth = useMemo(() => resolvedHeartingTrenchDepth(data), [data])
-  const deepestToe = useMemo(() => deepestBundToe(data), [data])
-  const autoDepth = useMemo(
-    () =>
-      standardHeartingTrenchDepth(
+  const resolvedDepth = (resolvedHeartingTrenchDepth(data))
+  const deepestToe = (deepestBundToe(data))
+  const autoDepth = (standardHeartingTrenchDepth(
         data.design.ftl ?? data.design.mwl,
         deepestToe?.rl ?? null
-      ),
-    [data, deepestToe]
-  )
-  const area = useMemo(() => heartingTrenchArea(data), [data])
-  const topWidth = useMemo(() => heartingTrenchTopWidth(data), [data])
-  const rows = useMemo(() => heartingTrenchRows(data), [data])
-  const totalVolume = useMemo(() => rowsTotal(rows), [rows])
+      ))
+  const area = (heartingTrenchArea(data))
+  const topWidth = (heartingTrenchTopWidth(data))
+  const rows = (heartingTrenchRows(data))
+  const totalVolume = (rowsTotal(rows))
 
   const toggleTrench = (): void => {
     onCommitBund((current) => ({

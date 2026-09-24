@@ -1311,3 +1311,1342 @@
   cursor: pointer;
 }
 
+/* 3 Ground Buckets Cards */
+.canal-bucket-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.canal-bucket-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.canal-bucket-card.is-cutting {
+  border-left: 4px solid #38bdf8;
+}
+
+.canal-bucket-card.is-partial {
+  border-left: 4px solid #f59e0b;
+}
+
+.canal-bucket-card.is-embankment {
+  border-left: 4px solid #10b981;
+}
+
+.canal-bucket-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  background: var(--surface-1);
+}
+
+.canal-bucket-card.is-cutting .canal-bucket-icon {
+  color: #38bdf8;
+}
+
+.canal-bucket-card.is-partial .canal-bucket-icon {
+  color: #f59e0b;
+}
+
+.canal-bucket-card.is-embankment .canal-bucket-icon {
+  color: #10b981;
+}
+
+.canal-bucket-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.canal-bucket-info strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.canal-bucket-info small {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.35;
+}
+
+.canal-bucket-badge {
+  display: inline-block;
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 1px 7px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.canal-chip-bucket {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+
+.canal-chip-bucket.is-c {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+}
+
+.canal-chip-bucket.is-p {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.canal-chip-bucket.is-e {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+/* ---------------------------------------------------------------------------
+   Soil Stratigraphy & Cutting Depth Profile (Per-Section)
+   --------------------------------------------------------------------------- */
+
+.canal-soil-profile-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+
+.canal-soil-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.canal-soil-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.canal-soil-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.canal-soil-readouts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.canal-soil-readouts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle, var(--border));
+}
+
+.canal-soil-readouts span {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.canal-soil-readouts strong {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.canal-soil-readouts strong.text-amber {
+  color: #f59e0b;
+}
+
+/* Embankment notice card */
+.canal-soil-embankment-notice {
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.canal-soil-embankment-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.18);
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.canal-soil-embankment-content h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  color: #10b981;
+}
+
+.canal-soil-embankment-content p {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.canal-soil-embankment-subtext {
+  font-size: 12px !important;
+  color: var(--text-dim) !important;
+}
+
+/* Cutting content layout */
+.canal-soil-cutting-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Visualizer strata column */
+.canal-soil-visualizer-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.canal-soil-visualizer-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.canal-soil-visualizer-title strong {
+  font-size: 13px;
+}
+
+.canal-soil-visualizer-title small {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.canal-soil-strata-column {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+}
+
+.canal-soil-level-marker {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.canal-soil-level-marker.is-gl {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border: 1px dashed rgba(56, 189, 248, 0.4);
+}
+
+.canal-soil-level-marker.is-cbl {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px dashed rgba(245, 158, 11, 0.4);
+}
+
+.canal-soil-layers-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0;
+}
+
+.canal-soil-layer-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 4px solid;
+  border-top: 1px solid var(--border-subtle, var(--border));
+  border-right: 1px solid var(--border-subtle, var(--border));
+  border-bottom: 1px solid var(--border-subtle, var(--border));
+  transition: background 0.15s ease;
+}
+
+.layer-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.layer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.layer-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.layer-name strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.layer-slope-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--text-dim);
+}
+
+.layer-depth-rl {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-dim);
+  flex-wrap: wrap;
+}
+
+.layer-area-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.layer-area-badge strong {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.layer-area-badge small {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Interactive Strata Table */
+.canal-soil-table-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.canal-soil-table-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.canal-soil-table-head strong {
+  display: block;
+  font-size: 13px;
+}
+
+.canal-soil-table-head small {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.canal-soil-table-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.canal-soil-table-container {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-1);
+}
+
+.canal-soil-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+
+.canal-soil-table th {
+  padding: 8px 10px;
+  font-weight: 650;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.canal-soil-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.canal-soil-table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.stratum-color-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.stratum-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.stratum-name-cell input {
+  flex: 1;
+  padding: 3px 6px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text);
+}
+
+.stratum-preset-dropdown select {
+  padding: 3px 5px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.input-num-sm {
+  width: 65px;
+  padding: 3px 6px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text);
+  text-align: right;
+}
+
+.slope-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.tabular-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Chapter 3: Cut Design & Programmatic Berm Builder */
+.canal-cut-chapter {
+  display: grid;
+  gap: 20px;
+}
+
+.canal-cut-rules-card {
+  display: grid;
+  gap: 14px;
+}
+
+.canal-cut-toggle-banner {
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.canal-cut-toggle-sub {
+  padding: 10px 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+/* Mode Segmented Selector */
+.canal-cut-mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.canal-cut-mode-tab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  color: var(--text-dim);
+}
+
+.canal-cut-mode-tab:hover {
+  background: var(--surface-2);
+  border-color: var(--border-hover, var(--border));
+  color: var(--text);
+}
+
+.canal-cut-mode-tab.active {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-1));
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.canal-cut-tab-text {
+  display: grid;
+  gap: 2px;
+}
+
+.canal-cut-tab-text strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.canal-cut-mode-tab.active .canal-cut-tab-text strong {
+  color: var(--primary);
+}
+
+.canal-cut-tab-text small {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.canal-cut-programmatic-view,
+.canal-cut-manual-view {
+  display: grid;
+  gap: 14px;
+}
+
+/* Manual Cut Benches Styles */
+.canal-manual-base-slope-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+
+.canal-manual-note {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  font-style: italic;
+  flex: 1;
+}
+
+.canal-manual-table-wrap {
+  display: grid;
+  gap: 8px;
+}
+
+.canal-manual-table-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 650;
+  padding: 4px 2px;
+}
+
+.canal-manual-berm-list {
+  display: grid;
+  gap: 8px;
+}
+
+.canal-manual-berm-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.canal-manual-row-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+  min-width: 28px;
+}
+
+.canal-manual-row-fields {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  align-items: center;
+}
+
+.canal-manual-row-fields label {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.canal-manual-row-fields input {
+  padding: 5px 8px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text);
+  width: 100%;
+}
+
+.canal-manual-rl-display {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.canal-manual-rl-display strong {
+  font-size: 12.5px;
+  color: var(--text);
+  padding: 5px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.canal-cut-params-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.canal-cut-rule-box {
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface-1));
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.canal-cut-rule-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.canal-cut-rule-list {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
+.canal-cut-rule-list strong {
+  color: var(--text);
+}
+
+/* Strata Cutting Slopes */
+.canal-strata-slopes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.canal-strata-slope-card {
+  padding: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.canal-strata-slope-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.canal-strata-slope-desc {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.35;
+}
+
+.canal-strata-slope-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.canal-strata-slope-input-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  flex: 1;
+}
+
+.canal-strata-slope-input-row input {
+  width: 70px;
+  padding: 4px 6px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text);
+  text-align: right;
+}
+
+.canal-slope-ratio-badge {
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--primary);
+  padding: 2px 6px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.canal-strata-slope-note {
+  font-size: 10.5px;
+  color: var(--text-muted, var(--text-dim));
+  font-style: italic;
+}
+
+/* Cross-Section Diagram Preview Toolbar */
+.canal-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.canal-sim-section-picker label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.canal-sim-section-picker select {
+  padding: 5px 10px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text);
+  min-width: 240px;
+}
+
+.canal-sim-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  background: var(--surface-1);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+/* ==========================================================================
+   PROGRAMMATIC HEIGHT-TIERED BUND / BANK DESIGN (CHAPTER 2)
+   ========================================================================== */
+
+.canal-bank-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin: 12px 0 18px;
+}
+
+.canal-bank-mode-tab {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.canal-bank-mode-tab:hover {
+  background: var(--surface-2);
+  border-color: var(--border-hover, #64748b);
+}
+
+.canal-bank-mode-tab.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-1));
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.canal-bank-mode-tab svg {
+  margin-top: 2px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.canal-bank-tab-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.canal-bank-tab-text strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.canal-bank-tab-text small {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.canal-bank-top-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-1);
+  margin-bottom: 14px;
+}
+
+.canal-bank-link-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.canal-bank-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.canal-bank-link-btn.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface-2));
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.canal-bank-safeguards {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.canal-bank-safeguard-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.canal-bank-safeguard-item input {
+  width: 70px;
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text);
+}
+
+.canal-bank-side-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.canal-bank-side-tab {
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.canal-bank-side-tab.active {
+  border-color: var(--accent);
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+/* Height Bracket Continuum Bar */
+.canal-tier-continuum {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-1);
+  margin-bottom: 16px;
+}
+
+.canal-tier-continuum-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.canal-tier-continuum-header span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.canal-tier-bracket-track {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.canal-tier-bracket-chip {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.canal-tier-bracket-chip:hover {
+  border-color: var(--border-hover, #64748b);
+  transform: translateY(-1px);
+}
+
+.canal-tier-bracket-chip.is-zoned {
+  border-left: 3px solid #3b82f6;
+}
+
+.canal-tier-bracket-chip.is-homogeneous {
+  border-left: 3px solid #10b981;
+}
+
+.canal-tier-bracket-chip.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
+}
+
+.canal-tier-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.canal-tier-pager-label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.canal-tier-bracket-chip strong {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.canal-tier-bracket-chip small {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+/* Tier Cards */
+.canal-tier-cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.canal-tier-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-1);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.15s ease;
+}
+
+.canal-tier-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+.canal-tier-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.canal-tier-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.canal-tier-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+.canal-tier-name-input {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 6px;
+  min-width: 140px;
+}
+
+.canal-tier-name-input:focus,
+.canal-tier-name-input:hover {
+  border-color: var(--border);
+  background: var(--bg-input);
+}
+
+.canal-tier-range-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.canal-tier-range-controls input {
+  width: 60px;
+  padding: 3px 6px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text);
+  text-align: center;
+}
+
+.canal-tier-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Tier Body & Rows */
+.canal-tier-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.canal-tier-zoning-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-radius: 8px;
+}
+
+.canal-tier-zoning-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 120px;
+}
+
+.canal-tier-zoning-pills {
+  display: flex;
+  gap: 8px;
+}
+
+.canal-tier-zoning-pill {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-dim);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.canal-tier-zoning-pill.active-homo {
+  border-color: #10b981;
+  background: color-mix(in srgb, #10b981 12%, var(--surface-1));
+  color: #10b981;
+  font-weight: 600;
+}
+
+.canal-tier-zoning-pill.active-zoned {
+  border-color: #3b82f6;
+  background: color-mix(in srgb, #3b82f6 12%, var(--surface-1));
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.canal-tier-zoned-params {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  padding-left: 8px;
+  border-left: 2px solid #3b82f6;
+}
+
+.canal-tier-recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+/* Berm Steps */
+.canal-tier-berms-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px dashed var(--border);
+  padding-top: 12px;
+}
+
+.canal-tier-berms-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.canal-tier-berms-head span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.canal-tier-berm-step-card {
+  display: grid;
+  grid-template-columns: auto minmax(100px, 1fr) minmax(100px, 1fr) minmax(100px, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.canal-tier-berm-num {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  padding-bottom: 8px;
+}
+
+.canal-tier-flow-visual {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.canal-tier-flow-node {
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.canal-tier-flow-node.berm {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: color-mix(in srgb, #3b82f6 10%, var(--surface-1));
+}
+
+.canal-tier-flow-arrow {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.canal-tier-summary-metrics {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.canal-tier-metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.canal-tier-metric-item span {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.canal-tier-metric-item strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+
+

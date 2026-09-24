@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { BundDesign } from '../../../../types/project'
 import { topLevelFromFreeBoard } from '../../../../lib/bund'
 
@@ -49,11 +49,11 @@ export default function ProposedBundDesign({
     if (!topLevelFocused.current) setTopLevelDraft(displayValue(design.topLevel))
   }, [design.topLevel])
 
-  const draftValues = useMemo<DesignPatch>(() => ({
+  const draftValues: DesignPatch = {
     ftl: parsedDraft(draft.ftl) ?? null,
     mwl: parsedDraft(draft.mwl) ?? null,
     freeBoard: parsedDraft(draft.freeBoard) ?? null
-  }), [draft])
+  }
 
   const derivedTopLevel = topLevelFromFreeBoard({
     ...design,

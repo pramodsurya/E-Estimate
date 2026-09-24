@@ -46,9 +46,9 @@ export default function TitleBar(): JSX.Element {
   const canRedo = useStore((s) => s.future.length > 0)
   const notifications = useStore((s) => s.appNotifications)
   const markNotificationsRead = useStore((s) => s.markAllAppNotificationsRead)
+  const undo = useStore((s) => s.undo)
+  const redo = useStore((s) => s.redo)
   const selected = useSelectedNode()
-
-  const s = useStore.getState()
 
   useEffect(() => {
     void window.api.window.isMaximized().then(setMaximized)
@@ -187,10 +187,10 @@ export default function TitleBar(): JSX.Element {
           {menu === 'help' && <HelpMenu onPick={close} />}
         </div>
 
-        <button className="tb-iconbtn" title="Undo" disabled={!canUndo} onClick={() => s.undo()}>
+          <button className="tb-iconbtn" title="Undo" disabled={!canUndo} onClick={() => undo()}>
           <Undo2 size={16} />
         </button>
-        <button className="tb-iconbtn" title="Redo" disabled={!canRedo} onClick={() => s.redo()}>
+          <button className="tb-iconbtn" title="Redo" disabled={!canRedo} onClick={() => redo()}>
           <Redo2 size={16} />
         </button>
       </div>
@@ -268,7 +268,7 @@ function NotificationPanel(): JSX.Element {
   const cancelJob = useStore((state) => state.cancelBundSimulationJob)
   const dismiss = useStore((state) => state.dismissAppNotification)
   const clearFinished = useStore((state) => state.clearFinishedAppNotifications)
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState(() => Date.now())
 
   const hasTimedActivity = notifications.some((notification) =>
     ['running', 'cancelling'].includes(notification.status)

@@ -42,6 +42,7 @@ import {
 } from '../../lib/typist-output/seigniorageTypst'
 import {
   dashboardContextMatches,
+  dashboardSeigniorageCompileSignature,
   syncSeigniorageDashboardSnapshot
 } from '../../lib/dashboardSync'
 import SignatureFooterCard from '../signature/SignatureFooterCard'
@@ -49,6 +50,8 @@ import {
   resolveSignatureFooter,
   SEIGNIORAGE_SIGNATURE_SCOPE
 } from '../../lib/signatureFooter'
+import { buildSeigniorageExcelPayload } from '../../lib/excel-output/seignioragePayload'
+import { excelPrintSettings, resolveExcelDocumentSettings } from '../../lib/excel-output/excelDocumentSettings'
 
 const money = new Intl.NumberFormat('en-IN', {
   minimumFractionDigits: 2,
@@ -124,28 +127,29 @@ export default function SeigniorageDashboard(): JSX.Element {
   const [draftGroupHeading, setDraftGroupHeading] = useState('')
   const [draftGroupSubtotal, setDraftGroupSubtotal] = useState('')
 
-  useEffect(() => {
+  const [prevHeader, setPrevHeader] = useState({ title: statementTitle, year: statementYear, permit: permitBasis })
+  if (statementTitle !== prevHeader.title || statementYear !== prevHeader.year || permitBasis !== prevHeader.permit) {
+    setPrevHeader({ title: statementTitle, year: statementYear, permit: permitBasis })
     setDraftTitle(statementTitle)
     setDraftYear(statementYear)
-  }, [statementTitle, statementYear])
-
-  useEffect(() => {
     setDraftPermitBasis(permitBasis)
-  }, [permitBasis])
+  }
 
   const snapshotValid = project
     ? dashboardContextMatches(project.dashboardSnapshot, project)
     : false
-  const charges: SeigniorageCharge[] = snapshotValid
-    ? project?.dashboardSnapshot?.seigniorageCharges ?? []
-    : []
-  const policyByCode: Record<string, SeigniorageApplicabilityPolicy> = snapshotValid
-    ? project?.dashboardSnapshot?.seignioragePolicies ?? {}
-    : {}
-  const calc: SeigniorageCalculation = useMemo(
-    () => computeSeigniorageTable(project, charges, [], policyByCode),
-    [project, charges, policyByCode]
+  const compiled = Boolean(
+    project &&
+    snapshotValid &&
+    project.dashboardSnapshot?.seigniorageSyncedAt &&
+    project.dashboardSnapshot.seigniorageCompileSignature ===
+      dashboardSeigniorageCompileSignature(project)
   )
+  const calc: SeigniorageCalculation = useMemo(() => {
+    const charges: SeigniorageCharge[] = project?.dashboardSnapshot?.seigniorageCharges ?? []
+    const policyByCode: Record<string, SeigniorageApplicabilityPolicy> = project?.dashboardSnapshot?.seignioragePolicies ?? {}
+    return computeSeigniorageTable(project, charges, [], policyByCode)
+  }, [project])
   const projectDocumentSettings = project
     ? resolveSeigniorageDocumentSettings(project)
     : { pageSize: 'A4' as const, orientation: 'landscape' as const, margins: { top: 20, right: 15, bottom: 20, left: 25 }, fontFamily: 'sans' as const, fontSizePt: 9.5 }
@@ -207,21 +211,59 @@ export default function SeigniorageDashboard(): JSX.Element {
     await useStore.getState().saveProject({ requireSaved: true })
   }
 
-  const syncDashboard = async (): Promise<void> => {
-    if (!project || loading) return
+  const syncDashboard = async (): Promise<boolean> => {
+    if (!project || loading) return false
     setLoading(true)
     setError('')
     try {
       const next = await syncSeigniorageDashboardSnapshot(project)
       const current = useStore.getState().project
-      if (!current || current.id !== project.id) return
-      if (!dashboardContextMatches(next, current)) return
+      if (!current || current.id !== project.id) return false
+      if (current !== project) {
+        setError('Seigniorage changed while Sync was running. Sync again before opening output.')
+        return false
+      }
+      if (!dashboardContextMatches(next, current)) {
+        setError('Seigniorage Sync became stale before it could be stored.')
+        return false
+      }
       setDashboardSnapshot(next)
+      const synced = useStore.getState().project
+      if (
+        !synced ||
+        synced.id !== current.id ||
+        !dashboardContextMatches(synced.dashboardSnapshot, synced) ||
+        !synced.dashboardSnapshot?.seigniorageSyncedAt ||
+        synced.dashboardSnapshot.seigniorageCompileSignature !==
+          dashboardSeigniorageCompileSignature(synced)
+      ) {
+        setError('Seigniorage Sync finished without producing a valid output snapshot.')
+        return false
+      }
+      return true
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : 'Unable to sync seigniorage.')
+      return false
     } finally {
       setLoading(false)
     }
+  }
+
+  const openSeigniorageOutput = async (output: 'preview' | 'studio'): Promise<void> => {
+    if (!project) return
+    if (output === 'studio') {
+      setPrintStudioOpen(true)
+      return
+    }
+    if (!compiled && !(await syncDashboard())) return
+    const current = useStore.getState().project
+    if (!current || current.id !== project.id ||
+      !dashboardContextMatches(current.dashboardSnapshot, current) ||
+      current.dashboardSnapshot?.seigniorageCompileSignature !== dashboardSeigniorageCompileSignature(current)) {
+      setError('Seigniorage changed after Sync. Sync again before opening output.')
+      return
+    }
+    if (output === 'preview') setPrintPreviewOpen(true)
   }
 
   const handleExportExcel = async (): Promise<void> => {
@@ -229,58 +271,32 @@ export default function SeigniorageDashboard(): JSX.Element {
     setExportingExcel(true)
     setExcelExportError(null)
     try {
-      const payloadOverrides = project.seignioragePrintOverrides
-      const payloadProjectName =
-        payloadOverrides?.title || project.meta.name || project.root.name || 'Detailed Estimate'
-      const payloadSorYear = payloadOverrides?.year || project.meta.sorYear || '2025-26'
-      const payloadPermitBasis = payloadOverrides?.permitBasis || PERMIT_GO_REFERENCE
-      const payloadSignature = resolveSignatureFooter(project, SEIGNIORAGE_SIGNATURE_SCOPE)
+      if (!compiled && !(await syncDashboard())) return
+      const current = useStore.getState().project
+      if (!current || current.id !== project.id) {
+        setExcelExportError('The active project has changed.')
+        return
+      }
+      const currentSnapshot = current.dashboardSnapshot
+      if (
+        !dashboardContextMatches(currentSnapshot, current) ||
+        !currentSnapshot?.seigniorageSyncedAt ||
+        currentSnapshot.seigniorageCompileSignature !== dashboardSeigniorageCompileSignature(current)
+      ) {
+        setExcelExportError('Seigniorage output is stale. Run Sync before exporting.')
+        return
+      }
+      const currentCalc = computeSeigniorageTable(
+        current,
+        currentSnapshot.seigniorageCharges ?? [],
+        [],
+        currentSnapshot.seignioragePolicies ?? {}
+      )
       const payload = {
         kind: 'seigniorage',
         preferPath: true,
-        seigniorage: {
-          projectName: payloadProjectName,
-          sorYear: payloadSorYear,
-          permitBasis: payloadPermitBasis,
-          groups: groupByMat(calc.rows).map((group) => ({
-            key: group.key,
-            heading: resolveSeigniorageGroupHeading(project, group),
-            subtotalLabel: resolveSeigniorageGroupSubtotal(project, group),
-            rows: group.rows.map((row) => ({
-              itemCode: row.itemCode || '',
-              description: resolveSeigniorageRowDescription(project, row),
-              workQty: row.itemQuantity ?? null,
-              workUnit: row.itemUnit || '',
-              seigQty: row.quantity ?? null,
-              seigUnit: row.unit || row.recipeMaterialUnit || '',
-              rate: row.seigRate ?? null,
-              seigniorage: row.seigniorage ?? null,
-              dmft: row.dmft ?? null,
-              smft: row.smft ?? null,
-              permit: row.permit ?? null,
-              permitPercent: row.permitPercent || 0,
-              permitNote:
-                row.permit == null
-                  ? ''
-                  : row.permitPercent === 0
-                    ? 'Exempt'
-                    : `@ ${row.permitPercent}%`
-            }))
-          })),
-          totals: {
-            totalSeigniorage: calc.totalSeigniorage,
-            totalDmft: calc.totalDmft,
-            totalSmft: calc.totalSmft,
-            totalPermit: calc.totalPermit,
-            grandTotal: calc.grandTotal,
-            roundedGrandTotal: calc.roundedGrandTotal
-          },
-          signatures: payloadSignature?.enabled
-            ? payloadSignature.rows
-                .filter((sig) => sig.designation.trim() !== '' || sig.office.trim() !== '')
-                .map((sig) => ({ designation: sig.designation, office: sig.office }))
-            : []
-        }
+        printSettings: excelPrintSettings(resolveExcelDocumentSettings(current, 'seigniorage-statement', undefined, { orientation: 'landscape' })),
+        seigniorage: buildSeigniorageExcelPayload(current, currentCalc)
       }
       const result = await window.api.excel.compile(payload)
       if (!result || !result.ok || !result.filePath || typeof window.api?.export?.workbook !== 'function') {
@@ -421,15 +437,15 @@ export default function SeigniorageDashboard(): JSX.Element {
               <RefreshCw size={15} /> {loading ? 'Syncing…' : 'Sync'}
             </button>
           )}
-          <button className="btn ghost" onClick={() => setPrintPreviewOpen(true)}>
-            <Printer size={15} /> Print Preview
+          <button className="btn ghost" disabled={loading} onClick={() => void openSeigniorageOutput('preview')}>
+            <Printer size={15} /> {loading ? 'Syncing…' : 'Print Preview'}
           </button>
-          <button className="btn ghost" onClick={() => setPrintStudioOpen(true)}>
+          <button className="btn ghost" onClick={() => void openSeigniorageOutput('studio')}>
             <Eye size={15} /> Open Print Studio
           </button>
           <button
             className="btn ghost"
-            disabled={exportingExcel}
+            disabled={exportingExcel || loading}
             onClick={() => void handleExportExcel()}
             title="Export Seigniorage Statement to Excel (.xlsx)"
           >
@@ -858,7 +874,7 @@ export default function SeigniorageDashboard(): JSX.Element {
           onClose={() => setPrintPreviewOpen(false)}
         />
       )}
-      {printStudioOpen && project && (
+      {printStudioOpen && project ? (
         <EEstimatePrintStudio
           scopeKey={'seigniorage-statement'}
           title="Seigniorage Statement"
@@ -870,6 +886,11 @@ export default function SeigniorageDashboard(): JSX.Element {
           runtimeData={buildSeigniorageRenderData(project, calc)}
           projectDocumentSettings={projectDocumentSettings}
           savedDocumentSettings={project.printStudioDocumentSettings?.['seigniorage-statement']}
+          snapshotRevision={project.dashboardSnapshot?.seigniorageSyncedAt}
+          snapshotStale={!compiled}
+          onRequestSync={async () => {
+            if (!(await syncDashboard())) throw new Error('Seigniorage Sync did not complete. Check the dashboard error and retry.')
+          }}
           onExportExcel={handleExportExcel}
           excelExportLabel="Export Seigniorage Statement as Excel (.xlsx)"
           onSave={async (source, settings) => {
@@ -878,7 +899,7 @@ export default function SeigniorageDashboard(): JSX.Element {
           }}
           onClose={() => setPrintStudioOpen(false)}
         />
-      )}
+      ) : null}
     </div>
   )
 }
@@ -900,11 +921,13 @@ function SeigniorageTableRow({
   const currentPrintDesc = resolveSeigniorageRowDescription(project, row)
   const hasCustomDesc = Boolean(project?.seignioragePrintOverrides?.rowDescriptions?.[row.id]?.trim())
   const [isEditingDesc, setIsEditingDesc] = useState(false)
+  const [prevPrintDesc, setPrevPrintDesc] = useState(currentPrintDesc)
   const [draftDesc, setDraftDesc] = useState(currentPrintDesc)
 
-  useEffect(() => {
+  if (currentPrintDesc !== prevPrintDesc) {
+    setPrevPrintDesc(currentPrintDesc)
     setDraftDesc(currentPrintDesc)
-  }, [currentPrintDesc])
+  }
 
   return (
     <div className={`seig-calc-tbody-row ${needsRate || needsReview ? 'needs-rate' : ''}`}>
@@ -1023,10 +1046,14 @@ function SeigniorageTableRow({
 
 function SlabThicknessControl({ row }: { row: SeigniorageItemRow }): JSX.Element {
   const setThickness = useStore((state) => state.setSeigniorageSlabThickness)
-  const [draft, setDraft] = useState(row.slabThicknessMm?.toString() ?? '')
-  useEffect(() => {
-    setDraft(row.slabThicknessMm?.toString() ?? '')
-  }, [row.slabThicknessMm])
+  const thicknessStr = row.slabThicknessMm?.toString() ?? ''
+  const [prevThicknessStr, setPrevThicknessStr] = useState(thicknessStr)
+  const [draft, setDraft] = useState(thicknessStr)
+
+  if (thicknessStr !== prevThicknessStr) {
+    setPrevThicknessStr(thicknessStr)
+    setDraft(thicknessStr)
+  }
 
   const commit = (): void => {
     const parsed = Number(draft)

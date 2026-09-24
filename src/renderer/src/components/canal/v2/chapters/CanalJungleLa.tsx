@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import type { CanalData, TemplateMaterialRef } from '../../../../types/project'
 import { CANAL_JUNGLE_CLEARANCE_CODE, canalJungleClearanceTotal, canalLaArea, canalLaWidthRows } from '../../../../lib/canal'
@@ -6,7 +6,7 @@ import { newId } from '../../../../lib/tree'
 import MaterialPicker from '../../../templates/MaterialPicker'
 import SsrCode from '../../../templates/SsrCode'
 
-const n3 = (value: number): string => value.toLocaleString('en-IN', { maximumFractionDigits: 3 })
+const n3 = (value: number | undefined | null): string => (Number(value) || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 })
 
 const materialFromItem = (item: { code: string; description: string; unit?: string | null; category: string; side?: TemplateMaterialRef['side']; dataVariant?: TemplateMaterialRef['dataVariant'] }): TemplateMaterialRef => ({
   code: item.code, description: item.description, unit: item.dataVariant?.unit ?? item.unit,
@@ -18,9 +18,9 @@ export default function CanalJungleLa({ data, onCommit }: {
   onCommit: (update: (current: CanalData) => CanalData) => void
 }): JSX.Element {
   const [picker, setPicker] = useState(false)
-  const jungleTotal = useMemo(() => canalJungleClearanceTotal(data), [data])
-  const laRows = useMemo(() => canalLaWidthRows(data), [data])
-  const laArea = useMemo(() => canalLaArea(data), [data])
+  const jungleTotal = (canalJungleClearanceTotal(data))
+  const laRows = (canalLaWidthRows(data))
+  const laArea = (canalLaArea(data))
   return <section className="canal-v2-section">
     <header className="canal-v2-section-header"><div><span className="canal-v2-section-kicker">Jungle Cutting &amp; LA</span><h2>Jungle Cutting &amp; Land Acquisition</h2><p>Measure site clearance and the land corridor independently from earthwork.</p></div></header>
 

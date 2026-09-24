@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { ArrowLeft, ArrowRight, Check, Droplets, Eraser, MapPin, Undo2, Waves, X } from 'lucide-react'
 import type { CanalData, CanalFlowDirection, ProjectNode } from '../../types/project'
 import {
@@ -67,44 +67,38 @@ export default function CanalSetup({
   // step 2 no longer asks for it — only flow, offtake and sections.
   const lengthPreset = data.lengthM > 0 || data.alignment.length >= 2
 
-  const parentCanalNode = useMemo(
-    () => (isSub && project ? findParentCanal(project.root, node.id) : null),
-    [isSub, project, node.id]
-  )
-  const parentCanal = useMemo(
-    () => (parentCanalNode?.canal ? migrateCanalData(parentCanalNode.canal) : null),
-    [parentCanalNode]
-  )
+  const parentCanalNode = (isSub && project ? findParentCanal(project.root, node.id) : null)
+  const parentCanal = (parentCanalNode?.canal ? migrateCanalData(parentCanalNode.canal) : null)
 
-  const drawnLength = useMemo(() => polylineLengthM(draft.alignment), [draft.alignment])
+  const drawnLength = (polylineLengthM(draft.alignment))
   const alignmentDrawn = draft.alignment.length >= 2
 
   // A sub-component line only counts as usable when it clearly follows the
   // parent canal alignment; otherwise its length must be entered by hand.
-  const follow = useMemo(() => {
+  const follow = (() => {
     if (!isSub || !alignmentDrawn || !parentCanal || parentCanal.alignment.length < 2) return null
     return lineFollowsReference(draft.alignment, parentCanal.alignment, CANAL_FOLLOW_TOLERANCE_M)
-  }, [isSub, alignmentDrawn, draft.alignment, parentCanal])
+  })()
 
   const autoLength = isSub && follow?.follows === true && drawnLength > 0
   const lengthOverridden =
     draft.lengthM > 0 && Math.abs(draft.lengthM - Math.round(drawnLength)) > 0.5
   const showCalculatedLength = autoLength && !lengthOverridden && !lengthEdited
 
-  const inheritedFlow = useMemo(() => {
+  const inheritedFlow = (() => {
     if (!autoLength || !parentCanal) return null
     return inheritedFlowDirection(draft.alignment, parentCanal.alignment, parentCanal.flowDirection)
-  }, [autoLength, draft.alignment, parentCanal])
+  })()
 
   const flowValue: CanalFlowDirection | null = inheritedFlow ?? draft.flowDirection
 
   // Offtake point: the parent-canal chainage the canal takes off from. When a
   // sub-component line follows the parent alignment the chainage is known from
   // the drawing; otherwise the reference is entered by hand.
-  const suggestedOfftake = useMemo(() => {
+  const suggestedOfftake = (() => {
     if (!isSub || !parentCanalNode || follow?.follows !== true || follow.fromCh == null) return null
     return `${parentCanalNode.name} · Ch ${formatChainage(follow.fromCh)}`
-  }, [isSub, parentCanalNode, follow])
+  })()
 
   const offtakeReference = draft.design.offtake.trim() || suggestedOfftake || ''
 
@@ -319,7 +313,7 @@ export default function CanalSetup({
                 </div>
                 <div className="latlng-display">
                   {draft.alignment.length >= 2
-                    ? `Drawn length: ${Math.round(drawnLength).toLocaleString('en-IN')} m (${draft.alignment.length} points)`
+                    ? `Drawn length: ${Math.round(drawnLength || 0).toLocaleString('en-IN')} m (${draft.alignment.length} points)`
                     : 'Click at least two points to form the alignment.'}
                 </div>
                 {!showCalculatedLength &&

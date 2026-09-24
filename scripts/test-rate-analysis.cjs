@@ -2,6 +2,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const Module = require('node:module')
 const path = require('node:path')
+const { execFileSync, spawnSync } = require('node:child_process')
 const ts = require('typescript')
 
 const root = path.resolve(__dirname, '..')
@@ -87,7 +88,6 @@ function loadTsModule(filePath, mocks = {}) {
 const {
   auditPublishedRateAnalysis,
   calculateBaseRateAnalysis,
-  calculateOptionalAddition,
   calculateRateAnalysis,
   labourRowsForDisplay,
   publishedRateBlocks,
@@ -116,6 +116,26 @@ const {
   }
 )
 
+async function main() {
+const build = spawnSync('cargo', [
+  'build', '--quiet', '--manifest-path', path.join(root, 'src-tauri/estimate-core/Cargo.toml'),
+  '--bin', 'rate_analysis_cli'
+], { cwd: root, stdio: 'inherit' })
+if (build.status !== 0) throw new Error('Could not build the native Rate Analysis test calculator')
+const nativeCalculator = path.join(root, 'src-tauri/target/debug', process.platform === 'win32' ? 'rate_analysis_cli.exe' : 'rate_analysis_cli')
+global.window = {
+  api: {
+    rateAnalysis: {
+      calculate: async (recipe) => JSON.parse(execFileSync(nativeCalculator, {
+        input: JSON.stringify(recipe), encoding: 'utf8'
+      })),
+      calculateBase: async (recipe) => JSON.parse(execFileSync(nativeCalculator, ['--base'], {
+        input: JSON.stringify(recipe), encoding: 'utf8'
+      }))
+    }
+  }
+}
+
 const sorWithProfit = {
   schemaVersion: 1,
   itemKey: 'SOR:labour:ELEC',
@@ -137,15 +157,15 @@ const sorWithProfit = {
 }
 assert.deepEqual(
   {
-    cost: calculateRateAnalysis(sorWithProfit).baseCost,
-    profit: calculateRateAnalysis(sorWithProfit).overheadAmount,
-    rate: calculateRateAnalysis(sorWithProfit).ratePerUnit
+    cost: (await calculateRateAnalysis(sorWithProfit)).baseCost,
+    profit: (await calculateRateAnalysis(sorWithProfit)).overheadAmount,
+    rate: (await calculateRateAnalysis(sorWithProfit)).ratePerUnit
   },
   { cost: 815, profit: 110.96, rate: 925.96 },
   'SOR contractor profit must be added to cost to form the adopted rate'
 )
 assert.equal(
-  calculateRateAnalysis({ ...sorWithProfit, overheadPercent: 0 }).ratePerUnit,
+  (await calculateRateAnalysis({ ...sorWithProfit, overheadPercent: 0 })).ratePerUnit,
   815,
   'Deleting the SOR contractor-profit line must make cost the adopted rate'
 )
@@ -247,14 +267,14 @@ const recipe = {
   }
 }
 
-const published = calculateRateAnalysis(recipe)
+const published = await calculateRateAnalysis(recipe)
 assert.equal(published.sectionTotals.materials, 3977420.45)
 assert.equal(published.sectionTotals.machinery, 129608.4)
 assert.equal(published.sectionTotals.labour, 381955.86)
 assert.equal(published.totalCost, 5240801.94)
 assert.equal(published.ratePerUnit, 58231.1)
 
-const recalculated = recalculateRateAnalysis(recipe)
+const recalculated = await recalculateRateAnalysis(recipe)
 assert.equal(recalculated.recalculation.sectionTotals.materials, '3977420.45')
 assert.equal(recalculated.recalculation.sectionTotals.machinery, '129608.40')
 assert.equal(recalculated.recalculation.sectionTotals.labour, '381955.86')
@@ -331,7 +351,7 @@ const publishedFirstRecipe = {
   publishedRate: 165
 }
 
-const noEdit = recalculateRateAnalysis(publishedFirstRecipe)
+const noEdit = await recalculateRateAnalysis(publishedFirstRecipe)
 assert.deepEqual(noEdit.recalculation.affectedSections, [])
 assert.equal(noEdit.recalculation.sectionTotals.materials, '300.00')
 assert.equal(noEdit.recalculation.sectionTotals.machinery, '500.00')
@@ -391,7 +411,7 @@ const structuredRuleRecipe = {
 const structuredAudit = auditPublishedRateAnalysis(structuredRuleRecipe)
 assert.equal(structuredAudit.sections.find((section) => section.section === 'materials').recalculatedTotal, 110)
 assert.equal(structuredAudit.sections.find((section) => section.section === 'machinery').recalculatedTotal, 180)
-const structuredEdit = recalculateRateAnalysis(updateRateAnalysisLine(
+const structuredEdit = await recalculateRateAnalysis(updateRateAnalysisLine(
   structuredRuleRecipe, 'materials', 'material-adjusted', { quantity: 2 }
 ))
 assert.equal(structuredEdit.recalculation.sectionTotals.materials, '220.00')
@@ -403,7 +423,7 @@ const quantityEdited = updateRateAnalysisLine(
   'material-1',
   { quantity: 3 }
 )
-const edited = recalculateRateAnalysis(quantityEdited)
+const edited = await recalculateRateAnalysis(quantityEdited)
 assert.deepEqual(edited.recalculation.affectedSections, ['materials'])
 assert.deepEqual(edited.sections[0].lines[0].editedFields, ['quantity'])
 assert.equal(edited.sections[0].lines[0].amount, 300)
@@ -427,20 +447,20 @@ const withAddedRow = {
         }]
       })
 }
-const added = recalculateRateAnalysis(withAddedRow)
+const added = await recalculateRateAnalysis(withAddedRow)
 assert.equal(added.sections[0].lines[0].amount, 205)
 assert.equal(added.sections[0].lines[1].amount, 95)
 assert.equal(added.sections[0].lines[2].amount, 20)
 assert.equal(added.recalculation.sectionTotals.materials, '320.00')
 
-const allowanceOnly = recalculateRateAnalysis({
+const allowanceOnly = await recalculateRateAnalysis({
   ...publishedFirstRecipe,
   areaAllowancePercent: 40,
   areaAllowanceLabel: 'Test area allowance'
 })
 assert.deepEqual(allowanceOnly.recalculation.affectedSections, ['labour'])
 assert.equal(allowanceOnly.recalculation.sectionTotals.labour, '700.00')
-const allowanceSummary = calculateRateAnalysis(allowanceOnly)
+const allowanceSummary = await calculateRateAnalysis(allowanceOnly)
 assert.equal(allowanceSummary.labourBaseCost, 700)
 assert.equal(allowanceSummary.areaAllowanceAmount, 280)
 assert.equal(allowanceSummary.sectionTotals.labour, 980)
@@ -460,19 +480,19 @@ const np3Recipe = {
     )
   }
 }
-const calculatedNp2 = calculateBaseRateAnalysis(np3Recipe)
-const adoptedNp3 = calculateRateAnalysis(np3Recipe)
+const calculatedNp2 = await calculateBaseRateAnalysis(np3Recipe)
+const adoptedNp3 = await calculateRateAnalysis(np3Recipe)
 assert.equal(calculatedNp2.totalCost, 7967.3)
 assert.equal(calculatedNp2.ratePerUnit, 796.73)
 assert.equal(adoptedNp3.totalCost, 8764.03)
 assert.equal(adoptedNp3.ratePerUnit, 876.4)
 assert.notEqual(adoptedNp3.ratePerUnit, 670.45, 'historical NP3 rupee rate must not be adopted')
 
-const recalculatedNp3 = calculateRateAnalysis({ ...edited, dataVariant: np3Recipe.dataVariant })
+const recalculatedNp3 = await calculateRateAnalysis({ ...edited, dataVariant: np3Recipe.dataVariant })
 assert.equal(recalculatedNp3.totalCost, 1929.95)
 assert.equal(recalculatedNp3.ratePerUnit, 193)
 
-const missingDerivedRate = calculateBaseRateAnalysis({
+const missingDerivedRate = await calculateBaseRateAnalysis({
   ...publishedFirstRecipe,
   outputQuantity: 10,
   recalculation: {
@@ -484,7 +504,7 @@ const missingDerivedRate = calculateBaseRateAnalysis({
 })
 assert.equal(missingDerivedRate.ratePerUnit, 735.07)
 
-const ccdwNp3WithAreaAllowance = recalculateRateAnalysis({
+const ccdwNp3WithAreaAllowance = await recalculateRateAnalysis({
   ...publishedFirstRecipe,
   itemCode: 'IRR-CCDW-6-1',
   unit: 'JOINTS',
@@ -523,8 +543,8 @@ const ccdwNp3WithAreaAllowance = recalculateRateAnalysis({
     baseVariantLabel: 'NP2 Class'
   }
 })
-const ccdwBase = calculateBaseRateAnalysis(ccdwNp3WithAreaAllowance)
-const ccdwNp3 = calculateRateAnalysis(ccdwNp3WithAreaAllowance)
+const ccdwBase = await calculateBaseRateAnalysis(ccdwNp3WithAreaAllowance)
+const ccdwNp3 = await calculateRateAnalysis(ccdwNp3WithAreaAllowance)
 assert.equal(ccdwBase.totalCost, 7350.71)
 assert.equal(ccdwBase.ratePerUnit, 735.07)
 assert.equal(ccdwNp3.ratePerUnit, 808.58)
@@ -556,14 +576,14 @@ const dawDepthRecipe = {
     )
   }
 }
-const calculatedDawBase = calculateBaseRateAnalysis(dawDepthRecipe)
-const adoptedDawDepth = calculateRateAnalysis(dawDepthRecipe)
+const calculatedDawBase = await calculateBaseRateAnalysis(dawDepthRecipe)
+const adoptedDawDepth = await calculateRateAnalysis(dawDepthRecipe)
 assert.equal(calculatedDawBase.ratePerUnit, 100)
 assert.equal(adoptedDawDepth.totalCost, 1210)
 assert.equal(adoptedDawDepth.ratePerUnit, 121)
 assert.notEqual(adoptedDawDepth.ratePerUnit, 346, 'historical DAW depth-band rate must not be adopted')
 
-const dawFourSteps = calculateRateAnalysis({
+const dawFourSteps = await calculateRateAnalysis({
   ...dawDepthRecipe,
   outputQuantity: 96,
   dataVariant: {
@@ -579,7 +599,7 @@ const dawFourSteps = calculateRateAnalysis({
 assert.equal(dawFourSteps.ratePerUnit, 468.99)
 assert.equal(dawFourSteps.totalCost, 45023.04)
 
-const recalculatedDawSteps = recalculateRateAnalysis({
+const recalculatedDawSteps = await recalculateRateAnalysis({
   ...publishedFirstRecipe,
   itemCode: 'IRR-DAW-1-10',
   unit: 'Rm',
@@ -667,23 +687,12 @@ const cawAddonRecipe = {
     }
   }
 }
-const calculatedCawBase = calculateBaseRateAnalysis(cawAddonRecipe)
-const calculatedCawAddon = calculateOptionalAddition(cawAddonRecipe)
-const adoptedCaw = calculateRateAnalysis(cawAddonRecipe)
+const calculatedCawBase = await calculateBaseRateAnalysis(cawAddonRecipe)
+const adoptedCaw = await calculateRateAnalysis(cawAddonRecipe)
 assert.equal(calculatedCawBase.ratePerUnit, 330.14)
-assert.equal(calculatedCawAddon.totalCost, 9286.89)
-assert.equal(calculatedCawAddon.ratePerUnit, 92.87)
 assert.equal(adoptedCaw.totalCost, 42300.85)
 assert.equal(adoptedCaw.ratePerUnit, 423.01)
 assert.notEqual(adoptedCaw.ratePerUnit, 423, 'historical combined CAW rate must not be adopted')
-
-const cawAddonWithAreaAllowance = calculateOptionalAddition({
-  ...cawAddonRecipe,
-  areaAllowancePercent: 25
-})
-assert.equal(cawAddonWithAreaAllowance.labourAllowanceAmount, 635)
-assert.equal(cawAddonWithAreaAllowance.sectionTotals.labour, 3175)
-assert.equal(cawAddonWithAreaAllowance.totalCost, 10008.35)
 
 console.log('Rate-analysis published-first, audit, and dual-measurement tests passed.')
 
@@ -708,7 +717,6 @@ console.log('Rate-analysis published-first, audit, and dual-measurement tests pa
       './rateAnalysis': {
         calculateBaseRateAnalysis,
         calculateRateAnalysis,
-        calculateOptionalAddition,
         labourRowsForDisplay
       },
       './leadApplicability': { parseLeadInfo: () => ({}), addonLeadRuleForVariant: () => null },
@@ -740,7 +748,7 @@ console.log('Rate-analysis published-first, audit, and dual-measurement tests pa
       { key: 'labour', label: 'Labour', lines: [] }
     ]
   }
-  const input = dataOutput.rateAnalysisCompileInputs(sampleRecipe, null)
+  const input = await dataOutput.rateAnalysisCompileInputs(sampleRecipe, null)
   const readText = (inputs) => compiler.svg({ mainFileContent: template, inputs }).replace(/<[^>]*>/g, '')
   const text = readText(input)
   assert(text.includes('New sand material'))
@@ -751,7 +759,7 @@ console.log('Rate-analysis published-first, audit, and dual-measurement tests pa
     { key: 'machinery', label: 'Machinery', lines: [{ id: 'machine', description: 'Concrete mixer', unit: 'hour', quantity: 1, rate: 50, amount: 50 }] },
     { key: 'labour', label: 'Labour', lines: [{ id: 'worker', description: 'Mason labour', unit: 'day', quantity: 1, rate: 80, amount: 80 }] }
   ] }
-  const refreshed = dataOutput.rateAnalysisCompileInputs(withExtras, null, [{ variantId: 'v1', itemCode: 'Sand source', quantity: 2, unit: 'cum', grossRate: 10, grossAmount: 20 }], [])
+  const refreshed = await dataOutput.rateAnalysisCompileInputs(withExtras, null, [{ variantId: 'v1', itemCode: 'Sand source', quantity: 2, unit: 'cum', grossRate: 10, grossAmount: 20 }], [])
   const refreshedText = readText(refreshed)
   for (const value of ['Concrete mixer', 'Mason labour', 'Area allowance', 'Sand source']) assert(refreshedText.includes(value), value)
   assert.equal(dataOutput.dataTypstTemplate(), template)
@@ -768,3 +776,9 @@ console.log('Rate-analysis published-first, audit, and dual-measurement tests pa
   }
   console.log('DATA/SOR native templates: live rows, optional sections, literal text, PDF compilation and two-way settings passed')
 }
+}
+
+main().catch((error) => {
+  console.error(error)
+  process.exitCode = 1
+})

@@ -37,15 +37,20 @@ function CommitOnBlurInput({
   placeholder: string
   onCommit: (next: string) => void
 }): JSX.Element {
+  const [prevValue, setPrevValue] = useState(value)
   const [draft, setDraft] = useState(value)
   const [editing, setEditing] = useState(false)
   // Refs so the unmount commit sees the last keystroke, not the first render.
+  // Kept fresh from the input handlers: writing the ref during render is a
+  // React Compiler violation, and an effect can lag the final commit.
   const pending = useRef({ draft: value, value, editing: false, onCommit })
-  pending.current = { draft, value, editing, onCommit }
 
-  useEffect(() => {
-    if (!editing) setDraft(value)
-  }, [editing, value])
+  if (!editing && prevValue !== value) {
+    setPrevValue(value)
+    setDraft(value)
+  } else if (prevValue !== value) {
+    setPrevValue(value)
+  }
 
   useEffect(
     () => () => {
@@ -56,6 +61,7 @@ function CommitOnBlurInput({
   )
 
   const commit = (): void => {
+    pending.current = { draft, value, editing: false, onCommit }
     setEditing(false)
     if (draft !== value) onCommit(draft)
   }
@@ -67,8 +73,13 @@ function CommitOnBlurInput({
       onFocus={() => {
         setDraft(value)
         setEditing(true)
+        pending.current = { draft: value, value, editing: true, onCommit }
       }}
-      onChange={(event) => setDraft(event.target.value)}
+      onChange={(event) => {
+        const next = event.target.value
+        setDraft(next)
+        pending.current = { draft: next, value, editing: true, onCommit }
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Enter') event.currentTarget.blur()
       }}

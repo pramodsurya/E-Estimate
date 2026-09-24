@@ -1,4 +1,5 @@
 import type { LeadApplication, LeadVariant, ProjectNode } from '../types/project'
+import type { SeigniorageItemRow } from './seigniorage'
 
 export interface WeightedLeadEntryInput {
   variantId: string
@@ -46,12 +47,85 @@ export function weightedLeadEntries(
     .filter((entry) => entry.quantity > 0)
 }
 
+function normalizedWords(value: string | null | undefined): string[] {
+  return (value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 2 && !['material', 'other', 'others'].includes(word))
+}
+
+function rowMatchesMaterial(row: SeigniorageItemRow, materialName: string): boolean {
+  const wanted = normalizedWords(materialName)
+  if (!wanted.length) return false
+  const available = new Set(normalizedWords([
+    row.materialLabel,
+    row.recipeMaterialDesc,
+    row.charge?.mineral_name
+  ].filter(Boolean).join(' ')))
+  return wanted.every((word) => available.has(word)) || wanted.some((word) => available.has(word))
+}
+
+/**
+ * Project-wide weights use the Seigniorage material quantity for each exact
+ * Item usage. The Lead application selects the bucket; the component does
+ * not. A component can therefore contribute to several source variants.
+ */
+export function weightedLeadEntriesFromSeigniorage(
+  variants: LeadVariant[],
+  applications: LeadApplication[],
+  rows: SeigniorageItemRow[]
+): WeightedLeadEntryInput[] {
+  const normalVariants = variants.filter((variant) => !variant.weightedLead)
+  const byId = new Map(normalVariants.map((variant) => [variant.id, variant]))
+  const totals = new Map<string, number>()
+  const units = new Map<string, string>()
+
+  for (const application of applications) {
+    const variant = byId.get(application.sourceVariantId ?? application.variantId)
+    if (!variant) continue
+    if (!application.itemNodeId) {
+      throw new Error(`Lead '${variant.variantName || variant.materialName}' has a legacy shared application without an Item usage.`)
+    }
+    const candidates = rows.filter(
+      (row) =>
+        rowMatchesMaterial(row, variant.materialName) &&
+        (row.quantityTerms ?? []).some((term) => term.itemNodeId === application.itemNodeId)
+    )
+    if (candidates.length !== 1) {
+      throw new Error(
+        `Expected one Seigniorage weight for '${variant.materialName}' on Item '${application.itemCode}', found ${candidates.length}.`
+      )
+    }
+    const terms = candidates[0].quantityTerms ?? []
+    const quantity = terms
+      .filter((term) => term.itemNodeId === application.itemNodeId)
+      .reduce((sum, term) => sum + term.quantity, 0)
+    if (!(quantity > 0)) continue
+    totals.set(variant.id, (totals.get(variant.id) ?? 0) + quantity)
+    units.set(variant.id, candidates[0].unit || application.unit || '')
+  }
+
+  return normalVariants
+    .map((variant) => ({
+      variantId: variant.id,
+      variantName: variant.componentName || variant.variantName || variant.materialName,
+      leadKm: variant.actualLeadKm ?? variant.leadKm,
+      quantity: totals.get(variant.id) ?? 0,
+      unit: units.get(variant.id) ?? ''
+    }))
+    .filter((entry) => entry.quantity > 0)
+}
+
 /** Names of live leads with no applied quantity (blockers for averaging). */
 export function unappliedLeadNames(
   variants: LeadVariant[],
   applications: LeadApplication[]
 ): string[] {
-  const applied = new Set(applications.map((application) => application.variantId))
+  const applied = new Set(
+    applications.map((application) => application.sourceVariantId ?? application.variantId)
+  )
   return variants
     .filter((variant) => !variant.weightedLead && !applied.has(variant.id))
     .map((variant) => variant.componentName || variant.variantName || variant.materialName)

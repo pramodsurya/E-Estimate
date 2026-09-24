@@ -172,10 +172,10 @@ export function parseDocumentSettingsFromTypst(
   const targetText = managedMatch ? managedMatch[1] : source
 
   // 1. Paper size (e.g. paper: "a4", paper: "a3", paper: "legal")
-  const paperMatch = targetText.match(/paper:\s*["']([a-zA-Z0-9]+)["']/)
+  const paperMatch = targetText.match(/paper:\s*["']([a-zA-Z0-9-]+)["']/)
   if (paperMatch) {
-    const rawPaper = paperMatch[1].toUpperCase()
-    if (rawPaper === 'A4' || rawPaper === 'A3' || rawPaper === 'LEGAL' || rawPaper === 'LETTER') {
+    const rawPaper = paperMatch[1].replace(/^us-/i, '').toUpperCase()
+    if (rawPaper === 'A4' || rawPaper === 'A3' || rawPaper === 'A2' || rawPaper === 'LEGAL' || rawPaper === 'LETTER') {
       result.pageSize = rawPaper as PaperSize
     }
   }
@@ -213,7 +213,10 @@ export function parseDocumentSettingsFromTypst(
   const fontMatch = targetText.match(/font:\s*\(?([^)\n]+)\)?/)
   if (fontMatch) {
     const rawFont = fontMatch[1].toLowerCase()
-    if (rawFont.includes('times')) result.fontFamily = 'times'
+    if (rawFont.includes('source sans')) result.fontFamily = 'source-sans'
+    else if (rawFont.includes('source serif')) result.fontFamily = 'source-serif'
+    else if (rawFont.includes('georgia')) result.fontFamily = 'georgia'
+    else if (rawFont.includes('times')) result.fontFamily = 'times'
     else if (rawFont.includes('arial')) result.fontFamily = 'arial'
     else if (rawFont.includes('calibri') || rawFont.includes('sans') || rawFont.includes('helvetica')) {
       result.fontFamily = 'sans'

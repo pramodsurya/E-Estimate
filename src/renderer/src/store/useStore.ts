@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { create } from 'zustand'
 import type {
   ChartDef,
@@ -64,6 +63,7 @@ import {
   createDraftProject,
   createNode,
   findNode,
+  findStructureNameConflict,
   findParent,
   moveNode,
   newId,
@@ -71,7 +71,7 @@ import {
   removeNode,
   reorderSibling,
   resolveItemParent,
-  uniqueChildName,
+  structureNamesAreAvailable,
   type ReorderEdge
 } from '../lib/tree'
 import {
@@ -1245,7 +1245,7 @@ export const useStore = create<StoreState>((set, get) => {
       const { kind, parentId } = get().addStructure
       const parent = parentId ?? p.root.id
       const trimmed = name.trim() || (kind === 'component' ? 'New Component' : 'New Sub-component')
-      const resolvedName = uniqueChildName(findNode(p.root, parent), trimmed)
+      if (findStructureNameConflict(p.root, trimmed)) return
       const fallbackLocation = location ?? p.meta.location ?? null
 
       const drawnLine = (extra?.workingLine ?? []).map((vertex) => ({
@@ -1260,7 +1260,7 @@ export const useStore = create<StoreState>((set, get) => {
       const hasGeometryPreset = hasDrawnLine || manualLengthM > 0
       const presetSource = hasDrawnLine ? ('map' as const) : ('manual' as const)
 
-      const node = createNode(kind, resolvedName, {
+      const node = createNode(kind, trimmed, {
         location: fallbackLocation,
         areaAllowance: extra?.areaAllowance ?? null,
         workingLine: hasDrawnLine ? drawnLine : (extra?.workingLine ?? null),
@@ -1576,6 +1576,7 @@ export const useStore = create<StoreState>((set, get) => {
     createComponentsFromImport: (parentId, proposals) => {
       const p = get().project
       if (!p || proposals.length === 0) return
+      if (!structureNamesAreAvailable(p.root, proposals.map((proposal) => proposal.name))) return
       mutate((root) => {
         let next = root
         const keyToId = new Map<string, string>()
@@ -1600,6 +1601,7 @@ export const useStore = create<StoreState>((set, get) => {
     createTemplatedComponentsFromImport: (parentId, templateId, proposals) => {
       const p = get().project
       if (!p || proposals.length === 0) return
+      if (!structureNamesAreAvailable(p.root, proposals.map((proposal) => proposal.name))) return
       const createdIds: { id: string; hasAlignment: boolean }[] = []
       mutate((root) => {
         let next = root
@@ -2749,8 +2751,5 @@ export const useStore = create<StoreState>((set, get) => {
 export function useSelectedNode(): ProjectNode | null {
   const root = useStore((state) => state.project?.root ?? null)
   const selectedId = useStore((state) => state.selectedId)
-  return useMemo(
-    () => (root && selectedId ? findNode(root, selectedId) : null),
-    [root, selectedId]
-  )
+  return (root && selectedId ? findNode(root, selectedId) : null)
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { CircleDot, Gem, RefreshCw, Search } from 'lucide-react'
 import {
   computeSeigniorageTable,
@@ -43,12 +43,9 @@ export default function SeignioragePanel(): JSX.Element {
     ? project?.dashboardSnapshot?.seignioragePolicies ?? {}
     : {}
 
-  const materialGroups = useMemo(
-    () => groupSeigniorageMaterials(computeSeigniorageTable(project, charges, [], policyByCode).rows),
-    [charges, policyByCode, project]
-  )
+  const materialGroups = (groupSeigniorageMaterials(computeSeigniorageTable(project, charges, [], policyByCode).rows))
 
-  const filtered = useMemo(() => {
+  const filtered = (() => {
     const needle = query.trim().toLowerCase()
     if (!needle) return materialGroups
     return materialGroups.filter((group) =>
@@ -56,7 +53,7 @@ export default function SeignioragePanel(): JSX.Element {
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(needle))
     )
-  }, [materialGroups, query])
+  })()
 
   const syncDashboard = async (): Promise<void> => {
     if (syncing || !project) return

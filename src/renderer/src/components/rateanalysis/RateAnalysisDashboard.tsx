@@ -63,6 +63,10 @@ function formatQuantity(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
 }
 
+const EMPTY_LEAD_VARIANTS: LeadVariant[] = []
+const EMPTY_LEAD_RATES: never[] = []
+const EMPTY_LEAD_APPLICATIONS: LeadApplication[] = []
+
 function zoneLabel(zone: string): string {
   if (zone === 'zone_1') return 'Zone I'
   if (zone === 'zone_2') return 'Zone II'
@@ -151,7 +155,8 @@ export default function RateAnalysisDashboard(): JSX.Element {
     setPrintPreview(true)
     try {
       const typstSource = dataTypstTemplate()
-      const res = await window.api.typst.compile(typstSource, rateAnalysisCompileInputs(recipeToPrint, project, leadApplications, leadVariants))
+      const inputs = await rateAnalysisCompileInputs(recipeToPrint, project, leadApplications, leadVariants)
+      const res = await window.api.typst.compile(typstSource, inputs)
       if (!res.ok || !res.data) {
         throw new Error(res.error || 'Failed to compile Typst PDF')
       }
@@ -185,21 +190,21 @@ export default function RateAnalysisDashboard(): JSX.Element {
       ? project.rateAnalysisScopedOverrides?.[selection.scopeNodeId]?.[selection.key] ?? null
       : null
   const override = scopedOverride ?? globalOverride
-  const leadVariants = project?.leadChart?.variants ?? []
+  const leadVariants = project?.leadChart?.variants ?? EMPTY_LEAD_VARIANTS
   const syncedLeadRates =
     project && dashboardContextMatches(project.dashboardSnapshot, project)
-      ? project.dashboardSnapshot?.leadRates ?? []
-      : []
+      ? project.dashboardSnapshot?.leadRates ?? EMPTY_LEAD_RATES
+      : EMPTY_LEAD_RATES
   const leadApplications =
     project && selection && itemNode
-      ? (project.leadChart?.applications ?? []).filter(
+      ? (project.leadChart?.applications ?? EMPTY_LEAD_APPLICATIONS).filter(
           (application) =>
             application.itemKey === selection.key &&
             (application.itemNodeId
               ? application.itemNodeId === itemNode.id
               : group?.usages[0]?.node.id === itemNode.id)
         )
-      : []
+      : EMPTY_LEAD_APPLICATIONS
   const leadApplicationSignature = leadApplications
     .map(
       (application) =>
@@ -227,45 +232,38 @@ export default function RateAnalysisDashboard(): JSX.Element {
     })
   }
 
-  useEffect(() => {
-    if (!project || !selection || !itemNode) return
-    const loaded =
-      dashboardContextMatches(project.dashboardSnapshot, project) &&
-      dashboardItemIsSynced(project.dashboardSnapshot, itemNode)
-      ? project.dashboardSnapshot?.recipes[itemNode.id] ?? null
-      : null
-    setError('')
-    setNotice('')
-    setEditing(false)
+  const selectionKey = `${project?.id}:${selection?.key}:${selection?.nodeId}:${selection?.scopeNodeId}:${override ? 'override' : 'no'}:${project?.dashboardSnapshot?.syncedAt ?? ''}`
+  const [prevSelectionKey, setPrevSelectionKey] = useState<string | null>(null)
 
-    if (loaded) {
-      const active = override ? adoptSavedRecipe(loaded, override) : cloneRecipe(loaded)
-      setDefaultRecipe(loaded)
-      setCurrent(active)
-      setDraft(cloneRecipe(active))
-    } else if (override) {
-      const active = cloneRecipe(override)
-      setDefaultRecipe(null)
-      setCurrent(active)
-      setDraft(cloneRecipe(active))
-      setNotice('Showing the saved project recipe. Click Sync All DATA to refresh every source DATA.')
-    } else {
-      setDefaultRecipe(null)
-      setCurrent(null)
-      setDraft(null)
-      setError('This DATA has not been synced yet.')
+  if (selectionKey !== prevSelectionKey) {
+    setPrevSelectionKey(selectionKey)
+    if (project && selection && itemNode) {
+      const loaded =
+        dashboardContextMatches(project.dashboardSnapshot, project) &&
+        dashboardItemIsSynced(project.dashboardSnapshot, itemNode)
+          ? project.dashboardSnapshot?.recipes[itemNode.id] ?? null
+          : null
+      setError(loaded || override ? '' : 'This DATA has not been synced yet.')
+      setNotice(override && !loaded ? 'Showing the saved project recipe. Click Sync All DATA to refresh every source DATA.' : '')
+      setEditing(false)
+
+      if (loaded) {
+        const active = override ? adoptSavedRecipe(loaded, override) : cloneRecipe(loaded)
+        setDefaultRecipe(loaded)
+        setCurrent(active)
+        setDraft(cloneRecipe(active))
+      } else if (override) {
+        const active = cloneRecipe(override)
+        setDefaultRecipe(null)
+        setCurrent(active)
+        setDraft(cloneRecipe(active))
+      } else {
+        setDefaultRecipe(null)
+        setCurrent(null)
+        setDraft(null)
+      }
     }
-  }, [
-    project?.id,
-    project?.meta.sorYear,
-    project?.meta.sorZone,
-    project?.meta.areaAllowancePercent,
-    project?.meta.areaAllowanceLabel,
-    selection?.key,
-    selection?.nodeId,
-    selection?.scopeNodeId,
-    project?.dashboardSnapshot?.syncedAt
-  ])
+  }
 
   useEffect(() => {
     if (
@@ -285,14 +283,20 @@ export default function RateAnalysisDashboard(): JSX.Element {
     const activeItemNodeId = itemNode?.id
     if (!activeItemNodeId) return
 
+    const sorYear = project?.meta.sorYear
+    const sorZone = project?.meta.sorZone ?? 'zone_3'
+    const groupCode = group.code
+    const groupDisplayName = group.displayName
+    const groupDescription = group.description
+
     const refreshLeadApplications = async (): Promise<void> => {
       const info = parseLeadInfo(current.leadApplicability)
-      const liftInfo = liftInfoForData(info, `${group.description} ${current.description}`, group.code)
+      const liftInfo = liftInfoForData(info, `${groupDescription} ${current.description}`, groupCode)
       const basis = (variant: LeadVariant) =>
         basisForData(
           info,
           variant.includedBasis,
-          `${group.description} ${current.description}`,
+          `${groupDescription} ${current.description}`,
           variant
         )
 
@@ -305,13 +309,13 @@ export default function RateAnalysisDashboard(): JSX.Element {
         let breakdown: LeadChargeBreakdown
         if (variant.pipeLead) {
           const quote = await fetchPipeLeadQuoteForMaterial({
-            materialItemCode: group.code,
-            sorYear: project.meta.sorYear,
+            materialItemCode: groupCode,
+            sorYear,
             distanceKm: variant.actualLeadKm ?? variant.leadKm,
             quantity: current.outputQuantity || 1,
             zone: null
           })
-          breakdown = pipeLeadQuoteBreakdown(quote, project.meta.sorZone ?? 'zone_3')
+          breakdown = pipeLeadQuoteBreakdown(quote, sorZone)
           effectiveQuantitySource =
             `Published ${current.outputQuantity || 1} ${quote.unit} SOR pipe-rate basis`
         } else {
@@ -323,8 +327,8 @@ export default function RateAnalysisDashboard(): JSX.Element {
             ? application.quantitySource || `Edited disposal quantity: ${formatQuantity(effectiveQuantity)} ${application.unit || quantity.unit}`
             : quantity.source
           breakdown = calculateLeadVariantChargeFromRows(syncedLeadRates, {
-            year: project.meta.sorYear,
-            zone: project.meta.sorZone ?? 'zone_3',
+            year: sorYear,
+            zone: sorZone,
             conveyanceClass: variant.conveyanceClass,
             distanceKm: variant.leadKm,
             quantity: effectiveQuantity,
@@ -346,7 +350,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
           addonId: variant.pipeLead
             ? application.addonId
             : addonLeadRuleForVariant(info, variant)?.addonId ?? application.addonId,
-          itemCode: group.displayName,
+          itemCode: groupDisplayName,
           itemNodeId: application.itemNodeId ?? activeItemNodeId,
           quantity: breakdown.quantity,
           quantityManuallyEdited: application.quantityManuallyEdited,
@@ -363,8 +367,8 @@ export default function RateAnalysisDashboard(): JSX.Element {
           netRate: breakdown.netRate,
           netAmount: breakdown.netAmount,
           calculation: breakdown.calculation,
-          rateZone: project.meta.sorZone ?? 'zone_3',
-          rateYear: project.meta.sorYear,
+          rateZone: sorZone,
+          rateYear: sorYear,
           handlingWarning:
             loadingUnloadingCautionForBreakdown(breakdown, variant.handlingMode) || undefined
         }
@@ -384,16 +388,15 @@ export default function RateAnalysisDashboard(): JSX.Element {
       cancelled = true
     }
   }, [
-    project?.id,
-    project?.meta.sorYear,
-    project?.meta.sorZone,
-    selection?.key,
-    itemNode?.id,
     current,
-    group?.key,
+    group,
+    itemNode?.id,
+    leadApplications,
+    leadVariants,
+    project,
+    selection,
     syncedLeadRates,
-    leadApplicationSignature,
-    leadVariantUpdateSignature
+    upsertLeadApplication
   ])
 
   if (!project || !selection || !group || !itemNode) {
@@ -432,9 +435,9 @@ export default function RateAnalysisDashboard(): JSX.Element {
     )
   }
 
-  const recalculate = (): void => {
+  const recalculate = async (): Promise<void> => {
     if (!draft) return
-    const recalculated = recalculateRateAnalysis(draft)
+    const recalculated = await recalculateRateAnalysis(draft)
     setDraft(recalculated)
     const result = recalculated.recalculation
     if (!result) return
@@ -444,15 +447,16 @@ export default function RateAnalysisDashboard(): JSX.Element {
   }
 
   const updateDraft = (next: RateAnalysisRecipe): void => {
-    const updated =
-      next.itemSource === 'SSR' && next.calculationStale
-        ? recalculateRateAnalysis(next)
-        : next
-    setDraft(updated)
     if (next.itemSource === 'SSR' && next.calculationStale) {
-      setNotice('Inputs changed. Recalculation updated automatically.')
-    } else if (next.itemSource === 'SOR') {
-      setNotice('SOR cost/profit updated. Save to adopt the resulting rate in this project.')
+      recalculateRateAnalysis(next).then((updated) => {
+        setDraft(updated)
+        setNotice('Inputs changed. Recalculation updated automatically.')
+      }).catch(console.error)
+    } else {
+      setDraft(next)
+      if (next.itemSource === 'SOR') {
+        setNotice('SOR cost/profit updated. Save to adopt the resulting rate in this project.')
+      }
     }
   }
 
@@ -681,10 +685,22 @@ export default function RateAnalysisDashboard(): JSX.Element {
 function RecalculationAudit({ recipe }: { recipe: RateAnalysisRecipe }): JSX.Element {
   // Snapshot recipes are stored without the trace to keep the project file small;
   // rebuild it here so the audit reads the same either way.
-  const result =
-    recipe.recalculation && !recipe.recalculation.trace.length
-      ? recalculateRateAnalysis(recipe).recalculation
-      : recipe.recalculation
+  const [computed, setComputed] = useState<{
+    recipe: RateAnalysisRecipe
+    result: RateAnalysisRecipe['recalculation']
+  } | null>(null)
+  const needsTrace = Boolean(recipe.recalculation && !recipe.recalculation.trace.length)
+  const result = needsTrace
+    ? computed?.recipe === recipe ? computed.result : undefined
+    : recipe.recalculation
+  useEffect(() => {
+    if (!recipe.recalculation || recipe.recalculation.trace.length) return
+    let active = true
+    recalculateRateAnalysis(recipe).then((res) => {
+      if (active) setComputed({ recipe, result: res.recalculation })
+    }).catch(console.error)
+    return () => { active = false }
+  }, [recipe])
   const audit = auditPublishedRateAnalysis(recipe)
   const hasUserEdits = recipe.sections.some((section) =>
     section.lines.some((line) => line.userAdded || (line.editedFields?.length ?? 0) > 0)

@@ -184,7 +184,7 @@ export function evaluateProjectDataFormula(
   if (!/^[\d+\-*/().\sNaN]+$/.test(expression) || expression.includes('NaN')) return null
   try {
     // The expression has been reduced to numerals and arithmetic operators only.
-    // eslint-disable-next-line no-new-func
+     
     const value = Function(`"use strict"; return (${expression})`)()
     return typeof value === 'number' && Number.isFinite(value) ? value : null
   } catch {
@@ -355,7 +355,7 @@ export async function projectDataRecipe(
     recipe.areaAllowancePercent = Math.max(0, allowance.percent)
     recipe.areaAllowanceLabel = allowance.label
   }
-  return withProjectMaterialRateOverrides(recalculateRateAnalysis(recipe), materialRateOverrides)
+  return withProjectMaterialRateOverrides(await recalculateRateAnalysis(recipe), materialRateOverrides)
 }
 
 /**

@@ -339,6 +339,22 @@ export interface SeigniorageItemRow {
   /** GO permit rate applied to this row, as a percentage of seigniorage. */
   permitPercent: number
   isManual: boolean
+  /**
+   * Unrounded source terms behind the displayed material quantity. Project
+   * Excel uses these to keep every Item occurrence independently traceable
+   * when several occurrences are combined into one Seigniorage row.
+   */
+  quantityTerms?: SeigniorageQuantityTerm[]
+}
+
+export interface SeigniorageQuantityTerm {
+  itemNodeId?: string
+  /** Current backend result for this exact occurrence (audit/display use). */
+  quantity: number
+  /** Multiply the owning Abstract quantity by this factor in Project Excel. */
+  factor?: number
+  /** Quantity independent of an Abstract quantity (DIRECT/manual modes). */
+  staticQuantity?: number
 }
 
 export interface SeigniorageCalculation {
@@ -569,6 +585,23 @@ function ratioMode(mode: string | null | undefined): boolean {
   return mode === 'RECIPE_MATERIAL_RATIO' || mode === 'ADDON_MATERIAL_RATIO'
 }
 
+function quantityTermFor(
+  itemNodeId: string,
+  itemQuantity: number | null,
+  applicableQuantity: number | null,
+  mode: string | null | undefined
+): SeigniorageQuantityTerm[] {
+  if (applicableQuantity == null || !Number.isFinite(applicableQuantity)) return []
+  if (mode === 'DIRECT_RECIPE_QTY' || itemQuantity == null || itemQuantity === 0) {
+    return [{ itemNodeId, quantity: applicableQuantity, staticQuantity: applicableQuantity }]
+  }
+  return [{
+    itemNodeId,
+    quantity: applicableQuantity,
+    factor: applicableQuantity / itemQuantity
+  }]
+}
+
 function rowCombinationKey(row: SeigniorageItemRow): string {
   const materialCharge =
     row.charge?.seig_code || row.materialKey || row.materialLabel || 'UNASSIGNED'
@@ -673,6 +706,9 @@ function combineProjectRows(
         : null
     const dmft = seigniorage != null ? seigniorage * (DMFT_PERCENT / 100) : null
     const smft = seigniorage != null ? seigniorage * (SMFT_PERCENT / 100) : null
+    const quantityTerms = group.flatMap((row) =>
+      row.quantityTerms ?? quantityTermFor(row.itemNodeId, row.itemQuantity ?? null, row.quantity, row.mode)
+    )
 
     return {
       ...first,
@@ -687,7 +723,8 @@ function combineProjectRows(
       seigniorage,
       dmft,
       smft,
-      permit: permitForRow(first.charge?.seig_code ?? null, seigniorage)
+      permit: permitForRow(first.charge?.seig_code ?? null, seigniorage),
+      quantityTerms
     }
   })
 }
@@ -826,7 +863,8 @@ export function computeSeigniorageTable(
           smft,
           permit: permitForRow(policy.seig_code ?? null, seigniorage),
           permitPercent: permitPercentFor(policy.seig_code ?? null),
-          isManual: false
+          isManual: false,
+          quantityTerms: quantityTermFor(item.id, qty, seigQty, policy.mode)
         })
       }
       continue
@@ -937,7 +975,8 @@ export function computeSeigniorageTable(
       smft,
       permit: permitForRow(charge?.seig_code ?? null, seigniorage),
       permitPercent: permitPercentFor(charge?.seig_code ?? null),
-      isManual: false
+      isManual: false,
+      quantityTerms: quantityTermFor(item.id, qty, qty, null)
     })
   }
 

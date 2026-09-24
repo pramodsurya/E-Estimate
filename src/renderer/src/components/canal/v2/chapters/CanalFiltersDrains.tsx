@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { CircleDot, Droplets, LockKeyhole, Pickaxe, Plus, Trash2, Waves } from 'lucide-react'
 import type { CanalData, CanalFilterDrainKind, CanalFilterDrainReach } from '../../../../types/project'
 import { canalFilterDrainQuantity, orderedCanalSections } from '../../../../lib/canal'
@@ -12,7 +12,7 @@ type System = NonNullable<CanalFilterDrainReach['system']>
 type PlugLocation = NonNullable<CanalFilterDrainReach['plugLocations']>[number]
 type Sections = ReturnType<typeof orderedCanalSections>
 
-const n2 = (value: number): string => value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const n2 = (value: number | undefined | null): string => (Number(value) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const isToe = (row: CanalFilterDrainReach): boolean => row.system === 'toe-drain' || ['5-7', '5-12', '5-13'].includes(row.kind)
 const isBed = (row: CanalFilterDrainReach): boolean => row.system === 'bed-drainage' || row.kind === '5-8'
 const isPlug = (row: CanalFilterDrainReach): boolean => row.system === 'porous-plug' || row.kind === '5-9'
@@ -82,7 +82,7 @@ function PlugSketch(): JSX.Element {
 }
 
 export default function CanalFiltersDrains({ data, onCommit }: { data: CanalData; onCommit: (update: (current: CanalData) => CanalData) => void }): JSX.Element {
-  const sections = useMemo(() => orderedCanalSections(data), [data])
+  const sections = (orderedCanalSections(data))
   const rows = data.filterDrainReaches
   const rockRows = rows.filter(isRock), toeRows = rows.filter(isToe), bedRows = rows.filter(isBed), plugRows = rows.filter(isPlug)
   const [previewId, setPreviewId] = useState(sections[0]?.id ?? '')
@@ -95,10 +95,10 @@ export default function CanalFiltersDrains({ data, onCommit }: { data: CanalData
   const patchRock = (patch: Partial<CanalFilterDrainReach>): void => onCommit((current) => ({ ...current, filterDrainReaches: current.filterDrainReaches.map((row) => isRock(row) ? { ...row, ...patch } : row) }))
   const long = bedRows.find((row) => row.orientation === 'longitudinal'), cross = bedRows.find((row) => row.orientation === 'cross')
   const plug = plugRows[0]
-  const conflicts = useMemo(() => toeRows.flatMap((a, i) => toeRows.slice(i + 1).flatMap((b) => {
+  const conflicts = (toeRows.flatMap((a, i) => toeRows.slice(i + 1).flatMap((b) => {
     const from = Math.max(a.fromChainage, b.fromChainage), to = Math.min(a.toChainage, b.toChainage)
     return a.side === b.side && a.kind !== b.kind && to > from ? [{ a, b, from, to }] : []
-  })), [toeRows])
+  })))
 
   const setToeBank = (row: CanalFilterDrainReach, side: CanalFilterDrainReach['side']): void => {
     if (side !== 'both') return update(row.id, { side })

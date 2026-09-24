@@ -204,274 +204,16 @@ export interface CalculatedOptionalAddition {
   ratePerUnit: number
 }
 
-/** Recalculate the selected CAW add-on from its displayed quantity/rate rows. */
-export function calculateOptionalAddition(
-  recipe: RateAnalysisRecipe
-): CalculatedOptionalAddition | null {
-  const analysis = recipe.dataVariant?.additionAnalysis
-  if (recipe.dataVariant?.kind !== 'optional_addition' || !analysis) return null
-  const sectionTotals: Partial<Record<RateAnalysisSectionKey, number>> = {}
-  for (const section of analysis.sections) {
-    sectionTotals[section.key] = roundMoney(
-      section.lines.reduce(
-        (total, line) => total + roundMoney(numberValue(line.quantity) * numberValue(line.rate)),
-        0
-      )
-    )
-  }
-  const labourBase = numberValue(sectionTotals.labour)
-  const allowancePercent = Math.max(0, numberValue(recipe.areaAllowancePercent))
-  const allowanceAmount = roundMoney((labourBase * allowancePercent) / 100)
-  sectionTotals.labour = roundMoney(labourBase + allowanceAmount)
-  const subtotal = roundMoney(
-    numberValue(sectionTotals.materials) +
-      numberValue(sectionTotals.machinery) +
-      numberValue(sectionTotals.labour)
-  )
-  const overheadPercent = numberValue(analysis.overheadPercent, recipe.overheadPercent)
-  const overheadAmount = roundMoney((subtotal * overheadPercent) / 100)
-  const totalCost = roundMoney(subtotal + overheadAmount)
-  const outputQuantity = numberValue(analysis.outputQuantity, 1) || 1
-  return {
-    sectionTotals,
-    labourAllowancePercent: allowancePercent,
-    labourAllowanceAmount: allowanceAmount,
-    overheadPercent,
-    overheadAmount,
-    subtotal,
-    totalCost,
-    outputQuantity,
-    ratePerUnit: roundMoney(totalCost / outputQuantity)
-  }
+/**
+ * Rate analysis calculation is executed strictly by the native Rust engine.
+ * No JavaScript fallback calculation is permitted.
+ */
+export async function calculateRateAnalysis(recipe: RateAnalysisRecipe): Promise<RateAnalysisSummary> {
+  return window.api.rateAnalysis.calculate(recipe);
 }
 
-/** The DATA analysis before a selected post-rate percentage is applied. */
-export function calculateBaseRateAnalysis(recipe: RateAnalysisRecipe): RateAnalysisSummary {
-  if (recipe.itemSource === 'SOR') {
-    const baseRate = numberValue(
-      recipe.publishedRate ?? recipe.sections.flatMap((section) => section.lines)[0]?.rate
-    )
-    const overheadAmount = roundMoney((baseRate * numberValue(recipe.overheadPercent)) / 100)
-    const rate = roundMoney(baseRate + overheadAmount)
-    return {
-      sectionTotals: { materials: 0, machinery: 0, labour: 0 },
-      labourBaseCost: 0,
-      areaAllowancePercent: 0,
-      areaAllowanceAmount: 0,
-      labourCostWithAreaAllowance: 0,
-      baseCost: baseRate,
-      overheadAmount,
-      totalCost: rate,
-      ratePerUnit: rate,
-      labourUnitBase: 0,
-      labourUnitProfit: 0,
-      labourUnitTotal: 0
-    }
-  }
-
-  if (recipe.recalculation) {
-    const materials = numberValue(recipe.recalculation.sectionTotals.materials)
-    const machinery = numberValue(recipe.recalculation.sectionTotals.machinery)
-    const labourBaseCost = numberValue(recipe.recalculation.sectionTotals.labour)
-    const allowance = areaAllowanceForLabour(recipe, labourBaseCost)
-    const abstractLabourTotal = roundMoney(
-      numberValue(recipe.recalculation.subtotal) - materials - machinery
-    )
-    const labour =
-      recipe.recalculation.labourExtract ??
-      buildRecalculatedLabourSummary(
-        recipe,
-        numberValue(recipe.recalculation.sectionTotals.labour)
-      ).rows
-    const recalculatedTotalCost = numberValue(recipe.recalculation.finalCost)
-    const recalculatedRate = numberValue(recipe.recalculation.calculatedRate, Number.NaN)
-    return {
-      sectionTotals: {
-        materials,
-        machinery,
-        labour: abstractLabourTotal
-      },
-      labourBaseCost,
-      areaAllowancePercent: allowance.percent,
-      areaAllowanceAmount: allowance.amount,
-      labourCostWithAreaAllowance: allowance.total,
-      baseCost: numberValue(recipe.recalculation.subtotal),
-      overheadAmount: roundMoney(
-        numberValue(recipe.recalculation.finalCost) - numberValue(recipe.recalculation.subtotal)
-      ),
-      totalCost: recalculatedTotalCost,
-      ratePerUnit: Number.isFinite(recalculatedRate)
-        ? recalculatedRate
-        : roundMoney(recalculatedTotalCost / (numberValue(recipe.outputQuantity, 1) || 1)),
-      labourUnitBase: numberValue(
-        labour.find((row) => /labour component\/unit qty$/i.test(row.label))?.amount ??
-          labour.find((row) => /labour component\/unit qty$/i.test(row.label))?.value
-      ),
-      labourUnitProfit: numberValue(
-        labour.find((row) => /contractor|overhead/i.test(row.label))?.amount ??
-          labour.find((row) => /contractor|overhead/i.test(row.label))?.value
-      ),
-      labourUnitTotal: numberValue(
-        [...labour]
-          .reverse()
-          .find((row) => /labour component\/unit qty/i.test(row.label))?.amount ??
-          [...labour]
-            .reverse()
-            .find((row) => /labour component\/unit qty/i.test(row.label))?.value
-      )
-    }
-  }
-
-  if (recipe.storedValues) {
-    const abstract = recipe.storedValues.abstract
-    const labour = recipe.storedValues.labourExtract
-    const sectionTotals = {
-      materials: numberValue(recipe.storedValues.sectionTotals.materials),
-      machinery: numberValue(recipe.storedValues.sectionTotals.machinery),
-      labour: numberValue(recipe.storedValues.sectionTotals.labour)
-    }
-    const labourBaseCost = sectionTotals.labour
-    const allowance = areaAllowanceForLabour(recipe, labourBaseCost)
-    const hasAreaAllowance = allowance.percent > 0
-    sectionTotals.labour = allowance.total
-    const baseCost = hasAreaAllowance
-      ? roundMoney(sectionTotals.materials + sectionTotals.machinery + allowance.total)
-      : numberValue(abstract[3]?.amount)
-    const overheadAmount = hasAreaAllowance
-      ? roundMoney((baseCost * numberValue(recipe.overheadPercent)) / 100)
-      : numberValue(
-          abstract.find((row) => /contractor|overhead/i.test(row.label) && row.amount)?.amount
-        )
-    const publishedBlock = recipe.publishedRateBlocks?.find((block) => block.primary)
-    const postRateMultiplier = selectedPostRateMultiplier(recipe)
-    const calculatedAddon = calculateOptionalAddition(recipe)
-    const selectedVariantRate = postRateMultiplier === null && calculatedAddon === null
-      ? recipe.dataVariant?.rate ?? publishedBlock?.rate
-      : undefined
-    const calculatedBaseTotal = numberValue(
-      [...abstract].reverse().find((row) => /total cost/i.test(row.label))?.amount
-    )
-    const totalCost = hasAreaAllowance
-      ? roundMoney(baseCost + overheadAmount)
-      : postRateMultiplier !== null || calculatedAddon !== null
-        ? calculatedBaseTotal
-      : selectedVariantRate !== undefined
-        ? publishedBlock && recipe.dataVariant === undefined && publishedBlock.totalCost !== undefined
-          ? publishedBlock.totalCost
-          : roundMoney(
-              selectedVariantRate *
-                (publishedBlock && recipe.dataVariant === undefined
-                  ? publishedBlock.outputQuantity
-                  : outputQuantity(recipe))
-            )
-        : numberValue(
-            [...abstract].reverse().find((row) => /total cost/i.test(row.label))?.amount
-          )
-    return {
-      sectionTotals,
-      labourBaseCost,
-      areaAllowancePercent: allowance.percent,
-      areaAllowanceAmount: allowance.amount,
-      labourCostWithAreaAllowance: allowance.total,
-      baseCost,
-      overheadAmount,
-      totalCost,
-      ratePerUnit: postRateMultiplier !== null || calculatedAddon !== null
-        ? roundMoney(totalCost / (numberValue(recipe.outputQuantity, 1) || 1))
-        : hasAreaAllowance
-          ? roundRate(totalCost / (numberValue(recipe.outputQuantity, 1) || 1))
-        : selectedVariantRate ??
-          numberValue([...abstract].reverse().find((row) => row.amount)?.amount),
-      labourUnitBase: numberValue(
-        labour.find((row) => /labour component\/unit qty$/i.test(row.label))?.amount ??
-          labour.find((row) => /labour component\/unit qty$/i.test(row.label))?.value
-      ),
-      labourUnitProfit: numberValue(
-        labour.find((row) => /contractor|overhead/i.test(row.label))?.amount ??
-          labour.find((row) => /contractor|overhead/i.test(row.label))?.value
-      ),
-      labourUnitTotal: numberValue(
-        [...labour]
-          .reverse()
-          .find((row) => /labour component\/unit qty/i.test(row.label))?.amount ??
-          [...labour]
-            .reverse()
-            .find((row) => /labour component\/unit qty/i.test(row.label))?.value
-      )
-    }
-  }
-
-  const sectionTotals = {
-    materials: 0,
-    machinery: 0,
-    labour: 0
-  }
-
-  for (const section of recipe.sections) {
-    sectionTotals[section.key] = roundMoney(
-      section.lines.reduce((total, line) => total + numberValue(line.amount), 0)
-    )
-  }
-
-  const labourBaseCost = sectionTotals.labour
-  const allowance = areaAllowanceForLabour(recipe, labourBaseCost)
-  sectionTotals.labour = allowance.total
-
-  const baseCost = roundMoney(
-    sectionTotals.materials + sectionTotals.machinery + sectionTotals.labour
-  )
-  const overheadAmount = roundMoney((baseCost * numberValue(recipe.overheadPercent)) / 100)
-  const totalCost = roundMoney(baseCost + overheadAmount)
-  const outputQty = numberValue(recipe.outputQuantity, 1) || 1
-  const labourUnitBase = roundRate(sectionTotals.labour / outputQty)
-  const labourUnitProfit = roundRate(
-    (labourUnitBase * numberValue(recipe.overheadPercent)) / 100
-  )
-
-  return {
-    sectionTotals,
-    labourBaseCost,
-    areaAllowancePercent: allowance.percent,
-    areaAllowanceAmount: allowance.amount,
-    labourCostWithAreaAllowance: allowance.total,
-    baseCost,
-    overheadAmount,
-    totalCost,
-    ratePerUnit: roundRate(totalCost / outputQty),
-    labourUnitBase,
-    labourUnitProfit,
-    labourUnitTotal: roundRate(labourUnitBase + labourUnitProfit)
-  }
-}
-
-/** Final adopted result, including percentages defined to apply after DATA recalculation. */
-export function calculateRateAnalysis(recipe: RateAnalysisRecipe): RateAnalysisSummary {
-  const base = calculateBaseRateAnalysis(recipe)
-  const addon = calculateOptionalAddition(recipe)
-  const multiplier = selectedPostRateMultiplier(recipe)
-  const stepwiseRate = recipe.recalculation
-    ? selectedStepwisePostRate(recipe, base.ratePerUnit)
-    : recipe.dataVariant?.postRateSteps !== undefined
-      ? recipe.dataVariant.rate
-      : null
-  if (!addon && multiplier === null && stepwiseRate === null) return base
-  let totalCost = base.totalCost
-  if (addon) {
-    totalCost = roundMoney(
-      totalCost + (addon.totalCost * (numberValue(recipe.outputQuantity, 1) || 1)) / addon.outputQuantity
-    )
-  }
-  const denominator = numberValue(recipe.outputQuantity, 1) || 1
-  if (stepwiseRate !== null) {
-    totalCost = roundMoney(stepwiseRate * denominator)
-  } else if (multiplier !== null) {
-    totalCost = roundMoney(totalCost * multiplier)
-  }
-  return {
-    ...base,
-    totalCost,
-    ratePerUnit: roundMoney(totalCost / denominator)
-  }
+export async function calculateBaseRateAnalysis(recipe: RateAnalysisRecipe): Promise<RateAnalysisSummary> {
+  return window.api.rateAnalysis.calculateBase(recipe)
 }
 
 interface StructuredSectionResult {
@@ -726,7 +468,7 @@ export function invalidateRateAnalysisCalculation(recipe: RateAnalysisRecipe): R
   return { ...recipe, recalculation: undefined, calculationStale: true }
 }
 
-export function recalculateRateAnalysis(recipe: RateAnalysisRecipe): RateAnalysisRecipe {
+export async function recalculateRateAnalysis(recipe: RateAnalysisRecipe): Promise<RateAnalysisRecipe> {
   if (recipe.itemSource === 'SOR') {
     return {
       ...recipe,
@@ -844,7 +586,7 @@ export function recalculateRateAnalysis(recipe: RateAnalysisRecipe): RateAnalysi
   const allowanceApplied = numberValue(recipe.areaAllowancePercent) > 0
   const affectedSections = new Set(financiallyChangedSections)
   if (allowanceApplied) affectedSections.add('labour')
-  const publishedSummary = calculateBaseRateAnalysis({
+  const publishedSummary = await calculateBaseRateAnalysis({
     ...recipe,
     areaAllowancePercent: 0,
     recalculation: undefined
@@ -1225,7 +967,6 @@ function evaluateFormula(input: string, variables: Record<string, number>): numb
   if (expression.includes('NaN')) return null
   try {
     // Expression is limited to numbers, arithmetic operators and parentheses.
-    // eslint-disable-next-line no-new-func
     const value = Function(`"use strict"; return (${expression})`)()
     return typeof value === 'number' && Number.isFinite(value) ? value : null
   } catch {
@@ -2795,7 +2536,7 @@ export async function fetchRateAnalysis(
   const projectCalculated =
     prepared.itemSource === 'SSR' &&
     (numberValue(prepared.areaAllowancePercent) > 0 || overridden)
-      ? recalculateRateAnalysis({ ...prepared, recalculation: undefined })
+      ? await recalculateRateAnalysis({ ...prepared, recalculation: undefined })
       : prepared
   return cloneRecipe(projectCalculated)
 }
@@ -2857,13 +2598,13 @@ export async function fetchItemRate(
       (recipe.dataVariant?.kind === 'optional_addition' &&
         recipe.dataVariant.additionAnalysis !== undefined)
     ) {
-      const r = calculateRateAnalysis(recipe).ratePerUnit
+      const r = (await calculateRateAnalysis(recipe)).ratePerUnit
       return Number.isFinite(r) ? r : null
     }
     if (typeof recipe.publishedRate === 'number' && Number.isFinite(recipe.publishedRate)) {
       return recipe.publishedRate
     }
-    const r = calculateRateAnalysis(recipe).ratePerUnit
+    const r = (await calculateRateAnalysis(recipe)).ratePerUnit
     return Number.isFinite(r) ? r : null
   } catch {
     return null

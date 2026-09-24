@@ -91,7 +91,7 @@
 
 #v(7mm)
 #align(center)[#text(15pt, weight: "bold", fill: ee-navy)[#EE.at("project", default: "")]]
-#if EE.at("village", default: "") != "" or EE.at("mandal", default: "") != "" or EE.at("district", default: "") [
+#if EE.at("village", default: "") != "" or EE.at("mandal", default: "") != "" or EE.at("district", default: "") != "" [
   #v(2mm)
   #align(center)[#text(fill: ee-muted, style: "italic")[
     #if EE.at("village", default: "") != "" [Village: #EE.village]

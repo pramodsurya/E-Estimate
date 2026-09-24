@@ -25,11 +25,12 @@ export default function DocumentSettingsPanel({
   onChange,
   onUseProjectDefaults
 }: Props): JSX.Element {
+  const [prevFontSizePt, setPrevFontSizePt] = useState(settings.fontSizePt)
   const [fontSizeDraft, setFontSizeDraft] = useState(String(settings.fontSizePt))
-
-  useEffect(() => {
+  if (settings.fontSizePt !== prevFontSizePt) {
+    setPrevFontSizePt(settings.fontSizePt)
     setFontSizeDraft(String(settings.fontSizePt))
-  }, [settings.fontSizePt])
+  }
 
   const update = <K extends keyof DocumentSettings>(key: K, value: DocumentSettings[K]): void => {
     onChange({ ...settings, [key]: value })

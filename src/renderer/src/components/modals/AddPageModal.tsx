@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useActionState, useState } from 'react'
 import { FilePlus2 } from 'lucide-react'
 import Modal from './Modal'
 import { useStore } from '../../store/useStore'
@@ -11,17 +11,27 @@ export default function AddPageModal(): JSX.Element {
   const createPage = useStore((s) => s.createPage)
   const [name, setName] = useState('')
 
-  const parentName = useMemo(() => {
+  const [state, formAction, isPending] = useActionState(
+    async (_prev: { error: string | null }, formData: FormData) => {
+      const pageName = (formData.get('name') as string)?.trim()
+      if (!project || !pageName) {
+        return { error: 'Please enter a valid page name.' }
+      }
+      try {
+        createPage(parentId ?? project.root.id, pageName)
+        close()
+        return { error: null }
+      } catch (err: unknown) {
+        return { error: err instanceof Error ? err.message : 'Failed to add page' }
+      }
+    },
+    { error: null }
+  )
+
+  const parentName = (() => {
     if (!project) return ''
     return (parentId && findNode(project.root, parentId)?.name) || project.root.name
-  }, [parentId, project])
-
-  const confirm = (): void => {
-    const trimmed = name.trim()
-    if (!project || !trimmed) return
-    createPage(parentId ?? project.root.id, trimmed)
-    close()
-  }
+  })()
 
   const footer = (
     <>
@@ -29,11 +39,11 @@ export default function AddPageModal(): JSX.Element {
         Adding to <b style={{ color: 'var(--text)' }}>{parentName}</b>
       </span>
       <div style={{ display: 'flex', gap: 10 }}>
-        <button className="btn ghost" onClick={close}>
+        <button type="button" className="btn ghost" onClick={close}>
           Cancel
         </button>
-        <button className="btn" disabled={!name.trim()} onClick={confirm}>
-          <FilePlus2 size={15} /> Add Page
+        <button type="submit" form="add-page-form" className="btn" disabled={!name.trim() || isPending}>
+          <FilePlus2 size={15} /> {isPending ? 'Adding...' : 'Add Page'}
         </button>
       </div>
     </>
@@ -41,22 +51,28 @@ export default function AddPageModal(): JSX.Element {
 
   return (
     <Modal title="Add Page" onClose={close} footer={footer}>
-      <div className="field">
-        <label className="field-label" htmlFor="new-page-name">
-          Page Name
-        </label>
-        <input
-          id="new-page-name"
-          className="text-input"
-          value={name}
-          placeholder="Enter a page name"
-          autoFocus
-          onChange={(event) => setName(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') confirm()
-          }}
-        />
-      </div>
+      <form id="add-page-form" action={formAction}>
+        <div className="field">
+          <label className="field-label" htmlFor="new-page-name">
+            Page Name
+          </label>
+          <input
+            id="new-page-name"
+            name="name"
+            className="text-input"
+            value={name}
+            placeholder="Enter a page name"
+            autoFocus
+            disabled={isPending}
+            onChange={(event) => setName(event.target.value)}
+          />
+          {state.error && (
+            <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 6 }}>
+              {state.error}
+            </div>
+          )}
+        </div>
+      </form>
     </Modal>
   )
 }

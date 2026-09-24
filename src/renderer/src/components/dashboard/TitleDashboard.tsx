@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import {
   ChevronRight,
   ClipboardList,
@@ -44,11 +44,15 @@ import {
   projectCompileInputs,
   projectCompilePrelude,
   projectTypstTemplate,
+  repairGeneralAbstractSource,
   resolveProjectAbstractDocumentSettings
 } from '../../lib/typist-output/projectTypst'
-import { assembleProjectBookCompileWithAssets } from '../../lib/typist-output/projectPrintBook'
+import { compileProjectBookInParts } from '../../lib/typist-output/projectBookPartsPdf'
 import { resolveProjectBoqPrintPart } from '../../lib/typist-output/boqTypst'
+import { excelPrintSettings, resolveExcelDocumentSettings } from '../../lib/excel-output/excelDocumentSettings'
 import { boqFileName, buildProjectBoqData } from '../../lib/boq'
+import { exportProjectDashboardExcel } from '../../lib/excel-output/projectWire'
+import { exportStandaloneGeneralAbstractExcel } from '../../lib/excel-output/generalAbstractExcel'
 
 // Both years are priced on demand, so nothing here is worth loading until asked for.
 const ComparativeStatementPanel = lazy(
@@ -93,6 +97,7 @@ export default function TitleDashboard(): JSX.Element | null {
   const [miscCost, setMiscCost] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [excelExportError, setExcelExportError] = useState<string | null>(null)
 
   const project = useStore((state) => state.project)
   const addComponent = useStore((state) => state.addComponent)
@@ -110,10 +115,7 @@ export default function TitleDashboard(): JSX.Element | null {
   const setGuideWallMaterial = useStore((state) => state.setGuideWallMaterial)
   const resolveBundMaterials = useStore((state) => state.resolveBundMaterials)
 
-  const allItems = useMemo(
-    () => (project ? collectProjectItems(project.root) : []),
-    [project?.root]
-  )
+  const allItems = (project ? collectProjectItems(project.root) : [])
 
   if (!project) return null
 
@@ -137,11 +139,11 @@ export default function TitleDashboard(): JSX.Element | null {
     nacPercent
   } = printInputs
 
-  const boqPrintStudio = useMemo(() => {
+  const boqPrintStudio = (() => {
     if (!boqOpen) return null
-    return resolveProjectBoqPrintPart(project, allItems, rateOf)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, allItems, snapshot, boqOpen])
+    const storedRates = project.dashboardSnapshot?.projectRates ?? {}
+    return resolveProjectBoqPrintPart(project, allItems, (item) => storedRates[item.id] ?? undefined)
+  })()
 
   const exportBoqExcel = async (): Promise<void> => {
     const current = useStore.getState().project
@@ -152,6 +154,7 @@ export default function TitleDashboard(): JSX.Element | null {
     const payload = {
       kind: 'boq',
       preferPath: true,
+      printSettings: excelPrintSettings(resolveExcelDocumentSettings(current, 'boq-project')),
       boq: {
         projectName: boq.projectName,
         componentName: boq.componentName,
@@ -181,8 +184,8 @@ export default function TitleDashboard(): JSX.Element | null {
     await window.api.export.workbook('', fileName, undefined, { sourcePath: result.filePath })
   }
 
-  const syncDashboard = async (): Promise<void> => {
-    if (loading) return
+  const syncDashboard = async (): Promise<boolean> => {
+    if (loading) return false
     setLoading(true)
     setLoadError(null)
     try {
@@ -191,17 +194,33 @@ export default function TitleDashboard(): JSX.Element | null {
         resolveBundMaterials,
       })
       const current = useStore.getState().project
-      if (!current || current.id !== project.id) return
+      if (!current || current.id !== project.id) return false
       const currentItems = collectProjectItems(current.root)
       const next = await syncProjectDashboardSnapshot(current, currentItems)
-      if (useStore.getState().project?.id === current.id) {
-        setDashboardSnapshot(next)
+      if (useStore.getState().project !== current) {
+        setLoadError('Project changed while Sync was running. Sync again before opening output.')
+        return false
       }
+      setDashboardSnapshot(next)
+      const synced = useStore.getState().project
+      if (!synced || synced.id !== current.id || !projectDashboardIsReady(synced)) {
+        setLoadError('Project Sync finished without producing a valid output snapshot.')
+        return false
+      }
+      return true
     } catch (error: unknown) {
       setLoadError(error instanceof Error ? error.message : String(error))
+      return false
     } finally {
       setLoading(false)
     }
+  }
+
+  const openProjectOutput = (output: 'studio' | 'boq'): void => {
+    const current = useStore.getState().project
+    if (!current || current.id !== project.id) return
+    if (output === 'studio') setPrintStudioOpen(true)
+    else setBoqOpen(true)
   }
 
   const taxSettings = meta.taxSettings ?? {
@@ -261,15 +280,15 @@ export default function TitleDashboard(): JSX.Element | null {
           </button>
           <button
             className="btn ghost"
-            title="Open Project Print Studio — preview the full book; edit General Abstract and book chrome"
-            onClick={() => setPrintStudioOpen(true)}
+            title="Open Project Print Studio from the last synced calculation values"
+            onClick={() => void openProjectOutput('studio')}
           >
             <FileCode size={15} /> Open Print Studio
           </button>
           <button
             className="btn ghost"
-            title="Bill of Quantities"
-            onClick={() => setBoqOpen(true)}
+            title={dashboardReady ? 'Bill of Quantities' : 'Open BOQ with stored calculation values'}
+            onClick={() => void openProjectOutput('boq')}
           >
             <ClipboardList size={15} /> BOQ
           </button>
@@ -437,10 +456,20 @@ export default function TitleDashboard(): JSX.Element | null {
               <ScrollText size={18} /> General Abstract
             </h2>
           </div>
-          <button className="btn ghost" onClick={() => addComponent()}>
-            <Plus size={14} /> Add Component
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn ghost" disabled={!dashboardReady} title={dashboardReady ? 'Export General Abstract Excel' : 'Sync the project first'} onClick={() => {
+              setExcelExportError(null)
+              void exportStandaloneGeneralAbstractExcel(meta.name || root.name, abstract, project)
+                .catch((error: unknown) => setExcelExportError(error instanceof Error ? error.message : String(error)))
+            }}>
+              <ScrollText size={14} /> Export Abstract Excel
+            </button>
+            <button className="btn ghost" onClick={() => addComponent()}>
+              <Plus size={14} /> Add Component
+            </button>
+          </div>
         </div>
+        {excelExportError && <div className="project-load-warning">Excel export failed: {excelExportError}</div>}
         <div className="general-abstract">
           <div className="ga-head">
             <span className="ga-sl">Sl. No.</span>
@@ -649,34 +678,32 @@ export default function TitleDashboard(): JSX.Element | null {
           scopeKey={PROJECT_ABSTRACT_SCOPE}
           key={project.id + PROJECT_ABSTRACT_SCOPE}
           title="Project Estimate — Typst Print Studio"
-          subtitle="Edit General Abstract and book chrome. Preview compiles the full estimate book."
+          subtitle="Edit General Abstract. The project book is compiled section by section."
           defaultTypstSource={projectTypstTemplate()}
-          savedTypstSource={project.printStudioDocuments?.[PROJECT_ABSTRACT_SCOPE]}
-          compileInputs={projectCompileInputs(project)}
+          savedTypstSource={(() => {
+            const saved = project.printStudioDocuments?.[PROJECT_ABSTRACT_SCOPE]
+            return saved === undefined ? saved : repairGeneralAbstractSource(saved)
+          })()}
+          compileInputs={projectCompileInputs(project, true)}
           compilePrelude={projectCompilePrelude()}
-          runtimeData={buildProjectRenderData(project)}
+          runtimeData={buildProjectRenderData(project, true)}
           visualize={false}
           projectDocumentSettings={resolveProjectAbstractDocumentSettings(project)}
           savedDocumentSettings={project.printStudioDocumentSettings?.[PROJECT_ABSTRACT_SCOPE]}
-          assembleCompile={async (abstractSource) => {
-            const current = useStore.getState().project
-            if (!current || current.id !== project.id) {
-              throw new Error('The active project has changed.')
-            }
-            const book = await assembleProjectBookCompileWithAssets(current, abstractSource)
-            return {
-              mainContent: book.mainContent,
-              inputs: book.inputs,
-              shadowFiles: book.shadowFiles
-            }
+          snapshotRevision={project.dashboardSnapshot?.projectSyncedAt}
+          snapshotStale={!dashboardReady}
+          onRequestSync={async () => {
+            if (!(await syncDashboard())) throw new Error('Project Sync did not complete. Check the dashboard error and retry.')
           }}
-          onSync={async () => {
-            await syncDashboard()
+          excelExportLabel="Download the full project estimate as a formula-linked Excel workbook"
+          onExportExcel={() => exportProjectDashboardExcel()}
+          compileBook={async (abstractSource, onPhase) => {
             const current = useStore.getState().project
             if (!current || current.id !== project.id) {
               throw new Error('The active project has changed.')
             }
-            return projectCompileInputs(current)
+            if (!current.dashboardSnapshot?.projectSyncedAt) throw new Error('No Project snapshot exists. Use the Sync icon first.')
+            return compileProjectBookInParts(current, abstractSource, onPhase)
           }}
           onSave={async (source, settings) => {
             updatePrintStudioDocument(PROJECT_ABSTRACT_SCOPE, source, settings)
@@ -698,6 +725,11 @@ export default function TitleDashboard(): JSX.Element | null {
           runtimeData={boqPrintStudio.runtimeData}
           projectDocumentSettings={boqPrintStudio.projectDocumentSettings}
           savedDocumentSettings={boqPrintStudio.savedDocumentSettings ?? undefined}
+          snapshotRevision={project.dashboardSnapshot?.projectSyncedAt}
+          snapshotStale={!dashboardReady}
+          onRequestSync={async () => {
+            if (!(await syncDashboard())) throw new Error('Project Sync did not complete. Check the dashboard error and retry.')
+          }}
           excelExportLabel="Download the BOQ as an Excel workbook"
           onExportExcel={() => exportBoqExcel()}
           onSave={async (source, settings) => {

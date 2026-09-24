@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import type { CanalData, CanalLiningItemKey, CanalLiningReach, TemplateMaterialRef } from '../../../../types/project'
+import type { CanalLiningTotals } from '../../../../types/eestimateApi'
 import type { MasterItem } from '../../../../lib/masterData'
 import {
   CANAL_LINING_CODE,
@@ -23,7 +24,7 @@ import {
 import SsrCode from '../../../templates/SsrCode'
 import UnifiedCodePicker from '../../../templates/UnifiedCodePicker'
 
-const n3 = (value: number): string => value.toLocaleString('en-IN', { maximumFractionDigits: 3 })
+const n3 = (value: number | undefined | null): string => (Number(value) || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 })
 
 const ITEM_META: Array<{ key: CanalLiningItemKey; label: string; code: string; note: string }> = [
   { key: 'lining', label: 'Canal lining concrete', code: CANAL_LINING_CODE, note: 'In-situ M-15 lining in bed and slopes, measured in sq.m.' },
@@ -63,9 +64,9 @@ export default function CanalLining({ data, onCommit }: {
   onCommit: (update: (current: CanalData) => CanalData) => void
 }): JSX.Element {
   const [picker, setPicker] = useState<{ reachId: string; key: CanalLiningItemKey } | null>(null)
-  const sections = useMemo(() => orderedCanalSections(data), [data])
+  const sections = (orderedCanalSections(data))
   const reaches = data.liningReaches ?? []
-  const totals = useMemo(() => canalLiningTotals(data), [data])
+  const totals = canalLiningTotals(data)
   const updateReaches = (liningReaches: CanalLiningReach[]): void => onCommit((current) => ({ ...current, liningReaches }))
   const patchReach = (id: string, patch: Partial<CanalLiningReach>): void =>
     updateReaches(reaches.map((reach) => reach.id === id ? { ...reach, ...patch } : reach))

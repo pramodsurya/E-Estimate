@@ -28,12 +28,17 @@ export default function ChartFloat({ data }: { data?: { chartId?: string } }): J
   const chartRef = useRef<Chart | null>(null)
   const typeRef = useRef<string | null>(null)
   const pngTimer = useRef<number | null>(null)
+  const [prevChartId, setPrevChartId] = useState(chartId)
   const [status, setStatus] = useState<'loading' | 'ready' | 'missing'>(
     chartId ? 'loading' : 'missing'
   )
 
-  useEffect(() => {
+  if (prevChartId !== chartId) {
+    setPrevChartId(chartId)
     setStatus(chartId ? 'loading' : 'missing')
+  }
+
+  useEffect(() => {
     if (!chartId) return undefined
 
     let receivedConfig = false
@@ -59,13 +64,13 @@ export default function ChartFloat({ data }: { data?: { chartId?: string } }): J
       }
 
       if (!chartRef.current) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         chartRef.current = new Chart(canvas, { ...(config as any), plugins: [whiteBackground] })
         typeRef.current = config.type
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         chartRef.current.data = config.data as any
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         chartRef.current.options = config.options as any
         chartRef.current.update('none')
       }

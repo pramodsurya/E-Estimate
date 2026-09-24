@@ -12,10 +12,22 @@ import {
 
   Settings
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useStore } from '../../store/useStore'
-import { resolveComponentPrintPart } from '../../lib/typist-output/componentTypst'
-import { resolveBoqPrintPart } from '../../lib/typist-output/boqTypst'
+import { componentScopeKey, resolveComponentPrintPart } from '../../lib/typist-output/componentTypst'
+import { excelPrintSettings, resolveExcelDocumentSettings } from '../../lib/excel-output/excelDocumentSettings'
+import { buildComponentExcelPayload, componentExcelFileName } from '../../lib/excel-output/componentExcel'
+import { prepareComponentExcelParts } from '../../lib/excel-output/componentDetailPrep'
+import { bundExcelFileName, prepareBundExcelPlan } from '../../lib/excel-output/bundExcel'
+import { buildBundOutputModel } from '../../lib/typist-output/bund/bundTypst'
+import { prepareBundCompileInputs } from '../../lib/typist-output/bund/bundCompileWorker'
+import {
+  guideWallExcelFileName,
+  guideWallTotalKey,
+  prepareGuideWallExcelPlan
+} from '../../lib/excel-output/guideWallExcel'
+import { buildGuideWallRenderData } from '../../lib/typist-output/guidewall/guideWallTypst'
+import { boqScopeKey, resolveBoqPrintPart } from '../../lib/typist-output/boqTypst'
 import { boqFileName, buildBoqData } from '../../lib/boq'
 import EEstimatePrintStudio from '../typst/EEstimatePrintStudio'
 import type { EestimateProject, ProjectNode } from '../../types/project'
@@ -36,6 +48,7 @@ import { effectiveAllowanceForNode, workingLineCentroid } from '../../lib/compon
 import { resolveManualAreaAllowance } from '../../lib/manualAreaAllowance'
 import { resolveAreaAllowance } from '../../lib/masterData'
 import { ALLOWANCE_TYPES } from '../newproject/NewProjectForm'
+import { collectProjectItems } from '../../lib/projectPrintInputs'
 
 
 const money = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 })
@@ -65,7 +78,7 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
   const isSub = node.kind === 'subcomponent'
 
   // All descendant item nodes (for synchronization + the component total).
-  const allItems = useMemo(() => {
+  const allItems = (() => {
     const out: ProjectNode[] = []
     const visit = (n: ProjectNode): void => {
       if (n.kind === 'item') out.push(n)
@@ -73,7 +86,7 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
     }
     node.children.forEach(visit)
     return out
-  }, [node])
+  })()
 
   const snapshotValid = project
     ? dashboardContextMatches(project.dashboardSnapshot, project)
@@ -89,8 +102,8 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
       dashboardComponentCompileSignature(project as EestimateProject, allItems) &&
     allItems.every((item) => dashboardItemIsSynced(snapshot, item))
 
-  const syncDashboard = async (): Promise<void> => {
-    if (!project || syncing) return
+  const syncDashboard = async (): Promise<boolean> => {
+    if (!project || syncing) return false
     setSyncing(true)
     setSyncError(null)
     try {
@@ -99,21 +112,48 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
         resolveBundMaterials,
       })
       const current = useStore.getState().project
-      if (!current || current.id !== project.id) return
+      if (!current || current.id !== project.id) return false
       const currentNode = findNode(current.root, node.id)
-      if (!currentNode) return
+      if (!currentNode) return false
       // Quantity-bearing template/items are already persisted locally. Reading
       // the latest tree here is the quantity phase; DATA recompile follows it.
       const next = await syncDataDashboardSnapshot(current)
-      if (useStore.getState().project?.id !== current.id) return
+      if (useStore.getState().project !== current) {
+        setSyncError('Component changed while Sync was running. Sync again before opening output.')
+        return false
+      }
       setDashboardSnapshot(
         compileComponentDashboardSnapshots(current, next, [currentNode])
       )
+      const synced = useStore.getState().project
+      const syncedNode = synced ? findNode(synced.root, node.id) : null
+      const syncedSnapshot = synced?.dashboardSnapshot
+      const syncedItems = syncedNode ? collectProjectItems(syncedNode) : []
+      const ready = Boolean(
+        synced &&
+        syncedNode &&
+        dashboardContextMatches(syncedSnapshot, synced) &&
+        syncedSnapshot?.componentSyncedAt?.[syncedNode.id] &&
+        syncedSnapshot?.componentCompileSignatures?.[syncedNode.id] ===
+          dashboardComponentCompileSignature(synced, syncedItems) &&
+        syncedItems.every((item) => dashboardItemIsSynced(syncedSnapshot, item))
+      )
+      if (!ready) {
+        setSyncError('Component Sync finished without producing a valid output snapshot.')
+        return false
+      }
+      return true
     } catch (error: unknown) {
       setSyncError(error instanceof Error ? error.message : String(error))
+      return false
     } finally {
       setSyncing(false)
     }
+  }
+
+  const openComponentOutput = (output: 'studio' | 'boq'): void => {
+    if (output === 'studio') setPrintStudioOpen(true)
+    else setBoqOpen(true)
   }
 
   const rateOf = (n: ProjectNode): number | undefined => {
@@ -147,16 +187,124 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
   ).length
   const directCostPercent = componentTotal > 0 ? (directComponentTotal / componentTotal) * 100 : 0
 
-  const componentPrintStudio = useMemo(() => {
+  const componentPrintStudio = (() => {
     if (!project || !printStudioOpen) return null
-    return resolveComponentPrintPart(project, node, recipes, rateOf)
-  }, [project, node, recipes, rates, printStudioOpen, rateOf])
+    const storedRates = project.dashboardSnapshot?.componentRates?.[node.id] ?? EMPTY_RATES
+    const storedRecipes = project.dashboardSnapshot?.componentRecipes?.[node.id] ?? EMPTY_RECIPES
+    return resolveComponentPrintPart(project, node, storedRecipes, (item) => storedRates[item.id] ?? undefined, { deferBundInputs: true })
+  })()
 
-  const boqPrintStudio = useMemo(() => {
+  const boqPrintStudio = (() => {
     if (!project || !boqOpen) return null
-    return resolveBoqPrintPart(project, node, rateOf)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, node, snapshot, boqOpen])
+    const storedRates = project.dashboardSnapshot?.componentRates?.[node.id] ?? EMPTY_RATES
+    return resolveBoqPrintPart(project, node, (item) => storedRates[item.id] ?? undefined)
+  })()
+
+  // Component Statement Excel: same Typst algorithm (buildComponentRenderData),
+  // compiled natively. Detail sheets mirror the Typst item detail pages:
+  // spreadsheet items as cell grids, documents as styled text/tables, images
+  // anchored. Abstract quantities are live formulas into the detail sheets.
+  // No base64 fallback: a missing path or save channel fails loudly.
+  const exportComponentExcel = async (): Promise<void> => {
+    const current = useStore.getState().project
+    if (!current) throw new Error('No active project.')
+    const section = findNode(current.root, node.id)
+    if (!section) throw new Error('The active component has changed.')
+    const documentPrintSettings = excelPrintSettings(resolveExcelDocumentSettings(current, componentScopeKey(section), section))
+    const currentItems = collectProjectItems(section)
+    const currentSnapshot = current.dashboardSnapshot
+    if (!dashboardContextMatches(currentSnapshot, current) ||
+      currentSnapshot?.componentCompileSignatures?.[node.id] !== dashboardComponentCompileSignature(current, currentItems) ||
+      !currentItems.every((item) => dashboardItemIsSynced(currentSnapshot, item))) {
+      throw new Error('Component values changed after Sync. Close Print Studio and Sync again.')
+    }
+    const currentRateOf = (item: ProjectNode): number | undefined => {
+      const rate = currentSnapshot?.componentRates?.[node.id]?.[item.id]
+      return dashboardItemIsSynced(currentSnapshot, item) && typeof rate === 'number' ? rate : undefined
+    }
+    const { renderData, directNodes, details, detailed } = await prepareComponentExcelParts(current, section, recipes, currentRateOf)
+    // Bund template nodes export the bund workbook: the same component
+    // Abstract + external details with the three bund sheets injected
+    // between the Items register and the details (mirrors injectBundLayout).
+    if (section.templateId === 'bund' && section.bund) {
+      const plan = await prepareBundExcelPlan(buildBundOutputModel(current, section))
+      const quantityOverrides = directNodes.map((item) => {
+        if (!item.templateGenerated) return null
+        const ref = plan.totalRefs.get(item.id)
+        if (!ref) {
+          throw new Error(`Bund Excel: no calculated total cell was generated for '${item.itemCode || item.name}'.`)
+        }
+        return { sheet: ref.sheet, ref: { r: ref.r, c: ref.c } }
+      })
+      const bundResult = await window.api.excel.compile({
+        kind: 'bund',
+        preferPath: true,
+        printSettings: documentPrintSettings,
+        bund: {
+          component: buildComponentExcelPayload(renderData, details, detailed, quantityOverrides),
+          sheets: plan.sheets
+        }
+      })
+      if (!bundResult || !bundResult.ok || !bundResult.filePath) {
+        throw new Error(bundResult?.error || 'Excel engine did not return a workbook path.')
+      }
+      if (typeof window.api.export.workbook !== 'function') {
+        throw new Error('Excel export channel is unavailable.')
+      }
+      const bundFileName = bundExcelFileName(renderData.project, renderData.component.name)
+      await window.api.export.workbook('', bundFileName, undefined, { sourcePath: bundResult.filePath })
+      return
+    }
+    // Guide-wall template nodes export the guide-wall workbook the same way.
+    if (section.templateId === 'guide-wall' && section.guideWall) {
+      const plan = await prepareGuideWallExcelPlan(buildGuideWallRenderData(current, section, recipes))
+      const quantityOverrides = directNodes.map((item) => {
+        if (!item.templateGenerated) return null
+        const role = item.templateItemRole
+        if (role !== 'wall' && role !== 'base' && role !== 'excavation') {
+          throw new Error(`Guide Wall Excel: generated item '${item.itemCode || item.name}' has no Guide Wall role.`)
+        }
+        const ref = plan.totalRefs.get(guideWallTotalKey(role, item.itemCode || ''))
+        if (!ref) {
+          throw new Error(`Guide Wall Excel: no ${role} total cell was generated for '${item.itemCode || item.name}'.`)
+        }
+        return { sheet: plan.sheets[0].name, ref }
+      })
+      const guideResult = await window.api.excel.compile({
+        kind: 'guidewall',
+        preferPath: true,
+        printSettings: documentPrintSettings,
+        guidewall: {
+          component: buildComponentExcelPayload(renderData, details, detailed, quantityOverrides),
+          sheets: plan.sheets
+        }
+      })
+      if (!guideResult || !guideResult.ok || !guideResult.filePath) {
+        throw new Error(guideResult?.error || 'Excel engine did not return a workbook path.')
+      }
+      if (typeof window.api.export.workbook !== 'function') {
+        throw new Error('Excel export channel is unavailable.')
+      }
+      const guideFileName = guideWallExcelFileName(renderData.project, renderData.component.name)
+      await window.api.export.workbook('', guideFileName, undefined, { sourcePath: guideResult.filePath })
+      return
+    }
+    const payload = {
+      kind: 'component',
+      preferPath: true,
+      printSettings: documentPrintSettings,
+      component: buildComponentExcelPayload(renderData, details, detailed)
+    }
+    const result = await window.api.excel.compile(payload)
+    if (!result || !result.ok || !result.filePath) {
+      throw new Error(result?.error || 'Excel engine did not return a workbook path.')
+    }
+    if (typeof window.api.export.workbook !== 'function') {
+      throw new Error('Excel export channel is unavailable.')
+    }
+    const fileName = componentExcelFileName(renderData.project, renderData.component.name)
+    await window.api.export.workbook('', fileName, undefined, { sourcePath: result.filePath })
+  }
 
   const exportBoqExcel = async (): Promise<void> => {
     const current = useStore.getState().project
@@ -166,6 +314,7 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
     const payload = {
       kind: 'boq',
       preferPath: true,
+      printSettings: excelPrintSettings(resolveExcelDocumentSettings(current, boqScopeKey(section), section)),
       boq: {
         projectName: boq.projectName,
         componentName: boq.componentName,
@@ -233,15 +382,15 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
           </button>
           <button
             className="btn ghost"
-            onClick={() => setBoqOpen(true)}
-            title="Bill of Quantities"
+            onClick={() => void openComponentOutput('boq')}
+            title={componentSynced ? 'Bill of Quantities' : 'Open BOQ with stored calculation values'}
           >
             <ClipboardList size={15} /> BOQ
           </button>
           <button
             className="btn ghost"
-            title="Open Component Print Studio"
-            onClick={() => setPrintStudioOpen(true)}
+            title={componentSynced ? 'Open Component Print Studio' : 'Open Print Studio with stored calculation values; use its Sync icon to refresh'}
+            onClick={() => void openComponentOutput('studio')}
           >
             <FileCode size={15} /> Print Studio
           </button>
@@ -426,10 +575,39 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
           runtimeData={componentPrintStudio.runtimeData}
           projectDocumentSettings={componentPrintStudio.projectDocumentSettings}
           savedDocumentSettings={componentPrintStudio.savedDocumentSettings ?? undefined}
+          snapshotRevision={project.dashboardSnapshot?.componentSyncedAt?.[node.id]}
+          snapshotStale={!componentSynced}
+          onRequestSync={async () => {
+            if (!(await syncDashboard())) throw new Error('Component Sync did not complete. Check the dashboard error and retry.')
+          }}
+          assembleCompile={node.templateId === 'bund' && node.bund ? async (source) => {
+            const current = useStore.getState().project
+            const section = current ? findNode(current.root, node.id) : null
+            if (!current || !section) throw new Error('The active bund component has changed.')
+            const bundInputs = await prepareBundCompileInputs(current, node.id)
+            const latest = useStore.getState().project
+            const latestSection = latest ? findNode(latest.root, node.id) : null
+            if (!latest || !latestSection || latest.id !== current.id) throw new Error('The active bund component changed during preparation.')
+            const latestRates = latest.dashboardSnapshot?.componentRates?.[node.id] ?? EMPTY_RATES
+            const latestPart = resolveComponentPrintPart(
+              latest,
+              latestSection,
+              latest.dashboardSnapshot?.componentRecipes?.[node.id] ?? EMPTY_RECIPES,
+              (item) => latestRates[item.id] ?? undefined,
+              { deferBundInputs: true }
+            )
+            return {
+              mainContent: latestPart.compilePrelude + source,
+              inputs: { ...latestPart.compileInputs, ...bundInputs },
+              shadowFiles: latestPart.shadowFiles
+            }
+          } : undefined}
           onSave={async (source, settings) => {
             updatePrintStudioDocument(componentPrintStudio.scopeKey, source, settings)
             await useStore.getState().saveProject({ requireSaved: true })
           }}
+          excelExportLabel={node.templateId === 'bund' ? 'Download the Bund Statement as an Excel workbook' : node.templateId === 'guide-wall' ? 'Download the Guide Wall Statement as an Excel workbook' : 'Download the Component Statement as an Excel workbook'}
+          onExportExcel={() => exportComponentExcel()}
           onClose={() => setPrintStudioOpen(false)}
         />
       ) : null}
@@ -446,6 +624,11 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
           runtimeData={boqPrintStudio.runtimeData}
           projectDocumentSettings={boqPrintStudio.projectDocumentSettings}
           savedDocumentSettings={boqPrintStudio.savedDocumentSettings ?? undefined}
+          snapshotRevision={project.dashboardSnapshot?.componentSyncedAt?.[node.id]}
+          snapshotStale={!componentSynced}
+          onRequestSync={async () => {
+            if (!(await syncDashboard())) throw new Error('Component Sync did not complete. Check the dashboard error and retry.')
+          }}
           excelExportLabel="Download the BOQ as an Excel workbook"
           onExportExcel={() => exportBoqExcel()}
           onSave={async (source, settings) => {
@@ -502,8 +685,6 @@ function ComponentAllowanceCard({
   const [error, setError] = useState<string | null>(null)
   const effective = effectiveAllowanceForNode(project, node.id)
   const explicit = node.areaAllowance ?? null
-  const isCustom = !node.templateId
-  const templateLengthM = node.bund?.lengthM ?? node.canal?.lengthM ?? node.guideWall?.lengthM ?? null
   const workLookup =
     node.location ?? (node.workingLine?.length ? workingLineCentroid(node.workingLine) : null)
 
@@ -518,7 +699,6 @@ function ComponentAllowanceCard({
       )
       .finally(() => setPending(null))
   }
-  const isSub = node.kind === 'subcomponent'
 
   const applyType = (type: string): void => {
     if (pending) return
@@ -532,56 +712,37 @@ function ComponentAllowanceCard({
       .finally(() => setPending(null))
   }
 
-  const locationText = node.location
-    ? `${node.location.lat.toFixed(6)}, ${node.location.lng.toFixed(6)}${
-        node.location.label ? ` · ${node.location.label}` : ''
-      }`
-    : 'Not set'
-  const lineText = node.workingLine?.length
-    ? ` · line of ${node.workingLine.length} vertices`
-    : ''
-  const storedLengthText =
-    templateLengthM != null && templateLengthM > 0 ? ` · ${Math.round(templateLengthM)} m` : ''
+  const place = effective.allowance ?? project.meta.areaAllowance ?? null
+  const placeText = [
+    place?.village?.trim() ? `Village ${place.village.trim()}` : '',
+    place?.mandal?.trim() ? `Mandal ${place.mandal.trim()}` : '',
+    place?.district?.trim() ? `District ${place.district.trim()}` : ''
+  ]
+    .filter(Boolean)
+    .join(' · ') || 'Location not set'
 
   return (
-    <section className="component-panel">
-      <div className="component-panel-heading">
-        <div>
-          <span className="component-section-label">Working location &amp; allowance</span>
-          <h2>
-            {effective.label} · {effective.percent.toFixed(2)}%
-          </h2>
-          <p>
-            {effective.source === 'component'
-              ? `${explicit?.source === 'manual' ? 'Manual classification' : 'Automatic from the map'} on ${effective.ownerName ?? 'this section'}. Every item under it is priced with this allowance.`
-              : `Using the project allowance. Every item under this ${isSub ? 'sub-component' : 'component'} is priced with it until an explicit one is set.`}
-          </p>
+    <section className="component-panel component-location-card component-location-compact">
+      <div className="component-location-row">
+        <div className="component-location-text">
+          <span className="component-section-label">Work location</span>
+          <strong title={placeText}>{placeText}</strong>
+          <small>{effective.label} · {effective.percent.toFixed(2)}%</small>
         </div>
-        <button className="btn ghost" style={{ marginRight: 8 }} onClick={() => openEditGeometry(node.id)}>
-          {isCustom ? 'Edit location' : 'Edit length'}
-        </button>
-        <button className="btn ghost" onClick={() => setEditing((value) => !value)}>
-          {editing ? 'Done' : 'Change'}
-        </button>
-      </div>
-      <div className="component-cost-breakdown">
-        <div>
-          <span>Work point</span>
-          <strong>{locationText}</strong>
-          <small>{`${lineText ? lineText.trim() : explicit ? 'Explicit allowance' : 'Inherited allowance'}${storedLengthText}`}</small>
-        </div>
-        <div>
-          <span>Rule source</span>
-          <strong>{effective.allowance?.ruleYear ?? project.meta.sorYear}</strong>
-          <small>{effective.allowance?.goReference ?? 'Project year'}</small>
+        <div className="component-location-actions">
+          <button className="btn component-location-change" onClick={() => openEditGeometry(node.id)}>
+            Change Work Location
+          </button>
+          <button type="button" className="btn ghost compact" onClick={() => setEditing((value) => !value)}>
+            {editing ? 'Done' : 'Allowance'}
+          </button>
         </div>
       </div>
       {editing && (
         <div className="field" style={{ marginTop: 12 }}>
           <p className="settings-note" style={{ marginTop: 0 }}>
             Automatic reads the allowance rule at the stored work
-            {node.workingLine?.length ? ' line middle' : ' point'}
-            {workLookup ? ` (${workLookup.lat.toFixed(6)}, ${workLookup.lng.toFixed(6)})` : ''};
+            {node.workingLine?.length ? ' line middle' : ' point'};
             manual fixes a classification instead.
           </p>
           <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>

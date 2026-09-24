@@ -99,6 +99,7 @@ const recipe = {
 }
 const sheet = {
   id: 'variant::bund-addon', recipe,
+  calculatedSummary: rateAnalysisMock.calculateRateAnalysis(recipe),
   leadApplications: [{
     id: 'lead-stone', variantId: 'stone-v2', itemCode: 'STONE', quantity: 2, unit: 'cum',
     quantitySource: 'DATA resource quantity: Selected stone variant (2 cum)', grossRate: 20, grossAmount: 40,

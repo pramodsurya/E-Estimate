@@ -1,8 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
-import { ArrowDown, ArrowUp, Check, Eye, MapPin, Pencil, Plus, Printer, RefreshCcw, Route, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Crown, Eye, MapPin, Pencil, Plus, Printer, RefreshCcw, Route, Trash2 } from 'lucide-react'
 import { CircleMarker, MapContainer, Marker, Polyline, Popup, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
+import {
+  averageDistancesKm,
+  buildAvgPlan,
+  polylineLengthM,
+  resolveAvgPlan,
+  targetChainages,
+  type AvgLatLng,
+  type AvgResolvedPoint,
+  type AvgResolveOutcome,
+  type AvgStart
+} from '../../lib/avgLead'
+import {
+  applicationWeight,
+  unappliedLeadNames,
+  uncoveredLeadScopes,
+  weightedAverageKm,
+  weightedLeadEntriesFromSeigniorage
+} from '../../lib/weightedLead'
 import {
   calculateLeadVariantChargeFromRows,
   conveyanceClassLabel,
@@ -27,7 +45,7 @@ import {
   isDisposalLeadMaterial
 } from '../../lib/leadApplicability'
 import { calculateRateAnalysis } from '../../lib/rateAnalysis'
-import { calculateRoadRoute } from '../../lib/roadRouting'
+import { calculateRoadRoute, fetchOsrmTableKm } from '../../lib/roadRouting'
 import {
   fetchPipeLeadQuote,
   fetchPipeLeadQuoteForMaterial,
@@ -45,10 +63,12 @@ import { projectDataForNode, projectDataLeadApplicability } from '../../lib/proj
 import { newId } from '../../lib/tree'
 import {
   dashboardContextMatches,
+  dashboardLeadCompileSignature,
   syncLeadDashboardSnapshot,
   dashboardItemIsSynced
 } from '../../lib/dashboardSync'
 import { useStore } from '../../store/useStore'
+import { computeProjectPrintInputs } from '../../lib/projectPrintInputs'
 import LeadMapPrintStudio from './LeadMapPrintStudio'
 import LeadPrintStudioSession from './LeadPrintStudioSession'
 import LeadCombinedPrintPreview from './LeadCombinedPrintPreview'
@@ -62,6 +82,8 @@ import {
 } from '../../lib/signatureFooter'
 import MapLayers from '../map/MapLayers'
 import type {
+  AvgLeadDetail,
+  AvgLeadMode,
   ConveyanceClass,
   LeadChargeCode,
   LeadApplication,
@@ -76,7 +98,9 @@ import type {
   PipeLeadSource,
   ProjectNode,
   ProjectLocation,
-  SorZone
+  SorZone,
+  WeightedLeadDetail,
+  WeightedLeadEntry
 } from '../../types/project'
 import type { RateAnalysisRecipe } from '../../types/rateAnalysis'
 
@@ -325,6 +349,15 @@ function overrideReasonsFor(deliveryAtSite: boolean, loadingUnloading: boolean):
   return DELIVERY_AT_SITE_OVERRIDE_REASONS
 }
 
+/**
+ * Module-level so catch blocks stay free of value blocks (ternaries, ??):
+ * the React Compiler cannot lower those inside try/catch and would skip the
+ * whole component, silently disabling its automatic memoization.
+ */
+function describeError(reason: unknown, fallback: string): string {
+  return reason instanceof Error ? reason.message : fallback
+}
+
 export default function LeadDetailDashboard(): JSX.Element {
   const project = useStore((state) => state.project)
   const selection = useStore((state) => state.leadSelection)
@@ -338,14 +371,20 @@ export default function LeadDetailDashboard(): JSX.Element {
   const removeApplication = useStore((state) => state.removeLeadApplication)
   const updateLeadPrintSettings = useStore((state) => state.updateLeadPrintSettings)
   const openRateAnalysis = useStore((state) => state.openRateAnalysis)
+  const setDashboardSnapshot = useStore((state) => state.setDashboardSnapshot)
 
-  const chart = project?.leadChart ?? { points: [], assignments: [], itemChoices: [] }
-  const points = chart.points ?? []
-  const assignments = chart.assignments ?? []
-  const variants = chart.variants ?? []
-  const applications = chart.applications ?? []
-  const mapDirections = chart.mapDirections ?? []
-  const printSettings = chart.printSettings
+  const points = useMemo(() => project?.leadChart?.points ?? [], [project?.leadChart?.points])
+  const assignments = useMemo(
+    () => project?.leadChart?.assignments ?? [],
+    [project?.leadChart?.assignments]
+  )
+  const variants = useMemo(
+    () => project?.leadChart?.variants ?? [],
+    [project?.leadChart?.variants]
+  )
+  const applications = project?.leadChart?.applications ?? []
+  const mapDirections = project?.leadChart?.mapDirections ?? []
+  const printSettings = project?.leadChart?.printSettings
   const site = project?.meta.location ?? null
   const sorZone = project?.meta.sorZone ?? 'zone_3'
 
@@ -406,9 +445,10 @@ export default function LeadDetailDashboard(): JSX.Element {
     lastMileAutoKm: 0,
     durationSeconds: null
   })
-  const [selectedVariantId, setSelectedVariantId] = useState('')
+  const [selectedVariantId, setSelectedVariantId] = useState(
+    () => selection?.variantId || materialVariants[0]?.id || ''
+  )
   const [selectedTargetKeys, setSelectedTargetKeys] = useState<Set<string>>(new Set())
-  const [metadata, setMetadata] = useState<Map<string, unknown>>(new Map())
   const [variantBreakdowns, setVariantBreakdowns] = useState<Record<string, LeadChargeBreakdown>>({})
   const [overrideDraft, setOverrideDraft] = useState<LeadOverrideDraft | null>(null)
   const [printStudioOpen, setPrintStudioOpen] = useState(false)
@@ -421,6 +461,20 @@ export default function LeadDetailDashboard(): JSX.Element {
   const pointCodeRef = useRef<HTMLInputElement>(null)
   const variantNameRef = useRef<HTMLInputElement>(null)
   const [editingVariantId, setEditingVariantId] = useState('')
+  // Create Lead offers Normal Lead | Avg Lead. Normal keeps today's single
+  // source flow; Avg inputs arrive next, so saving stays disabled for it.
+  const [createKind, setCreateKind] = useState<'normal' | 'avg'>('normal')
+  // Creating starts at a Normal | Avg chooser popup; the form shows only after choosing.
+  const [createKindChosen, setCreateKindChosen] = useState(false)
+  const [avgComponentId, setAvgComponentId] = useState('')
+  const [avgStartIds, setAvgStartIds] = useState<string[]>([])
+  const [avgSpacingKm, setAvgSpacingKm] = useState('2')
+  const [avgToleranceKm, setAvgToleranceKm] = useState('1')
+  const [avgTableRows, setAvgTableRows] = useState<string[]>([''])
+  const [avgResult, setAvgResult] = useState<AvgResolveOutcome | null>(null)
+  const [avgBusy, setAvgBusy] = useState(false)
+  const [avgProgress, setAvgProgress] = useState('')
+  const [showAllDataForVariantId, setShowAllDataForVariantId] = useState<string | null>(null)
   const [accessDrawing, setAccessDrawing] = useState<AccessDrawingTarget | null>(null)
   const [accessDrawingOrientation, setAccessDrawingOrientation] =
     useState<AccessDrawingOrientation | null>(null)
@@ -436,18 +490,25 @@ export default function LeadDetailDashboard(): JSX.Element {
   const snapshotValid = project
     ? dashboardContextMatches(project.dashboardSnapshot, project)
     : false
+  const leadCompiled = Boolean(
+    project &&
+    snapshotValid &&
+    project.dashboardSnapshot?.leadSyncedAt &&
+    project.dashboardSnapshot?.leadCompileSignature === dashboardLeadCompileSignature(project)
+  )
   const syncedLeadRates = snapshotValid
     ? project?.dashboardSnapshot?.leadRates ?? EMPTY_LEAD_RATES
     : EMPTY_LEAD_RATES
   const workPoints = useMemo(
     () => (project ? collectWorkLocationPoints(project.root, project.meta.location) : []),
-    [project?.root, project?.meta.location]
+    [project]
   )
   const variantPointOptions = useMemo<LeadSelectablePoint[]>(
-    () => uniqueSelectablePoints([
-      ...workPoints,
-      ...points.map((point) => ({ ...point, deletable: true }))
-    ]),
+    () =>
+      uniqueSelectablePoints([
+        ...workPoints,
+        ...points.map((point) => ({ ...point, deletable: true }))
+      ]),
     [points, workPoints]
   )
   const materialMapPointIds = useMemo(() => {
@@ -471,11 +532,12 @@ export default function LeadDetailDashboard(): JSX.Element {
     [variantPointOptions]
   )
   const draftRouteStopIds = useMemo(
-    () => [
-      variantDraft.startPointId,
-      ...variantDraft.viaPointIds.filter(Boolean),
-      variantDraft.endPointId
-    ].filter(Boolean),
+    () =>
+      [
+        variantDraft.startPointId,
+        ...variantDraft.viaPointIds.filter(Boolean),
+        variantDraft.endPointId
+      ].filter(Boolean),
     [variantDraft.endPointId, variantDraft.startPointId, variantDraft.viaPointIds]
   )
   const draftRouteStops = useMemo<DraftRouteStop[]>(
@@ -514,6 +576,26 @@ export default function LeadDetailDashboard(): JSX.Element {
     selectedVariantNeedsDeliveryOverride || selectedVariantNeedsLoadingUnloadingOverride
   const showDeliveryAtSiteNotice =
     selectedVariantNeedsDeliveryOverride || (selectedMaterialIsDeliveryAtSite && !selectedVariant)
+
+  const metadata = useMemo(() => {
+    const stored =
+      project && dashboardContextMatches(project.dashboardSnapshot, project)
+        ? project.dashboardSnapshot?.leadApplicability ?? {}
+        : {}
+    const map = new Map<string, unknown>()
+    for (const group of groups) {
+      if (group.source === 'PROJECT_DATA') {
+        const definition = projectDataForNode(project?.projectData, group.usages[0]?.node)
+        if (definition) map.set(group.code, projectDataLeadApplicability(definition))
+        continue
+      }
+      if (group.source === 'SSR' && Object.prototype.hasOwnProperty.call(stored, group.code)) {
+        map.set(group.code, stored[group.code])
+      }
+    }
+    return map
+  }, [groups, project])
+
   const availableGroups = groups.filter((group) =>
     materialInGroup(
       group,
@@ -551,6 +633,27 @@ export default function LeadDetailDashboard(): JSX.Element {
   const materialApplications = applications.filter((application) =>
     materialVariants.some((variant) => variant.id === application.variantId)
   )
+  // A selected lead card scopes the DATA list to its source: Avg leads show the
+  // chosen component's DATA, Normal leads from a component working point show
+  // that component's DATA, and anything else falls back to applied (linked) DATA.
+  const scopeNodeIds = selectedVariant ? scopeNodeIdsForVariant(selectedVariant) : null
+  const scopeKind = scopeNodeIds ? (selectedVariant?.avgLead ? 'component' : 'work point') : 'linked'
+  const showAllData = !selectedVariant || showAllDataForVariantId === selectedVariant.id
+  const visibleGroups = showAllData
+    ? eligibleGroups
+    : scopeNodeIds
+      ? eligibleGroups.filter((group) =>
+          group.usages.some(
+            (usage) =>
+              scopeNodeIds.has(usage.node.id) ||
+              usage.path.some((node) => scopeNodeIds.has(node.id))
+          )
+        )
+      : eligibleGroups.filter((group) =>
+          materialApplications.some(
+            (application) => selectedVariant && application.variantId === selectedVariant.id && application.itemKey === group.key
+          )
+        )
   const applyableTargets = applyableGroups.flatMap((group) =>
     group.usages.map((usage) => leadTargetForUsage(group, usage))
   )
@@ -585,20 +688,21 @@ export default function LeadDetailDashboard(): JSX.Element {
     variantDraft.lastMileGeometry
   )
   const draftAdoptedRoadRoute = useMemo(
-    () => trimRoadRouteForAccessLines(
-      draftRoadRoute.points,
-      draftRoadRoute.distanceKm,
-      variantDraft.firstMileMode === 'manual' && accessDrawing !== 'first'
-        ? variantDraft.firstMileGeometry
-        : [],
-      variantDraft.lastMileMode === 'manual' && accessDrawing !== 'last'
-        ? variantDraft.lastMileGeometry
-        : []
-    ),
+    () =>
+      trimRoadRouteForAccessLines(
+        draftRoadRoute.points,
+        draftRoadRoute.distanceKm,
+        variantDraft.firstMileMode === 'manual' && accessDrawing !== 'first'
+          ? variantDraft.firstMileGeometry
+          : [],
+        variantDraft.lastMileMode === 'manual' && accessDrawing !== 'last'
+          ? variantDraft.lastMileGeometry
+          : []
+      ),
     [
+      accessDrawing,
       draftRoadRoute.distanceKm,
       draftRoadRoute.points,
-      accessDrawing,
       variantDraft.firstMileGeometry,
       variantDraft.firstMileMode,
       variantDraft.lastMileGeometry,
@@ -620,11 +724,10 @@ export default function LeadDetailDashboard(): JSX.Element {
         : ''
     : ''
 
-  useEffect(() => {
-    if (!selectedVariantId && materialVariants.length) setSelectedVariantId(materialVariants[0].id)
-  }, [materialVariants, selectedVariantId])
-
-  useEffect(() => {
+  const materialKey = `${materialName}:${conveyanceClass}`
+  const [prevMaterialKey, setPrevMaterialKey] = useState(materialKey)
+  if (materialKey !== prevMaterialKey) {
+    setPrevMaterialKey(materialKey)
     setSourceDraft(blankSourceDraft(points, materialName, disposalLead))
     setVariantDraft(blankVariantDraft(disposalLead, materialName, variants))
     setSelectedVariantId(selection?.variantId ?? '')
@@ -632,28 +735,12 @@ export default function LeadDetailDashboard(): JSX.Element {
     setVariantBreakdowns({})
     setNotice('')
     setError('')
-  }, [materialName, conveyanceClass])
+  }
 
-  useEffect(() => {
-    if (!project) return
-    const stored = dashboardContextMatches(project.dashboardSnapshot, project)
-      ? project.dashboardSnapshot?.leadApplicability ?? {}
-      : {}
-    const next = new Map<string, unknown>()
-    for (const group of groups) {
-      if (group.source === 'PROJECT_DATA') {
-        const definition = projectDataForNode(project.projectData, group.usages[0]?.node)
-        if (definition) next.set(group.code, projectDataLeadApplicability(definition))
-        continue
-      }
-      if (group.source === 'SSR' && Object.prototype.hasOwnProperty.call(stored, group.code)) {
-        next.set(group.code, stored[group.code])
-      }
-    }
-    setMetadata(next)
-  }, [project?.id, project?.dashboardSnapshot?.syncedAt, project?.projectData, groups])
-
-  useEffect(() => {
+  const routeSyncKey = `${variantDraft.distanceMode}|${draftRouteSignature}|${draftRouteStopIds.length}|${draftRouteStops.length}`
+  const [prevRouteSyncKey, setPrevRouteSyncKey] = useState(routeSyncKey)
+  if (prevRouteSyncKey !== routeSyncKey) {
+    setPrevRouteSyncKey(routeSyncKey)
     if (variantDraft.distanceMode !== 'auto') {
       setDraftRoadRoute({
         status: 'idle',
@@ -664,9 +751,7 @@ export default function LeadDetailDashboard(): JSX.Element {
         lastMileAutoKm: 0,
         durationSeconds: null
       })
-      return
-    }
-    if (draftRouteStopIds.length < 2 || draftRouteStops.length !== draftRouteStopIds.length) {
+    } else if (draftRouteStopIds.length < 2 || draftRouteStops.length !== draftRouteStopIds.length) {
       setDraftRoadRoute({
         status: 'idle',
         signature: draftRouteSignature,
@@ -677,19 +762,29 @@ export default function LeadDetailDashboard(): JSX.Element {
         durationSeconds: null
       })
       setVariantDraft((current) => ({ ...current, leadKm: '' }))
+    } else {
+      setDraftRoadRoute({
+        status: 'routing',
+        signature: draftRouteSignature,
+        points: [],
+        distanceKm: null,
+        firstMileAutoKm: 0,
+        lastMileAutoKm: 0,
+        durationSeconds: null
+      })
+    }
+  }
+
+  useEffect(() => {
+    if (
+      variantDraft.distanceMode !== 'auto' ||
+      draftRouteStopIds.length < 2 ||
+      draftRouteStops.length !== draftRouteStopIds.length
+    ) {
       return
     }
 
     const controller = new AbortController()
-    setDraftRoadRoute({
-      status: 'routing',
-      signature: draftRouteSignature,
-      points: [],
-      distanceKm: null,
-      firstMileAutoKm: 0,
-      lastMileAutoKm: 0,
-      durationSeconds: null
-    })
     const handle = window.setTimeout(() => {
       void calculateRoadRoute(draftRouteStops, controller.signal)
         .then((route) => {
@@ -749,33 +844,59 @@ export default function LeadDetailDashboard(): JSX.Element {
     variantDraft.distanceMode,
   ])
 
-  useEffect(() => {
-    if (variantDraft.distanceMode !== 'auto') return
-    if (draftRoadRoute.status !== 'ready' || draftRoadRoute.distanceKm === null) return
-    const firstMileKm = variantDraft.firstMileMode === 'auto'
-      ? draftFirstMileAutoKm
-      : nonNegativeNumber(variantDraft.firstMileKm)
-    const lastMileKm = variantDraft.lastMileMode === 'auto'
-      ? draftLastMileAutoKm
-      : nonNegativeNumber(variantDraft.lastMileKm)
-    setVariantDraft((current) => ({
-      ...current,
-      leadKm:
-        firstMileKm === null || lastMileKm === null
-          ? ''
-          : String(roundKm(draftRoadSectionKm + firstMileKm + lastMileKm))
-    }))
-  }, [
-    draftRoadRoute.status,
-    draftFirstMileAutoKm,
-    draftLastMileAutoKm,
-    draftRoadSectionKm,
-    variantDraft.distanceMode,
-    variantDraft.firstMileKm,
-    variantDraft.firstMileMode,
-    variantDraft.lastMileKm,
-    variantDraft.lastMileMode
-  ])
+  const autoLeadKm =
+    variantDraft.distanceMode === 'auto' &&
+    draftRoadRoute.status === 'ready' &&
+    draftRoadRoute.distanceKm !== null
+      ? (() => {
+          const firstMileKm =
+            variantDraft.firstMileMode === 'auto'
+              ? draftFirstMileAutoKm
+              : nonNegativeNumber(variantDraft.firstMileKm)
+          const lastMileKm =
+            variantDraft.lastMileMode === 'auto'
+              ? draftLastMileAutoKm
+              : nonNegativeNumber(variantDraft.lastMileKm)
+          return firstMileKm === null || lastMileKm === null
+            ? ''
+            : String(roundKm(draftRoadSectionKm + firstMileKm + lastMileKm))
+        })()
+      : null
+
+  const [prevAutoLeadKm, setPrevAutoLeadKm] = useState<string | null>(null)
+  if (autoLeadKm !== null && autoLeadKm !== prevAutoLeadKm) {
+    setPrevAutoLeadKm(autoLeadKm)
+    if (variantDraft.leadKm !== autoLeadKm) {
+      setVariantDraft((current) => ({ ...current, leadKm: autoLeadKm }))
+    }
+  } else if (autoLeadKm === null && prevAutoLeadKm !== null) {
+    setPrevAutoLeadKm(null)
+  }
+
+  const shouldClearBreakdowns =
+    !project ||
+    materialVariants.length === 0 ||
+    (syncedLeadRates.length === 0 && !materialVariants.some((variant) => variant.pipeLead))
+
+  const [prevBreakdownsKey, setPrevBreakdownsKey] = useState(() => ({
+    projectId: project?.id,
+    variantCount: materialVariants.length,
+    shouldClearBreakdowns
+  }))
+  if (
+    prevBreakdownsKey.projectId !== project?.id ||
+    prevBreakdownsKey.variantCount !== materialVariants.length ||
+    prevBreakdownsKey.shouldClearBreakdowns !== shouldClearBreakdowns
+  ) {
+    setPrevBreakdownsKey({
+      projectId: project?.id,
+      variantCount: materialVariants.length,
+      shouldClearBreakdowns
+    })
+    if (shouldClearBreakdowns) {
+      setVariantBreakdowns({})
+    }
+  }
 
   useEffect(() => {
     if (
@@ -783,7 +904,6 @@ export default function LeadDetailDashboard(): JSX.Element {
       materialVariants.length === 0 ||
       (syncedLeadRates.length === 0 && !materialVariants.some((variant) => variant.pipeLead))
     ) {
-      setVariantBreakdowns({})
       return
     }
     let cancelled = false
@@ -836,29 +956,207 @@ export default function LeadDetailDashboard(): JSX.Element {
     return () => {
       cancelled = true
     }
-  }, [materialVariants, project?.meta.sorYear, project?.meta.sorZone, syncedLeadRates])
+  }, [materialVariants, project, syncedLeadRates])
+
+  async function calculateTargetPreview(
+    target: LeadTarget,
+    variant: LeadVariant
+  ): Promise<TargetPreview> {
+    if (!project) throw new Error('No active project.')
+    const recipe =
+      rateAnalysisOverrideForNode(project, target.usage.node) ??
+      (dashboardContextMatches(project.dashboardSnapshot, project) &&
+      dashboardItemIsSynced(project.dashboardSnapshot, target.usage.node)
+        ? project.dashboardSnapshot?.recipes[target.usage.node.id]
+        : undefined)
+    const leadRates = dashboardContextMatches(project.dashboardSnapshot, project)
+      ? project.dashboardSnapshot?.leadRates ?? []
+      : []
+    if (!recipe || (!variant.pipeLead && leadRates.length === 0)) {
+      throw new Error('Lead data is not compiled. Open the total Lead Dashboard, click Sync, and try again.')
+    }
+    let addonId: string | undefined
+    let quantitySource: string
+    let breakdown: LeadChargeBreakdown
+    if (variant.pipeLead) {
+      const quantity = recipe.outputQuantity || 1
+      const quote = await fetchPipeLeadQuoteForMaterial({
+        materialItemCode: target.group.code,
+        sorYear: project.meta.sorYear,
+        distanceKm: variant.actualLeadKm ?? variant.leadKm,
+        quantity,
+        zone: null
+      })
+      if (quote.pipeLeadItemCode !== variant.pipeLead.pipeLeadItemCode) {
+        throw new Error(
+          `${target.group.displayName} is linked to a different RCC pipe-conveyance cell.`
+        )
+      }
+      breakdown = pipeLeadQuoteBreakdown(quote, project.meta.sorZone ?? 'zone_3')
+      quantitySource =
+        `Published ${recipe.outputQuantity || 1} ${quote.unit} SOR pipe-rate basis`
+    } else {
+      const info = parseLeadInfo(
+        leadMetadataForGroup(
+          target.group,
+          metadata.get(target.group.code) ?? recipe.leadApplicability
+        )
+      )
+      const liftInfo = liftInfoForData(
+        info,
+        target.group.description || recipe.description,
+        target.group.code
+      )
+      const quantity = quantityForVariant(recipe, variant, info)
+      addonId = addonLeadRuleForVariant(info, variant)?.addonId
+      breakdown = calculateLeadVariantChargeFromRows(leadRates, {
+        year: project.meta.sorYear,
+        zone: project.meta.sorZone ?? 'zone_3',
+        conveyanceClass: variant.conveyanceClass,
+        distanceKm: variant.leadKm,
+        quantity: quantity.quantity,
+        liftM: variant.liftM,
+        includedInitialLiftM: liftInfo.includedInitialLiftM,
+        includesAllLifts: liftInfo.includesAllLifts,
+        mechanicalConveyanceReachesFinalPoint:
+          variant.mechanicalConveyanceReachesFinalPoint ?? variant.leadKm > 0.15,
+        handlingMode: handlingModeForData(info, variant, variant.handlingMode),
+        materialName: variant.materialName,
+        includedBasis: basisForData(
+          info,
+          variant.includedBasis,
+          `${target.group.description} ${recipe.description}`,
+          variant
+        ),
+        customGrossRate: variant.rateSource === 'chart' ? null : variant.customGrossRate ?? null,
+        chargeCode: variant.chargeCode,
+        leadMultiplier: info.policy?.haulLegs ?? 1
+      })
+      quantitySource = quantity.source
+    }
+    const summary = await window.api.rateAnalysis.calculate(recipe)
+    const outputQuantity = recipe.outputQuantity || 1
+    const baseFinalAmount =
+      Number.isFinite(summary.totalCost) && summary.totalCost > 0
+        ? summary.totalCost
+        : summary.ratePerUnit * outputQuantity
+    const finalAmount = baseFinalAmount + breakdown.grossAmount
+    return {
+      target,
+      addonId,
+      quantitySource,
+      breakdown,
+      outputQuantity,
+      baseFinalAmount,
+      finalAmount,
+      finalRate: finalAmount / outputQuantity
+    }
+  }
+
+  function previewToApplication(
+    preview: TargetPreview,
+    variant: LeadVariant,
+    overrideReasons: {
+      deliveryAtSite?: string
+      loadingUnloading?: string
+    } = {}
+  ): LeadApplication {
+    if (!project) throw new Error('No active project.')
+    const existing = applicationForLeadTarget(materialApplications, preview.target)
+    const handlingWarning = loadingUnloadingCautionForBreakdown(
+      preview.breakdown,
+      variant.handlingMode
+    )
+    return {
+      id: existing?.id ?? newId(),
+      variantId: variant.id,
+      sourceVariantId: variant.weightedLead
+        ? existing?.sourceVariantId ?? existing?.variantId
+        : undefined,
+      addonId: preview.addonId ?? existing?.addonId,
+      itemKey: preview.target.group.key,
+      itemCode: preview.target.group.displayName,
+      itemNodeId: preview.target.usage.node.id,
+      quantity: preview.breakdown.quantity,
+      quantitySource: preview.quantitySource,
+      unit: preview.breakdown.unit,
+      leadRate: preview.breakdown.leadRate,
+      loadingRate: preview.breakdown.loadingRate,
+      unloadingRate: preview.breakdown.unloadingRate,
+      liftRate: preview.breakdown.liftRate,
+      grossRate: preview.breakdown.grossRate,
+      grossAmount: preview.breakdown.grossAmount,
+      outputQuantity: preview.outputQuantity,
+      rateAddition: preview.breakdown.grossAmount / preview.outputQuantity,
+      netRate: preview.breakdown.netRate,
+      netAmount: preview.breakdown.netAmount,
+      calculation: preview.breakdown.calculation,
+      rateZone: sorZone,
+      rateYear: project.meta.sorYear,
+      handlingWarning: handlingWarning || undefined,
+      handlingOverrideReason:
+        overrideReasons.loadingUnloading ?? existing?.handlingOverrideReason,
+      deliveryAtSiteOverrideReason:
+        overrideReasons.deliveryAtSite ?? existing?.deliveryAtSiteOverrideReason,
+      deliveryAtSiteWarning: overrideReasons.deliveryAtSite
+        ? DELIVERY_AT_SITE_WARNING
+        : existing?.deliveryAtSiteWarning,
+      appliedAt: new Date().toISOString()
+    }
+  }
+
+  const migrationRunnerRef = useRef({
+    calculateTargetPreview,
+    previewToApplication,
+    groups,
+    materialApplications,
+    materialVariants,
+    sorZone,
+    upsertApplication
+  })
+  useEffect(() => {
+    migrationRunnerRef.current = {
+      calculateTargetPreview,
+      previewToApplication,
+      groups,
+      materialApplications,
+      materialVariants,
+      sorZone,
+      upsertApplication
+    }
+  })
 
   useEffect(() => {
     if (!project || !incompleteApplicationSignature) return
     let cancelled = false
 
     void (async () => {
-      const incomplete = materialApplications.filter(
+      const {
+        calculateTargetPreview: calcPreview,
+        previewToApplication: toApp,
+        groups: currentGroups,
+        materialApplications: currentApps,
+        materialVariants: currentVariants,
+        sorZone: currentZone,
+        upsertApplication: upsert
+      } = migrationRunnerRef.current
+
+      const incomplete = currentApps.filter(
         (application) =>
           !application.itemNodeId ||
           application.outputQuantity === undefined ||
           application.rateAddition === undefined ||
-          application.rateZone !== sorZone ||
+          application.rateZone !== currentZone ||
           application.rateYear !== project.meta.sorYear
       )
       for (const application of incomplete) {
         if (cancelled) return
-        const group = groups.find((candidate) => candidate.key === application.itemKey)
-        const variant = materialVariants.find((candidate) => candidate.id === application.variantId)
+        const group = currentGroups.find((candidate) => candidate.key === application.itemKey)
+        const variant = currentVariants.find((candidate) => candidate.id === application.variantId)
         const target = group ? leadTargetForApplication(group, application) : null
         if (!target || !variant) continue
-        const preview = await calculateTargetPreview(target, variant)
-        if (!cancelled) upsertApplication(previewToApplication(preview, variant))
+        const preview = await calcPreview(target, variant)
+        if (!cancelled) upsert(toApp(preview, variant))
       }
     })().catch((reason: unknown) => {
       if (!cancelled) console.error('Unable to migrate scoped Lead applications', reason)
@@ -867,7 +1165,7 @@ export default function LeadDetailDashboard(): JSX.Element {
     return () => {
       cancelled = true
     }
-  }, [incompleteApplicationSignature, project?.id])
+  }, [incompleteApplicationSignature, project])
 
   if (!project || !selection) {
     return (
@@ -1133,6 +1431,203 @@ export default function LeadDetailDashboard(): JSX.Element {
     setError('')
   }
 
+  // --- Avg Lead -----------------------------------------------------------
+  type AvgComponentOption = {
+    id: string
+    name: string
+    kind: string
+    mode: 'line' | 'table'
+    lengthM: number
+    line: { lat: number; lng: number }[]
+  }
+
+  const avgComponentOptions: AvgComponentOption[] = (() => {
+    if (!project) return []
+    const out: AvgComponentOption[] = []
+    const walk = (node: ProjectNode): void => {
+      if (node.kind === 'component' || node.kind === 'subcomponent') {
+        const line = (node.workingLine ?? []).filter(
+          (vertex) => Number.isFinite(vertex.lat) && Number.isFinite(vertex.lng)
+        )
+        const template = node.bund ?? node.canal ?? node.guideWall
+        if (line.length >= 2) {
+          const storedLengthM = template?.lengthM ?? 0
+          out.push({
+            id: node.id,
+            name: node.name,
+            kind: node.kind,
+            mode: 'line',
+            lengthM: storedLengthM > 0 ? storedLengthM : polylineLengthM(line),
+            line
+          })
+        } else {
+          if (template && template.source === 'manual' && template.lengthM > 0) {
+            out.push({
+              id: node.id,
+              name: node.name,
+              kind: node.kind,
+              mode: 'table',
+              lengthM: template.lengthM,
+              line: []
+            })
+          }
+        }
+      }
+      node.children.forEach(walk)
+    }
+    walk(project.root)
+    return out
+  })()
+
+  const avgComponent = avgComponentOptions.find((option) => option.id === avgComponentId) ?? null
+
+  const avgComponentVertexMarkers = (avgComponent?.line ?? []).map((vertex, pointIndex) => ({
+    id: `avg-vertex-${pointIndex}`,
+    lat: vertex.lat,
+    lon: vertex.lng,
+    label: `V${pointIndex + 1}`
+  }))
+
+  const avgComponentLineRoutes =
+    avgComponent && avgComponent.line.length >= 2
+      ? [{ id: 'avg-component-line', points: avgComponent.line.map((pt) => ({ lat: pt.lat, lon: pt.lng })) }]
+      : []
+
+  const avgStarts: (AvgStart & { label?: string })[] = variantPointOptions
+    .filter((point) => avgStartIds.includes(point.id))
+    .map((point) => ({
+      id: point.id,
+      label: point.name || point.code,
+      coord: { lat: point.lat, lng: point.lon }
+    }))
+
+  const avgEstimateCount =
+    avgComponent?.mode === 'line'
+      ? targetChainages(avgComponent.lengthM, Number(avgSpacingKm) * 1000).length
+      : 0
+  const avgTableValid = avgTableRows
+    .map((row) => Number(row))
+    .filter((value) => Number.isFinite(value) && value > 0)
+  const avgTableAvg = averageDistancesKm(avgTableValid)
+  const avgReady =
+    avgComponent?.mode === 'table' ? avgTableAvg != null : avgResult?.avgKm != null
+  const isAvgCreating = !editingVariantId && createKind === 'avg'
+  const editingAvgVariant = editingVariantId
+    ? materialVariants.find((variant) => variant.id === editingVariantId) ?? null
+    : null
+  const isEditingAvg = !!editingAvgVariant?.avgLead
+
+  const toggleAvgStart = (id: string): void => {
+    setAvgStartIds((current) =>
+      current.includes(id) ? current.filter((candidate) => candidate !== id) : [...current, id]
+    )
+    setAvgResult(null)
+  }
+
+  const fetchAvgMatrix = async (
+    sources: AvgLatLng[],
+    destinations: AvgLatLng[]
+  ): Promise<(number | null)[][]> => {
+    const perChunk = Math.max(1, 96 - sources.length)
+    const out: (number | null)[][] = sources.map(() => [])
+    for (let i = 0; i < destinations.length; i += perChunk) {
+      const chunk = destinations.slice(i, i + perChunk)
+      const part = await fetchOsrmTableKm(
+        sources.map((source) => ({ lat: source.lat, lon: source.lng })),
+        chunk.map((cell) => ({ lat: cell.lat, lon: cell.lng }))
+      )
+      part.forEach((row: (number | null)[], sourceIndex: number) => out[sourceIndex].push(...row))
+    }
+    return out
+  }
+
+  const generateAvgPoints = async (): Promise<void> => {
+    if (!avgComponent || avgComponent.mode !== 'line' || avgStarts.length === 0) return
+    const spacingM = Number(avgSpacingKm) * 1000
+    const toleranceM = Number(avgToleranceKm) * 1000
+    if (!(spacingM > 0)) {
+      setError('Point spacing must be more than 0 km.')
+      return
+    }
+    if (!(toleranceM >= 0)) {
+      setError('Tolerance must be 0 km or more.')
+      return
+    }
+    const plan = buildAvgPlan(avgComponent.line, spacingM, toleranceM)
+    if (plan.length === 0) {
+      setError('Spacing exceeds the line length — no points to create.')
+      return
+    }
+    setAvgBusy(true)
+    setError('')
+    const fetchAllRoutes = async (outcome: AvgResolveOutcome): Promise<AvgResolvedPoint[]> => {
+      const withRoutes: AvgResolvedPoint[] = []
+      for (let i = 0; i < outcome.points.length; i += 1) {
+        const point = outcome.points[i]
+        const start = avgStarts.find((candidate) => candidate.id === point.startId)
+        if (!start) continue
+        setAvgProgress(`Fetching road route ${i + 1} of ${outcome.points.length}…`)
+        const route = await calculateRoadRoute([
+          { lat: start.coord.lat, lon: start.coord.lng },
+          { lat: point.coord.lat, lon: point.coord.lng }
+        ])
+        withRoutes.push({ ...point, routeKm: route.distanceKm, geometry: route.points })
+      }
+      return withRoutes
+    }
+    try {
+      const outcome = await resolveAvgPlan(plan, avgStarts, fetchAvgMatrix)
+      const withRoutes = await fetchAllRoutes(outcome)
+      const resolvedAvg = averageDistancesKm(withRoutes.map((entry) => entry.routeKm))
+      setAvgResult({ points: withRoutes, failures: outcome.failures, avgKm: resolvedAvg })
+      if (resolvedAvg == null) {
+        setError('No road route reached any generated point.')
+      }
+    } catch (reason) {
+      setError(describeError(reason, 'Avg Lead generation failed.'))
+    }
+    setAvgBusy(false)
+    setAvgProgress('')
+  }
+
+  const avgMapMarkers = (avgResult?.points ?? []).map((point, index) => ({
+    lat: point.coord.lat,
+    lon: point.coord.lng,
+    label: `P${index + 1} · ${point.routeKm.toFixed(2)} km`
+  }))
+
+  const avgMapRoutes = (avgResult?.points ?? [])
+    .map((point) => point.geometry ?? [])
+    .filter((geometry) => geometry.length >= 2)
+
+  const avgSaveDetail: AvgLeadDetail | null =
+    (isEditingAvg || (!editingVariantId && createKind === 'avg')) && avgComponent && avgReady
+      ? {
+          mode: avgComponent.mode,
+          componentId: avgComponent.id,
+          componentName: avgComponent.name,
+          ...(avgComponent.mode === 'line'
+            ? {
+                spacingM: Math.max(0, Number(avgSpacingKm) * 1000),
+                toleranceM: Math.max(0, Number(avgToleranceKm) * 1000),
+                pointCount: avgResult?.points.length ?? 0,
+                avgKm: avgResult?.avgKm ?? 0,
+                routes: (avgResult?.points ?? []).map((point) => ({
+                  chainageM: Math.round(point.chainageM),
+                  routeKm: point.routeKm,
+                  startPointId: point.startId,
+                  geometry: point.geometry ?? []
+                }))
+              }
+            : {
+                pointCount: avgTableValid.length,
+                avgKm: avgTableAvg ?? 0,
+                routes: [],
+                distancesKm: avgTableValid
+              })
+        }
+      : null
+
   const saveVariant = async (): Promise<void> => {
     const existingVariant = editingVariantId
       ? materialVariants.find((variant) => variant.id === editingVariantId) ?? null
@@ -1171,11 +1666,11 @@ export default function LeadDetailDashboard(): JSX.Element {
       setError('Choose a point for every intermediate stop, or remove the empty stop.')
       return
     }
-    if (variantDraft.distanceMode === 'auto' && (!startLocation || !endLocation)) {
+    if (!avgSaveDetail && variantDraft.distanceMode === 'auto' && (!startLocation || !endLocation)) {
       setError('Choose both starting and ending points for Auto lead, or switch Lead to Manual.')
       return
     }
-    if (variantDraft.distanceMode === 'auto' && !autoRouteReady) {
+    if (!avgSaveDetail && variantDraft.distanceMode === 'auto' && !autoRouteReady) {
       setError(
         draftRoadRoute.status === 'routing'
           ? 'Wait for the road route calculation to finish.'
@@ -1183,26 +1678,27 @@ export default function LeadDetailDashboard(): JSX.Element {
       )
       return
     }
-    if (variantDraft.distanceMode === 'auto' && !draftAdoptedRoadRoute.valid) {
+    if (!avgSaveDetail && variantDraft.distanceMode === 'auto' && !draftAdoptedRoadRoute.valid) {
       setError(
         'The two access-line road joins cross each other. Redraw one line so the adopted blue road section remains between the two joins.'
       )
       return
     }
     if (
+      !avgSaveDetail &&
       variantDraft.distanceMode === 'auto' &&
       (firstMileKm === null || lastMileKm === null)
     ) {
       setError('Enter valid non-negative Manual distances for the first-mile and last-mile access gaps.')
       return
     }
-    if (manualWithoutMap && !variantDraft.variantName.trim()) {
+    if (manualWithoutMap && !variantDraft.variantName.trim() && !avgSaveDetail) {
       setError('Enter a Material name when creating a manual lead without map points.')
       return
     }
     if (
-      actualLeadKm === null ||
-      actualLeadKm < 0 ||
+      (actualLeadKm === null && !avgSaveDetail) ||
+      (actualLeadKm !== null && actualLeadKm < 0) ||
       liftM === null ||
       liftM < 0
     ) {
@@ -1284,11 +1780,11 @@ export default function LeadDetailDashboard(): JSX.Element {
         : mechanicalLead
         ? variantDraft.mechanicalConveyanceReachesFinalPoint === 'yes'
         : false,
-      actualLeadKm,
+      actualLeadKm: avgSaveDetail ? avgSaveDetail.avgKm : actualLeadKm,
       roadCondition: selectedPipeLead ? 'normal' : variantDraft.roadCondition,
       roadSegmentKm: selectedPipeLead ? 0 : roadSegmentKm,
       roadMultiplier: selectedPipeLead ? 1 : roadMultiplier,
-      leadKm: selectedPipeLead ? actualLeadKm : equivalentLeadKm,
+      leadKm: avgSaveDetail ? avgSaveDetail.avgKm : selectedPipeLead ? actualLeadKm ?? 0 : equivalentLeadKm,
       liftM: disposalLead || selectedPipeLead ? 0 : liftM,
       handlingMode: disposalLead || selectedPipeLead ? 'none' : variantDraft.handlingMode,
       includedBasis: 'none',
@@ -1296,224 +1792,207 @@ export default function LeadDetailDashboard(): JSX.Element {
       pipeLead: selectedPipeLead,
       customGrossRate: null,
       active: true,
+      ...(avgSaveDetail
+        ? {
+            componentId: avgSaveDetail.componentId,
+            componentName: avgSaveDetail.componentName,
+            avgLead: avgSaveDetail
+          }
+        : {}),
       createdAt: existingVariant?.createdAt ?? new Date().toISOString()
     }
     setBusy('save-variant')
     setError('')
+    const linkedTargets = existingVariant
+      ? applications
+          .filter((application) => application.variantId === existingVariant.id)
+          .flatMap((application) => {
+            const group = groups.find((candidate) => candidate.key === application.itemKey)
+            const target = group ? leadTargetForApplication(group, application) : null
+            return target ? [target] : []
+          })
+      : []
+    let refreshedCount = 0
+    let savedVariant = false
+    // Kept outside the try: `for...of` is a value block the React Compiler
+    // cannot lower inside try/catch, and that would skip the whole component.
+    const upsertRefreshedPreviews = (previews: TargetPreview[]): void => {
+      for (const preview of previews) {
+        upsertApplication(previewToApplication(preview, variant))
+      }
+    }
     try {
-      const linkedTargets = existingVariant
-        ? applications
-            .filter((application) => application.variantId === existingVariant.id)
-            .flatMap((application) => {
-              const group = groups.find((candidate) => candidate.key === application.itemKey)
-              const target = group ? leadTargetForApplication(group, application) : null
-              return target ? [target] : []
-            })
-        : []
       const refreshedPreviews = await Promise.all(
         linkedTargets.map((target) => calculateTargetPreview(target, variant))
       )
+      refreshedCount = refreshedPreviews.length
 
       upsertVariant(variant)
-      for (const preview of refreshedPreviews) {
-        upsertApplication(previewToApplication(preview, variant))
-      }
+      upsertRefreshedPreviews(refreshedPreviews)
       setSelectedVariantId(variant.id)
       setVariantDraft(blankVariantDraft(disposalLead, materialName, variants))
       setEditingVariantId('')
       setVariantDialogOpen(false)
       setAccessDrawing(null)
       setAccessDrawingOriginal([])
+      savedVariant = true
+    } catch (reason) {
+      setError(describeError(reason, 'Unable to save this Material.'))
+    }
+    if (savedVariant) {
       setNotice(
         existingVariant
-          ? `${materialName} Material updated. ${refreshedPreviews.length} linked component usage(s) refreshed.`
+          ? `${materialName} Material updated. ${refreshedCount} linked component usage(s) refreshed.`
           : disposalLead
             ? `${materialName} ${disposalClassLabel(variantConveyanceClass)} Material created.`
             : `${materialName} Material created.`
       )
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to save this Material.')
-    } finally {
-      setBusy('')
     }
-  }
-
-  const calculateTargetPreview = async (
-    target: LeadTarget,
-    variant: LeadVariant
-  ): Promise<TargetPreview> => {
-    const recipe =
-      rateAnalysisOverrideForNode(project, target.usage.node) ??
-      (dashboardContextMatches(project.dashboardSnapshot, project) &&
-      dashboardItemIsSynced(project.dashboardSnapshot, target.usage.node)
-        ? project.dashboardSnapshot?.recipes[target.usage.node.id]
-        : undefined)
-    const leadRates = dashboardContextMatches(project.dashboardSnapshot, project)
-      ? project.dashboardSnapshot?.leadRates ?? []
-      : []
-    if (!recipe || (!variant.pipeLead && leadRates.length === 0)) {
-      throw new Error('Lead data is not compiled. Open the total Lead Dashboard, click Sync, and try again.')
-    }
-    let addonId: string | undefined
-    let quantitySource: string
-    let breakdown: LeadChargeBreakdown
-    if (variant.pipeLead) {
-      const quantity = recipe.outputQuantity || 1
-      const quote = await fetchPipeLeadQuoteForMaterial({
-        materialItemCode: target.group.code,
-        sorYear: project.meta.sorYear,
-        distanceKm: variant.actualLeadKm ?? variant.leadKm,
-        quantity,
-        zone: null
-      })
-      if (quote.pipeLeadItemCode !== variant.pipeLead.pipeLeadItemCode) {
-        throw new Error(
-          `${target.group.displayName} is linked to a different RCC pipe-conveyance cell.`
-        )
-      }
-      breakdown = pipeLeadQuoteBreakdown(quote, project.meta.sorZone ?? 'zone_3')
-      quantitySource =
-        `Published ${recipe.outputQuantity || 1} ${quote.unit} SOR pipe-rate basis`
-    } else {
-      const info = parseLeadInfo(
-        leadMetadataForGroup(
-          target.group,
-          metadata.get(target.group.code) ?? recipe.leadApplicability
-        )
-      )
-      const liftInfo = liftInfoForData(
-        info,
-        target.group.description || recipe.description,
-        target.group.code
-      )
-      const quantity = quantityForVariant(recipe, variant, info)
-      addonId = addonLeadRuleForVariant(info, variant)?.addonId
-      breakdown = calculateLeadVariantChargeFromRows(leadRates, {
-        year: project.meta.sorYear,
-        zone: project.meta.sorZone ?? 'zone_3',
-        conveyanceClass: variant.conveyanceClass,
-        distanceKm: variant.leadKm,
-        quantity: quantity.quantity,
-        liftM: variant.liftM,
-        includedInitialLiftM: liftInfo.includedInitialLiftM,
-        includesAllLifts: liftInfo.includesAllLifts,
-        mechanicalConveyanceReachesFinalPoint:
-          variant.mechanicalConveyanceReachesFinalPoint ?? variant.leadKm > 0.15,
-        handlingMode: handlingModeForData(info, variant, variant.handlingMode),
-        materialName: variant.materialName,
-        includedBasis: basisForData(
-          info,
-          variant.includedBasis,
-          `${target.group.description} ${recipe.description}`,
-          variant
-        ),
-        customGrossRate: variant.rateSource === 'chart' ? null : variant.customGrossRate ?? null,
-        chargeCode: variant.chargeCode,
-        leadMultiplier: info.policy?.haulLegs ?? 1
-      })
-      quantitySource = quantity.source
-    }
-    const summary = calculateRateAnalysis(recipe)
-    const outputQuantity = recipe.outputQuantity || 1
-    const baseFinalAmount =
-      Number.isFinite(summary.totalCost) && summary.totalCost > 0
-        ? summary.totalCost
-        : summary.ratePerUnit * outputQuantity
-    const finalAmount = baseFinalAmount + breakdown.grossAmount
-    return {
-      target,
-      addonId,
-      quantitySource,
-      breakdown,
-      outputQuantity,
-      baseFinalAmount,
-      finalAmount,
-      finalRate: finalAmount / outputQuantity
-    }
-  }
-
-  const previewToApplication = (
-    preview: TargetPreview,
-    variant: LeadVariant,
-    overrideReasons: {
-      deliveryAtSite?: string
-      loadingUnloading?: string
-    } = {}
-  ): LeadApplication => {
-    const existing = applicationForLeadTarget(materialApplications, preview.target)
-    const handlingWarning = loadingUnloadingCautionForBreakdown(
-      preview.breakdown,
-      variant.handlingMode
-    )
-    return {
-      id: existing?.id ?? newId(),
-      variantId: variant.id,
-      addonId: preview.addonId ?? existing?.addonId,
-      itemKey: preview.target.group.key,
-      itemCode: preview.target.group.displayName,
-      itemNodeId: preview.target.usage.node.id,
-      quantity: preview.breakdown.quantity,
-      quantitySource: preview.quantitySource,
-      unit: preview.breakdown.unit,
-      leadRate: preview.breakdown.leadRate,
-      loadingRate: preview.breakdown.loadingRate,
-      unloadingRate: preview.breakdown.unloadingRate,
-      liftRate: preview.breakdown.liftRate,
-      grossRate: preview.breakdown.grossRate,
-      grossAmount: preview.breakdown.grossAmount,
-      outputQuantity: preview.outputQuantity,
-      rateAddition: preview.breakdown.grossAmount / preview.outputQuantity,
-      netRate: preview.breakdown.netRate,
-      netAmount: preview.breakdown.netAmount,
-      calculation: preview.breakdown.calculation,
-      rateZone: sorZone,
-      rateYear: project.meta.sorYear,
-      handlingWarning: handlingWarning || undefined,
-      handlingOverrideReason:
-        overrideReasons.loadingUnloading ?? existing?.handlingOverrideReason,
-      deliveryAtSiteOverrideReason:
-        overrideReasons.deliveryAtSite ?? existing?.deliveryAtSiteOverrideReason,
-      deliveryAtSiteWarning: overrideReasons.deliveryAtSite
-        ? DELIVERY_AT_SITE_WARNING
-        : existing?.deliveryAtSiteWarning,
-      appliedAt: new Date().toISOString()
-    }
+    setBusy('')
   }
 
   const openVariantEditor = (variant: LeadVariant): void => {
-    const assignmentPointId = variant.assignmentId
-      ? assignments.find((assignment) => assignment.id === variant.assignmentId)?.pointId ?? ''
-      : ''
+    setError('')
+    setNotice('')
     setEditingVariantId(variant.id)
-    setVariantDraft(variantDraftForEdit(variant, disposalLead, assignmentPointId))
-    setAccessDrawing(null)
-    setAccessDrawingOriginal([])
+    if (variant.avgLead) {
+      const detail = variant.avgLead
+      setCreateKind('avg')
+      setCreateKindChosen(true)
+      setAvgComponentId(detail.componentId)
+      if (detail.mode === 'line') {
+        setAvgSpacingKm(String((detail.spacingM ?? 2000) / 1000))
+        setAvgToleranceKm(String((detail.toleranceM ?? 1000) / 1000))
+        const startIds = Array.from(new Set(detail.routes.map((r) => r.startPointId)))
+        setAvgStartIds(startIds)
+        setAvgResult({
+          avgKm: detail.avgKm,
+          failures: 0,
+          points: detail.routes.map((r) => ({
+            chainageM: r.chainageM,
+            routeKm: r.routeKm,
+            startId: r.startPointId,
+            coord: r.geometry && r.geometry.length > 0 ? { lat: r.geometry[r.geometry.length - 1].lat, lng: r.geometry[r.geometry.length - 1].lon } : { lat: 0, lng: 0 },
+            geometry: r.geometry ?? [],
+            snapOffsetM: 0
+          }))
+        })
+      } else {
+        setAvgTableRows(
+          detail.distancesKm && detail.distancesKm.length > 0
+            ? detail.distancesKm.map(String)
+            : ['']
+        )
+      }
+    } else {
+      setCreateKind('normal')
+      setCreateKindChosen(true)
+      const assignmentPointId = variant.assignmentId
+        ? assignments.find((assignment) => assignment.id === variant.assignmentId)?.pointId ?? ''
+        : ''
+      setVariantDraft(variantDraftForEdit(variant, disposalLead, assignmentPointId))
+      setAccessDrawing(null)
+      setAccessDrawingOriginal([])
+    }
     setVariantDialogOpen(true)
+  }
+
+  const closeVariantDialog = (): void => {
+    setVariantDialogOpen(false)
+    setEditingVariantId('')
+    setCreateKind('normal')
+    setCreateKindChosen(false)
+    setAvgComponentId('')
+    setAvgStartIds([])
+    setAvgResult(null)
+    setAvgBusy(false)
+    setAvgProgress('')
+    setAccessDrawing(null)
+    setAccessDrawingOrientation(null)
+    setAccessDrawingOriginal([])
     setError('')
   }
 
-  const applyTargets = async (targetsToApply: LeadTarget[]): Promise<void> => {
-    if (!selectedVariant || targetsToApply.length === 0) return
-    if (selectedVariantNeedsAnyOverride) {
+  const createWeightedLead = async (): Promise<void> => {
+    if (!project) return
+    let entries
+    try {
+      entries = weightedLeadEntriesFromSeigniorage(
+        materialVariants,
+        materialApplications,
+        computeProjectPrintInputs(project).seigniorage.rows
+      )
+    } catch (reason) {
+      setError(describeError(reason, 'Unable to resolve Seigniorage material weights.'))
+      return
+    }
+    if (entries.length === 0) {
+      setError('No applied non-weighted leads to average.')
+      return
+    }
+    const unapplied = unappliedLeadNames(materialVariants, materialApplications)
+    if (unapplied.length > 0) {
+      setError(`Cannot average: unapplied lead(s) exist: ${unapplied.join(', ')}`)
+      return
+    }
+    const { avgKm, totalQuantity } = weightedAverageKm(entries)
+    const newVariant: LeadVariant = {
+      id: newId(),
+      variantName: `Weighted Average · ${materialName} · ${avgKm.toFixed(2)} km`,
+      materialName,
+      conveyanceClass,
+      leadKm: roundKm(avgKm),
+      actualLeadKm: roundKm(avgKm),
+      liftM: 0,
+      handlingMode: 'none',
+      includedBasis: 'none',
+      rateSource: 'chart',
+      active: true,
+      createdAt: new Date().toISOString(),
+      weightedLead: {
+        entries,
+        totalQuantity,
+        weightedAvgKm: avgKm,
+        createdAt: new Date().toISOString()
+      }
+    }
+    setBusy('save-variant')
+    try {
+      await upsertVariant(newVariant)
+      setNotice(`Created Weighted Average Lead: ${avgKm.toFixed(2)} km`)
+    } catch (reason) {
+      setError(describeError(reason, 'Failed to save weighted average lead.'))
+    }
+    setBusy('')
+  }
+
+  const applyTargets = async (targetsToApply: LeadTarget[], variantToApply?: LeadVariant): Promise<void> => {
+    const targetVariant = variantToApply ?? selectedVariant
+    if (!targetVariant || targetsToApply.length === 0) return
+    const needsOverride = needsDeliveryAtSiteOverride(targetVariant) || needsLoadingUnloadingOverride(targetVariant)
+    if (needsOverride) {
       setError('This Lead Material needs caution approval. Use Add anyway on each DATA item and record the reason.')
       return
     }
     setBusy('apply-all')
     setError('')
-    try {
+    const appliedNotice = `${targetVariant.materialName} ${targetVariant.chargeCode ?? 'AUTO'} applied to ${targetsToApply.length} component usage(s).`
+    // Kept outside the try: `for...of` is a value block the React Compiler
+    // cannot lower inside try/catch, and that would skip the whole component.
+    const applyAll = async (): Promise<void> => {
       for (const target of targetsToApply) {
-        const preview = await calculateTargetPreview(target, selectedVariant)
-        upsertApplication(previewToApplication(preview, selectedVariant))
+        const preview = await calculateTargetPreview(target, targetVariant)
+        upsertApplication(previewToApplication(preview, targetVariant))
       }
-      setSelectedTargetKeys(new Set())
-      setNotice(
-        `${selectedVariant.materialName} ${selectedVariant.chargeCode ?? 'AUTO'} applied to ${targetsToApply.length} component usage(s).`
-      )
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to apply Lead to selected DATA.')
-    } finally {
-      setBusy('')
     }
+    try {
+      await applyAll()
+      setSelectedTargetKeys(new Set())
+      setNotice(appliedNotice)
+    } catch (reason) {
+      setError(describeError(reason, 'Unable to apply Lead to selected DATA.'))
+    }
+    setBusy('')
   }
 
   const openOverrideDialog = (target: LeadTarget): void => {
@@ -1539,21 +2018,68 @@ export default function LeadDetailDashboard(): JSX.Element {
     }
     setBusy(`override:${overrideDraft.target.key}`)
     setError('')
+    const overrideReasons = {
+      deliveryAtSite: overrideDraft.deliveryAtSite ? reason : undefined,
+      loadingUnloading: overrideDraft.loadingUnloading ? reason : undefined
+    }
+    const addedNotice = `Lead added to ${overrideDraft.target.group.displayName} in ${overrideDraft.target.pathLabel} with caution reason.`
     try {
       const preview = await calculateTargetPreview(overrideDraft.target, selectedVariant)
-      upsertApplication(previewToApplication(preview, selectedVariant, {
-        deliveryAtSite: overrideDraft.deliveryAtSite ? reason : undefined,
-        loadingUnloading: overrideDraft.loadingUnloading ? reason : undefined
-      }))
-      setNotice(
-        `Lead added to ${overrideDraft.target.group.displayName} in ${overrideDraft.target.pathLabel} with caution reason.`
-      )
+      upsertApplication(previewToApplication(preview, selectedVariant, overrideReasons))
+      setNotice(addedNotice)
       setOverrideDraft(null)
     } catch (reasonValue) {
-      setError(reasonValue instanceof Error ? reasonValue.message : 'Unable to add Cement/Steel lead.')
-    } finally {
+      setError(describeError(reasonValue, 'Unable to add Cement/Steel lead.'))
+    }
+    setBusy('')
+  }
+
+  const openLeadOutput = async (output: 'preview' | 'studio'): Promise<void> => {
+    if (!project) return
+    if (output === 'studio') {
+      setPrintStudioOpen(true)
+      return
+    }
+    if (!leadCompiled) {
+      setBusy('sync-print')
+      setError('')
+      const outcome = await syncLeadDashboardSnapshot(project).then(
+        (snapshot) => ({ snapshot, reason: null as unknown }),
+        (reason: unknown) => ({ snapshot: null, reason })
+      )
+      if (!outcome.snapshot) {
+        setError(describeError(outcome.reason, 'Unable to sync Lead before printing.'))
+        setBusy('')
+        return
+      }
+      const current = useStore.getState().project
+      if (current !== project) {
+        setError('Lead changed while Sync was running. Sync again before opening output.')
+        setBusy('')
+        return
+      }
+      setDashboardSnapshot(outcome.snapshot)
+      const synced = useStore.getState().project
+      if (
+        !synced ||
+        !dashboardContextMatches(synced.dashboardSnapshot, synced) ||
+        !synced.dashboardSnapshot?.leadSyncedAt ||
+        synced.dashboardSnapshot.leadCompileSignature !== dashboardLeadCompileSignature(synced)
+      ) {
+        setError('Lead Sync finished without producing a valid output snapshot.')
+        setBusy('')
+        return
+      }
       setBusy('')
     }
+    const current = useStore.getState().project
+    if (!current || current.id !== project.id ||
+      !dashboardContextMatches(current.dashboardSnapshot, current) ||
+      current.dashboardSnapshot?.leadCompileSignature !== dashboardLeadCompileSignature(current)) {
+      setError('Lead changed after Sync. Sync again before opening output.')
+      return
+    }
+    if (output === 'preview') setCombinedPreviewOpen(true)
   }
 
   return (
@@ -1572,15 +2098,36 @@ export default function LeadDetailDashboard(): JSX.Element {
           </button>
           <button
             className="btn ghost"
-            onClick={() => setCombinedPreviewOpen(true)}
+            type="button"
+            onClick={() => setMapPrintLayoutOpen(true)}
+          >
+            <Printer size={15} /> Map Print Studio
+          </button>
+          <button
+            className="btn ghost"
+            disabled={busy === 'sync-print'}
+            onClick={() => void openLeadOutput('preview')}
           >
             <Printer size={15} /> Print Preview
           </button>
           <button
             className="btn ghost"
-            onClick={() => setPrintStudioOpen(true)}
+            onClick={() => void openLeadOutput('studio')}
           >
             <Eye size={15} /> Open Print Studio
+          </button>
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={() => {
+              setSourceDraft(blankSourceDraft(points, materialName, disposalLead))
+              setPointDialogOpen(true)
+              setPointPicking(false)
+              setPointLocationPicked(false)
+              setError('')
+            }}
+          >
+            <MapPin size={15} /> {disposalLead ? 'Create Dump Area' : 'Create Source'}
           </button>
           <button
             className="btn"
@@ -1589,6 +2136,8 @@ export default function LeadDetailDashboard(): JSX.Element {
               setVariantDraft(blankVariantDraft(disposalLead, materialName, variants))
               setAccessDrawing(null)
               setAccessDrawingOriginal([])
+              setCreateKind('normal')
+              setCreateKindChosen(false)
               setVariantDialogOpen(true)
               setError('')
             }}
@@ -1610,10 +2159,18 @@ export default function LeadDetailDashboard(): JSX.Element {
       </div>
       {notice && <div className="rate-notice">{notice}</div>}
       {error && <div className="rate-warning">{error}</div>}
-      {printStudioOpen && project && (
+      {printStudioOpen && project ? (
         <LeadPrintStudioSession
           project={project}
-          entries={snapshotValid ? project.dashboardSnapshot?.leadDashboardEntries ?? [] : []}
+          entries={project.dashboardSnapshot?.leadDashboardEntries ?? []}
+          snapshotStale={!leadCompiled}
+          onRequestSync={async () => {
+            const current = useStore.getState().project
+            if (!current) throw new Error('No active project.')
+            const next = await syncLeadDashboardSnapshot(current)
+            if (useStore.getState().project !== current) throw new Error('Lead changed while Sync was running. Retry Sync.')
+            setDashboardSnapshot(next)
+          }}
           variants={variants}
           applications={applications}
           assignments={assignments}
@@ -1623,7 +2180,7 @@ export default function LeadDetailDashboard(): JSX.Element {
           printSettings={printSettings}
           onClose={() => setPrintStudioOpen(false)}
         />
-      )}
+      ) : null}
       {combinedPreviewOpen && project && (
         <LeadCombinedPrintPreview
           year={project.meta.sorYear}
@@ -1929,7 +2486,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                   setError('')
                 }}
               >
-                <MapPin size={15} /> {disposalLead ? 'Create Dump Area' : 'Create Point'}
+                <MapPin size={15} /> {disposalLead ? 'Create Dump Area' : 'Create Source'}
               </button>
               <button
                 className="btn ghost"
@@ -1976,6 +2533,16 @@ export default function LeadDetailDashboard(): JSX.Element {
         <section className="lead-main-panel">
           <div className="card-title">Materials and Linked DATA</div>
           <div className="lead-variant-list">
+            <div className="lead-weighted-row">
+              <button
+                type="button"
+                className="btn-secondary btn-sm"
+                onClick={() => void createWeightedLead()}
+              >
+                <Crown size={15} /> Weighted Average Lead
+              </button>
+              <small>Compute (Σ w×l) ÷ W across applied leads</small>
+            </div>
             {materialVariants.length === 0 ? (
               <div className="list-empty">Create the first {materialName} Lead/Lift Material.</div>
             ) : (
@@ -2029,6 +2596,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                         {routeLabel}
                       </span>
                       <span className="lead-variant-measures">
+                        {variant.avgLead && <span>Avg Lead</span>}
                         {disposalLead && <span>{disposalClassLabel(variant.conveyanceClass)}</span>}
                         <span>{variantLeadMeasureLabel(variant)}</span>
                         {variantLiftApplies && <span>Lift {metre.format(variant.liftM)} m</span>}
@@ -2036,6 +2604,30 @@ export default function LeadDetailDashboard(): JSX.Element {
                       <small>{variantRuleLabels.join(' + ') || 'No charge'}</small>
                       <b>{linked.length} component{linked.length === 1 ? '' : 's'}</b>
                     </button>
+                    {variant.weightedLead && (
+                      <div className="lead-variant-card-weighted">
+                        <div className="lead-weighted-title">
+                          <Crown size={15} /> Weighted Average Lead · {variant.weightedLead.weightedAvgKm.toFixed(2)} km
+                        </div>
+                        <div>
+                          {variant.weightedLead.entries.map((entry) => (
+                            <div key={entry.variantId} className="lead-weighted-entry">
+                              {entry.variantName}: {entry.leadKm.toFixed(2)} km (total {entry.quantity.toLocaleString()} {entry.unit})
+                            </div>
+                          ))}
+                        </div>
+                        <div className="lead-weighted-calc">
+                          (Σ w×l) ÷ W = {variant.weightedLead.weightedAvgKm.toFixed(2)} km
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm"
+                          onClick={() => void applyTargets(applyableTargets, variant)}
+                        >
+                          Apply to All
+                        </button>
+                      </div>
+                    )}
                     {variantBreakdown ? (
                       <LeadRateCalculation
                         calculation={variantBreakdown.calculation}
@@ -2104,24 +2696,264 @@ export default function LeadDetailDashboard(): JSX.Element {
           <div className="lead-dialog-title-row">
             <div>
               <div className="card-title">{editingVariantId ? 'Edit Lead' : 'Create Lead'}</div>
-              <small>Choose the ordered route. Lead is calculated from the displayed road route.</small>
+              <small>{editingVariantId || createKindChosen ? 'Choose the ordered route. Lead is calculated from the displayed road route.' : 'First choose which kind of lead to create.'}</small>
             </div>
             <button
               className="btn ghost"
               type="button"
-              onClick={() => {
-                setVariantDialogOpen(false)
-                setEditingVariantId('')
-                setVariantDraft(blankVariantDraft(disposalLead, materialName, variants))
-                setAccessDrawing(null)
-                setAccessDrawingOriginal([])
-                setError('')
-              }}
+              onClick={closeVariantDialog}
             >
               Cancel
             </button>
           </div>
-          <VariantRoutePreviewMap
+          {!editingVariantId && !createKindChosen && (
+            <div className="lead-create-kind">
+              <button
+                type="button"
+                className={`template-choice ${createKind === 'normal' ? 'active' : ''}`}
+                onClick={() => {
+                  setCreateKind('normal')
+                  setCreateKindChosen(true)
+                }}
+              >
+                <Route size={20} />
+                <span>
+                  <strong>Normal Lead</strong>
+                  <small>Work at one place — one material, one source, one road route.</small>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`template-choice ${createKind === 'avg' ? 'active' : ''}`}
+                onClick={() => {
+                  setCreateKind('avg')
+                  setCreateKindChosen(true)
+                }}
+              >
+                <Route size={20} />
+                <span>
+                  <strong>Avg Lead</strong>
+                  <small>Work across a stretch, e.g. a canal or bund — points along the line (or a table), averaged.</small>
+                </span>
+              </button>
+            </div>
+          )}
+          {/* {!editingVariantId && createKindChosen && createKind === 'avg' && ( */}
+          {((!editingVariantId && createKindChosen && createKind === 'avg') || isEditingAvg) && (
+            <div className="lead-avg-form lead-form-grid">
+              <label className="span-2">
+                Component
+                <select
+                  className="select-input"
+                  value={avgComponentId}
+                  onChange={(event) => {
+                    setAvgComponentId(event.target.value)
+                    setAvgResult(null)
+                  }}
+                >
+                  <option value="">Select a component…</option>
+                  {avgComponentOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.name} · {(option.lengthM / 1000).toFixed(2)} km{' '}
+                      {option.mode === 'line' ? 'line' : 'manual length'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {error && <div className="span-2 rate-warning">{error}</div>}
+              {avgComponent?.mode === 'line' && (
+                <>
+                  <div className="span-2">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span className="field-label" style={{ marginBottom: 0 }}>
+                        Starting points{avgStartIds.length > 0 ? ` · ${avgStartIds.length} selected` : ''}
+                      </span>
+                      {variantPointOptions.length > 0 && (
+                        <span style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                          <button
+                            type="button"
+                            className="btn-mini"
+                            onClick={() => {
+                              setAvgStartIds(variantPointOptions.map((point) => point.id))
+                              setAvgResult(null)
+                            }}
+                          >
+                            All
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-mini"
+                            disabled={avgStartIds.length === 0}
+                            onClick={() => {
+                              setAvgStartIds([])
+                              setAvgResult(null)
+                            }}
+                          >
+                            None
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                    {variantPointOptions.length === 0 && (
+                      <div className="settings-note">
+                        No points yet — create one with Create Source first.
+                      </div>
+                    )}
+                    <div className="lead-start-choices template-choice-list" role="group" aria-label="Starting points">
+                      {variantPointOptions.map((point) => {
+                        const startSelected = avgStartIds.includes(point.id)
+                        return (
+                          <button
+                            key={point.id}
+                            type="button"
+                            className={`lead-start-chip template-choice ${startSelected ? 'active selected' : ''}`}
+                            onClick={() => toggleAvgStart(point.id)}
+                            aria-pressed={startSelected}
+                          >
+                            <MapPin size={16} />
+                            <span>
+                              <strong>{point.code}</strong>
+                              <small>{point.name || point.code}</small>
+                            </span>
+                            {startSelected && <Check size={15} />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <label>
+                    Point every (km)
+                    <input
+                      className="text-input"
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={avgSpacingKm}
+                      onChange={(event) => {
+                        setAvgSpacingKm(event.target.value)
+                        setAvgResult(null)
+                      }}
+                    />
+                  </label>
+                  <label>
+                    Tolerance (km)
+                    <input
+                      className="text-input"
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={avgToleranceKm}
+                      onChange={(event) => {
+                        setAvgToleranceKm(event.target.value)
+                        setAvgResult(null)
+                      }}
+                    />
+                  </label>
+                  <div className="span-2 settings-note">
+                    {avgEstimateCount > 0
+                      ? `≈ ${avgEstimateCount} point(s) on this line. Each may walk up to the tolerance toward the road, then takes its shortest start.`
+                      : 'Spacing exceeds the line length — no points to create.'}
+                  </div>
+                  <div className="span-2">
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={avgStarts.length === 0 || avgEstimateCount === 0 || avgBusy}
+                      onClick={() => void generateAvgPoints()}
+                    >
+                      {avgBusy ? avgProgress || 'Creating lead…' : 'Create Lead'}
+                    </button>
+                  </div>
+                  {avgResult && (
+                    <div className="span-2">
+                      <div className="latlng-display lead-avg-summary">
+                        {avgResult.avgKm != null
+                          ? `Avg Lead: ${avgResult.avgKm.toFixed(2)} km over ${avgResult.points.length} route(s)`
+                          : 'No routes resolved.'}
+                        {avgResult.failures > 0
+                          ? ` · ${avgResult.failures} point(s) unreached`
+                          : ''}
+                      </div>
+                      {avgResult.points.map((point, index) => (
+                        <div
+                          key={`${point.chainageM}-${index}`}
+                          className="settings-note lead-avg-map-hint"
+                        >
+                          P{index + 1} · Ch {Math.round(point.chainageM)} m ·{' '}
+                          {point.routeKm.toFixed(2)} km · via{' '}
+                          {variantPointOptions.find((candidate) => candidate.id === point.startId)?.code ??
+                            'start'}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+              {avgComponent?.mode === 'table' && (
+                <>
+                  <div className="span-2">
+                    <span className="field-label">Distances (km) — one per row</span>
+                    {avgTableRows.map((row, index) => (
+                      <div key={index} className="gw-inline-add">
+                        <input
+                          className="text-input"
+                          type="number"
+                          min={0}
+                          step="any"
+                          value={row}
+                          onChange={(event) =>
+                            setAvgTableRows((current) =>
+                              current.map((candidate, candidateIndex) =>
+                                candidateIndex === index ? event.target.value : candidate
+                              )
+                            )
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          disabled={avgTableRows.length <= 1}
+                          onClick={() =>
+                            setAvgTableRows((current) =>
+                              current.filter((_, candidateIndex) => candidateIndex !== index)
+                            )
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      onClick={() => setAvgTableRows((current) => [...current, ''])}
+                    >
+                      Add distance
+                    </button>
+                  </div>
+                  <div className="span-2 latlng-display lead-avg-summary">
+                    {avgTableAvg != null
+                      ? `Avg Lead: ${avgTableAvg.toFixed(2)} km over ${avgTableValid.length} distance(s)`
+                      : 'Enter at least one distance above.'}
+                  </div>
+                </>
+              )}
+              <div className="span-2" style={{ marginTop: 4 }}>
+                <AvgLeadPreviewMap
+                  site={site}
+                  componentLine={avgComponent?.line ?? []}
+                  starts={avgStarts}
+                  markers={avgComponentVertexMarkers}
+                  avgMarkers={avgMapMarkers}
+                  sourceRoutes={avgComponentLineRoutes}
+                  routes={avgMapRoutes}
+                />
+              </div>
+            </div>
+          )}
+          {!isAvgCreating && (editingVariantId || createKindChosen) && !isEditingAvg && (
+            <>
+              <VariantRoutePreviewMap
             site={site}
             points={variantPointOptions}
             stops={draftRouteStops}
@@ -2143,6 +2975,7 @@ export default function LeadDetailDashboard(): JSX.Element {
             }}
             drawing={accessDrawing}
             drawingOrientation={accessDrawingOrientation}
+            avgRoutes={avgMapRoutes}
             onReady={() => {
               window.setTimeout(
                 () => variantNameRef.current?.focus({ preventScroll: true }),
@@ -2804,6 +3637,8 @@ export default function LeadDetailDashboard(): JSX.Element {
               )}
             </div>
           </div>
+          </>
+          )}
           <div className="lead-variant-dialog-actions">
             <button
               className="btn ghost"
@@ -2822,27 +3657,20 @@ export default function LeadDetailDashboard(): JSX.Element {
             <button
               className="btn ghost"
               type="button"
-              onClick={() => {
-                setVariantDialogOpen(false)
-                setEditingVariantId('')
-                setVariantDraft(blankVariantDraft(disposalLead, materialName, variants))
-                setAccessDrawing(null)
-                setAccessDrawingOriginal([])
-                setError('')
-              }}
+              onClick={closeVariantDialog}
             >
               Cancel
             </button>
             <button
               className="btn"
               type="button"
-              disabled={busy === 'save-variant'}
+              disabled={busy === 'save-variant' || (!editingVariantId && (!createKindChosen || (createKind === 'avg' && !avgReady))) || (isEditingAvg && !avgReady)}
               onClick={() => void saveVariant()}
             >
               {editingVariantId ? <Check size={15} /> : <Plus size={15} />}
               {busy === 'save-variant'
                 ? 'Saving…'
-                : editingVariantId
+                : editingVariantId || isAvgCreating
                   ? 'Save Lead'
                   : 'Create Lead'}
             </button>
@@ -2853,6 +3681,21 @@ export default function LeadDetailDashboard(): JSX.Element {
 
         <section className="lead-main-panel">
           <div className="card-title">Lead Available DATA</div>
+          {selectedVariant && (
+            <div className="settings-note" style={{ margin: '4px 0 8px' }}>
+              Showing {showAllData ? 'all DATA' : `${scopeKind} DATA`} for{' '}
+              <b>{variantMapLabel(selectedVariant)}</b>
+              {!showAllData && ` · ${visibleGroups.length}/${eligibleGroups.length}`}
+              {' · '}
+              <button
+                type="button"
+                className="btn-mini"
+                onClick={() => setShowAllDataForVariantId(showAllData ? null : selectedVariant.id)}
+              >
+                {showAllData ? 'Source only' : 'Show all'}
+              </button>
+            </div>
+          )}
           {showDeliveryAtSiteNotice && (
             <div className="lead-delivery-warning">
               {DELIVERY_AT_SITE_WARNING}{' '}
@@ -2911,16 +3754,20 @@ export default function LeadDetailDashboard(): JSX.Element {
             </button>
           </div>
           <div className="lead-target-list">
-            {eligibleGroups.length === 0 ? (
+            {visibleGroups.length === 0 ? (
               <div className="list-empty">
                 {eligibleMismatch
                     ? `This Material's material class (${conveyanceClassLabel(selectedVariant!.conveyanceClass)}) does not match the selected sidebar material (${conveyanceClassLabel(conveyanceClass)}). Delete and recreate this Material, or select the correct material from the sidebar.`
                   : pipeLeadMaterial
                     ? 'No added SOR material is linked to this RCC pipe-conveyance selection.'
-                    : `No DATA item currently exposes ${materialName} lead.`}
+                    : !showAllData && scopeNodeIds
+                      ? "No DATA found for this lead's source yet."
+                      : !showAllData && selectedVariant
+                        ? 'No DATA is linked to this lead yet.'
+                        : `No DATA item currently exposes ${materialName} lead.`}
               </div>
             ) : (
-              eligibleGroups.map((group) => {
+              visibleGroups.map((group) => {
                 const groupLeadRef = leadRefForGroup(
                   group,
                   leadMetadataForGroup(group, metadata.get(group.code)),
@@ -3246,15 +4093,17 @@ function PointPickerMap({
 
   return (
     <div className="lead-point-picker-map">
-      <MapContainer
-        center={center}
-        zoom={value ? 14 : site || points.length ? 11 : 7}
-        scrollWheelZoom
-        keyboard={false}
-        whenReady={onReady}
-      >
+          <MapContainer
+            center={center}
+            zoom={value ? 15 : site || points.length ? 13 : 7}
+            maxZoom={22}
+            scrollWheelZoom
+            preferCanvas
+            keyboard={false}
+            whenReady={onReady}
+          >
         <MapLayers />
-        <MapPointsViewport points={visibleCoordinates} singleZoom={value ? 14 : 11} />
+        <MapPointsViewport points={visibleCoordinates} singleZoom={value ? 16 : 14} />
         <PointPickerClick active={active} onPick={onPick} />
         {site && (
           <Marker
@@ -3290,6 +4139,159 @@ function PointPickerMap({
   )
 }
 
+function FitPreviewBounds({ bounds }: { bounds: L.LatLngBoundsExpression }): null {
+  const map = useMap()
+  useEffect(() => {
+    map.fitBounds(bounds, { padding: [24, 24], maxZoom: 18 })
+    map.invalidateSize()
+  }, [map, bounds])
+  return null
+}
+
+/**
+ * Avg Lead creation map: the component working line for context, the chosen
+ * starting points, and every created point with its accepted road route.
+ * Table mode has no geography, so it shows just the line and starts.
+ */
+function AvgLeadPreviewMap({
+  site,
+  componentLine,
+  starts,
+  markers = [],
+  avgMarkers = [],
+  sourceRoutes = [],
+  routes
+}: {
+  site: ProjectLocation | null
+  componentLine: { lat: number; lng: number }[]
+  starts: (AvgStart & { label?: string })[]
+  markers?: { id?: string; lat: number; lon: number; label: string }[]
+  avgMarkers?: { lat: number; lon: number; label: string }[]
+  sourceRoutes?: { id: string; points: LeadMapCoordinate[] }[]
+  routes: LeadMapCoordinate[][]
+}): JSX.Element {
+  const lineAsLon = componentLine.map((vertex) => ({ lat: vertex.lat, lon: vertex.lng }))
+  const startsAsLon = starts.map((start) => ({ lat: start.coord.lat, lon: start.coord.lng }))
+  const viewportPoints: LeadMapCoordinate[] = [
+    ...(site ? [{ lat: site.lat, lon: site.lng }] : []),
+    ...lineAsLon,
+    ...startsAsLon,
+    ...markers,
+    ...avgMarkers,
+    ...routes.reduce<LeadMapCoordinate[]>((all, one) => all.concat(one), [])
+  ]
+  const center: [number, number] = lineAsLon[0]
+    ? [lineAsLon[0].lat, lineAsLon[0].lon]
+    : site
+      ? [site.lat, site.lng]
+      : TELANGANA_CENTER
+
+  const previewBounds: L.LatLngBoundsExpression | null =
+    viewportPoints.length > 0
+      ? [
+          [
+            Math.min(...viewportPoints.map((p) => p.lat)),
+            Math.min(...viewportPoints.map((p) => p.lon))
+          ],
+          [
+            Math.max(...viewportPoints.map((p) => p.lat)),
+            Math.max(...viewportPoints.map((p) => p.lon))
+          ]
+        ]
+      : null
+
+  return (
+    <div className="lead-variant-preview">
+      <div className="lead-variant-preview-heading">
+        <strong>Points &amp; routes</strong>
+        <span>
+          {avgMarkers.length > 0
+            ? `${avgMarkers.length} point(s) · ${routes.length} road route(s)`
+            : componentLine.length >= 2
+              ? 'Component line — created points and their road routes appear here'
+              : 'Create points to see them on the map'}
+        </span>
+      </div>
+      <div className="lead-variant-preview-map">
+        <MapContainer
+          center={center}
+          zoom={viewportPoints.length ? 13 : 7}
+          maxZoom={22}
+          scrollWheelZoom
+          keyboard={false}
+        >
+          <MapLayers />
+          {previewBounds && <FitPreviewBounds bounds={previewBounds} />}
+          <MapPointsViewport points={viewportPoints} singleZoom={15} />
+          {site && (
+            <Marker
+              position={[site.lat, site.lng]}
+              icon={leadMapPinIcon('P', '#0e639c', 'project')}
+            >
+              <Tooltip direction="top" offset={[0, -38]}>Work Location</Tooltip>
+            </Marker>
+          )}
+          {lineAsLon.length >= 2 && (
+            <Polyline
+              key="avg-component-line"
+              positions={lineAsLon.map((point) => [point.lat, point.lon] as [number, number])}
+              pathOptions={{ color: '#64748b', weight: 4, opacity: 0.7 }}
+            >
+              <Tooltip sticky>Component working line</Tooltip>
+            </Polyline>
+          )}
+          {sourceRoutes.map((sr) => (
+            <Polyline
+              key={sr.id}
+              positions={sr.points.map((pt) => [pt.lat, pt.lon] as [number, number])}
+              pathOptions={{ color: '#64748b', weight: 4, opacity: 0.7 }}
+            />
+          ))}
+          {starts.map((start, index) => (
+            <CircleMarker
+              key={`avg-start-${index}-${start.coord.lat}-${start.coord.lng}`}
+              center={[start.coord.lat, start.coord.lng]}
+              radius={7}
+              pathOptions={{ color: '#ffffff', weight: 2, fillColor: '#16a085', fillOpacity: 1 }}
+            >
+              <Tooltip direction="top" offset={[0, -10]}>{start.label ?? 'Start'}</Tooltip>
+            </CircleMarker>
+          ))}
+          {markers.map((marker, index) => (
+            <CircleMarker
+              key={marker.id ?? `avg-vertex-${index}`}
+              center={[marker.lat, marker.lon]}
+              radius={4}
+              pathOptions={{ color: '#ffffff', weight: 1.5, fillColor: '#f39c12', fillOpacity: 0.9 }}
+            >
+              <Tooltip direction="top" offset={[0, -8]}>{marker.label}</Tooltip>
+            </CircleMarker>
+          ))}
+          {avgMarkers.map((marker, index) => (
+            <CircleMarker
+              key={`avg-p-${index}-${marker.lat}-${marker.lon}`}
+              center={[marker.lat, marker.lon]}
+              radius={6}
+              pathOptions={{ color: '#ffffff', weight: 2, fillColor: '#0e639c', fillOpacity: 1 }}
+            >
+              <Tooltip direction="top" offset={[0, -10]}>{marker.label}</Tooltip>
+            </CircleMarker>
+          ))}
+          {routes.map((geometry, index) => (
+            geometry.length >= 2 && (
+              <Polyline
+                key={`avg-route-${index}`}
+                positions={geometry.map((point) => [point.lat, point.lon] as [number, number])}
+                pathOptions={{ color: '#0e639c', weight: 3, opacity: 0.85 }}
+              />
+            )
+          ))}
+        </MapContainer>
+      </div>
+    </div>
+  )
+}
+
 function VariantRoutePreviewMap({
   site,
   points,
@@ -3308,7 +4310,9 @@ function VariantRoutePreviewMap({
   onDrawPoint,
   onUndoDrawing,
   onFinishDrawing,
-  onCancelDrawing
+  onCancelDrawing,
+  avgMarkers = [],
+  avgRoutes = []
 }: {
   site: ProjectLocation | null
   points: LeadSelectablePoint[]
@@ -3329,6 +4333,8 @@ function VariantRoutePreviewMap({
   onUndoDrawing: () => void
   onFinishDrawing: () => void
   onCancelDrawing: () => void
+  avgMarkers?: { lat: number; lon: number; label: string }[]
+  avgRoutes?: LeadMapCoordinate[][]
 }): JSX.Element {
   const center: [number, number] = site
     ? [site.lat, site.lng]
@@ -3430,15 +4436,17 @@ function VariantRoutePreviewMap({
             </button>
           </div>
         )}
-        <MapContainer
-          center={center}
-          zoom={site || stops.length ? 10 : 7}
-          scrollWheelZoom
-          keyboard={false}
-          whenReady={onReady}
-        >
+          <MapContainer
+            center={center}
+            zoom={site || stops.length ? 12 : 7}
+            maxZoom={22}
+            scrollWheelZoom
+            preferCanvas
+            keyboard={false}
+            whenReady={onReady}
+          >
           <MapLayers />
-          <MapPointsViewport points={viewportPoints} singleZoom={12} />
+          <MapPointsViewport points={viewportPoints} singleZoom={15} />
           <AccessLineDrawingEvents active={Boolean(drawing)} onDrawPoint={onDrawPoint} />
           {points
             .filter((point) => !selectedPointIds.has(point.id) && point.id !== PROJECT_WORK_POINT_ID)
@@ -3566,7 +4574,7 @@ function LeadMap({
   )
   return (
     <div className="lead-map">
-      <MapContainer center={center} zoom={site || points.length ? 10 : 7} scrollWheelZoom>
+        <MapContainer center={center} zoom={site || points.length ? 10 : 7} maxZoom={22} scrollWheelZoom preferCanvas>
         <MapLayers />
         <MapRouteViewport
           lines={mapLines}
@@ -3823,6 +4831,8 @@ interface DashboardMapLine {
   displayDistanceKm: number
   routeKind: 'road' | 'straight' | 'mapped'
   dashed?: boolean
+  /** Avg leads draw every route but pin only one map label. */
+  hideMapLabel?: boolean
   accessConnectors?: Array<{
     id: string
     label: string
@@ -3877,40 +4887,62 @@ function buildDashboardMapLines(
   })
   for (const [index, variant] of variants.entries()) {
     if (customVariantIds.has(variant.id)) continue
-    if ((variant.routeGeometry?.length ?? 0) < 2) continue
-    const route = variant.routeGeometry!
-    lines.push({
-      id: `auto-${variant.id}`,
-      label: variantMapLabel(variant),
-      color: leadRouteColor(variant, index),
-      points: route,
-      variantId: variant.id,
-      dataLabels: uniqueApplicationLabels(
-        applications.filter((application) => application.variantId === variant.id)
-      ),
-      distanceKm: variant.actualLeadKm ?? variant.leadKm,
-      displayDistanceKm: pathDistanceKm(route),
-      routeKind: variant.routeSource === 'osrm' ? 'road' : 'mapped',
-      accessConnectors: variant.routeSource === 'osrm' ? [
-        ...((variant.firstMileGeometry?.length ?? 0) >= 2
-          ? [{
-              id: `${variant.id}:first-mile`,
-              label: 'First mile',
-              mode: variant.firstMileMode ?? 'auto',
-              distanceKm: variant.firstMileKm ?? 0,
-              points: variant.firstMileGeometry!
-            }]
-          : []),
-        ...((variant.lastMileGeometry?.length ?? 0) >= 2
-          ? [{
-              id: `${variant.id}:last-mile`,
-              label: 'Last mile',
-              mode: variant.lastMileMode ?? 'auto',
-              distanceKm: variant.lastMileKm ?? 0,
-              points: variant.lastMileGeometry!
-            }]
-          : [])
-      ] : undefined
+    if ((variant.routeGeometry?.length ?? 0) >= 2) {
+      const route = variant.routeGeometry!
+      lines.push({
+        id: `auto-${variant.id}`,
+        label: variantMapLabel(variant),
+        color: leadRouteColor(variant, index),
+        points: route,
+        variantId: variant.id,
+        dataLabels: uniqueApplicationLabels(
+          applications.filter((application) => application.variantId === variant.id)
+        ),
+        distanceKm: variant.actualLeadKm ?? variant.leadKm,
+        displayDistanceKm: pathDistanceKm(route),
+        routeKind: variant.routeSource === 'osrm' ? 'road' : 'mapped',
+        accessConnectors: variant.routeSource === 'osrm' ? [
+          ...((variant.firstMileGeometry?.length ?? 0) >= 2
+            ? [{
+                id: `${variant.id}:first-mile`,
+                label: 'First mile',
+                mode: variant.firstMileMode ?? 'auto',
+                distanceKm: variant.firstMileKm ?? 0,
+                points: variant.firstMileGeometry!
+              }]
+            : []),
+          ...((variant.lastMileGeometry?.length ?? 0) >= 2
+            ? [{
+                id: `${variant.id}:last-mile`,
+                label: 'Last mile',
+                mode: variant.lastMileMode ?? 'auto',
+                distanceKm: variant.lastMileKm ?? 0,
+                points: variant.lastMileGeometry!
+              }]
+            : [])
+        ] : undefined
+      })
+    }
+    const avgRoutes = variant.avgLead?.routes ?? []
+    avgRoutes.forEach((route, routeIndex) => {
+      if ((route.geometry?.length ?? 0) < 2) return
+      lines.push({
+        id: `avg-${variant.id}-${routeIndex}`,
+        label: routeIndex === 0
+          ? `${variantMapLabel(variant)} · Avg ${avgRoutes.length} route${avgRoutes.length === 1 ? '' : 's'}`
+          : `${variantMapLabel(variant)} · P${routeIndex + 1}`,
+        color: leadRouteColor(variant, index),
+        points: route.geometry!,
+        variantId: variant.id,
+        dataLabels: uniqueApplicationLabels(
+          applications.filter((application) => application.variantId === variant.id)
+        ),
+        distanceKm: routeIndex === 0 ? variant.actualLeadKm ?? variant.leadKm : route.routeKm,
+        displayDistanceKm: pathDistanceKm(route.geometry!),
+        routeKind: 'road',
+        accessConnectors: undefined,
+        hideMapLabel: routeIndex > 0
+      })
     })
   }
   return lines
@@ -3973,10 +5005,10 @@ function MapRouteViewport({
     map.fitBounds(L.latLngBounds(coordinates), {
       paddingTopLeft: [48, 64],
       paddingBottomRight: [320, 64],
-      maxZoom: 13,
+      maxZoom: 18,
       animate: false
     })
-  }, [map, signature])
+  }, [extraPoints, lines, map, signature])
 
   return null
 }
@@ -4095,10 +5127,10 @@ function MapPointsViewport({
     if (points.length > 1) {
       map.fitBounds(
         L.latLngBounds(points.map((point) => L.latLng(point.lat, point.lon))),
-        { padding: [42, 42], maxZoom: 13, animate: false }
+        { padding: [42, 42], maxZoom: 18, animate: false }
       )
     }
-  }, [map, signature, singleZoom])
+  }, [map, points, signature, singleZoom])
 
   return null
 }
@@ -4135,6 +5167,17 @@ function collectWorkLocationPoints(
   }
   visit(root)
   return points
+}
+
+function scopeNodeIdsForVariant(variant: LeadVariant): Set<string> | null {
+  const avgComponent = variant.avgLead?.componentId ?? variant.componentId
+  if (avgComponent) return new Set([avgComponent])
+  const start = variant.startPointId ?? ''
+  if (start.startsWith(NODE_POINT_PREFIX)) {
+    const nodeId = start.slice(NODE_POINT_PREFIX.length)
+    if (nodeId) return new Set([nodeId])
+  }
+  return null
 }
 
 function uniqueSelectablePoints(points: LeadSelectablePoint[]): LeadSelectablePoint[] {

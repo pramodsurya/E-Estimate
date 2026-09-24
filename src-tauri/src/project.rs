@@ -50,10 +50,7 @@ fn sanitize(name: &str) -> String {
 }
 
 fn write_project(path: &Path, data: &serde_json::Value) -> Result<(), String> {
-    let tmp = path.with_extension(format!(
-        "eestimate.{}.tmp",
-        std::process::id()
-    ));
+    let tmp = path.with_extension(format!("eestimate.{}.tmp", std::process::id()));
     let json = serde_json::to_string(data).map_err(|e| e.to_string())?;
     fs::write(&tmp, json).map_err(|e| e.to_string())?;
     fs::rename(&tmp, path).map_err(|e| {
@@ -75,32 +72,38 @@ fn path_from_file(file: FilePath) -> Option<PathBuf> {
 }
 
 #[tauri::command]
-pub async fn project_save(app: tauri::AppHandle, payload: SavePayload) -> Result<SaveResult, String> {
-    let mut target = payload
-        .current_path
-        .as_ref()
-        .map(PathBuf::from);
+pub async fn project_save(
+    app: tauri::AppHandle,
+    payload: SavePayload,
+) -> Result<SaveResult, String> {
+    let mut target = payload.current_path.as_ref().map(PathBuf::from);
 
     if target.is_none() {
         let picked = app
             .dialog()
             .file()
             .set_title("Save Project")
-            .set_file_name(&format!("{}.eestimate", sanitize(&payload.name)))
+            .set_file_name(format!("{}.eestimate", sanitize(&payload.name)))
             .add_filter(FILE_FILTER.0, FILE_FILTER.1)
             .blocking_save_file();
         match picked {
             Some(file) => target = path_from_file(file),
-            None => return Ok(SaveResult {
-                canceled: true,
-                path: None,
-            }),
+            None => {
+                return Ok(SaveResult {
+                    canceled: true,
+                    path: None,
+                })
+            }
         }
     }
 
     let target = target.ok_or_else(|| "No save path selected.".to_string())?;
     write_project(&target, &payload.data)?;
-    add_recent(&app, target.to_string_lossy().to_string(), Some(payload.name))?;
+    add_recent(
+        &app,
+        target.to_string_lossy().to_string(),
+        Some(payload.name),
+    )?;
     Ok(SaveResult {
         canceled: false,
         path: Some(target.to_string_lossy().to_string()),
@@ -108,12 +111,15 @@ pub async fn project_save(app: tauri::AppHandle, payload: SavePayload) -> Result
 }
 
 #[tauri::command]
-pub async fn project_save_as(app: tauri::AppHandle, payload: SavePayload) -> Result<SaveResult, String> {
+pub async fn project_save_as(
+    app: tauri::AppHandle,
+    payload: SavePayload,
+) -> Result<SaveResult, String> {
     let picked = app
         .dialog()
         .file()
         .set_title("Save Project As")
-        .set_file_name(&format!("{}.eestimate", sanitize(&payload.name)))
+        .set_file_name(format!("{}.eestimate", sanitize(&payload.name)))
         .add_filter(FILE_FILTER.0, FILE_FILTER.1)
         .blocking_save_file();
 
@@ -125,7 +131,11 @@ pub async fn project_save_as(app: tauri::AppHandle, payload: SavePayload) -> Res
     };
     let target = path_from_file(file).ok_or_else(|| "Invalid save path.".to_string())?;
     write_project(&target, &payload.data)?;
-    add_recent(&app, target.to_string_lossy().to_string(), Some(payload.name))?;
+    add_recent(
+        &app,
+        target.to_string_lossy().to_string(),
+        Some(payload.name),
+    )?;
     Ok(SaveResult {
         canceled: false,
         path: Some(target.to_string_lossy().to_string()),
@@ -133,12 +143,15 @@ pub async fn project_save_as(app: tauri::AppHandle, payload: SavePayload) -> Res
 }
 
 #[tauri::command]
-pub async fn cluster_save_as(app: tauri::AppHandle, payload: SavePayload) -> Result<SaveResult, String> {
+pub async fn cluster_save_as(
+    app: tauri::AppHandle,
+    payload: SavePayload,
+) -> Result<SaveResult, String> {
     let picked = app
         .dialog()
         .file()
         .set_title("Save Cluster Project As")
-        .set_file_name(&format!("{}.eestimate-cluster", sanitize(&payload.name)))
+        .set_file_name(format!("{}.eestimate-cluster", sanitize(&payload.name)))
         .add_filter(CLUSTER_FILTER.0, CLUSTER_FILTER.1)
         .blocking_save_file();
 
@@ -150,7 +163,11 @@ pub async fn cluster_save_as(app: tauri::AppHandle, payload: SavePayload) -> Res
     };
     let target = path_from_file(file).ok_or_else(|| "Invalid save path.".to_string())?;
     write_project(&target, &payload.data)?;
-    add_recent(&app, target.to_string_lossy().to_string(), Some(payload.name))?;
+    add_recent(
+        &app,
+        target.to_string_lossy().to_string(),
+        Some(payload.name),
+    )?;
     Ok(SaveResult {
         canceled: false,
         path: Some(target.to_string_lossy().to_string()),

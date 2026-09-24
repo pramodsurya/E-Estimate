@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import type { GuideWallSection } from '../../types/project'
 import { hasLeftWall, hasRightWall, wallBottomWidth } from '../../lib/guideWall'
 
@@ -22,7 +21,7 @@ interface WallShape {
  * between them, and live dimension annotations.
  */
 export default function SectionDiagram({ section }: { section: GuideWallSection }): JSX.Element {
-  const view = useMemo(() => {
+  const view = (() => {
     const left = hasLeftWall(section) ? section.left : null
     const right = hasRightWall(section) ? section.right : null
     const bottomL = left ? wallBottomWidth(left) : 0
@@ -100,7 +99,7 @@ export default function SectionDiagram({ section }: { section: GuideWallSection 
       left,
       right
     }
-  }, [section])
+  })()
 
   const bottomY = view.baseTop + view.baseH
 

@@ -24,7 +24,6 @@ import {
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState
 } from 'react'
@@ -40,6 +39,7 @@ import {
 import { findNode } from '../../lib/tree'
 import DocumentPrintAreaModal from './DocumentPrintAreaModal'
 import EEstimatePrintStudio from '../typst/EEstimatePrintStudio'
+import { exportItemNodeExcel } from '../../lib/excel-output/pageExcel'
 import { nodeDisplayName } from '../nodeVisual'
 import {
   buildItemSheetRenderData,
@@ -340,7 +340,7 @@ const UniverDocument = function UniverDocument({
           ...(allowImages ? [UniverDocsDrawingPreset()] : [])
         ]
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const register = univer.registerPlugin.bind(univer) as (plugin: any, config?: any) => void
         for (const preset of presets) {
           for (const plugin of preset.plugins) {
@@ -589,7 +589,7 @@ const UniverDocument = function UniverDocument({
     }
     // `orientation` is a dependency on purpose: turning the page is a layout
     // change Univer cannot apply to a live document, so the editor rebuilds.
-  }, [node.id, allowImages, preview, hostReady, orientation, setNodeDocumentData])
+  }, [node, allowImages, preview, hostReady, orientation, setNodeDocumentData])
 
   /** The estimator's current text selection, read straight from Univer. */
   const readSelection = (): { startOffset: number; endOffset: number } | null => {
@@ -616,7 +616,7 @@ const UniverDocument = function UniverDocument({
   const fixFinalNumber = (): void => {
     const selection = readSelection()
     if (!selection || selection.endOffset <= selection.startOffset) {
-      setNotice('Select the number in the document first, then click Fix Final No.')
+      setNotice('Select the complete numeric-only paragraph or table cell, then click Fix Final Quantity.')
       return
     }
     // Read from the store rather than the live model: the debounce may not have
@@ -625,7 +625,7 @@ const UniverDocument = function UniverDocument({
     const text = stream.slice(selection.startOffset, selection.endOffset)
     const fixed = createDocumentFinal(selection.startOffset, selection.endOffset, text)
     if (!fixed) {
-      setNotice(`"${text.trim() || '(empty)'}" is not a number.`)
+      setNotice('Final quantity must contain numbers only. Do not include labels, currency symbols or units.')
       return
     }
     setNodeDocumentFinal(node.id, fixed)
@@ -650,7 +650,13 @@ const UniverDocument = function UniverDocument({
 
   const final = showItemTools ? resolveDocumentFinal(node) : null
 
-  const itemPrintStudio = useMemo(() => {
+  const exportDocumentExcel = (): Promise<void> => {
+    const current = useStore.getState().project
+    if (!current) throw new Error('No active project.')
+    return exportItemNodeExcel(current, node)
+  }
+
+  const itemPrintStudio = (() => {
     if (!project) return null
     return {
       defaultTypstSource: itemSheetTypstTemplate(project, node),
@@ -661,14 +667,18 @@ const UniverDocument = function UniverDocument({
       projectDocumentSettings: resolveItemSheetDocumentSettings(project, node),
       savedDocumentSettings: project.printStudioDocumentSettings?.[itemSheetScopeKey(node)]
     }
-  }, [project, node])
+  })()
 
   return (
     <>
       {showItemTools && (
         <div className="doc-item-toolbar">
-          <button className="btn ghost" onClick={fixFinalNumber}>
-            <Hash size={14} /> Fix Final No.
+          <button
+            className="btn ghost"
+            title="Select the complete paragraph or table cell containing only the numeric final quantity. Do not include labels, currency symbols or units."
+            onClick={fixFinalNumber}
+          >
+            <Hash size={14} /> Fix Final Quantity
           </button>
           {node.documentFinal && (
             <button
@@ -740,6 +750,8 @@ const UniverDocument = function UniverDocument({
           runtimeData={itemPrintStudio.runtimeData}
           projectDocumentSettings={itemPrintStudio.projectDocumentSettings}
           savedDocumentSettings={itemPrintStudio.savedDocumentSettings}
+          excelExportLabel="Download this document as an Excel workbook"
+          onExportExcel={() => exportDocumentExcel()}
           onSave={async (source, settings) => {
             updatePrintStudioDocument(itemSheetScopeKey(node), source, settings)
             await useStore.getState().saveProject({ requireSaved: true })

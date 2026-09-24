@@ -192,10 +192,16 @@ function BasicSorRateTable({
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    let active = true
+  const requestKey = `${categoryKey}:${sorYear}:${zone ?? ''}`
+  const [prevRequestKey, setPrevRequestKey] = useState(requestKey)
+  if (requestKey !== prevRequestKey) {
+    setPrevRequestKey(requestKey)
     setLoading(true)
     setError('')
+  }
+
+  useEffect(() => {
+    let active = true
     void fetchSorRateTableRows(categoryKey, sorYear, zone)
       .then((next) => {
         if (active) setRows(next)
@@ -277,10 +283,16 @@ function PublishedSorCatalogueTable({
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    let active = true
+  const requestKey = `${catalogue.catalogue_code}:${sorYear}`
+  const [prevRequestKey, setPrevRequestKey] = useState(requestKey)
+  if (requestKey !== prevRequestKey) {
+    setPrevRequestKey(requestKey)
     setLoading(true)
     setError('')
+  }
+
+  useEffect(() => {
+    let active = true
     void fetchSorCataloguePrice(catalogue.catalogue_code, sorYear, {})
       .then((next) => {
         if (active) setRows(next)

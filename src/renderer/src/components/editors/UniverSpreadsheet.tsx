@@ -12,7 +12,7 @@ import { UniverSheetsDrawingPreset } from '@univerjs/preset-sheets-drawing'
 import enUS from '@univerjs/preset-sheets-core/locales/en-US'
 import drawingEnUS from '@univerjs/preset-sheets-drawing/locales/en-US'
 import { BarChart3, Hash, Table2, Crop, FileCode, X } from 'lucide-react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   SPECIMEN_SHEET_RANGE,
   SPECIMEN_SHEET_ROWS,
@@ -41,6 +41,7 @@ import {
 import type { CellRange, ChartDef, ProjectNode } from '../../types/project'
 import { nodeDisplayName } from '../nodeVisual'
 import EEstimatePrintStudio from '../typst/EEstimatePrintStudio'
+import { exportItemNodeExcel } from '../../lib/excel-output/pageExcel'
 import {
   buildItemSheetRenderData,
   itemSheetCompileInputs,
@@ -155,6 +156,12 @@ function removeExistingChartFloatDoms(ws: unknown): number {
 }
 
 export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.Element {
+  // This editor wires Univer imperatively once per node. Its setup effect
+  // intentionally omits the chart callbacks from the dependency array (they are
+  // recreated per render and re-running setup would rebuild the sheet), so the
+  // exhaustive-deps suppression below is required. Opt this component out of the
+  // React Compiler instead of letting a non-compilable suppression bail it out.
+  'use no memo'
   const containerRef = useRef<HTMLDivElement | null>(null)
   const apiRef = useRef<UniverSheetsApi | null>(null)
   /** True once the tutorial's specimen has been written into this sheet. */
@@ -254,7 +261,7 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
     const a1 = cellToA1(cell.row, cell.column)
     let value: unknown
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       value = (apiRef.current?.getActiveWorkbook()?.getActiveSheet()?.getRange(a1) as any)?.getValue()
     } catch {
       value = undefined
@@ -276,7 +283,7 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
     let values: CellValue[][] = []
     if (ws) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         values = ((ws.getRange(rangeToA1(def.range)) as any)?.getValues() ?? []) as CellValue[][]
       } catch {
         values = []
@@ -302,12 +309,12 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
     if (chartFloatsRef.current.has(def.id)) return
     const p = def.position
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       if ((ws as any).getFloatDomById?.(def.id)) (ws as any).removeFloatDom?.(def.id)
     } catch {
       /* stale float dom could not be removed; add attempt below will fail safely */
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const disposable = (ws as any).addFloatDomToPosition(
       {
         componentKey: CHART_COMPONENT_KEY,
@@ -377,7 +384,7 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
     const fresh = findNode(project.root, node.id)
     for (const def of fresh?.charts ?? []) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const pos = (ws as any).getFloatDomById(def.id)?.position
         if (!pos || typeof pos.left !== 'number') continue
         const next = {
@@ -407,7 +414,13 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
 
   const openPrintStudio = (): void => setPrintStudioOpen(true)
 
-  const itemPrintStudio = useMemo(() => {
+  const exportSheetExcel = (): Promise<void> => {
+    const current = useStore.getState().project
+    if (!current) throw new Error('No active project.')
+    return exportItemNodeExcel(current, node)
+  }
+
+  const itemPrintStudio = (() => {
     if (!project) return null
     return {
       defaultTypstSource: itemSheetTypstTemplate(project, node),
@@ -418,7 +431,7 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
       projectDocumentSettings: resolveItemSheetDocumentSettings(project, node),
       savedDocumentSettings: project.printStudioDocumentSettings?.[itemSheetScopeKey(node)]
     }
-  }, [project, node])
+  })()
 
   const editingChart =
     chartModal?.mode === 'edit'
@@ -427,12 +440,8 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
 
   const printRange = node.print?.range ?? null
   const color = node.itemSource === 'SOR' ? 'var(--item-sor)' : 'var(--item-ssr)'
-  const subtitle = useMemo(
-    () =>
-      `${node.itemSource ?? ''}${node.unit ? ` - unit ${node.unit}` : ''}`.trim() ||
-      'Spreadsheet',
-    [node.itemSource, node.unit]
-  )
+  const subtitle = (`${node.itemSource ?? ''}${node.unit ? ` - unit ${node.unit}` : ''}`.trim() ||
+      'Spreadsheet')
 
   useLayoutEffect(() => {
     const container = containerRef.current
@@ -585,7 +594,7 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
         scheduleWindowResize()
 
         // Register the Chart.js float component and mount any saved charts.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         componentDisposable = (univerAPI as any).registerComponent(CHART_COMPONENT_KEY, ChartFloat)
         const activeSheet = univerAPI.getActiveWorkbook()?.getActiveSheet()
         const removedStaleCharts = activeSheet ? removeExistingChartFloatDoms(activeSheet) : 0
@@ -614,7 +623,7 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
           if (!def) return
           const ws = apiRef.current?.getActiveWorkbook()?.getActiveSheet()
           try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             if (ws && !(ws as any).getFloatDomById?.(def.id)) addChartFloat(def)
           } catch {
             /* float lookup failed; publish still lets an existing view recover */
@@ -648,6 +657,7 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
       initializeFrame = window.requestAnimationFrame(initialize)
     })
 
+    const chartFloats = chartFloatsRef.current
     return () => {
       disposed = true
       schedulePersistRef.current = null
@@ -666,8 +676,8 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
       unsubEdit?.()
       unsubInsert?.()
       unsubRefresh?.()
-      for (const id of Array.from(chartFloatsRef.current.keys())) removeChartFloat(id)
-      chartFloatsRef.current.clear()
+      for (const id of Array.from(chartFloats.keys())) removeChartFloat(id)
+      chartFloats.clear()
       persist()
       ribbonDisposable?.dispose()
       componentDisposable?.dispose()
@@ -936,6 +946,8 @@ export default function UniverSpreadsheet({ node }: { node: ProjectNode }): JSX.
           runtimeData={itemPrintStudio.runtimeData}
           projectDocumentSettings={itemPrintStudio.projectDocumentSettings}
           savedDocumentSettings={itemPrintStudio.savedDocumentSettings}
+          excelExportLabel="Download this sheet as an Excel workbook"
+          onExportExcel={() => exportSheetExcel()}
           onSave={async (source, settings) => {
             updatePrintStudioDocument(itemSheetScopeKey(node), source, settings)
             await useStore.getState().saveProject({ requireSaved: true })

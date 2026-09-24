@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Check, Lightbulb, Loader2 } from 'lucide-react'
 import {
   ensureVisible,
@@ -256,13 +256,20 @@ export default function TutorialOverlay(): JSX.Element | null {
   // Already where the step wanted you? Then there is nothing to wait for.
   const gated = advance ? isGated(advance) && !preSatisfied : false
 
+  const [prevStepKey, setPrevStepKey] = useState(step?.id ?? null)
+  if (prevStepKey !== (step?.id ?? null)) {
+    setPrevStepKey(step?.id ?? null)
+    if (!step) {
+      setRect(null)
+      setFound(false)
+    }
+  }
+
   // Track the target's position. Layout in this app moves for reasons the
   // overlay cannot subscribe to — spreadsheets virtualise, panels animate — so
   // a modest polling loop is more honest than a pile of observers.
   useLayoutEffect(() => {
     if (!step) {
-      setRect(null)
-      setFound(false)
       anchorRef.current = null
       return
     }
@@ -299,9 +306,12 @@ export default function TutorialOverlay(): JSX.Element | null {
     runStepEffect(chapter.id, step.id)
   }, [chapter, step])
 
-  useEffect(() => {
+  const [prevStepIndex, setPrevStepIndex] = useState(stepIndex)
+  if (prevStepIndex !== stepIndex) {
+    setPrevStepIndex(stepIndex)
     setTaskAside(false)
-  }, [stepIndex])
+    setPreSatisfied(false)
+  }
 
   /**
    * Some controls only exist on hover — the per-row buttons in the Explorer, for
@@ -373,11 +383,7 @@ export default function TutorialOverlay(): JSX.Element | null {
   // "appears" and "disappears" both need to know the state at the moment the
   // step opened — otherwise a dialog that is already closed would satisfy a
   // "wait for it to close" step instantly.
-  // Cleared for every step, not only the watched ones — otherwise a step that
-  // resolved itself leaves the flag set and the next gated step opens unlocked.
-  useEffect(() => {
-    setPreSatisfied(false)
-  }, [stepIndex])
+  // Cleared for every step, not only the watched ones — handled during render stepIndex sync.
 
   const watchTarget = advance && (advance.on === 'appears' || advance.on === 'disappears') ? advance : null
   useEffect(() => {
@@ -435,24 +441,29 @@ export default function TutorialOverlay(): JSX.Element | null {
    * and a 250ms look is both cheaper and more truthful than trying to enumerate
    * every store path that could change the answer.
    */
-  const predicate = useMemo<(() => boolean) | null>(() => {
-    if (!advance) return null
-    switch (advance.on) {
-      case 'state':
-        return () => stateSatisfied(advance.check)
-      case 'itemOpen':
-        return () => isItemOpen(advance.code)
-      case 'itemEditorIs':
-        return () => itemEditorIs(advance.code, advance.editor)
-      default:
-        return null
-    }
-    // Keyed on the reading itself, so the effect below re-arms when the step
-    // changes but not on every render of the same step.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [advance?.on, predicateKey(advance)])
+  // Re-arming is keyed on the reading itself so the effect does not restart on
+  // every render of the same step; the ref carries the full reading into it.
+  const advanceKey = predicateKey(advance)
+  const advanceRef = useRef(advance)
+  useEffect(() => {
+    advanceRef.current = advance
+  }, [advance])
 
   useEffect(() => {
+    const current = advanceRef.current
+    const predicate: (() => boolean) | null = (() => {
+      if (!current) return null
+      switch (current.on) {
+        case 'state':
+          return () => stateSatisfied(current.check)
+        case 'itemOpen':
+          return () => isItemOpen(current.code)
+        case 'itemEditorIs':
+          return () => itemEditorIs(current.code, current.editor)
+        default:
+          return null
+      }
+    })()
     if (!predicate) return
     if (predicate()) {
       setPreSatisfied(true)
@@ -464,7 +475,7 @@ export default function TutorialOverlay(): JSX.Element | null {
       useTutorial.getState().next()
     }, 250)
     return () => window.clearInterval(timer)
-  }, [predicate, stepIndex])
+  }, [advance?.on, advanceKey, stepIndex])
 
   /**
    * Growth gates.
@@ -496,17 +507,24 @@ export default function TutorialOverlay(): JSX.Element | null {
     advance?.on === 'itemsExist' || advance?.on === 'itemsMeasured' ? advance.codes : null
   const needsQuantity = advance?.on === 'itemsMeasured'
   const wantedKey = `${needsQuantity ? 'qty' : 'add'}:${wantedCodes?.join('|') ?? ''}`
+  const wantedCodesRef = useRef(wantedCodes)
+  const needsQuantityRef = useRef(needsQuantity)
   useEffect(() => {
-    if (!wantedCodes) {
+    wantedCodesRef.current = wantedCodes
+    needsQuantityRef.current = needsQuantity
+  }, [wantedCodes, needsQuantity])
+  useEffect(() => {
+    const codes = wantedCodesRef.current
+    if (!codes) {
       setMissing([])
       return
     }
     const check = (): void => {
       let outstanding: string[] = []
       try {
-        outstanding = needsQuantity
-          ? unmeasuredItemCodes(wantedCodes)
-          : missingItemCodes(wantedCodes)
+        outstanding = needsQuantityRef.current
+          ? unmeasuredItemCodes(codes)
+          : missingItemCodes(codes)
       } catch {
         // A project that cannot be read yet is not a reason to strand the reader.
         return
@@ -521,11 +539,11 @@ export default function TutorialOverlay(): JSX.Element | null {
     check()
     const timer = window.setInterval(check, 700)
     return () => window.clearInterval(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantedKey, stepIndex])
 
-  const onKey = useCallback(
-    (event: KeyboardEvent): void => {
+  useEffect(() => {
+    if (phase === 'idle') return
+    const handleKey = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
         event.preventDefault()
         pause()
@@ -534,15 +552,10 @@ export default function TutorialOverlay(): JSX.Element | null {
         // the app decides when a step is done.
         back()
       }
-    },
-    [back, pause]
-  )
-
-  useEffect(() => {
-    if (phase === 'idle') return
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onKey, phase])
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [back, pause, phase])
 
   if (phase === 'complete') return <CompletionCard />
   if (!step || !chapter || !advance) return null

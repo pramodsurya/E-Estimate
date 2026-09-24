@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { CircleDot, RefreshCw, Route } from 'lucide-react'
 import {
   canonicalLeadMaterialRef,
@@ -47,27 +47,19 @@ export default function EstimateLeadPanel(): JSX.Element {
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState('')
 
-  const groups = useMemo(
-    () => (project ? projectItemGroups(project.root) : []),
-    [project]
-  )
+  const groups = (project ? projectItemGroups(project.root) : [])
   const variants = project?.leadChart?.variants ?? []
   const applications = project?.leadChart?.applications ?? []
   const snapshotValid = project
     ? dashboardContextMatches(project.dashboardSnapshot, project)
     : false
-  const metadata = useMemo(
-    () =>
-      new Map<string, unknown>(
+  const metadata = (new Map<string, unknown>(
         project && snapshotValid
           ? Object.entries(project.dashboardSnapshot?.leadApplicability ?? {})
           : []
-      ),
-    [project, snapshotValid]
-  )
+      ))
 
-  const items = useMemo(
-    () => buildLeadAbstract(groups.map((group) => ({
+  const items = (buildLeadAbstract(groups.map((group) => ({
       code: group.code,
       description: group.description,
       metadata: activateGroupAddons(
@@ -79,9 +71,7 @@ export default function EstimateLeadPanel(): JSX.Element {
         group,
         snapshotValid ? project?.dashboardSnapshot?.recipes : undefined
       )
-    })), variants, applications),
-    [groups, metadata, variants, applications, project?.dashboardSnapshot?.recipes, snapshotValid]
-  )
+    })), variants, applications))
 
   if (!project) return <div className="panel-reserved">Open a project before creating Lead.</div>
 

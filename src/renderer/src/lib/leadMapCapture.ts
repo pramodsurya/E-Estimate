@@ -79,7 +79,8 @@ async function downloadRemoteImage(url: string): Promise<string | null> {
 
 async function inlineRemoteMapImages(
   root: HTMLElement,
-  existingCache: Record<string, string>
+  existingCache: Record<string, string>,
+  onProgress?: (downloaded: number, total: number) => void
 ): Promise<Record<string, string>> {
   const images = Array.from(root.querySelectorAll('img')).filter((image) => {
     const src = image.currentSrc || image.src
@@ -89,6 +90,9 @@ async function inlineRemoteMapImages(
   if (images.length === 0) return tileFiles
 
   const byUrl = new Map<string, string>()
+  let completed = 0
+  onProgress?.(completed, images.length)
+
   const embed = async (image: HTMLImageElement): Promise<void> => {
     const url = image.currentSrc || image.src
     let dataUrl = byUrl.get(url)
@@ -108,11 +112,15 @@ async function inlineRemoteMapImages(
       byUrl.set(url, dataUrl)
     }
     image.src = dataUrl
+    completed += 1
+    onProgress?.(completed, images.length)
   }
 
-  const batchSize = 6
+  const batchSize = 4
   for (let index = 0; index < images.length; index += batchSize) {
     await Promise.all(images.slice(index, index + batchSize).map((image) => embed(image)))
+    // Yield to the UI event loop between batches so user interactions remain fluid
+    await new Promise((resolve) => setTimeout(resolve, 10))
   }
   await Promise.all(images.map((image) => {
     if (image.complete && image.naturalWidth > 0) return Promise.resolve()
@@ -129,19 +137,26 @@ export async function captureLeadMapPng(
   layout: NormalizedLeadPrintSettings,
   signatureFooter?: SignatureFooterSettings,
   interactive = true,
-  existingCache: Record<string, string> = {}
+  existingCache: Record<string, string> = {},
+  onProgress?: (step: 'tiles' | 'stitching', downloaded: number, total: number) => void
 ): Promise<LeadMapCaptureResult> {
   if (!pageRoot) throw new Error('The route map page is not ready.')
   const mapElement = pageRoot.querySelector<HTMLElement>(LEAD_MAP_SELECTOR)
   if (!mapElement) throw new Error('The route map frame is not ready.')
 
-  const tileFiles = await inlineRemoteMapImages(mapElement, existingCache)
+  const tileFiles = await inlineRemoteMapImages(mapElement, existingCache, (downloaded, total) => {
+    onProgress?.('tiles', downloaded, total)
+  })
 
   const unresolvedTiles = Array.from(mapElement.querySelectorAll<HTMLImageElement>('img.leaflet-tile'))
     .filter((image) => !image.src.startsWith('data:') || !image.complete || image.naturalWidth === 0)
   if (unresolvedTiles.length > 0) {
     throw new Error('The visible map tiles are not fully available. Wait for the map to load and Fix again.')
   }
+
+  onProgress?.('stitching', 1, 1)
+  // Give the browser a frame to finish layout before toPng
+  await new Promise((resolve) => requestAnimationFrame(resolve))
 
   const geometry = computeLeadMapPageGeometry(layout, signatureFooter, interactive)
   const { widthPx, heightPx, pixelRatio } = leadMapCapturePixels(geometry, mapElement)

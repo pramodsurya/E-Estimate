@@ -2,12 +2,11 @@ import type { LeadApplication, LeadVariant } from '../types/project'
 import type {
   RateAnalysisRecipe,
   RateAnalysisSectionKey,
-  RateAnalysisStoredRow
+  RateAnalysisStoredRow,
+  RateAnalysisSummary
 } from '../types/rateAnalysis'
 import {
-  calculateBaseRateAnalysis,
-  calculateOptionalAddition,
-  calculateRateAnalysis,
+  type CalculatedOptionalAddition,
   labourRowsForDisplay
 } from './rateAnalysis'
 import { addonLeadRuleForVariant, parseLeadInfo } from './leadApplicability'
@@ -28,14 +27,30 @@ export interface NormalizedLabourRow {
   kind: 'allowance' | 'total' | 'component' | 'final'
 }
 
+const DEFAULT_SUMMARY: RateAnalysisSummary = {
+  sectionTotals: { materials: 0, machinery: 0, labour: 0 },
+  labourBaseCost: 0,
+  areaAllowancePercent: 0,
+  areaAllowanceAmount: 0,
+  labourCostWithAreaAllowance: 0,
+  baseCost: 0,
+  overheadAmount: 0,
+  totalCost: 0,
+  ratePerUnit: 0,
+  labourUnitBase: 0,
+  labourUnitProfit: 0,
+  labourUnitTotal: 0
+}
+
 export function buildDataPresentation(
   recipe: RateAnalysisRecipe,
   leadApplications: LeadApplication[] = [],
-  leadVariants: LeadVariant[] = []
+  leadVariants: LeadVariant[] = [],
+  calculatedSummary?: RateAnalysisSummary
 ) {
-  const summary = calculateBaseRateAnalysis(recipe)
-  const adoptedSummary = calculateRateAnalysis(recipe)
-  const calculatedAddon = calculateOptionalAddition(recipe)
+  const summary = calculatedSummary ?? DEFAULT_SUMMARY
+  const adoptedSummary = summary
+  const calculatedAddon = null as (CalculatedOptionalAddition | null)
   const selectedAddonId = recipe.dataVariant?.addonId
   const parsedLeadInfo = parseLeadInfo(recipe.leadApplicability)
   const addonLeadApplications = selectedAddonId

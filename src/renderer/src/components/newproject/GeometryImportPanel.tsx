@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { FilePlus2, LoaderCircle, Trash2, X } from 'lucide-react'
 import { resolveAreaAllowance } from '../../lib/masterData'
 import { workingLineCentroid } from '../../lib/componentAllowance'
@@ -95,17 +95,19 @@ const GeometryImportPanel = function GeometryImportPanel({
   const [error, setError] = useState<string | null>(null)
 
   const activeRows = rows?.filter((row) => !removedKeys.includes(row.key)) ?? null
+  const onRowsChangeRef = useRef(onRowsChange)
   useEffect(() => {
-    onRowsChange(activeRows)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    onRowsChangeRef.current = onRowsChange
+  }, [onRowsChange])
+  useEffect(() => {
+    onRowsChangeRef.current(rows?.filter((row) => !removedKeys.includes(row.key)) ?? null)
   }, [rows, removedKeys])
   useEffect(
     () => () => {
       // Leaving Draw a line mode unmounts the panel: release the proposal so
       // the map and footer fall back to manual placement.
-      onRowsChange(null)
+      onRowsChangeRef.current(null)
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   )
 
@@ -346,28 +348,45 @@ const GeometryImportPanel = function GeometryImportPanel({
     resolveRowAllowance(key, centroid)
   }
 
-  const appendVertex = (key: string, vertex: ImportVertex): void => {
-    const row = rows?.find((candidate) => candidate.key === key)
-    if (!row || !row.baseVertices.length) return
-    commitBaseVertices(key, [...row.baseVertices, vertex])
-  }
+  const commitBaseVerticesRef = useRef(commitBaseVertices)
+  useEffect(() => {
+    commitBaseVerticesRef.current = commitBaseVertices
+  })
 
   const removeRowVertex = (key: string, index: number): void => {
     const row = rows?.find((candidate) => candidate.key === key)
     if (!row || row.baseVertices.length <= 2) return
-    commitBaseVertices(
+    commitBaseVerticesRef.current(
       key,
       row.baseVertices.filter((_, vertexIndex) => vertexIndex !== index)
     )
   }
 
-  useImperativeHandle(ref, () => ({ appendVertex, removeRowVertex }), [rows, sorYear])
+  useImperativeHandle(
+    ref,
+    () => ({
+      appendVertex: (key: string, vertex: ImportVertex): void => {
+        const row = rows?.find((candidate) => candidate.key === key)
+        if (!row || !row.baseVertices.length) return
+        commitBaseVerticesRef.current(key, [...row.baseVertices, vertex])
+      },
+      removeRowVertex: (key: string, index: number): void => {
+        const row = rows?.find((candidate) => candidate.key === key)
+        if (!row || row.baseVertices.length <= 2) return
+        commitBaseVerticesRef.current(
+          key,
+          row.baseVertices.filter((_, vertexIndex) => vertexIndex !== index)
+        )
+      }
+    }),
+    [rows]
+  )
 
   const componentCount = activeRows?.filter((row) => row.kind === 'component').length ?? 0
   // Per-vertex distance labels for the expandable vertex lists: first vertex
   // reads Start, every later one shows its segment and running total. Labels
   // refresh live while trimming or extending a line.
-  const cumLabelByRow = useMemo(() => {
+  const cumLabelByRow = (() => {
     const labels = new Map<string, string[]>()
     for (const row of rows ?? []) {
       let run = 0
@@ -386,7 +405,7 @@ const GeometryImportPanel = function GeometryImportPanel({
       )
     }
     return labels
-  }, [rows])
+  })()
 
   return (
     <div className="field">

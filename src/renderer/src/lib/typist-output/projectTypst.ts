@@ -12,7 +12,7 @@ import {
   computeProjectPrintInputs,
   projectDashboardIsReady
 } from '../projectPrintInputs'
-import { normalizePlaceName } from '../placeNormalization'
+import { resolveProjectPrintLocation } from '../printLocation'
 import {
   printableSignatureRows,
   PROJECT_SIGNATURE_SCOPE,
@@ -26,6 +26,22 @@ import {
 import { EE_ITEM_TABLE_PRELUDE } from './itemTypst'
 
 export const PROJECT_ABSTRACT_SCOPE = 'general-abstract'
+
+const LEGACY_DISTRICT_GUARD = 'or EE.at("district", default: "") ['
+const FIXED_DISTRICT_GUARD = 'or EE.at("district", default: "") != "" ['
+
+/**
+ * Self-healing repair for General Abstract sources saved before the district
+ * comparison fix. Saved studio sources override the default template, so old
+ * files would otherwise keep failing with `cannot apply 'or' to boolean and
+ * string` whenever village and mandal are both empty. The rewrite only adds
+ * the missing `!= ""`: a no-op wherever the guard used to compile (Typst `or`
+ * short-circuits on a non-empty village/mandal) and the fix where it crashed.
+ */
+export function repairGeneralAbstractSource(source: string): string {
+  if (!source || !source.includes(LEGACY_DISTRICT_GUARD)) return source
+  return source.split(LEGACY_DISTRICT_GUARD).join(FIXED_DISTRICT_GUARD)
+}
 
 const money = new Intl.NumberFormat('en-IN', {
   minimumFractionDigits: 2,
@@ -85,11 +101,11 @@ export function collectProjectComponents(project: EestimateProject): ProjectNode
   return project.root.children.filter((child) => child.kind === 'component')
 }
 
-export function buildProjectRenderData(project: EestimateProject): ProjectRenderData {
-  const inputs = computeProjectPrintInputs(project)
+export function buildProjectRenderData(project: EestimateProject, useStoredSnapshot = false): ProjectRenderData {
+  const inputs = computeProjectPrintInputs(project, undefined, { useStoredSnapshot })
   const { abstract, gstRate, gstRule, earthworkPercent, earthworkPredominant } =
     inputs
-  const location = project.meta.areaAllowance
+  const printLocation = resolveProjectPrintLocation(project)
   const signature = resolveSignatureFooter(project, PROJECT_SIGNATURE_SCOPE)
   const pages = project.root.children
     .filter((child) => child.kind === 'page')
@@ -100,9 +116,9 @@ export function buildProjectRenderData(project: EestimateProject): ProjectRender
     project: project.meta.name || project.root.name,
     year: project.meta.sorYear || '',
     zone: zoneLabel(project.meta.sorZone),
-    village: normalizePlaceName(location?.village),
-    mandal: normalizePlaceName(location?.mandal),
-    district: normalizePlaceName(location?.district || project.meta.location?.label),
+    village: printLocation.village,
+    mandal: printLocation.mandal,
+    district: printLocation.district,
     synced: projectDashboardIsReady(project),
     title: 'GENERAL ABSTRACT OF ESTIMATE',
     lines: abstract.lines.map((line) => ({
@@ -131,8 +147,8 @@ export function buildProjectRenderData(project: EestimateProject): ProjectRender
   }
 }
 
-export function projectCompileInputs(project: EestimateProject): Record<string, string> {
-  return { 'ee-data': JSON.stringify(buildProjectRenderData(project)) }
+export function projectCompileInputs(project: EestimateProject, useStoredSnapshot = false): Record<string, string> {
+  return { 'ee-data': JSON.stringify(buildProjectRenderData(project, useStoredSnapshot)) }
 }
 
 export function projectShadowFiles(_project?: EestimateProject): Record<string, string> {
@@ -156,7 +172,7 @@ export function resolveProjectAbstractDocumentSettings(project: EestimateProject
 
 export function resolvedProjectTypstSource(project: EestimateProject): string {
   const saved = project.printStudioDocuments?.[PROJECT_ABSTRACT_SCOPE]
-  if (saved !== undefined) return saved
+  if (saved !== undefined) return repairGeneralAbstractSource(saved)
   return applyDocumentSettingsToTypst(
     projectTypstTemplate(),
     resolveProjectAbstractDocumentSettings(project)

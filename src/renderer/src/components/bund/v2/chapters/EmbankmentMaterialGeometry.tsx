@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { BundData, BundDesign, BundHomogeneousSoilType } from '../../../../types/project'
 import SsrCode from '../../../templates/SsrCode'
 import {
@@ -171,7 +171,7 @@ export default function EmbankmentMaterialGeometry({
   const selected = soilPreset(soilType)
   const suitable = homogeneousSoilSuitable(soilType)
   const recommendation = soilType ? recommendedHomogeneousSlopes(soilType) : null
-  const formationTotal = useMemo(() => rowsTotal(formationRows(data)), [data])
+  const formationTotal = (rowsTotal(formationRows(data)))
   const formationEnabled = data.formationEnabled ?? true
   const compactionEnabled = data.compactionEnabled ?? true
   const combinedEarthwork = formationEnabled && compactionEnabled

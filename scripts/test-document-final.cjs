@@ -30,6 +30,7 @@ function loadTsModule(filePath) {
 
 const {
   parseFixableNumber,
+  parseNumericOnlyFinal,
   documentParagraphs,
   resolveDocumentFinal,
   createDocumentFinal,
@@ -68,6 +69,13 @@ assert.equal(parseFixableNumber('no digits here'), null)
 assert.equal(parseFixableNumber(''), null)
 assert.equal(parseFixableNumber(null), null)
 assert.equal(parseFixableNumber(undefined), null)
+
+assert.equal(parseNumericOnlyFinal('1,447.666'), 1447.666)
+assert.equal(parseNumericOnlyFinal('-42.5'), -42.5)
+assert.equal(parseNumericOnlyFinal('.75'), 0.75)
+assert.equal(parseNumericOnlyFinal('1,447.666 CUM'), null)
+assert.equal(parseNumericOnlyFinal('Rs. 12,345.50'), null)
+assert.equal(parseNumericOnlyFinal('Total = 12.5'), null)
 
 // --- Paragraph splitting ---------------------------------------------------
 

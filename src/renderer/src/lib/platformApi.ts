@@ -1,4 +1,5 @@
 import type { EestimateApi } from '../types/eestimateApi'
+import { R2_TILE_HOST, R2_TILES_DEV_PROXY } from './r2Tiles'
 import {
   browserClearRecent,
   browserListRecent,
@@ -16,6 +17,43 @@ const BROWSER_HINT =
 
 function noopSubscribe(): () => void {
   return () => undefined
+}
+
+/**
+ * Browser-session image download. R2 tiles have no CORS headers, so they go
+ * through the Vite dev proxy (same-origin); other hosts (OSM, Esri) send `*`
+ * and are fetched directly. The desktop path never reaches this function.
+ */
+async function browserEmbedRemote(
+  url: string
+): Promise<{ ok: boolean; data?: string; error?: string }> {
+  let target = url
+  try {
+    const parsed = new URL(url)
+    // Bare /__r2_tiles URLs cannot point anywhere real in a plain browser.
+    if (parsed.hostname === R2_TILE_HOST) {
+      target = `${R2_TILES_DEV_PROXY}${parsed.pathname}${parsed.search}`
+    }
+  } catch {
+    return { ok: false, error: 'Invalid image URL.' }
+  }
+  try {
+    const response = await fetch(target)
+    if (!response.ok) return { ok: false, error: `HTTP ${response.status}` }
+    const mime = (response.headers.get('content-type') ?? 'image/png').split(';')[0].trim()
+    if (!mime.startsWith('image/')) return { ok: false, error: 'The URL is not an image.' }
+    const blob = await response.blob()
+    if (blob.size === 0) return { ok: false, error: 'The image is empty.' }
+    const data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result ?? ''))
+      reader.onerror = () => reject(reader.error ?? new Error('Could not read the image.'))
+      reader.readAsDataURL(blob)
+    })
+    return data ? { ok: true, data } : { ok: false, error: 'Could not read the image.' }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  }
 }
 
 /** Browser Vite session (Chrome while Rust compiles) — UI works; native IPC does not. */
@@ -54,6 +92,22 @@ export function createBrowserApi(): EestimateApi {
       cancel: async () => false,
       onProgress: () => noopSubscribe()
     },
+    canal: {
+      calculateQuantities: async () => {
+        throw new Error(BROWSER_HINT)
+      }
+    },
+    rateAnalysis: {
+      calculate: async () => {
+        throw new Error(BROWSER_HINT)
+      },
+      calculateBase: async () => {
+        throw new Error(BROWSER_HINT)
+      },
+      batchCalculate: async () => {
+        throw new Error(BROWSER_HINT)
+      }
+    },
     typst: {
       compile: async () => ({ ok: false, error: BROWSER_HINT })
     },
@@ -61,7 +115,7 @@ export function createBrowserApi(): EestimateApi {
       compile: async () => ({ ok: false, error: BROWSER_HINT })
     },
     image: {
-      embedRemote: async () => ({ ok: false, error: BROWSER_HINT })
+      embedRemote: (url) => browserEmbedRemote(url)
     },
     export: {
       pdf: canceled,

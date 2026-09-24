@@ -51,11 +51,15 @@ fn path_from_file(file: FilePath) -> Option<PathBuf> {
 }
 
 #[tauri::command]
-pub async fn export_pdf(app: tauri::AppHandle, payload: ExportPayload) -> Result<ExportResult, String> {
+pub async fn export_pdf(
+    app: tauri::AppHandle,
+    payload: ExportPayload,
+) -> Result<ExportResult, String> {
     save_binary_export(
         &app,
         "Export PDF",
-        payload.default_path
+        payload
+            .default_path
             .unwrap_or_else(|| format!("{}.pdf", sanitize(&payload.name))),
         PDF_FILTER,
         ".pdf",
@@ -85,11 +89,15 @@ pub async fn export_workbook(
 }
 
 #[tauri::command]
-pub async fn export_png(app: tauri::AppHandle, payload: ExportPayload) -> Result<ExportResult, String> {
+pub async fn export_png(
+    app: tauri::AppHandle,
+    payload: ExportPayload,
+) -> Result<ExportResult, String> {
     save_binary_export(
         &app,
         "Export PNG Image",
-        payload.default_path
+        payload
+            .default_path
             .unwrap_or_else(|| format!("{}.png", sanitize(&payload.name))),
         PNG_FILTER,
         ".png",
@@ -109,7 +117,9 @@ fn resolve_cached_source(raw: &str) -> Result<PathBuf, String> {
     let candidate = PathBuf::from(raw);
     let root = cache_root();
     let ok = candidate.starts_with(&root)
-        && fs::metadata(&candidate).map(|m| m.len() > 0).unwrap_or(false);
+        && fs::metadata(&candidate)
+            .map(|m| m.len() > 0)
+            .unwrap_or(false);
     if !ok {
         return Err("source_path is not a current compile output.".to_string());
     }

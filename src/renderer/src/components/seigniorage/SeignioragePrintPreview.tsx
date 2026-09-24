@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import EEstimateCombinedPrintPreview, { type CombinedPdfPart } from '../print/EEstimateCombinedPrintPreview'
 
 export default function SeignioragePrintPreview({
@@ -12,7 +11,7 @@ export default function SeignioragePrintPreview({
   year: string
   onClose: () => void
 }): JSX.Element {
-  const parts = useMemo<CombinedPdfPart[]>(() => [{
+  const parts: CombinedPdfPart[] = [{
     id: 'seigniorage-statement',
     label: 'Compiling Seigniorage Statement…',
     build: async () => {
@@ -23,7 +22,7 @@ export default function SeignioragePrintPreview({
       const binary = atob(result.data)
       return Uint8Array.from(binary, (character) => character.charCodeAt(0))
     }
-  }], [typstSource, compileInputs, year])
+  }]
 
   return (
     <EEstimateCombinedPrintPreview

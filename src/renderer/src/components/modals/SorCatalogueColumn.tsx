@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   Check,
@@ -151,15 +151,17 @@ export default function SorCatalogueColumn({
     useState<CatalogueItemSearchState>(EMPTY_ITEM_SEARCH)
   const requestSequence = useRef(0)
   const searchSequence = useRef(0)
-  const catalogue = useMemo(
-    () => catalogues.find((candidate) => candidate.catalogue_code === catalogueCode) ?? null,
-    [catalogueCode, catalogues]
-  )
+  const catalogue = (catalogues.find((candidate) => candidate.catalogue_code === catalogueCode) ?? null)
+
+  const [prevCatalogueReload, setPrevCatalogueReload] = useState(catalogueReload)
+  if (prevCatalogueReload !== catalogueReload) {
+    setPrevCatalogueReload(catalogueReload)
+    setCataloguesLoading(true)
+    setCatalogueError(null)
+  }
 
   useEffect(() => {
     let active = true
-    setCataloguesLoading(true)
-    setCatalogueError(null)
     void fetchSorCatalogues()
       .then((rows) => {
         if (active) setCatalogues(rows)
@@ -177,16 +179,30 @@ export default function SorCatalogueColumn({
     }
   }, [catalogueReload])
 
+  const trimmedSearch = search.trim()
+  const shouldClearItemSearch = Boolean(catalogue || trimmedSearch.length < 2)
+  const [prevSearchState, setPrevSearchState] = useState(() => ({
+    catalogueCode: catalogue?.catalogue_code,
+    trimmedSearch
+  }))
+  if (
+    prevSearchState.catalogueCode !== catalogue?.catalogue_code ||
+    prevSearchState.trimmedSearch !== trimmedSearch
+  ) {
+    setPrevSearchState({ catalogueCode: catalogue?.catalogue_code, trimmedSearch })
+    if (shouldClearItemSearch) {
+      setItemSearch(EMPTY_ITEM_SEARCH)
+    } else {
+      setItemSearch((current) => ({ ...current, loading: true, error: null }))
+    }
+  }
+
   useEffect(() => {
     const query = search.trim()
-    if (catalogue || query.length < 2) {
-      setItemSearch(EMPTY_ITEM_SEARCH)
-      return
-    }
+    if (catalogue || query.length < 2) return
 
     const sequence = ++searchSequence.current
     let active = true
-    setItemSearch((current) => ({ ...current, loading: true, error: null }))
     const timer = window.setTimeout(() => {
       void searchSorCatalogueItems(query, sorYear)
         .then((matches) => {
@@ -209,17 +225,16 @@ export default function SorCatalogueColumn({
     }
   }, [catalogue, search, sorYear])
 
-  const filters = useMemo(() => filtersFromSteps(steps), [steps])
-  const filterSignature = useMemo(() => JSON.stringify(filters), [filters])
+  const filters = (filtersFromSteps(steps))
+  const filterSignature = (JSON.stringify(filters))
 
-  useEffect(() => {
+  const lookupSyncKey = `${catalogue?.catalogue_code ?? ''}|${directMatch?.catalogue_code ?? ''}|${directMatch?.item_name ?? ''}|${filterSignature}|${sorYear}`
+  const [prevLookupSyncKey, setPrevLookupSyncKey] = useState(lookupSyncKey)
+  if (prevLookupSyncKey !== lookupSyncKey) {
+    setPrevLookupSyncKey(lookupSyncKey)
     if (!catalogue) {
       setLookup(EMPTY_LOOKUP)
-      return
-    }
-
-    if (directMatch?.catalogue_code === catalogue.catalogue_code) {
-      requestSequence.current += 1
+    } else if (directMatch?.catalogue_code === catalogue.catalogue_code) {
       setLookup({
         loading: false,
         options: {},
@@ -227,14 +242,17 @@ export default function SorCatalogueColumn({
         remainingCount: 1,
         error: null
       })
-      return
+    } else {
+      setChosenMatch(null)
+      setLookup((current) => ({ ...current, loading: true, error: null, matches: [] }))
     }
+  }
+
+  useEffect(() => {
+    if (!catalogue || directMatch?.catalogue_code === catalogue.catalogue_code) return
 
     const sequence = ++requestSequence.current
     let active = true
-    setChosenMatch(null)
-    setLookup((current) => ({ ...current, loading: true, error: null, matches: [] }))
-
     void fetchSorCatalogueOptions(catalogue.catalogue_code, sorYear, filters)
       .then(async (rows) => {
         if (!active || requestSequence.current !== sequence) return
@@ -308,7 +326,7 @@ export default function SorCatalogueColumn({
     }
   }, [catalogue, directMatch, filterSignature, filters, sorYear])
 
-  const filteredCatalogues = useMemo(() => {
+  const filteredCatalogues = (() => {
     const query = search.trim().toLocaleLowerCase()
     if (!query) return catalogues
     return catalogues.filter((candidate) =>
@@ -319,9 +337,9 @@ export default function SorCatalogueColumn({
         candidate.section
       ].some((value) => value.toLocaleLowerCase().includes(query))
     )
-  }, [catalogues, search])
+  })()
 
-  const catalogueGroups = useMemo(() => {
+  const catalogueGroups = (() => {
     const groups = new Map<string, SorCatalogue[]>()
     for (const candidate of filteredCatalogues) {
       const group = groups.get(candidate.part) ?? []
@@ -329,7 +347,7 @@ export default function SorCatalogueColumn({
       groups.set(candidate.part, group)
     }
     return Array.from(groups.entries())
-  }, [filteredCatalogues])
+  })()
   const itemSearchActive = search.trim().length >= 2
 
   const nextDimension = nextSorDimension(lookup.options, filters)

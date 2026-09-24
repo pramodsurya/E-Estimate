@@ -33,7 +33,7 @@ interface Disposable {
  * @param univerAPI the FUniver facade instance (typed loosely; we use private
  *   DI access that isn't on the public type surface).
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function registerChartRibbonMenu(univerAPI: any): Disposable {
   const noop: Disposable = { dispose: () => {} }
   const injector = univerAPI?._injector
@@ -64,7 +64,7 @@ export function registerChartRibbonMenu(univerAPI: any): Disposable {
         [RibbonInsertGroup.MEDIA]: {
           [INSERT_CHART_COMMAND_ID]: {
             order: 10,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             menuItemFactory: (): any => ({
               id: INSERT_CHART_COMMAND_ID,
               type: MenuItemType.BUTTON,
@@ -75,7 +75,7 @@ export function registerChartRibbonMenu(univerAPI: any): Disposable {
           }
         }
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
     } as any)
 
     return {

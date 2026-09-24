@@ -20,24 +20,16 @@ export function useSsrDescription(
     ? (ssrDescCache.get(trimmedCode) ?? ssrDescCache.get(normalizeSsrCode(trimmedCode).fullCode))
     : undefined
   const [desc, setDesc] = useState<string>(supplied || cached || '')
+  const [prevSync, setPrevSync] = useState(() => ({ trimmedCode, supplied }))
+  if (prevSync.trimmedCode !== trimmedCode || prevSync.supplied !== supplied) {
+    setPrevSync({ trimmedCode, supplied })
+    setDesc(supplied || cached || '')
+  }
 
   useEffect(() => {
-    if (!trimmedCode) {
-      setDesc('')
-      return
-    }
-    const currentSupplied = suppliedDescription?.trim() ?? ''
-    if (currentSupplied) {
-      setDesc(currentSupplied)
-      ssrDescCache.set(trimmedCode, currentSupplied)
-      return
-    }
+    if (!trimmedCode || supplied) return
     const { fullCode, category } = normalizeSsrCode(trimmedCode)
-    const existing = ssrDescCache.get(trimmedCode) ?? ssrDescCache.get(fullCode)
-    if (existing) {
-      setDesc(existing)
-      return
-    }
+    if (ssrDescCache.has(trimmedCode) || ssrDescCache.has(fullCode)) return
 
     let cancelled = false
     void fetchSsrItems(category).then((items) => {
@@ -57,7 +49,7 @@ export function useSsrDescription(
     return () => {
       cancelled = true
     }
-  }, [trimmedCode, suppliedDescription])
+  }, [trimmedCode, supplied])
 
   const title = desc
     ? `${trimmedCode}\n${desc}`

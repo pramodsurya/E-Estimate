@@ -63,10 +63,7 @@ pub fn add_recent(
     path: String,
     name: Option<String>,
 ) -> Result<(), String> {
-    let mut list: Vec<RecentEntry> = read(app)?
-        .into_iter()
-        .filter(|e| e.path != path)
-        .collect();
+    let mut list: Vec<RecentEntry> = read(app)?.into_iter().filter(|e| e.path != path).collect();
     list.insert(
         0,
         RecentEntry {
@@ -80,10 +77,7 @@ pub fn add_recent(
 }
 
 pub fn remove_recent(app: &tauri::AppHandle, path: String) -> Result<(), String> {
-    let list: Vec<RecentEntry> = read(app)?
-        .into_iter()
-        .filter(|e| e.path != path)
-        .collect();
+    let list: Vec<RecentEntry> = read(app)?.into_iter().filter(|e| e.path != path).collect();
     save(app, &list)
 }
 

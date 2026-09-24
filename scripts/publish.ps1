@@ -87,7 +87,7 @@ if ($conf.plugins.updater.pubkey -ne $pubContent) {
 # ----------------------------------------------------------------------------
 $sourcePaths = @(
     '.gitignore', '.github', 'analysis', 'BUND_SIMULATION_PLAN.md', 'docs',
-    'package.json', 'package-lock.json', 'README.md', 'scripts', 'src',
+    'package.json', 'package-lock.json', 'eslint.config.mjs', 'README.md', 'scripts', 'src',
     'src-tauri', 'supabase', 'tsconfig.node.json', 'tsconfig.web.json', 'vite.config.ts'
 )
 git add -A -- $sourcePaths

@@ -48,9 +48,17 @@ for (const mode of ['new', 'restoration']) for (const embankmentType of ['homoge
         : [{ offset: -40, rl: 95 }, { offset: 0, rl: index === 1 ? 94.5 : 95 }, { offset: 40, rl: 95 }])
         : [{ offset: -40, rl: 95 }, { offset: -10, rl: 95 }, { offset: -2, rl: 98 }, { offset: 2, rl: 98 }, { offset: 10, rl: 95 }, { offset: 40, rl: 95 }] }))
   })
+  data.materialItems = bund.requiredItems(bund.migrateBundData(data)).map((item, index) => ({
+    role: item.role,
+    code: item.ref.code,
+    itemNodeId: `bund-generated-${index}`
+  }))
   const node = { id: 'bund-1', kind: 'component', name: 'Bund #1 [West]', templateId: 'bund', bund: data, children: [] }
   const project = { id: 'test', meta: { name: 'Test reservoir' }, root: { id: 'root', kind: 'root', children: [node] } }
   const render = adapter.buildBundRenderData(project, node)
+  assert.equal(render.calculation_schema, 'eestimate.calculation.v1')
+  const firstSchedule = Object.values(render.schedules).find((entry) => entry.rows.length)
+  assert.ok(firstSchedule?.rows[0]?.calculation?.quantity?.expression, 'Bund output carries formula lineage')
   const source = adapter.bundTypstTemplate(data)
   const inputs = adapter.bundCompileInputs(project, node)
   assert.equal(source, fs.readFileSync(path.join(root, 'src/renderer/src/lib/typist-output/bund/bund.typ'), 'utf8'))
@@ -58,6 +66,8 @@ for (const mode of ['new', 'restoration']) for (const embankmentType of ['homoge
   assert.deepEqual(render.payable_items.map(item => item.quantity), bund.requiredItems(bund.migrateBundData(data)).map(item => item.quantity))
   const excavationRoles = new Set(['stripping', 'ustoe-exc', 'dstoe-exc', 'rocktoe-exc', 'chute-exc', 'berm-drain-exc', 'hearting-trench-exc'])
   const excavationCodes = new Set(render.excavation_by_code.map(item => item.code))
+  assert(render.excavation_by_code.every(item => item.item_node_id), 'every excavation total must retain its generated item id')
+  assert(render.payable_by_code.every(item => item.item_node_id), 'every payable total must retain its generated item id')
   assert(render.payable_items.some(item => excavationRoles.has(item.role)), 'payable_items still include excavation roles for the dedicated excavation section')
   assert(render.payable_items.some(item => !excavationRoles.has(item.role) && !excavationCodes.has(item.code)), 'non-excavation payable items must remain available')
   assert.equal(render.excavation.filter(item => item.role === 'berm-drain-exc').length, 1, 'berm catch-water drain excavation must be classified once')
@@ -132,5 +142,7 @@ for (const mode of ['new', 'restoration']) for (const embankmentType of ['homoge
 const assemblyHost = fs.readFileSync(path.join(root, 'src/renderer/src/components/bund/BundAssemblyDiagram.tsx'), 'utf8')
 assert.match(assemblyHost, /assemblyFigure/, 'dashboard assembly must reuse the print SVG function')
 assert.match(adapter.bundTypstTemplate(), /drawings\.assembly/, 'print cover must use the shared assembly drawing')
+assert.match(adapter.bundTypstTemplate(), /interval\.calculation\.averageSection\.value/, 'Typst reads the shared calculated value')
+assert.doesNotMatch(adapter.bundTypstTemplate(), /section\.stations\.fold/, 'Typst must not recalculate formation totals')
 assert.doesNotMatch(adapter.bundTypstTemplate(), /new-homogeneous|repair-zoned/)
 console.log('shared bund.typ and assemblyFigure pipeline pinned')

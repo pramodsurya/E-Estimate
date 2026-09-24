@@ -299,7 +299,7 @@ assert.deepEqual(
 const empty = analyzeImportedGeometry({ lines: [], points: [], ignored: 0 }, 50)
 assert.equal(empty.proposals.length, 0, 'nothing usable must propose nothing')
 
-// --- Source shape: upload lives in Draw a line mode only. ---
+// --- Source shape: upload lives on the component location page. ---
 const modalSource = read('src/renderer/src/components/modals/AddStructureModal.tsx')
 const panelSource = read('src/renderer/src/components/newproject/GeometryImportPanel.tsx')
 const mapSource = read('src/renderer/src/components/newproject/WorkingPointMap.tsx')
@@ -313,8 +313,8 @@ assert.match(
 )
 assert.match(
   modalSource,
-  /locateMode === 'line'[\s\S]{0,120}GeometryImportPanel/,
-  'The import panel must render in Draw a line mode only'
+  /\{isComponent && page === 2 && \(\s*<GeometryImportPanel/,
+  'The import panel must render on the component location page'
 )
 assert.doesNotMatch(
   mapSource,
@@ -372,16 +372,14 @@ assert.match(
   'Misnamed KML/KMZ uploads must be sniffed by content'
 )
 
-// --- Template attachments: same 50 m module in Bund/Canal/GuideWall. ---
+// --- Template attachments: creation imports all templates; Bund/Canal also upload during setup. ---
 const bundSetup = read('src/renderer/src/components/bund/BundSetup.tsx')
 const canalSetup = read('src/renderer/src/components/canal/CanalSetup.tsx')
-const guideWallSetup = read('src/renderer/src/components/guidewall/GuideWallSetup.tsx')
 const uploadButton = read('src/renderer/src/components/guidewall/AlignmentUploadButton.tsx')
 
 for (const [label, source] of [
   ['BundSetup', bundSetup],
-  ['CanalSetup', canalSetup],
-  ['GuideWallSetup', guideWallSetup]
+  ['CanalSetup', canalSetup]
 ]) {
   assert.match(
     source,
@@ -389,6 +387,7 @@ for (const [label, source] of [
     `${label} must offer the alignment file upload`
   )
 }
+assert.match(modalSource, /<GeometryImportPanel/, 'Guide Wall alignment upload must remain available during component creation')
 assert.match(
   uploadButton,
   /analyzeImportedGeometry/,

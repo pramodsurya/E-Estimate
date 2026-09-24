@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,12 +13,22 @@ import {
 } from 'lucide-react'
 import Modal from './Modal'
 import { useStore } from '../../store/useStore'
-import { findNode, uniqueChildName } from '../../lib/tree'
+import {
+  findNode,
+  findStructureNameConflict,
+  structureNameKey
+} from '../../lib/tree'
 import { resolveAreaAllowance } from '../../lib/masterData'
 import { workingLineCentroid } from '../../lib/componentAllowance'
-import { migrateBundData } from '../../lib/bund'
-import { migrateCanalData } from '../../lib/canal'
-import { cumulativeLengthsM, formatLengthM, migrateGuideWallData, polylineLengthM } from '../../lib/guideWall'
+import { migrateBundData, resizeBundSections } from '../../lib/bund'
+import { migrateCanalData, resizeCanalSections } from '../../lib/canal'
+import {
+  cumulativeLengthsM,
+  formatLengthM,
+  migrateGuideWallData,
+  polylineLengthM,
+  resizeGuideWallSections
+} from '../../lib/guideWall'
 import { resolveTemplateGeometryEdit } from '../../lib/geometryImport'
 import { normalizePlaceName } from '../../lib/placeNormalization'
 import type {
@@ -75,10 +85,7 @@ export default function AddStructureModal(): JSX.Element | null {
   // Edit mode reuses this same wizard for one existing component: name and type
   // are locked, the locate page opens prefilled, and Save writes back.
   const editNodeId = state.editNodeId ?? null
-  const editNode = useMemo(
-    () => (project && editNodeId ? findNode(project.root, editNodeId) : null),
-    [project, editNodeId]
-  )
+  const editNode = (project && editNodeId ? findNode(project.root, editNodeId) : null)
   const isEdit = editNodeId !== null
   const editLengthSeed = editNode
     ? Math.round(editNode.bund?.lengthM ?? editNode.canal?.lengthM ?? editNode.guideWall?.lengthM ?? 0)
@@ -118,14 +125,10 @@ export default function AddStructureModal(): JSX.Element | null {
   const [allowance, setAllowance] = useState<ProjectAreaAllowance | null>(editNode?.areaAllowance ?? null)
   const [resolvingAllowance, setResolvingAllowance] = useState(false)
   const [allowanceError, setAllowanceError] = useState<string | null>(null)
-  const parentNode = useMemo(
-    () => (project && state.parentId ? findNode(project.root, state.parentId) : project?.root ?? null),
-    [project, state.parentId]
-  )
-  const resolvedName = useMemo(
-    () => uniqueChildName(parentNode, name),
-    [name, parentNode]
-  )
+  const parentNode = (project && state.parentId ? findNode(project.root, state.parentId) : project?.root ?? null)
+  const nameConflict = name.trim()
+    ? findStructureNameConflict(project?.root ?? null, name, editNodeId)
+    : null
   const nameRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     const handle = window.setTimeout(() => nameRef.current?.focus(), 0)
@@ -134,19 +137,27 @@ export default function AddStructureModal(): JSX.Element | null {
 
   const sorYear = project?.meta.sorYear ?? ''
   const drawnCentroid = line.length >= 2 ? workingLineCentroid(line) : null
-  const lineCum = useMemo(() => cumulativeLengthsM(line), [line])
+  const lineCum = (cumulativeLengthsM(line))
   // Templates are line-only: their allowance (when drawn) reads at the middle.
   const lookup = templateId ? drawnCentroid : locateMode === 'point' ? point : drawnCentroid
 
-  useEffect(() => {
+  const lookupKey = lookup ? `${lookup.lat.toFixed(6)},${lookup.lng.toFixed(6)},${sorYear}` : ''
+  const [prevLookupKey, setPrevLookupKey] = useState(lookupKey)
+  if (prevLookupKey !== lookupKey) {
+    setPrevLookupKey(lookupKey)
     if (!lookup || !sorYear) {
       setAllowance(null)
       setAllowanceError(null)
-      return
+      setResolvingAllowance(false)
+    } else {
+      setResolvingAllowance(true)
+      setAllowanceError(null)
     }
+  }
+
+  useEffect(() => {
+    if (!lookup || !sorYear) return
     let alive = true
-    setResolvingAllowance(true)
-    setAllowanceError(null)
     void resolveAreaAllowance({ lat: lookup.lat, lng: lookup.lng }, sorYear)
       .then((resolved) => {
         if (alive) setAllowance(resolved)
@@ -164,7 +175,7 @@ export default function AddStructureModal(): JSX.Element | null {
     return () => {
       alive = false
     }
-  }, [lookup?.lat, lookup?.lng, sorYear])
+  }, [lookup, sorYear])
 
   if (!project || (isEdit && !editNode)) return null
 
@@ -241,7 +252,7 @@ export default function AddStructureModal(): JSX.Element | null {
     resolved: ProjectAreaAllowance | null,
     workingLine: { lat: number; lng: number }[] | null
   ): void => {
-    if (!name.trim()) return
+    if (!name.trim() || nameConflict) return
     createStructureNode(name, location, chosenTemplate, {
       areaAllowance: resolved,
       workingLine
@@ -249,12 +260,26 @@ export default function AddStructureModal(): JSX.Element | null {
   }
 
   const batchRows = importRows?.length ? importRows : null
+  const batchSpecs = batchRows ? importRowSpecs(batchRows) : null
+  const batchNameConflict = (() => {
+    if (!batchSpecs) return null
+    const seen = new Set<string>()
+    for (const spec of batchSpecs) {
+      const key = structureNameKey(spec.name)
+      if (!key) return 'An imported Component or Sub-component has no name.'
+      if (seen.has(key)) return `The imported name '${spec.name}' occurs more than once.`
+      seen.add(key)
+      const existing = findStructureNameConflict(project.root, spec.name)
+      if (existing) return `The name '${spec.name}' is already used by ${existing.kind === 'component' ? 'a Component' : 'a Sub-component'}.`
+    }
+    return null
+  })()
 
   const handleCreate = (): void => {
-    if (!name.trim()) return
+    if (!name.trim() || nameConflict || batchNameConflict) return
     if (batchRows) {
       const parent = parentNode?.id ?? project?.root.id ?? ''
-      const specs = importRowSpecs(batchRows)
+      const specs = batchSpecs ?? []
       if (templateId) {
         createTemplatedComponentsFromImport(
           parent,
@@ -337,15 +362,33 @@ export default function AddStructureModal(): JSX.Element | null {
     if (templateId === 'bund' && editNode.bund) {
       const current = migrateBundData(editNode.bund)
       const decided = decideTemplateEdit(redrawn, editRow ? null : typedEditLengthM, current)
-      setBund(editNode.id, { ...current, alignment: decided.alignment, source: decided.source, lengthM: decided.lengthM })
+      setBund(
+        editNode.id,
+        resizeBundSections(
+          { ...current, alignment: decided.alignment, source: decided.source },
+          decided.lengthM
+        )
+      )
     } else if (templateId === 'canal' && editNode.canal) {
       const current = migrateCanalData(editNode.canal)
       const decided = decideTemplateEdit(redrawn, editRow ? null : typedEditLengthM, current)
-      setCanal(editNode.id, { ...current, alignment: decided.alignment, source: decided.source, lengthM: decided.lengthM })
+      setCanal(
+        editNode.id,
+        resizeCanalSections(
+          { ...current, alignment: decided.alignment, source: decided.source },
+          decided.lengthM
+        )
+      )
     } else if (templateId === 'guide-wall' && editNode.guideWall) {
       const current = migrateGuideWallData(editNode.guideWall)
       const decided = decideTemplateEdit(redrawn, editRow ? null : typedEditLengthM, current)
-      setGuideWall(editNode.id, { ...current, alignment: decided.alignment, source: decided.source, lengthM: decided.lengthM })
+      setGuideWall(
+        editNode.id,
+        resizeGuideWallSections(
+          { ...current, alignment: decided.alignment, source: decided.source },
+          decided.lengthM
+        )
+      )
     }
     close()
   }
@@ -356,6 +399,8 @@ export default function AddStructureModal(): JSX.Element | null {
   const manualLengthValid = Number.isFinite(typedLengthM) && typedLengthM > 0
   const canCreate =
     name.trim().length > 0 &&
+    !nameConflict &&
+    !batchNameConflict &&
     (batchRows
       ? !batchRows.some((row) => row.resolving) &&
         (!templateId || batchRows.every((row) => row.vertices.length >= 2))
@@ -367,10 +412,15 @@ export default function AddStructureModal(): JSX.Element | null {
     : 'Create'
   const isLocatePage = isComponent && page === 2
   const goPage2 = (): void => {
+    if (nameConflict || !name.trim()) return
     setPage(2)
     setFitToken((value) => value + 1)
   }
-  const primaryDisabled = isEdit ? !canSaveEdit : !isComponent || isLocatePage ? !canCreate : !name.trim()
+  const primaryDisabled = isEdit
+    ? !canSaveEdit
+    : !isComponent || isLocatePage
+      ? !canCreate
+      : !name.trim() || Boolean(nameConflict)
   const handlePrimary = isEdit ? handleSaveEdit : !isComponent || isLocatePage ? handleCreate : goPage2
 
   return (
@@ -401,7 +451,8 @@ export default function AddStructureModal(): JSX.Element | null {
         </>
       }
     >
-      {(!isComponent || page === 1) && !isEdit && (
+      {(!isComponent || page === 1) && (
+      !isEdit && (
       <>
       <div className="field">
         <label className="field-label" htmlFor="structure-name">
@@ -412,6 +463,7 @@ export default function AddStructureModal(): JSX.Element | null {
           data-tour="add-structure-name"
           ref={nameRef}
           className="text-input"
+          aria-invalid={Boolean(nameConflict)}
           value={name}
           placeholder={
             isComponent ? 'Enter a component name' : 'Enter a sub-component name'
@@ -422,15 +474,15 @@ export default function AddStructureModal(): JSX.Element | null {
             setName(event.target.value)
           }}
           onKeyDown={(event) => {
-            if (event.key !== 'Enter' || !name.trim()) return
+            if (event.key !== 'Enter' || !name.trim() || nameConflict) return
             if (!isComponent || page === 2) handleCreate()
             else goPage2()
           }}
         />
-        {name.trim() && resolvedName !== name.trim() && (
-          <small style={{ color: 'var(--text-dim)', marginTop: 5 }}>
-            A sibling already has that name. This one will be created as{' '}
-            <strong style={{ color: 'var(--text)' }}>{resolvedName}</strong>.
+        {nameConflict && (
+          <small style={{ color: 'var(--danger)', marginTop: 5 }}>
+            This name is already used by {nameConflict.kind === 'component' ? 'a Component' : 'a Sub-component'}.
+            Component and Sub-component names must be unique throughout the project.
           </small>
         )}
       </div>
@@ -457,11 +509,12 @@ export default function AddStructureModal(): JSX.Element | null {
               type="button"
               key={template.id}
               className={`template-choice ${templateId === template.id ? 'active' : ''}`}
+              aria-label={template.comingSoon ? `${template.name} (coming soon)` : template.name}
               onClick={() => pickTemplate(template.id)}
             >
               <Ruler size={16} />
               <span>
-                <strong>{template.name}</strong>
+                <strong>{template.name}{template.comingSoon ? ' — Coming soon' : ''}</strong>
                 <small>{template.description}</small>
               </span>
             </button>
@@ -470,8 +523,15 @@ export default function AddStructureModal(): JSX.Element | null {
       </div>
 
       </>
+      )
       )}
       {isComponent && page === 2 && (
+        <>
+        {batchNameConflict && (
+          <p className="settings-note" style={{ color: 'var(--danger)', marginTop: 0 }}>
+            {batchNameConflict} Rename it before creating the import.
+          </p>
+        )}
         <div className="field" style={{ marginTop: 14 }}>
           <label className="field-label">Working geometry</label>
           {isCustomType ? (
@@ -507,6 +567,7 @@ export default function AddStructureModal(): JSX.Element | null {
             </p>
           )}
         </div>
+        </>
       )}
       {isComponent && page === 2 && templateId && !batchRows && (
         <div className="field" style={{ marginTop: 14 }}>

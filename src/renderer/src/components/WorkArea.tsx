@@ -6,21 +6,21 @@ import { parseBundDetailId } from '../lib/bund'
 import { parseCanalDetailId } from '../lib/canal'
 import HomeScreen from './home/HomeScreen'
 import ClusterBreadcrumb from './cluster/ClusterBreadcrumb'
-
-const NewProjectForm = lazy(() => import('./newproject/NewProjectForm'))
-const TitleDashboard = lazy(() => import('./dashboard/TitleDashboard'))
-const ComponentDashboard = lazy(() => import('./dashboard/ComponentDashboard'))
-const GuideWallDetail = lazy(() => import('./guidewall/GuideWallDetail'))
-const BundDetail = lazy(() => import('./bund/BundDetail'))
-const CanalDetail = lazy(() => import('./canal/CanalDetail'))
-const PageEditor = lazy(() => import('./editors/PageEditor'))
+import NewProjectForm from './newproject/NewProjectForm'
+import TitleDashboard from './dashboard/TitleDashboard'
+import ComponentDashboard from './dashboard/ComponentDashboard'
+import GuideWallDetail from './guidewall/GuideWallDetail'
+import BundDetail from './bund/BundDetail'
+import CanalDetail from './canal/CanalDetail'
+import PageEditor from './editors/PageEditor'
 const loadItemSpreadsheet = () => import('./editors/ItemSpreadsheet')
 const ItemSpreadsheet = lazy(loadItemSpreadsheet)
-const RateAnalysisDashboard = lazy(() => import('./rateanalysis/RateAnalysisDashboard'))
-const DataDashboard = lazy(() => import('./data/DataDashboard'))
-const LeadDashboard = lazy(() => import('./lead/LeadDashboard'))
-const LeadDetailDashboard = lazy(() => import('./lead/LeadDetailDashboard'))
-const SeigniorageDashboard = lazy(() => import('./seigniorage/SeigniorageDashboard')); const ClusterDashboard = lazy(() => import('./cluster/ClusterDashboard'))
+import RateAnalysisDashboard from './rateanalysis/RateAnalysisDashboard'
+import DataDashboard from './data/DataDashboard'
+import LeadDashboard from './lead/LeadDashboard'
+import LeadDetailDashboard from './lead/LeadDetailDashboard'
+import SeigniorageDashboard from './seigniorage/SeigniorageDashboard'
+import ClusterDashboard from './cluster/ClusterDashboard'
 
 export default function WorkArea(): JSX.Element {
   const view = useStore((s) => s.view)
@@ -37,16 +37,27 @@ export default function WorkArea(): JSX.Element {
 
   useEffect(() => {
     if (view === 'home' || view === 'newproject') return
+    if (typeof window.requestIdleCallback === 'function') {
+      const handle = window.requestIdleCallback(
+        () => {
+          void loadItemSpreadsheet()
+        },
+        { timeout: 3500 }
+      )
+      return () => window.cancelIdleCallback(handle)
+    }
     const timer = window.setTimeout(() => {
       void loadItemSpreadsheet()
-    }, 0)
+    }, 2500)
     return () => window.clearTimeout(timer)
   }, [view])
 
   let content: JSX.Element
   if (view === 'home') {
     content = <HomeScreen />
-  } else if (view === 'cluster') { content = <ClusterDashboard /> } else if (view === 'newproject') {
+  } else if (view === 'cluster') {
+    content = <ClusterDashboard />
+  } else if (view === 'newproject') {
     content = <NewProjectForm />
   } else if (leadSelection) {
     content = <LeadDetailDashboard />
@@ -96,7 +107,8 @@ export default function WorkArea(): JSX.Element {
 
   return (
     <div className="workarea">
-      <ClusterBreadcrumb /><Suspense fallback={<div className="workarea-loading">Loading...</div>}>{content}</Suspense>
+      <ClusterBreadcrumb />
+      <Suspense fallback={<div className="workarea-loading">Loading...</div>}>{content}</Suspense>
     </div>
   )
 }

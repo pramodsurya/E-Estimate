@@ -1,6 +1,6 @@
 // Bund print data adapter. Layout is authored in bund.typ; template differences
 // are flags on the JSON payload, not separate documents.
-import type { BundBerm, BundData, BundSection, EestimateProject, ProjectNode } from '../../../types/project'
+import type { BundBerm, BundData, BundExcavationRole, BundSection, EestimateProject, ProjectNode } from '../../../types/project'
 import * as measurement from '../../bund'
 import * as drawings from '../../bundFigures'
 import { sectionSvg, zonedRepairHeartingStations } from './bundGeometry'
@@ -16,6 +16,7 @@ import {
   resolveProjectDocumentSettings
 } from '../documentSettings'
 import bundTypstSource from './bund.typ?raw'
+import { finalizeBundOutputModel } from '../../estimate-output/bundOutputModel'
 
 export function bundLayoutKind(data: BundData): string {
   return `${data.mode === 'new' ? 'new' : 'repair'}-${measurement.isZonedBund(data) ? 'zoned' : 'homogeneous'}`
@@ -261,7 +262,7 @@ function hasDetailedSurveyedGround(section: BundSection): boolean {
   })
 }
 
-export function buildBundRenderData(project: EestimateProject, node: ProjectNode) {
+export function buildBundOutputModel(project: EestimateProject, node: ProjectNode) {
   const data = measurement.migrateBundData(node.bund!)
   const sections = measurement.orderedSections(data)
   const governing = measurement.steepestSection(data) ?? sections[0]
@@ -383,6 +384,14 @@ export function buildBundRenderData(project: EestimateProject, node: ProjectNode
     else mergedByRole.set(source.role, { ...source })
   }
   const mergedExcavationSources = [...mergedByRole.values()]
+  const generatedItemByGroupKey = new Map(
+    measurement.requiredItems(data).map(item => {
+      const registryItem = (data.materialItems ?? []).find(
+        entry => entry.role === item.role && entry.code === item.ref.code
+      )
+      return [measurement.requiredItemGroupKey(item), registryItem?.itemNodeId ?? null] as const
+    })
+  )
   const excavation = mergedExcavationSources.map(source => {
     const isChannel = ['stripping', 'dstoe-exc', 'chute-exc', 'berm-drain-exc'].includes(source.role)
     const configuredBands = source.role === 'stripping' && data.soilBands?.length
@@ -402,7 +411,13 @@ export function buildBundRenderData(project: EestimateProject, node: ProjectNode
           percent: band.pct,
           code: band.material.code,
           description: band.material.description ?? '',
-          quantity: source.quantity * band.pct / 100
+          quantity: source.quantity * band.pct / 100,
+          group_key: measurement.requiredItemGroupKey({
+            role: source.role as BundExcavationRole,
+            ref: band.material,
+            quantity: source.quantity * band.pct / 100,
+            measure: 'volume'
+          })
         }))
     }
   })
@@ -421,6 +436,7 @@ export function buildBundRenderData(project: EestimateProject, node: ProjectNode
     descriptionRuns: RateAnalysisTextRun[]
     terms: Array<{ role: string; label: string; quantity: number }>
     total: number
+    item_node_id: string | null
   }>()
   for (const source of excavation) {
     for (const soil of source.classes) {
@@ -428,7 +444,7 @@ export function buildBundRenderData(project: EestimateProject, node: ProjectNode
         item => item.role === source.role && item.code === soil.code
       )
       const itemNode = registryItem ? findNode(project.root, registryItem.itemNodeId) : null
-      let grouped = excavationByCode.get(soil.code)
+      let grouped = excavationByCode.get(soil.group_key)
       if (!grouped) {
         const description = itemNode?.itemDescription || soil.description || ''
         grouped = {
@@ -438,9 +454,10 @@ export function buildBundRenderData(project: EestimateProject, node: ProjectNode
             ? bundItemDescriptionRuns(project, itemNode, node.id)
             : description ? [{ text: description, bold: false, italic: false, underline: false }] : [],
           terms: [],
-          total: 0
+          total: 0,
+          item_node_id: generatedItemByGroupKey.get(soil.group_key) ?? null
         }
-        excavationByCode.set(soil.code, grouped)
+        excavationByCode.set(soil.group_key, grouped)
       }
       const existingTerm = grouped.terms.find(term => term.role === source.role)
       if (existingTerm) existingTerm.quantity += soil.quantity
@@ -459,6 +476,7 @@ export function buildBundRenderData(project: EestimateProject, node: ProjectNode
     unit: string
     terms: Array<{ role: string; label: string; quantity: number }>
     total: number
+    item_node_id: string | null
   }>()
   for (const source of measurement.requiredItemSources(data)) {
     if (measurement.isBundExcavationRole(source.role)) continue
@@ -478,7 +496,8 @@ export function buildBundRenderData(project: EestimateProject, node: ProjectNode
           : description ? [{ text: description, bold: false, italic: false, underline: false }] : [],
         unit: source.ref.unit ?? (source.measure === 'volume' ? 'm³' : 'm²'),
         terms: [],
-        total: 0
+        total: 0,
+        item_node_id: generatedItemByGroupKey.get(key) ?? null
       }
       payableByCode.set(key, grouped)
     }
@@ -495,7 +514,7 @@ export function buildBundRenderData(project: EestimateProject, node: ProjectNode
   const chuteWidth = Math.max(0, data.chuteDrainWidth || 0)
   const chuteDepth = Math.max(0, data.chuteDrainDepth || 0)
   const contentDocumentSettings = bundContentDocumentSettings(project, node)
-  return {
+  return finalizeBundOutputModel(node.id, {
     layout_kind: bundLayoutKind(data),
     layout_label: bundLayoutLabel(data),
     is_new: data.mode === 'new',
@@ -576,7 +595,11 @@ export function buildBundRenderData(project: EestimateProject, node: ProjectNode
         base_width_m: detailedGroundProfile && groundPerimeter != null
           ? groundPerimeter
           : (geometry ? geometry.limits.dsToeOffset - geometry.limits.usToeOffset : null),
-        svg: svgData(sectionSvg(data, section, index)), areas,
+        // New-bund reports only exhibit surveyed sections. Avoid generating
+        // hundreds of SVGs that Typst never reads for regular stations.
+        svg: data.mode !== 'new' || detailedGroundProfile
+          ? svgData(sectionSvg(data, section, index))
+          : '', areas,
         stations: stationCalculations(surveyStations(data, section)),
         hearting_stations: zoned ? stationCalculations(zonedRepairHeartingStations(data, section)) : [],
         fill_bands: geometry?.formation ?? [], cut_bands: measurement.bundNetStrippingBands(data, section),
@@ -600,14 +623,17 @@ export function buildBundRenderData(project: EestimateProject, node: ProjectNode
       baseline: phreaticFigure.reference, selected: phreaticFigure.actual
     } : null,
     signature: signature?.enabled ? signature.rows.map(row => ({ designation: row.designation, office: row.office })) : []
-  }
+  })
 }
 
 export function bundCompileInputs(project: EestimateProject, node: ProjectNode): Record<string, string> {
   // Bund layout is appended to the Component Typ document, so it reads its own
   // dedicated input (`ee-bund`) rather than clashing with the component `ee-data`.
-  return { 'ee-bund': JSON.stringify(buildBundRenderData(project, node)) }
+  return { 'ee-bund': JSON.stringify(buildBundOutputModel(project, node)) }
 }
+
+/** @deprecated Use the renderer-neutral `buildBundOutputModel`. */
+export const buildBundRenderData = buildBundOutputModel
 
 /**
  * Bund variables exposed to any Custom layout — the bund data bound to the same

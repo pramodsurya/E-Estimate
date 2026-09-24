@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { ArrowLeft, ArrowRight, Check, Eraser, Mountain, Undo2, X } from 'lucide-react'
 import type { BundData, ProjectNode, TemplateMaterialRef } from '../../types/project'
 import {
@@ -297,7 +297,7 @@ export default function BundSetup({
   const [manualBreak, setManualBreak] = useState('')
   const [mapAction, setMapAction] = useState<'draw' | 'mark'>('draw')
 
-  const drawnLength = useMemo(() => polylineLengthM(draft.alignment), [draft.alignment])
+  const drawnLength = (polylineLengthM(draft.alignment))
   const effectiveLength =
     draft.source === 'map'
       ? draft.lengthM > 0

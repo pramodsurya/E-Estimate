@@ -1,13 +1,21 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Pencil, Plus, Save, Trash2, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Pencil, Plus, Save, Sparkles, Trash2, X } from 'lucide-react'
 import type { CanalData, CanalExcavationBand, CanalFoundationExcavationReach, TemplateMaterialRef } from '../../../../types/project'
-import { canalEarthworkTotals, canalFoundationExcavationReachTotal, canalStrippingReachTotal, defaultCanalExcavationBands, orderedCanalSections } from '../../../../lib/canal'
+import type { CanalEarthworkTotals } from '../../../../types/eestimateApi'
+import {
+  canalCalculateExcavationPercentagesFromStrata,
+  canalEarthworkTotals,
+  canalFoundationExcavationReachTotal,
+  canalStrippingReachTotal,
+  defaultCanalExcavationBands,
+  orderedCanalSections
+} from '../../../../lib/canal'
 import { newId } from '../../../../lib/tree'
 import MaterialPicker from '../../../templates/MaterialPicker'
 import SsrCode from '../../../templates/SsrCode'
 import CanalSectionDiagram from '../../CanalSectionDiagram'
 
-const n3 = (value: number): string => value.toLocaleString('en-IN', { maximumFractionDigits: 3 })
+const n3 = (value: number | undefined | null): string => (Number(value) || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 })
 const sectionGroundRl = (section: CanalData['sections'][number] | undefined): number | null => {
   if (!section?.ground.length) return null
   return (section.ground[0].rl + section.ground[section.ground.length - 1].rl) / 2
@@ -37,11 +45,12 @@ function NumberField({ label, value, onChange }: { label: string; value: number;
   return <label className="canal-bank-field"><span>{label}</span><input type="number" min={0} step="any" value={value} onChange={(event) => onChange(Math.max(0, Number(event.target.value) || 0))} /></label>
 }
 
-function ExcavationBands({ title, quantity, bands, onChange }: {
+function ExcavationBands({ title, quantity, bands, onChange, onAutoCalculate }: {
   title: string
   quantity: number
   bands: CanalExcavationBand[]
   onChange: (bands: CanalExcavationBand[]) => void
+  onAutoCalculate?: () => void
 }): JSX.Element {
   const [picker, setPicker] = useState<string | null>(null)
   const totalPct = bands.reduce((sum, band) => sum + band.pct, 0)
@@ -49,7 +58,21 @@ function ExcavationBands({ title, quantity, bands, onChange }: {
     <section className="canal-earthwork-card">
       <header className="canal-earthwork-card-head">
         <div><strong>{title}</strong><small>Add any applicable CAW excavation code. The code identifies excavation work; bank suitability is assessed separately.</small></div>
-        <div><strong>{n3(quantity)} cu.m</strong><span className={Math.abs(totalPct - 100) > 0.01 ? 'is-warning' : ''}>{n3(totalPct)}% {Math.abs(totalPct - 100) > 0.01 ? '!' : '✓'}</span></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {onAutoCalculate && (
+            <button
+              type="button"
+              className="btn ghost"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 8px', fontSize: '0.8rem' }}
+              onClick={onAutoCalculate}
+              title="Calculate excavation class share percentages from geological strata"
+            >
+              <Sparkles size={13} style={{ color: 'var(--accent)' }} />
+              <span>Calculate % from Strata</span>
+            </button>
+          )}
+          <strong>{n3(quantity)} cu.m</strong><span className={Math.abs(totalPct - 100) > 0.01 ? 'is-warning' : ''}>{n3(totalPct)}% {Math.abs(totalPct - 100) > 0.01 ? '!' : '✓'}</span>
+        </div>
       </header>
       <div className="canal-earthwork-bands">
         <div className="canal-earthwork-band is-head"><span>Material / excavation class</span><span>Class share</span><span>CAW excavation item</span><span>Quantity</span><span>Suitable for casing / homogeneous bank</span><span /></div>
@@ -78,32 +101,34 @@ export default function CanalEarthwork({ data, onCommit }: {
   data: CanalData
   onCommit: (update: (current: CanalData) => CanalData) => void
 }): JSX.Element {
-  const totals = useMemo(() => canalEarthworkTotals(data), [data])
-  const sections = useMemo(() => orderedCanalSections(data), [data])
+  const totals = canalEarthworkTotals(data)
+
+  const sections = (orderedCanalSections(data))
   const [selectedSectionId, setSelectedSectionId] = useState<string>(() => sections[0]?.id ?? '')
   const [showFoundationExcavation, setShowFoundationExcavation] = useState(true)
   const [draftReach, setDraftReach] = useState<CanalFoundationExcavationReach | null>(null)
   const selectedSection = sections.find((section) => section.id === selectedSectionId) ?? sections[0] ?? null
-  useEffect(() => {
-    if (selectedSection && selectedSection.id !== selectedSectionId) setSelectedSectionId(selectedSection.id)
-  }, [selectedSection, selectedSectionId])
+  if (selectedSection && selectedSection.id !== selectedSectionId) {
+    setSelectedSectionId(selectedSection.id)
+  }
   const updateDesign = (patch: Partial<CanalData['design']>): void => onCommit((current) => ({ ...current, design: { ...current.design, ...patch } }))
   return (
     <section className="canal-v2-section" aria-labelledby="canal-earthwork-title">
-      <header className="canal-v2-section-header"><div><span className="canal-v2-section-kicker">Chapter 4</span><h2 id="canal-earthwork-title">4. {data.mode === 'new' ? 'Canal & Foundation Excavation' : 'Stripping & Excavation'}</h2><p>{data.mode === 'new' ? 'Canal excavation and bank-foundation excavation are measured separately by mean sectional area.' : 'Measure canal cut and formation stripping by mean sectional area.'}</p></div></header>
+      <header className="canal-v2-section-header"><div><span className="canal-v2-section-kicker">Chapter 5</span><h2 id="canal-earthwork-title">5. {data.mode === 'new' ? 'Canal & Bund Excavation' : 'Bund Stripping & Excavation'}</h2><p>{data.mode === 'new' ? 'Canal prism excavation and bund foundation excavation / stripping are measured separately by mean sectional area.' : 'Measure canal cut and bund formation stripping by mean sectional area.'}</p></div></header>
 
       <section className="canal-earthwork-card">
         <div className="canal-cross-panel-title">Excavation quantities<small>{data.mode === 'new' ? 'The two coloured quantities never overwrite or replace one another.' : 'Stripping is measured below the repair fill footprint.'}</small></div>
-        {data.mode === 'new' && <div className="canal-excavation-key">
-          <div className="is-canal"><i /><span><strong>Canal excavation</strong><small>Soil or rock removed between existing ground and the designed canal profile, including the canal bed and side slopes.</small></span></div>
+        {data.mode === 'new' && <div className="canal-excavation-key" style={{ display: 'flex', gap: 16 }}>
+          <div className="is-canal"><i /><span><strong>Canal excavation</strong><small>Soil or rock removed within canal prism between existing ground and designed cut profile, including bed, side slopes, and cut berms.</small></span></div>
+          <div className="is-foundation"><i style={{ background: '#3b82f6' }} /><span><strong>Bund excavation</strong><small>Ground preparation excavation (foundation excavation or stripping) strictly beneath the left and right bund footprints.</small></span></div>
         </div>}
-        <div className="canal-earthwork-summary"><span>Canal excavation <strong>{n3(totals.excavation)} cu.m</strong></span>{data.mode === 'new' && <span>Foundation excavation <strong>{n3(totals.foundationExcavation)} cu.m</strong></span>}<span>Stripping <strong>{n3(totals.stripping)} cu.m</strong></span></div>
-        {data.mode === 'repair' && <NumberField label="Stripping depth (m)" value={data.strippingDepth} onChange={(strippingDepth) => onCommit((current) => ({ ...current, strippingDepth }))} />}
+        <div className="canal-earthwork-summary"><span>Canal excavation <strong>{n3(totals.excavation)} cu.m</strong></span>{data.mode === 'new' && <span>Bund excavation <strong>{n3(totals.foundationExcavation)} cu.m</strong></span>}<span>Bund stripping <strong>{n3(totals.stripping)} cu.m</strong></span></div>
+        {data.mode === 'repair' && <NumberField label="Bund stripping depth (m)" value={data.strippingDepth} onChange={(strippingDepth) => onCommit((current) => ({ ...current, strippingDepth }))} />}
       </section>
 
       {data.mode === 'new' && <section className="canal-earthwork-card">
-        <div className="canal-zoned-reaches-head"><div className="canal-cross-panel-title">Excavation reaches<small>Add a reach, choose Foundation Excavation or Stripping, then Save. Saved reaches stay collapsed until Edit is selected.</small></div><button type="button" className="btn primary" disabled={sections.length < 2 || draftReach != null} onClick={() => setDraftReach({ id: newId(), fromChainage: sections[0]?.chainage ?? 0, toChainage: sections.at(-1)?.chainage ?? 0, kind: 'foundation', foundationRl: (lowestGroundRl(sections) ?? data.design.bedLevelAtStart) - 0.6, strippingDepth: 0.6, bands: defaultCanalExcavationBands() })}><Plus size={14} /> Add reach</button></div>
-        {data.foundationExcavationReaches.length === 0 && !draftReach && <div className="canal-zoned-empty">No excavation reach has been saved.</div>}
+        <div className="canal-zoned-reaches-head"><div className="canal-cross-panel-title">Bund excavation reaches<small>Add a reach, choose Bund Foundation Excavation or Bund Stripping, then Save. Bund excavation applies strictly to ground beneath the left and right bunds.</small></div><button type="button" className="btn primary" disabled={sections.length < 2 || draftReach != null} onClick={() => setDraftReach({ id: newId(), fromChainage: sections[0]?.chainage ?? 0, toChainage: sections.at(-1)?.chainage ?? 0, kind: 'foundation', foundationRl: (lowestGroundRl(sections) ?? data.design.bedLevelAtStart) - 0.6, strippingDepth: 0.6, bands: defaultCanalExcavationBands() })}><Plus size={14} /> Add bund reach</button></div>
+        {data.foundationExcavationReaches.length === 0 && !draftReach && <div className="canal-zoned-empty">No bund excavation reach has been saved.</div>}
         <div className="canal-excavation-reach-summaries">{data.foundationExcavationReaches.filter((reach) => reach.id !== draftReach?.id).map((reach, index) => {
           const quantity = reach.kind === 'stripping' ? canalStrippingReachTotal(data, reach) : canalFoundationExcavationReachTotal(data, reach)
           const fromIndex = sections.findIndex((section) => section.chainage === reach.fromChainage)
@@ -111,7 +136,7 @@ export default function CanalEarthwork({ data, onCommit }: {
           const fromGroundRl = sectionGroundRl(sections[fromIndex])
           const toGroundRl = sectionGroundRl(sections[toIndex])
           return <div className="canal-excavation-reach-summary" key={reach.id}>
-            <div><strong>{reach.kind === 'stripping' ? 'Stripping' : 'Foundation Excavation'} · Reach {index + 1}</strong><span>Section {fromIndex + 1} · Ch {n3(reach.fromChainage)} m → Section {toIndex + 1} · Ch {n3(reach.toChainage)} m</span><span className="canal-reach-actions"><button type="button" className="btn ghost" disabled={draftReach != null} onClick={() => setDraftReach({ ...reach, bands: reach.bands.map((band) => ({ ...band, material: { ...band.material } })) })}><Pencil size={13} /> Edit</button><button type="button" className="btn ghost" disabled={draftReach != null} onClick={() => onCommit((current) => ({ ...current, foundationExcavationReaches: current.foundationExcavationReaches.filter((row) => row.id !== reach.id) }))}><Trash2 size={13} /> Remove</button></span></div>
+            <div><strong>{reach.kind === 'stripping' ? 'Bund Stripping' : 'Bund Foundation Excavation'} · Reach {index + 1}</strong><span>Section {fromIndex + 1} · Ch {n3(reach.fromChainage)} m → Section {toIndex + 1} · Ch {n3(reach.toChainage)} m</span><span className="canal-reach-actions"><button type="button" className="btn ghost" disabled={draftReach != null} onClick={() => setDraftReach({ ...reach, bands: reach.bands.map((band) => ({ ...band, material: { ...band.material } })) })}><Pencil size={13} /> Edit</button><button type="button" className="btn ghost" disabled={draftReach != null} onClick={() => onCommit((current) => ({ ...current, foundationExcavationReaches: current.foundationExcavationReaches.filter((row) => row.id !== reach.id) }))}><Trash2 size={13} /> Remove</button></span></div>
             <div>{reach.kind === 'stripping' ? <span>Depth <strong>{n3(reach.strippingDepth)} m</strong></span> : <><span>Bottom <strong>RL {n3(reach.foundationRl)} m</strong></span><span>Depth: first <strong>{n3(Math.max(0, (fromGroundRl ?? reach.foundationRl) - reach.foundationRl))} m</strong> · last <strong>{n3(Math.max(0, (toGroundRl ?? reach.foundationRl) - reach.foundationRl))} m</strong></span></>}<span>Quantity <strong>{n3(quantity)} cu.m</strong></span></div>
           </div>
         })}</div>
@@ -121,18 +146,33 @@ export default function CanalEarthwork({ data, onCommit }: {
           const quantity = draftReach.kind === 'stripping' ? canalStrippingReachTotal(previewData, draftReach) : canalFoundationExcavationReachTotal(previewData, draftReach)
           const validClassification = draftReach.kind === 'stripping' || Math.abs(draftReach.bands.reduce((sum, band) => sum + band.pct, 0) - 100) <= 0.01
           return <div className="canal-foundation-reach is-editing">
-            <div className="canal-zoned-reaches-head"><strong>{data.foundationExcavationReaches.some((reach) => reach.id === draftReach.id) ? 'Edit excavation reach' : 'New excavation reach'}</strong><button type="button" className="btn ghost" onClick={() => setDraftReach(null)}><X size={14} /> Cancel</button></div>
+            <div className="canal-zoned-reaches-head"><strong>{data.foundationExcavationReaches.some((reach) => reach.id === draftReach.id) ? 'Edit bund excavation reach' : 'New bund excavation reach'}</strong><button type="button" className="btn ghost" onClick={() => setDraftReach(null)}><X size={14} /> Cancel</button></div>
             <div className="canal-road-grid"><label className="canal-bank-field"><span>From section</span><select value={draftReach.fromChainage} onChange={(event) => { const value = Number(event.target.value); patchDraft({ fromChainage: value, ...(value > draftReach.toChainage ? { toChainage: value } : {}) }) }}>{sections.map((section, i) => <option key={section.id} value={section.chainage}>{i + 1} · Ch {section.chainage} m</option>)}</select></label><label className="canal-bank-field"><span>To section</span><select value={draftReach.toChainage} onChange={(event) => { const value = Number(event.target.value); patchDraft({ toChainage: value, ...(value < draftReach.fromChainage ? { fromChainage: value } : {}) }) }}>{sections.map((section, i) => <option key={section.id} value={section.chainage}>{i + 1} · Ch {section.chainage} m</option>)}</select></label></div>
-            <div className="canal-bank-choice" role="radiogroup" aria-label="Ground preparation type"><label className={draftReach.kind === 'foundation' ? 'is-selected' : ''}><input type="radio" checked={draftReach.kind === 'foundation'} onChange={() => patchDraft({ kind: 'foundation' })} /><span><strong>Foundation Excavation</strong><small>Excavate to one bottom RL and classify the excavated soil or rock.</small></span></label><label className={draftReach.kind === 'stripping' ? 'is-selected' : ''}><input type="radio" checked={draftReach.kind === 'stripping'} onChange={() => patchDraft({ kind: 'stripping' })} /><span><strong>Stripping</strong><small>Strip a constant depth below existing ground.</small></span></label></div>
-            <div className="canal-road-grid">{draftReach.kind === 'foundation' ? <label className="canal-bank-field"><span>Foundation excavation bottom RL (m)</span><input type="number" step="any" value={draftReach.foundationRl} onChange={(event) => patchDraft({ foundationRl: Number(event.target.value) || 0 })} /><small>Default: lowest ground point in all sections − 0.60 m.</small></label> : <NumberField label="Stripping depth (m)" value={draftReach.strippingDepth} onChange={(strippingDepth) => patchDraft({ strippingDepth })} />}</div>
+            <div className="canal-bank-choice" role="radiogroup" aria-label="Bund ground preparation type"><label className={draftReach.kind === 'foundation' ? 'is-selected' : ''}><input type="radio" checked={draftReach.kind === 'foundation'} onChange={() => patchDraft({ kind: 'foundation' })} /><span><strong>Bund Foundation Excavation</strong><small>Excavate to one bottom RL below the bund footprint and classify the excavated soil or rock.</small></span></label><label className={draftReach.kind === 'stripping' ? 'is-selected' : ''}><input type="radio" checked={draftReach.kind === 'stripping'} onChange={() => patchDraft({ kind: 'stripping' })} /><span><strong>Bund Stripping</strong><small>Strip a constant depth below existing ground under the bund footprint.</small></span></label></div>
+            <div className="canal-road-grid">{draftReach.kind === 'foundation' ? <label className="canal-bank-field"><span>Bund foundation excavation bottom RL (m)</span><input type="number" step="any" value={draftReach.foundationRl} onChange={(event) => patchDraft({ foundationRl: Number(event.target.value) || 0 })} /><small>Default: lowest ground point in all sections − 0.60 m.</small></label> : <NumberField label="Bund stripping depth (m)" value={draftReach.strippingDepth} onChange={(strippingDepth) => patchDraft({ strippingDepth })} />}</div>
             <div className="canal-earthwork-summary"><span>Preview quantity <strong>{n3(quantity)} cu.m</strong></span></div>
-            {draftReach.kind === 'foundation' && <ExcavationBands title="Foundation soil / rock classification" quantity={quantity} bands={draftReach.bands} onChange={(bands) => patchDraft({ bands })} />}
-            <div className="canal-reach-editor-actions"><button type="button" className="btn primary" disabled={!validClassification} onClick={() => { onCommit((current) => ({ ...current, foundationExcavationReaches: current.foundationExcavationReaches.some((reach) => reach.id === draftReach.id) ? current.foundationExcavationReaches.map((reach) => reach.id === draftReach.id ? draftReach : reach) : [...current.foundationExcavationReaches, draftReach] })); setDraftReach(null) }}><Save size={14} /> Save reach</button><button type="button" className="btn ghost" onClick={() => setDraftReach(null)}>Cancel</button></div>
+            {draftReach.kind === 'foundation' && <ExcavationBands title="Bund foundation soil / rock classification" quantity={quantity} bands={draftReach.bands} onChange={(bands) => patchDraft({ bands })} />}
+            <div className="canal-reach-editor-actions"><button type="button" className="btn primary" disabled={!validClassification} onClick={() => { onCommit((current) => ({ ...current, foundationExcavationReaches: current.foundationExcavationReaches.some((reach) => reach.id === draftReach.id) ? current.foundationExcavationReaches.map((reach) => reach.id === draftReach.id ? draftReach : reach) : [...current.foundationExcavationReaches, draftReach] })); setDraftReach(null) }}><Save size={14} /> Save bund reach</button><button type="button" className="btn ghost" onClick={() => setDraftReach(null)}>Cancel</button></div>
           </div>
         })()}
       </section>}
 
-      <ExcavationBands title={data.mode === 'new' ? 'Canal excavation classification' : 'Canal stripping / excavation classification'} quantity={data.mode === 'new' ? totals.excavation : totals.excavation + totals.stripping} bands={data.excavationBands} onChange={(excavationBands) => onCommit((current) => ({ ...current, excavationBands }))} />
+      <ExcavationBands
+        title={data.mode === 'new' ? 'Canal excavation classification' : 'Canal stripping / excavation classification'}
+        quantity={data.mode === 'new' ? totals.excavation : totals.excavation + totals.stripping}
+        bands={data.excavationBands}
+        onAutoCalculate={() => {
+          const autoPercentages = canalCalculateExcavationPercentagesFromStrata(data)
+          onCommit((current) => ({
+            ...current,
+            excavationBands: current.excavationBands.map((band, idx) => {
+              const match = autoPercentages.find((p) => p.code === band.material.code) ?? autoPercentages[idx]
+              return match ? { ...band, pct: match.pct } : band
+            })
+          }))
+        }}
+        onChange={(excavationBands) => onCommit((current) => ({ ...current, excavationBands }))}
+      />
 
       {data.mode === 'new' && data.design.bankSectionType === 'zoned' && (
         <section className="canal-earthwork-card">
