@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "e-estimate"
-version = "0.1.15"
+version = "0.1.16"
 description = "E-Estimate desktop shell (Tauri 2)"
 authors = ["E-Estimate"]
 edition = "2021"
@@ -42,8 +42,8 @@ rust_xlsxwriter = { version = "0.99", features = ["serde"] }
 [dev-dependencies]
 zip = "8.6"
 
-# First Typst/krilla debug build is 30Ã¢â‚¬â€œ90 min. Incremental after that only if
-# artifacts stay on local disk Ã¢â‚¬â€ `npm run dev` sets CARGO_TARGET_DIR under
+# First Typst/krilla debug build is 30ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“90 min. Incremental after that only if
+# artifacts stay on local disk ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `npm run dev` sets CARGO_TARGET_DIR under
 # %LOCALAPPDATA%\e-estimate\cargo-target so OneDrive cannot wipe `target/`.
 # Do not `cargo clean`. Print Studio compiles Typst in this binary on purpose.
 [profile.dev]
