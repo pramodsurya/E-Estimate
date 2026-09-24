@@ -128,7 +128,7 @@ assert.ok(modal.includes('setNodeWorkingLocation('), 'edit saves must go through
 assert.ok(store.includes('openEditGeometry'), 'the store must expose opening an edit')
 assert.ok(dashboard.includes('storedLengthText'), 'component page must show the stored template length')
 assert.ok(
-  detail.includes('storedLengthM > 0 ? storedLengthM : polylineLengthM(line)'),
+  detail.includes('lengthM: storedLengthM > 0 ? storedLengthM : polylineLengthM(line)'),
   'avg picker km must follow the stored length, not just the drawn line'
 )
 

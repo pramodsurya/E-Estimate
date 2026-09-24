@@ -687,6 +687,11 @@ function ComponentAllowanceCard({
   const explicit = node.areaAllowance ?? null
   const workLookup =
     node.location ?? (node.workingLine?.length ? workingLineCentroid(node.workingLine) : null)
+  const storedLengthM = node.bund?.lengthM ?? node.canal?.lengthM ?? node.guideWall?.lengthM
+  const storedLengthText =
+    typeof storedLengthM === 'number' && Number.isFinite(storedLengthM) && storedLengthM > 0
+      ? ` · Length ${qtyFmt.format(storedLengthM)} m`
+      : ''
 
   const applyAutomatic = (): void => {
     if (pending || !workLookup) return
@@ -727,7 +732,7 @@ function ComponentAllowanceCard({
         <div className="component-location-text">
           <span className="component-section-label">Work location</span>
           <strong title={placeText}>{placeText}</strong>
-          <small>{effective.label} · {effective.percent.toFixed(2)}%</small>
+          <small>{effective.label} · {effective.percent.toFixed(2)}%{storedLengthText}</small>
         </div>
         <div className="component-location-actions">
           <button className="btn component-location-change" onClick={() => openEditGeometry(node.id)}>
