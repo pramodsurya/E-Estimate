@@ -30,3 +30,24 @@ __pycache__/
 MNKLIS ESTIMATES/
 Srikanth/
 /Excel Export plan/
+scripts/output/
+Canal/
+slrb at km. 100.835/
+
+# Generated/local scratch artifacts — kept on disk, never tracked
+/.playwright-cli/
+/tmp/
+/tmp-berm/
+/scratch/
+/output/
+/outputs/
+*.tsbuildinfo
+/.codex-tmp/
+/.codex-tmp-bund-read/
+/.ppt-build/
+/_to_delete/
+/.muse/
+supabase/.temp/
+
+# Duplicate of src/renderer/src/assets/emblem-telangana.svg
+/Assest/
