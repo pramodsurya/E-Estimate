@@ -597,11 +597,14 @@ export default function CanalBankDesign({
                         <button
                           type="button"
                           className={`canal-tier-zoning-pill ${isZonedTier ? 'active-zoned' : ''}`}
-                          onClick={() => patchTier(tier.id, {
-                            sectionType: 'zoned',
-                            heartingTopWidth: tier.heartingTopWidth ?? design.heartingTopWidth ?? 1.5,
-                            heartingSideSlope: tier.heartingSideSlope ?? design.heartingLeftSlope ?? 1.0
-                          })}
+                          onClick={() => {
+                            patchTier(tier.id, {
+                              sectionType: 'zoned',
+                              heartingTopWidth: tier.heartingTopWidth ?? design.heartingTopWidth ?? 1.5,
+                              heartingSideSlope: tier.heartingSideSlope ?? design.heartingLeftSlope ?? 1.0
+                            })
+                            if (!design.heartingTrenchEnabled) onCommit({ heartingTrenchEnabled: true })
+                          }}
                         >
                           <Check size={12} style={{ display: isZonedTier ? 'inline' : 'none' }} />
                           🛡️ Impervious Zoned (Hearting Core + Casing)
@@ -626,6 +629,34 @@ export default function CanalBankDesign({
                             step={0.25}
                             onChange={(v) => patchTier(tier.id, { heartingSideSlope: Math.max(0.25, v) })}
                           />
+                          <label className="canal-bank-field">
+                            <span>Hearting top adjustment from FSL (m)</span>
+                            <input
+                              type="number"
+                              step="any"
+                              max={Math.max(0, design.freeBoard)}
+                              value={design.heartingLevelOffsetFromFsl}
+                              onChange={(event) => onCommit({ heartingLevelOffsetFromFsl: Math.min(Number(event.target.value) || 0, Math.max(0, design.freeBoard)) })}
+                            />
+                            <small>Maximum allowed: +{Math.max(0, design.freeBoard).toFixed(2)} m.</small>
+                          </label>
+                          <NumberField label="Minimum hearting height" unit="m" value={design.minimumHeartingHeight} onChange={(minimumHeartingHeight) => onCommit({ minimumHeartingHeight })} />
+                          <div className="canal-tier-impervious-trench">
+                            <div className="canal-cross-panel-title">
+                              Impervious Cutoff Trench
+                              <small>Provided only below impervious hearting.</small>
+                            </div>
+                            <label className="canal-earthwork-check"><input type="checkbox" checked={design.heartingTrenchEnabled} onChange={(event) => onCommit({ heartingTrenchEnabled: event.target.checked })} /> Provide impervious cutoff trench</label>
+                            {design.heartingTrenchEnabled && <>
+                              <div className="canal-design-grid">
+                                <NumberField label="Trench depth below prepared level" unit="m" value={design.heartingTrenchDepth} onChange={(heartingTrenchDepth) => onCommit({ heartingTrenchDepth })} />
+                                <NumberField label="Trench bottom width" unit="m" value={design.heartingTrenchWidth} onChange={(heartingTrenchWidth) => onCommit({ heartingTrenchWidth })} />
+                                <NumberField label="Left trench slope" unit="H : 1V" value={design.heartingTrenchLeftSlope} onChange={(heartingTrenchLeftSlope) => onCommit({ heartingTrenchLeftSlope })} />
+                                <NumberField label="Right trench slope" unit="H : 1V" value={design.heartingTrenchRightSlope} onChange={(heartingTrenchRightSlope) => onCommit({ heartingTrenchRightSlope })} />
+                              </div>
+                              <div className="canal-bank-recommendation"><strong>Trench datum:</strong> depth is measured below the stripped/prepared bund foundation level.</div>
+                            </>}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -834,33 +865,6 @@ export default function CanalBankDesign({
             <div className="canal-bank-recommendation">IS 10430:2000 recommended minimum crest width for Q {design.discharge} m³/s: <strong>{recommended} m</strong>.</div>
           </section>
 
-          {zoned && (
-            <section className="canal-bank-design">
-              <div className="canal-cross-panel-title">Impervious hearting<small>The top level is referenced to FSL; applicability and height are checked separately at every section.</small></div>
-              <div className="canal-design-grid">
-                <label className="canal-bank-field">
-                  <span>Hearting top adjustment from FSL (m)</span>
-                  <input
-                    type="number"
-                    step="any"
-                    max={Math.max(0, design.freeBoard)}
-                    value={design.heartingLevelOffsetFromFsl}
-                    onChange={(event) =>
-                      onCommit({
-                        heartingLevelOffsetFromFsl: Math.min(Number(event.target.value) || 0, Math.max(0, design.freeBoard))
-                      })
-                    }
-                  />
-                  <small>Maximum allowed: +{Math.max(0, design.freeBoard).toFixed(2)} m.</small>
-                </label>
-                <NumberField label="Minimum hearting height" unit="m" value={design.minimumHeartingHeight} onChange={(minimumHeartingHeight) => onCommit({ minimumHeartingHeight })} />
-                <NumberField label="Hearting top width" unit="m" value={design.heartingTopWidth} onChange={(heartingTopWidth) => onCommit({ heartingTopWidth })} />
-                <NumberField label="Left hearting slope" unit="H : 1V" value={design.heartingLeftSlope} onChange={(heartingLeftSlope) => onCommit({ heartingLeftSlope })} />
-                <NumberField label="Right hearting slope" unit="H : 1V" value={design.heartingRightSlope} onChange={(heartingRightSlope) => onCommit({ heartingRightSlope })} />
-              </div>
-            </section>
-          )}
-
           <section className="canal-bank-design canal-berm-design">
             <div className="canal-cross-panel-title">Outer Bank Berms<small>Berm levels are entered as vertical height above the canal bed.</small></div>
             <div className="canal-berm-columns">
@@ -896,6 +900,47 @@ export default function CanalBankDesign({
             </div>
           </section>
         </>
+      )}
+
+      {!isTiered && zoned && (
+        <section className="canal-bank-design">
+          <div className="canal-cross-panel-title">
+            Impervious Zones
+            <small>Applies only to the selected impervious zoned reaches.</small>
+          </div>
+          <div className="canal-design-grid">
+            <label className="canal-bank-field">
+              <span>Hearting top adjustment from FSL (m)</span>
+              <input
+                type="number"
+                step="any"
+                max={Math.max(0, design.freeBoard)}
+                value={design.heartingLevelOffsetFromFsl}
+                onChange={(event) => onCommit({ heartingLevelOffsetFromFsl: Math.min(Number(event.target.value) || 0, Math.max(0, design.freeBoard)) })}
+              />
+              <small>Maximum allowed: +{Math.max(0, design.freeBoard).toFixed(2)} m.</small>
+            </label>
+            <NumberField label="Minimum hearting height" unit="m" value={design.minimumHeartingHeight} onChange={(minimumHeartingHeight) => onCommit({ minimumHeartingHeight })} />
+            <NumberField label="Hearting top width" unit="m" value={design.heartingTopWidth} onChange={(heartingTopWidth) => onCommit({ heartingTopWidth })} />
+            <NumberField label="Left hearting slope" unit="H : 1V" value={design.heartingLeftSlope} onChange={(heartingLeftSlope) => onCommit({ heartingLeftSlope })} />
+            <NumberField label="Right hearting slope" unit="H : 1V" value={design.heartingRightSlope} onChange={(heartingRightSlope) => onCommit({ heartingRightSlope })} />
+          </div>
+
+          <div className="canal-cross-panel-title">
+            Impervious Cutoff Trench
+            <small>The trench is provided only below impervious hearting and remains part of Bank Design.</small>
+          </div>
+          <label className="canal-earthwork-check"><input type="checkbox" checked={design.heartingTrenchEnabled} onChange={(event) => onCommit({ heartingTrenchEnabled: event.target.checked })} /> Provide impervious cutoff trench</label>
+          {design.heartingTrenchEnabled && <>
+            <div className="canal-design-grid">
+              <NumberField label="Trench depth below prepared level" unit="m" value={design.heartingTrenchDepth} onChange={(heartingTrenchDepth) => onCommit({ heartingTrenchDepth })} />
+              <NumberField label="Trench bottom width" unit="m" value={design.heartingTrenchWidth} onChange={(heartingTrenchWidth) => onCommit({ heartingTrenchWidth })} />
+              <NumberField label="Left trench slope" unit="H : 1V" value={design.heartingTrenchLeftSlope} onChange={(heartingTrenchLeftSlope) => onCommit({ heartingTrenchLeftSlope })} />
+              <NumberField label="Right trench slope" unit="H : 1V" value={design.heartingTrenchRightSlope} onChange={(heartingTrenchRightSlope) => onCommit({ heartingTrenchRightSlope })} />
+            </div>
+            <div className="canal-bank-recommendation"><strong>Trench datum:</strong> depth is measured below the stripped/prepared bund foundation level.</div>
+          </>}
+        </section>
       )}
 
       {/* ========================================================================= */}

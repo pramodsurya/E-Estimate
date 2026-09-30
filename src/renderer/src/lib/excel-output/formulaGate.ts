@@ -25,6 +25,43 @@
  * their spans, so text like `"Sheet1!A1"` never scans as a reference.
  */
 
+import { parseCellRange } from '../itemCellRef'
+
+/**
+ * Rewrites `ITEMCELL("CODE","C18")` calls to native cross-sheet references
+ * (`'Tab'!C18`) ahead of the gate. `tabs` maps upper-cased item code to the
+ * exported tab name holding that item's grid at natural coordinates, so the
+ * address needs no rebasing. Unknown codes and malformed addresses fail, and
+ * the caller keeps the original text (the gate then downgrades the cell to
+ * its cached value). Matches outside string literals only.
+ */
+export function rewriteItemCellRefs(
+  raw: string,
+  tabs: Map<string, string>
+): { ok: true; text: string } | { ok: false; reason: string } {
+  const call = /ITEMCELL\s*\(\s*"((?:[^"]|"")+)"\s*,\s*"((?:[^"]|"")+)"\s*(?:,\s*"((?:[^"]|"")+)"\s*)?\)/gi
+  const lit = literalSpans(raw)
+  if (lit.unterminated) return { ok: false, reason: 'unterminated string literal' }
+  const out: string[] = []
+  let cursor = 0
+  for (;;) {
+    const m = call.exec(raw)
+    if (!m) break
+    if (inSpans(lit.spans, m.index)) continue
+    const key = m[3] ? `id:${m[3].replace(/""/g, '"')}` : m[1].replace(/""/g, '"').trim()
+    const tab = tabs.get(key.toUpperCase())
+    if (!tab) return { ok: false, reason: `unknown item code '${m[1]}'` }
+    if (!parseCellRange(m[2].replace(/""/g, '"'))) {
+      return { ok: false, reason: `invalid cell address '${m[2]}'` }
+    }
+    const ref = m[2].replace(/""/g, '"').trim().toUpperCase()
+    out.push(raw.slice(cursor, m.index), `'${tab.replace(/'/g, "''")}'!${ref}`)
+    cursor = m.index + m[0].length
+  }
+  out.push(raw.slice(cursor))
+  return { ok: true, text: out.join('') }
+}
+
 export interface FormulaGateScope {
   /** 0-based Univer sheet coordinates of the exported range. */
   startRow: number
@@ -33,6 +70,11 @@ export interface FormulaGateScope {
   endColumn: number
   /** Name of the sheet the formula lives on; any other qualifier fails. */
   sheetName?: string
+  /**
+   * Tabs exported alongside this grid. Their qualifiers pass through
+   * untouched (their grids keep natural coordinates, so no rebasing).
+   */
+  extraSheets?: string[]
 }
 
 export type FormulaGateVerdict = { ok: true; excel: string } | { ok: false; reason: string }
@@ -168,13 +210,33 @@ export function qualifyFormula(raw: string, scope: FormulaGateScope): FormulaGat
   const qualifier =
     /('(?:[^']|'')+'|[A-Za-z0-9_.$]+)!\s*(\$?[A-Za-z]{1,3}\$?\d+|\$?[A-Za-z]{1,3}\s*:\s*\$?[A-Za-z]{1,3}|\$?\d+\s*:\s*\$?\d+)/g
   const out: string[] = []
+  const kept: LitSpan[] = []
+  let joined = 0
+  const pushKept = (text: string): void => {
+    if (!text) return
+    out.push(text)
+    kept.push({ start: joined, end: joined + text.length })
+    joined += text.length
+  }
   let cursor = 0
   for (;;) {
     const m = qualifier.exec(body)
     if (!m || gateError) break
     if (inSpans(spans, m.index)) continue
     const name = unquoteSheetName(m[1])
-    if (!scope.sheetName || name.toLowerCase() !== scope.sheetName.toLowerCase()) {
+    const isOwnSheet = Boolean(scope.sheetName) && name.toLowerCase() === scope.sheetName?.toLowerCase()
+    const isExtraSheet = (scope.extraSheets ?? []).some((tab) => tab.toLowerCase() === name.toLowerCase())
+    if (isExtraSheet) {
+      // Referenced tabs keep natural coordinates: pass the qualifier and its
+      // address through untouched, and shield it from the later sweeps.
+      const plain = body.slice(cursor, m.index)
+      out.push(plain)
+      joined += plain.length
+      pushKept(body.slice(m.index, m.index + m[0].length))
+      cursor = m.index + m[0].length
+      continue
+    }
+    if (!isOwnSheet) {
       gateError = `cross-sheet reference (${m[1]}!)`
       break
     }
@@ -187,7 +249,9 @@ export function qualifyFormula(raw: string, scope: FormulaGateScope): FormulaGat
       gateError = 'whole-column reference'
       break
     }
-    out.push(body.slice(cursor, m.index), compact)
+    const plain = body.slice(cursor, m.index)
+    out.push(plain, compact)
+    joined += plain.length + compact.length
     cursor = m.index + m[0].length
   }
   if (gateError) return fail(gateError)
@@ -197,7 +261,7 @@ export function qualifyFormula(raw: string, scope: FormulaGateScope): FormulaGat
   body = out.join('')
   const relit = literalSpans(body)
   if (relit.unterminated) return fail('unterminated string literal')
-  const live = relit.spans
+  const live = [...relit.spans, ...kept]
 
   const badChar = /[^\w.$+*/^&%(),: !<>= \t-]/g
   for (;;) {

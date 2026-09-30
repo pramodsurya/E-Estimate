@@ -21,7 +21,16 @@
  * - Images anchor at the nearest cell; floating point positions are approximate.
  */
 import type { TypstDocData } from '../typist-output/documentTypst'
-import { qualifyFormula, type FormulaCellVerdict } from './formulaGate'
+import { qualifyFormula, rewriteItemCellRefs, type FormulaCellVerdict } from './formulaGate'
+import {
+  composeUniverCellStyle,
+  pxToChars,
+  pxToPt,
+  resolveColWidthPx,
+  resolveIColorRgb,
+  resolveRowHeightPx,
+  type UnivIColorStyle
+} from './univerResolve'
 
 export type { FormulaCellVerdict } from './formulaGate'
 
@@ -34,8 +43,20 @@ export interface GridCellStyle {
   fontName?: string
   colorRgb?: string
   bgRgb?: string
-  align?: 'left' | 'center' | 'right'
+  align?: 'left' | 'center' | 'right' | 'justify'
+  valign?: 'top' | 'middle' | 'bottom'
   wrap?: boolean
+  /**
+   * Excel rotation degrees (-90..90). Univer renders tr (angle a, vertical
+   * flag v) by rotating laid-out lines on canvas (see convertTextRotation in
+   * engine-render): tr.v === 1 is a continuous 90-degree clockwise rotation
+   * reading top-to-bottom, i.e. Excel -90 — never stacked 255/270 text.
+   */
+  rotation?: number
+  /** Writer-level stacked text (Excel 255); nothing in the Univer mapping sets this. */
+  verticalText?: boolean
+  /** Univer td: 1 = left-to-right, 2 = right-to-left. Omitted when unspecified. */
+  readingOrder?: 1 | 2
 }
 
 export interface GridRichRun {
@@ -79,6 +100,13 @@ export interface DetailGrid {
   cells: GridCell[]
   merges: GridMerge[]
   colWidthsChars: number[]
+  /**
+   * Resolved source pixel widths (0 = hidden), present when the grid comes
+   * 1:1 from a snapshot via flattenSheet. The Rust writer prefers these via
+   * set_column_width_pixels (exact, no char conversion); stacked grids built
+   * from mixed sources omit them and the writer falls back to chars.
+   */
+  colWidthsPx?: number[]
   rowHeightsPt: Array<number | null>
   images: GridImage[]
   /** 0-based grid rows after which Excel inserts a horizontal page break. */
@@ -95,15 +123,27 @@ export interface SheetSnapshotInput {
   cellData?: Record<string, Record<string, UnivCell>>
   mergeData?: Array<{ startRow: number; startColumn: number; endRow: number; endColumn: number }>
   styles?: Record<string, UnivStyle>
-  rowData?: Record<string, { h?: number; hd?: number }>
-  columnData?: Record<string, { w?: number; hd?: number }>
+  rowData?: Record<string, { h?: number; ia?: number; ah?: number; hd?: number; s?: UnivStyle | string | null }>
+  columnData?: Record<string, { w?: number; hd?: number; s?: UnivStyle | string | null }>
   defaultColW?: number
   defaultRowH?: number
+  /** Worksheet/workbook default style (id or inline); lowest precedence. */
+  defaultStyle?: UnivStyle | string | null
+  /**
+   * Mirrors `_isRowStylePrecedeColumnStyle`; omit for the active renderer
+   * default `false` (column precedes row — the render skeleton forces the
+   * config to `false` and the app never overrides it).
+   */
+  rowPrecedesColumn?: boolean
 }
 
 export interface UnivCell {
   v?: string | number | boolean | null
+  /** Cell value type: 1 string / 2 number / 3 boolean / 4 forced string. */
+  t?: number | null
   s?: UnivStyle | string | null
+  /** Cell theme style, composed between row/column and cell styles. */
+  themeStyle?: UnivStyle | null
   p?: { body?: { dataStream?: string; textRuns?: Array<{ st: number; ed: number; ts?: UnivTextStyle }> } } | null
   f?: string | null
 }
@@ -115,20 +155,24 @@ export interface UnivTextStyle {
   st?: { s?: unknown } | unknown
   fs?: number
   ff?: string
-  cl?: { rgb?: string }
-  bg?: { rgb?: string }
+  cl?: UnivIColorStyle
+  bg?: UnivIColorStyle
 }
 
 export interface UnivStyle extends UnivTextStyle {
   vt?: unknown
   ht?: unknown
   tb?: number
+  /** Text rotation { a: angle degrees, v: 1 = 90-degree canvas rotation (Excel -90) }. */
+  tr?: { a?: number; v?: number } | null
+  /** Text direction: 1 = left-to-right, 2 = right-to-left. */
+  td?: number | null
   n?: { pattern?: string } | null
   bd?: {
-    t?: { s?: number; cl?: { rgb?: string } }
-    l?: { s?: number; cl?: { rgb?: string } }
-    b?: { s?: number; cl?: { rgb?: string } }
-    r?: { s?: number; cl?: { rgb?: string } }
+    t?: { s?: number; cl?: UnivIColorStyle }
+    l?: { s?: number; cl?: UnivIColorStyle }
+    b?: { s?: number; cl?: UnivIColorStyle }
+    r?: { s?: number; cl?: UnivIColorStyle }
   } | null
 }
 
@@ -215,7 +259,15 @@ export function normRgb(raw: string | null | undefined): string | undefined {
   return undefined
 }
 
-function mapTextStyle(ts: UnivTextStyle | undefined): GridCellStyle {
+/**
+ * Installed font-colour resolution differs by paint path: document cells
+ * (rich `p` or nonzero rotation) resolve `{th}` through getColorStyle, while
+ * plain-text font and sheet cell fills read `.rgb` only (engine-render
+ * _renderText/Text.drawWith and _setBgStylesCache). `themeFont` selects the
+ * document path for the FONT channel; fills never resolve `th` (canvas
+ * parity: a theme-only fill paints nothing).
+ */
+function mapTextStyle(ts: UnivTextStyle | undefined, opts?: { themeFont?: boolean }): GridCellStyle {
   if (!ts) return {}
   const style: GridCellStyle = {}
   if (ts.bl !== undefined) style.bold = isOn(ts.bl)
@@ -226,32 +278,103 @@ function mapTextStyle(ts: UnivTextStyle | undefined): GridCellStyle {
   if (ts.st !== undefined) style.strike = isOn(st?.s) || isOn(ts.st)
   if (typeof ts.fs === 'number' && ts.fs > 0) style.sizePt = ts.fs
   if (typeof ts.ff === 'string' && ts.ff) style.fontName = ts.ff
-  const color = normRgb(ts.cl?.rgb)
+  const color = resolveIColorRgb(ts.cl, normRgb, { theme: opts?.themeFont })
   if (color) style.colorRgb = color
-  const bg = normRgb(ts.bg?.rgb)
+  const bg = resolveIColorRgb(ts.bg, normRgb)
   if (bg) style.bgRgb = bg
   return style
 }
 
-/** Border style codes follow the old ExcelJS adapters (2 medium, 3 dashed, 6 double). */
-function mapBorderSide(side?: { s?: number; cl?: { rgb?: string } }): GridBorderSide | undefined {
+/**
+ * Border codes follow the installed Univer BorderStyleTypes (0 NONE, 1 THIN,
+ * 2 HAIR, 3 DOTTED, 4 DASHED, 5 DASH_DOT, 6 DASH_DOT_DOT, 7 DOUBLE, 8 MEDIUM,
+ * 9 MEDIUM_DASHED, 10 MEDIUM_DASH_DOT, 11 MEDIUM_DASH_DOT_DOT,
+ * 12 SLANT_DASH_DOT, 13 THICK). Tokens pass through to the Rust writer, which
+ * maps each to the matching Excel border; unknown codes fall back to thin.
+ */
+const BORDER_TOKENS: Record<number, string> = {
+  1: 'thin', 2: 'hair', 3: 'dotted', 4: 'dashed', 5: 'dashDot', 6: 'dashDotDot',
+  7: 'double', 8: 'medium', 9: 'mediumDashed', 10: 'mediumDashDot',
+  11: 'mediumDashDotDot', 12: 'slantDashDot', 13: 'thick'
+}
+function mapBorderSide(side?: { s?: number; cl?: UnivIColorStyle }): GridBorderSide | undefined {
   if (!side) return undefined
+  if (side.s === 0) return undefined
   const out: GridBorderSide = {}
   if (typeof side.s === 'number') {
-    out.style = side.s === 2 ? 'medium' : side.s === 3 ? 'dashed' : side.s === 6 ? 'double' : 'thin'
+    out.style = BORDER_TOKENS[side.s] ?? 'thin'
   }
-  const color = normRgb(side.cl?.rgb)
+  // Installed sheet borders resolve {th} (_setBorderProps getColorStyle).
+  const color = resolveIColorRgb(side.cl, normRgb, { theme: true })
   if (color) out.colorRgb = color
   return out.style || out.colorRgb ? out : undefined
 }
 
-export function mapUniverStyle(style: UnivStyle | null | undefined): { cell: GridCellStyle; numFmt?: string; border?: GridCell['border'] } {
+/**
+ * Excel rotation is whole degrees spanning -90..90: fold any angle into that
+ * window and round, so the payload always fits the Rust `i16` rotation field.
+ */
+function normRotation(deg: number): number {
+  return Math.round(((deg + 90) % 180 + 180) % 180 - 90)
+}
+
+export function mapUniverStyle(
+  style: UnivStyle | null | undefined,
+  valueType?: number | null,
+  opts?: { hasRichText?: boolean }
+): { cell: GridCellStyle; numFmt?: string; border?: GridCell['border'] } {
   if (!style) return { cell: {} }
-  const cell = mapTextStyle(style)
+  // Document paint path (rich `p` or nonzero rotation) resolves font `{th}`;
+  // plain font reads `.rgb` only (engine-render _setFontStylesCache picks
+  // the document skeleton exactly when `p || vertexAngle || centerAngle`).
+  const tr0 = style.tr
+  const rotated0 =
+    !!tr0 && typeof tr0 === 'object' &&
+    (tr0.v === 1 || (typeof tr0.a === 'number' && Number.isFinite(tr0.a) && tr0.a % 360 !== 0))
+  const cell = mapTextStyle(style, { themeFont: opts?.hasRichText === true || rotated0 })
   if (style.ht === 'l' || style.ht === 1) cell.align = 'left'
   else if (style.ht === 'c' || style.ht === 2) cell.align = 'center'
   else if (style.ht === 'r' || style.ht === 3) cell.align = 'right'
-  if (style.tb === 2) cell.wrap = true
+  // Univer JUSTIFIED (4), BOTH (5) and DISTRIBUTED (6) have no Excel
+  // BOTH/DISTRIBUTED equivalent, so all three fall back to justified.
+  else if (style.ht === 4 || style.ht === 5 || style.ht === 6) cell.align = 'justify'
+  if (cell.align === undefined) {
+    // Installed General rule (_horizontalHandler) for ROTATED text: vertical
+    // mode centers; rotated-down (a > 0 except 90, or a == -90) rights; other
+    // nonzero angles fall back to the value type (2 number -> right,
+    // 3 boolean -> center, else left). Plain unrotated cells stay unset —
+    // Excel's native General already rights numbers, centers booleans and
+    // lefts text (pinned by flattenSheet tests), and live formula results
+    // deserve live General, so callers pass no value type for formulas.
+    const tr = style.tr
+    if (tr && typeof tr === 'object') {
+      if (tr.v === 1) cell.align = 'center'
+      else if (typeof tr.a === 'number' && Number.isFinite(tr.a) && tr.a !== 0) {
+        if ((tr.a > 0 && tr.a !== 90) || tr.a === -90) cell.align = 'right'
+        else if (valueType === 2) cell.align = 'right'
+        else if (valueType === 3) cell.align = 'center'
+        else cell.align = 'left'
+      }
+    }
+  }
+  if (style.vt === 1) cell.valign = 'top'
+  else if (style.vt === 2) cell.valign = 'middle'
+  else if (style.vt === 3) cell.valign = 'bottom'
+  // WrapStrategy: only WRAP (3) wraps. CLIP (2) and OVERFLOW (1) never wrap
+  // (Excel clips by default when wrap is off); UNSPECIFIED (0) stays default.
+  if (style.tb === 3) cell.wrap = true
+  const tr = style.tr
+  if (tr && typeof tr === 'object') {
+    // Univer canvas-rotates the whole laid-out line (convertTextRotation):
+    // v === 1 forces a 90-degree clockwise rotation reading top-to-bottom,
+    // which is Excel -90 (continuous rotated string), not stacked 255 text.
+    if (tr.v === 1) cell.rotation = -90
+    else if (typeof tr.a === 'number' && Number.isFinite(tr.a) && tr.a % 360 !== 0) {
+      cell.rotation = normRotation(tr.a)
+    }
+  }
+  if (style.td === 1) cell.readingOrder = 1
+  else if (style.td === 2) cell.readingOrder = 2
   const numFmt = typeof style.n?.pattern === 'string' && style.n.pattern ? style.n.pattern : undefined
   const border = style.bd
     ? {
@@ -278,7 +401,7 @@ function runsFromStream(
     const start = Math.max(0, Math.min(run.st, stream.length))
     const end = Math.max(start, Math.min(run.ed, stream.length))
     if (start > cursor) runs.push({ text: stream.slice(cursor, start), style: {} })
-    if (end > start) runs.push({ text: stream.slice(start, end), style: mapTextStyle(run.ts) })
+    if (end > start) runs.push({ text: stream.slice(start, end), style: mapTextStyle(run.ts, { themeFont: true }) })
     cursor = Math.max(cursor, end)
   }
   if (cursor < stream.length) runs.push({ text: stream.slice(cursor), style: {} })
@@ -290,6 +413,12 @@ export interface FlattenSheetOptions {
   sheetName?: string
   /** Receives one verdict per formula cell, in scan order. */
   verdicts?: FormulaCellVerdict[]
+  /**
+   * Cross-sheet tabs exported alongside this grid (upper-cased item code to
+   * tab name). `ITEMCELL("CODE","C18")` rewrites to a native `'Tab'!C18`
+   * reference; codes missing here keep the old cached-value fallback.
+   */
+  itemCellTabs?: Map<string, string>
 }
 
 /**
@@ -315,8 +444,21 @@ export function flattenSheet(sheet: SheetSnapshotInput, range: CellRangeLike, op
       if (mergedAt(r, c)) continue
       const cell = sheet.cellData?.[String(r)]?.[String(c)]
       if (!cell) continue
-      const rawStyle = typeof cell.s === 'string' ? sheet.styles?.[cell.s] : cell.s
-      const mapped = mapUniverStyle(rawStyle ?? null)
+      // Effective style, composed property by property (workbook default,
+      // column, row, cell theme, cell) per Univer's composeStyles — a partial
+      // cell {bl: 1} keeps inherited font, alignment and fill.
+      const composed = composeUniverCellStyle({
+        cell,
+        rowDatum: sheet.rowData?.[String(r)],
+        colDatum: sheet.columnData?.[String(c)],
+        defaultStyle: sheet.defaultStyle,
+        styles: sheet.styles as Record<string, unknown> | undefined,
+        rowPrecedesColumn: sheet.rowPrecedesColumn
+      })
+      const rawFormula = typeof cell.f === 'string' ? cell.f.trim() : ''
+      // General-alignment inference needs the value type, but live formula
+      // results deserve live Excel General — never infer from a cached type.
+      const mapped = mapUniverStyle(composed as unknown as UnivStyle, rawFormula ? undefined : cell.t ?? undefined, { hasRichText: cell.p != null })
       const out: GridCell = { r: r - range.startRow, c: c - range.startColumn }
       const stream = cell.p?.body?.dataStream
       if (typeof stream === 'string' && stream.length) {
@@ -324,16 +466,24 @@ export function flattenSheet(sheet: SheetSnapshotInput, range: CellRangeLike, op
         if (runs.length) out.runs = runs
         else out.value = stream
       } else if (cell.v !== null && cell.v !== undefined && typeof cell.v !== 'object') {
-        out.value = cell.v
+        // Booleans stored as 1/0 (t: 3, the runtime's save shape) become real
+        // booleans — Excel shows TRUE/FALSE and centers them under General.
+        // Forced text (t: 4) stays a string even when the stored value is
+        // numeric — a numeric-looking string must not become a numeric cell.
+        if (cell.t === 3) out.value = cell.v === true || cell.v === 1
+        else out.value = cell.t === 4 && typeof cell.v === 'number' ? String(cell.v) : cell.v
       }
-      const rawFormula = typeof cell.f === 'string' ? cell.f.trim() : ''
       if (rawFormula) {
-        const verdict = qualifyFormula(rawFormula, {
+        const rewritten = opts?.itemCellTabs
+          ? rewriteItemCellRefs(rawFormula, opts.itemCellTabs)
+          : null
+        const verdict = qualifyFormula(rewritten?.ok ? rewritten.text : rawFormula, {
           startRow: range.startRow,
           startColumn: range.startColumn,
           endRow: range.endRow,
           endColumn: range.endColumn,
-          sheetName: opts?.sheetName
+          sheetName: opts?.sheetName,
+          extraSheets: opts?.itemCellTabs ? Array.from(new Set(opts.itemCellTabs.values())) : undefined
         })
         if (verdict.ok) out.formula = verdict.excel
         opts?.verdicts?.push({
@@ -359,30 +509,38 @@ export function flattenSheet(sheet: SheetSnapshotInput, range: CellRangeLike, op
     if (r2 >= r1 && c2 >= c1 && (r2 > r1 || c2 > c1)) merges.push({ r1, c1, r2, c2 })
   }
 
-  // Hidden rows/columns zero out like the Typst sheet (worksheetTypst gives
-  // them zero width/height). Rust writes 0 as hidden instead of clamping.
-  const defW = sheet.defaultColW ?? 88
+  // Geometry mirrors the row manager: hidden rows/columns zero out (the Rust
+  // writer keeps 0 as hidden); otherwise resolved widths/heights flow through
+  // with no minimum floor — narrow source geometry is legitimate. Absent row
+  // data keeps the Excel default (null).
+  const defW = sheet.defaultColW && sheet.defaultColW > 0 ? sheet.defaultColW : 88
   const colWidthsChars: number[] = []
+  const colWidthsPx: number[] = []
   for (let c = range.startColumn; c <= range.endColumn; c++) {
-    if (sheet.columnData?.[String(c)]?.hd === 1) {
+    const datum = sheet.columnData?.[String(c)]
+    if (datum?.hd === 1) {
       colWidthsChars.push(0)
+      colWidthsPx.push(0)
       continue
     }
-    const px = sheet.columnData?.[String(c)]?.w ?? defW
-    colWidthsChars.push(Math.max(8.5, Math.round((px / 7) * 100) / 100))
+    const px = resolveColWidthPx(datum, defW)
+    colWidthsChars.push(pxToChars(px))
+    colWidthsPx.push(Math.round(px * 100) / 100)
   }
-  const defH = sheet.defaultRowH ?? 24
+  const defH = sheet.defaultRowH && sheet.defaultRowH > 0 ? sheet.defaultRowH : 24
+  // The resolved height is always supplied — including the sheet default for
+  // rows without data — mirroring the row manager (null never survives).
   const rowHeightsPt: Array<number | null> = []
   for (let r = range.startRow; r <= range.endRow; r++) {
-    if (sheet.rowData?.[String(r)]?.hd === 1) {
+    const datum = sheet.rowData?.[String(r)]
+    if (datum?.hd === 1) {
       rowHeightsPt.push(0)
       continue
     }
-    const px = sheet.rowData?.[String(r)]?.h
-    rowHeightsPt.push(typeof px === 'number' && px > 0 ? Math.round(px * 0.75 * 100) / 100 : null)
+    rowHeightsPt.push(pxToPt(resolveRowHeightPx(datum, defH)))
   }
 
-  return { cells, merges, colWidthsChars, rowHeightsPt, images: [], rowBreaks: [] }
+  return { cells, merges, colWidthsChars, colWidthsPx, rowHeightsPt, images: [], rowBreaks: [] }
 }
 
 /**

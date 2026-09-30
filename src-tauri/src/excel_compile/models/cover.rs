@@ -31,4 +31,17 @@ pub struct PagePayload {
     pub grid: DetailGridPayload,
     #[serde(default)]
     pub landscape: bool,
+    /// Referenced item sheets, written as extra tabs so native cross-sheet
+    /// formulas (`'Tab'!C18`) resolve. Empty keeps the legacy single sheet.
+    #[serde(default, alias = "extraSheets")]
+    pub extra_sheets: Vec<ExtraSheetPayload>,
+}
+
+/// One referenced grid exported as an extra tab at natural coordinates.
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct ExtraSheetPayload {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub grid: DetailGridPayload,
 }

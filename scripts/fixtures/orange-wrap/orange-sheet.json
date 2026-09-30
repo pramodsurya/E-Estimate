@@ -1,0 +1,408 @@
+{
+ "provenance": {
+  "file": "Check 1.eestimate",
+  "item": {
+   "id": "n_bxw9aqctoeh7",
+   "name": "TBSP-D.II-49",
+   "itemCode": "TBSP-D.II-49",
+   "print": {
+    "range": {
+     "endColumn": 9,
+     "endRow": 12,
+     "startColumn": 0,
+     "startRow": 0
+    }
+   }
+  },
+  "sheetId": "sheet-n_brmg45e1oeh7-1",
+  "note": "Verbatim extract of Sheet1 (values, styles, geometry, merges). Test variants reuse these saved style dicts; derived styles are marked derived.",
+  "sharedByItems": [
+   {
+    "name": "IRR-CAW-1-2",
+    "id": "n_brmg45e1oeh7"
+   },
+   {
+    "name": "IRR-CAW-7-25",
+    "id": "n_b3wpbll5oeh7"
+   },
+   {
+    "name": "IRR-CAW-1-7",
+    "id": "n_xqvlm8mqoeh7"
+   },
+   {
+    "name": "IRR-CAW-1-12",
+    "id": "n_9s9os13roeh7"
+   },
+   {
+    "name": "TBSP-D.II-43",
+    "id": "n_4lbc001roeh7"
+   },
+   {
+    "name": "TBSP-D.II-66",
+    "id": "n_qdmx88oaoeh7"
+   },
+   {
+    "name": "TBSP-D.II-49",
+    "id": "n_bxw9aqctoeh7"
+   }
+  ]
+ },
+ "workbook": {
+  "id": "univer-fidelity-real",
+  "name": "orange-wrap",
+  "appVersion": "0.25.0",
+  "locale": "enUS",
+  "styles": {
+   "-ScW2D": {
+    "bl": 1
+   },
+   "5cRHUO": {
+    "bg": {
+     "rgb": "#ff5a1f"
+    },
+    "bl": 1,
+    "fs": 15,
+    "it": 1,
+    "tb": 3,
+    "tr": {
+     "a": 0,
+     "v": 1
+    }
+   },
+   "5eHdjy": {
+    "bd": {
+     "b": {
+      "cl": {
+       "rgb": "#000000"
+      },
+      "s": 13
+     },
+     "l": {
+      "cl": {
+       "rgb": "#000000"
+      },
+      "s": 13
+     },
+     "r": {
+      "cl": {
+       "rgb": "#000000"
+      },
+      "s": 13
+     },
+     "t": {
+      "cl": {
+       "rgb": "#000000"
+      },
+      "s": 13
+     }
+    }
+   },
+   "7V5cf7": {
+    "bl": 1,
+    "fs": 14
+   },
+   "8hr6fI": {
+    "bg": {
+     "rgb": "#ff5a1f"
+    },
+    "bl": 1,
+    "fs": 15,
+    "it": 1,
+    "tb": 3,
+    "tr": {
+     "a": 45
+    }
+   },
+   "AFOgtp": {
+    "bg": {
+     "rgb": "#ff5a1f"
+    },
+    "bl": 1,
+    "fs": 15,
+    "it": 1,
+    "tb": 2,
+    "tr": {
+     "a": -90
+    }
+   },
+   "AfJXHc": {
+    "bg": {
+     "rgb": "#ff5a1f"
+    },
+    "bl": 1,
+    "fs": 15,
+    "it": 1,
+    "tb": 3,
+    "tr": {
+     "a": -90
+    }
+   },
+   "KaZIk0": {
+    "bd": {
+     "b": {
+      "cl": {
+       "rgb": "#000000"
+      },
+      "s": 1
+     },
+     "l": {
+      "cl": {
+       "rgb": "#000000"
+      },
+      "s": 1
+     },
+     "r": {
+      "cl": {
+       "rgb": "#000000"
+      },
+      "s": 1
+     },
+     "t": {
+      "cl": {
+       "rgb": "#000000"
+      },
+      "s": 1
+     }
+    }
+   },
+   "KqvXIX": {
+    "bl": 1,
+    "fs": 12
+   },
+   "UPHBsV": {
+    "fs": 12
+   },
+   "VZKOIi": {
+    "bg": {
+     "rgb": "#ff5a1f"
+    },
+    "bl": 1,
+    "fs": 15,
+    "it": 1
+   },
+   "cI_QOO": {
+    "tb": 3,
+    "tr": {
+     "a": 0,
+     "v": 1
+    }
+   },
+   "cxvqMq": {
+    "bl": 1,
+    "fs": 15
+   },
+   "eYR_08": {
+    "bl": 1,
+    "fs": 13
+   },
+   "hn0BnT": {
+    "tb": 2
+   },
+   "kEP7I3": {
+    "bg": {
+     "rgb": "#ff5a1f"
+    },
+    "bl": 1,
+    "fs": 15,
+    "it": 1,
+    "tb": 3
+   },
+   "l_22eY": {
+    "ht": 3
+   },
+   "osbwgc": {
+    "fs": 14
+   },
+   "p7Iqhq": {
+    "bg": {
+     "rgb": "#ff5a1f"
+    },
+    "bl": 1,
+    "fs": 15
+   },
+   "vTebY6": {
+    "tb": 3
+   },
+   "wQBq6T": {
+    "fs": 13
+   },
+   "wSxpau": {
+    "bg": {
+     "rgb": "#ff5a1f"
+    },
+    "bl": 1,
+    "fs": 15,
+    "it": 1,
+    "tb": 1,
+    "tr": {
+     "a": -90
+    }
+   }
+  },
+  "sheetOrder": [
+   "sheet-n_brmg45e1oeh7-1"
+  ],
+  "sheets": {
+   "sheet-n_brmg45e1oeh7-1": {
+    "cellData": {
+     "0": {
+      "1": {
+       "s": "cI_QOO",
+       "t": 1,
+       "v": "fgfgfgfgffgfg"
+      },
+      "2": {
+       "s": "l_22eY",
+       "t": 1,
+       "v": "zdvfdssv"
+      }
+     },
+     "13": {
+      "19": {
+       "t": 2,
+       "v": 300
+      }
+     },
+     "2": {
+      "5": {
+       "s": "AfJXHc",
+       "t": 1,
+       "v": "ass  nmsnbsjkbkskjk"
+      }
+     },
+     "3": {
+      "4": {
+       "s": "5eHdjy"
+      },
+      "5": {
+       "s": "5eHdjy"
+      }
+     },
+     "4": {
+      "4": {
+       "s": "5eHdjy"
+      },
+      "5": {
+       "s": "5eHdjy"
+      }
+     },
+     "5": {
+      "2": {
+       "s": "7V5cf7"
+      }
+     },
+     "599": {
+      "19": {
+       "t": 2,
+       "v": 100
+      }
+     },
+     "6": {
+      "2": {
+       "f": "=ITEMCELL(\"IRR-DAW-2-21\",\"C7\",\"n_r3ah5ixrspgm\")",
+       "s": "7V5cf7",
+       "t": 2,
+       "v": 10
+      }
+     },
+     "602": {
+      "19": {
+       "t": 2,
+       "v": 400
+      }
+     },
+     "603": {
+      "22": {
+       "t": 2,
+       "v": 100
+      }
+     },
+     "7": {
+      "2": {
+       "f": "=ITEMCELL(\"IRR-CAW-7-25\",\"D11\",\"n_ddxj165rs7en\")",
+       "s": "7V5cf7",
+       "t": 2,
+       "v": 10
+      },
+      "4": {
+       "t": 2,
+       "v": 12
+      }
+     },
+     "8": {
+      "19": {
+       "t": 2,
+       "v": 100
+      },
+      "2": {
+       "f": "=2*ITEMCELL(\"IRR-CAW-7-25\",\"D11\",\"n_ddxj165rs7en\")",
+       "s": "7V5cf7",
+       "t": 2,
+       "v": 20
+      }
+     },
+     "9": {
+      "2": {
+       "f": "=2*ITEMCELL(\"IRR-DAW-3-5\",\"D5\",\"n_ibxlext9he7l\")",
+       "s": "7V5cf7",
+       "t": 2,
+       "v": 600
+      }
+     }
+    },
+    "columnCount": 100,
+    "columnData": {
+     "1": {
+      "w": 43.5
+     }
+    },
+    "columnHeader": {
+     "height": 20
+    },
+    "defaultColumnWidth": 88,
+    "defaultRowHeight": 24,
+    "freeze": {
+     "startColumn": 0,
+     "startRow": 0,
+     "xSplit": 0,
+     "ySplit": 0
+    },
+    "hidden": 0,
+    "id": "sheet-n_brmg45e1oeh7-1",
+    "mergeData": [
+     {
+      "endColumn": 7,
+      "endRow": 4,
+      "rangeType": 0,
+      "sheetId": "sheet-n_brmg45e1oeh7-1",
+      "startColumn": 6,
+      "startRow": 3,
+      "unitId": "workbook-n_brmg45e1oeh7"
+     }
+    ],
+    "name": "Sheet1",
+    "rightToLeft": 0,
+    "rowCount": 1000,
+    "rowData": {
+     "0": {
+      "ah": 61.050811767578125,
+      "h": 89.05081176757812,
+      "ia": 0
+     },
+     "2": {
+      "h": 103,
+      "ia": 0
+     }
+    },
+    "rowHeader": {
+     "width": 46
+    },
+    "scrollLeft": 0,
+    "scrollTop": 0,
+    "showGridlines": 1,
+    "tabColor": "",
+    "zoomRatio": 1
+   }
+  }
+ }
+}

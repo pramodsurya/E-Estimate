@@ -26,6 +26,7 @@ import {
 } from './itemTypst'
 import { extractDocumentMedia, parseDocumentToTypstData } from './documentTypst'
 import { createUniverWorkbookData, usedCellRange } from '../univerSpreadsheet'
+import { attachEeDisplayText, type EeWorkbookLike } from './univerDisplayText'
 import { nodeDisplayName } from '../../components/nodeVisual'
 import { findNode } from '../tree'
 import { componentItemsTotal, getItemFinal } from '../finalNumber'
@@ -201,7 +202,7 @@ export function buildComponentRenderData(
   node: ProjectNode,
   recipes: Record<string, RateAnalysisRecipe> = {},
   rateOf: (item: ProjectNode) => number | undefined = () => undefined,
-  options?: { itemScope?: 'all' | 'direct' }
+  options?: { itemScope?: 'all' | 'direct'; includeExternalItems?: boolean }
 ): ComponentRenderData {
   const freshNode = project?.root ? findNode(project.root, node.id) ?? node : node
   const isSub = freshNode.kind === 'subcomponent'
@@ -255,7 +256,10 @@ export function buildComponentRenderData(
   // 3. Child Items Data & Gallery Aggregation
   const allGallery: ItemMediaItem[] = []
   const allImages: ItemMediaItem[] = []
-  const childItems = itemScope === 'direct' ? directItems : collectComponentItems(freshNode)
+  const scopedItems = itemScope === 'direct' ? directItems : collectComponentItems(freshNode)
+  const childItems = options?.includeExternalItems === false
+    ? scopedItems.filter((item) => item.templateGenerated)
+    : scopedItems
   const items: ComponentChildItemData[] = childItems.map((item) => {
     const isDoc = item.itemEditorType === 'document'
     const settings = resolveNodeSettings(project.root, item.id)
@@ -447,7 +451,7 @@ export function resolveComponentPrintPart(
   node: ProjectNode,
   recipes: Record<string, RateAnalysisRecipe> = {},
   rateOf: (item: ProjectNode) => number | undefined = () => undefined,
-  options?: { itemScope?: 'all' | 'direct'; deferBundInputs?: boolean }
+  options?: { itemScope?: 'all' | 'direct'; deferBundInputs?: boolean; includeExternalItems?: boolean }
 ): ComponentPrintPart {
   const scopeKey = componentScopeKey(node)
   const storedTypstSource = project.printStudioDocuments?.[scopeKey]
@@ -455,6 +459,16 @@ export function resolveComponentPrintPart(
   const isBund = node.templateId === 'bund' && Boolean(node.bund)
   const isGuideWall = node.templateId === 'guide-wall' && Boolean(node.guideWall)
   const renderData = buildComponentRenderData(project, node, recipes, rateOf, options)
+  // Shared display-text boundary (same as itemSheetCompileInputs): every
+  // child Univer snapshot carries installed display text into the compiler.
+  // attachEeDisplayText clones annotated cells, so saved snapshots stay
+  // pristine and the Excel path (which reads buildComponentRenderData
+  // separately) keeps original values, formulas and verbatim patterns.
+  for (const child of renderData.items) {
+    if (child.univer && typeof child.univer === 'object') {
+      child.univer = attachEeDisplayText(child.univer as EeWorkbookLike)
+    }
+  }
 
   let defaultTypst = defaultComponentTypstSource()
   let compileInputs = { 'ee-data': JSON.stringify(renderData) }

@@ -11,11 +11,22 @@ const path = require('node:path')
 const ts = require('typescript')
 const { NodeCompiler } = require('@myriaddreamin/typst-ts-node-compiler')
 
-// Vite raw template imports in Node's standalone regression runner.
+// Vite query imports in Node's standalone regression runner. Every branch
+// resolves relative to the IMPORTING file
+// (`path.dirname(parent.filename)`): `?raw` returns file text; `?inline`
+// assets return a data URI; `?url` assets return the absolute file path;
+// `.png?` returns a 1px placeholder.
 const rawModule = require('node:module')
 const originalLoad = rawModule._load
 rawModule._load = function (request, parent, isMain) {
-  if (request.endsWith('.typ?raw')) return fs.readFileSync(path.resolve(path.dirname(parent.filename), request.slice(0, -4)), 'utf8')
+  if (request.endsWith('?raw')) return fs.readFileSync(path.resolve(path.dirname(parent.filename), request.slice(0, -4)), 'utf8')
+  if (request.endsWith('?inline')) {
+    const file = path.resolve(path.dirname(parent.filename), request.slice(0, -7))
+    const ext = path.extname(file).toLowerCase()
+    const mime = ext === '.png' ? 'image/png' : ext === '.svg' ? 'image/svg+xml' : 'application/octet-stream'
+    return `data:${mime};base64,${fs.readFileSync(file).toString('base64')}`
+  }
+  if (request.endsWith('?url')) return path.resolve(path.dirname(parent.filename), request.slice(0, -4))
   if (request.includes('.png?')) return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
   return originalLoad.call(this, request, parent, isMain)
 }
@@ -210,6 +221,24 @@ assert.equal(parsed.margins.left, 18, 'parses left margin from code')
 assert.equal(parsed.fontSizePt, 11, 'parses font size from code')
 assert.equal(parsed.fontFamily, 'times', 'parses times font family from code')
 console.log('Bidirectional Document Setup parser: all assertions passed')
+
+// A multi-item workbook prints once as a sheet page. Item descriptions and
+// final quantities stay in the BOQ data, outside this page's layout.
+const sharedA = { ...item, id: 'shared-a', name: 'First item', itemCode: 'A-1', sharedSheetId: 'group-1', sharedSheetName: 'Measurement Sheet', children: [], charts: [], finalCell: { row: 3, column: 2 } }
+const sharedB = { ...item, id: 'shared-b', name: 'Second item', itemCode: 'B-2', sharedSheetId: 'group-1', sharedSheetName: 'Measurement Sheet', children: [], charts: [], finalCell: { row: 2, column: 2 } }
+const sharedProject = { ...project, root: { id: 'root', kind: 'title', name: 'Root', children: [sharedA, sharedB] } }
+assert.equal(api.itemSheetScopeKey(sharedA), api.itemSheetScopeKey(sharedB), 'members share one Print Studio scope')
+const sharedData = api.buildItemSheetRenderData(sharedProject, sharedA)
+assert.equal(sharedData.description, '', 'shared page has no item description')
+assert.equal(sharedData.code, '', 'shared page has no individual item code')
+assert.equal(sharedData.item, 'Measurement Sheet')
+const sharedSource = api.resolvedItemSheetTypstSource(sharedProject, sharedA)
+const sharedCompiler = NodeCompiler.create({ workspace: root })
+const sharedSvg = sharedCompiler.svg({ mainFileContent: sharedSource, inputs: api.itemSheetCompileInputs(sharedProject, sharedA) })
+assert(sharedSvg.includes('I. Reach 0 to 1 km'), 'shared sheet grid renders')
+assert(!sharedSvg.includes('First item') && !sharedSvg.includes('Second item'), 'no member heading is printed')
+assert(sharedCompiler.pdf({ mainFileContent: sharedSource, inputs: api.itemSheetCompileInputs(sharedProject, sharedA) }).length > 4000)
+sharedCompiler.resetShadow()
 
 // 5. Test Univer Document item with itemdoc.typ
 const docItem = {

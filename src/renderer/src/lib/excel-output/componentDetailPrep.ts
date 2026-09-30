@@ -19,6 +19,7 @@ import {
   type PreparedDetailInput
 } from './componentExcel'
 import { columnLabel, toRangeLike, type SheetSnapshotInput, type UnivCell, type UnivStyle } from './detailGrid'
+import { resolveColWidthPx, resolveRowHeightPx } from './univerResolve'
 import { measureMediaImages } from './pageExcel'
 import { sortScheduleItems } from '../itemOrder'
 import { createUniverWorkbookData, usedCellRange } from '../univerSpreadsheet'
@@ -94,19 +95,21 @@ export async function prepareComponentExcelParts(
       sheets?: Record<string, {
         cellData?: Record<string, Record<string, UnivCell>>
         mergeData?: Array<{ startRow: number; startColumn: number; endRow: number; endColumn: number }>
-        rowData?: Record<string, { h?: number; hd?: number }>
-        columnData?: Record<string, { w?: number; hd?: number }>
+        rowData?: Record<string, { h?: number; ia?: number; ah?: number; hd?: number; s?: UnivStyle | string | null }>
+        columnData?: Record<string, { w?: number; hd?: number; s?: UnivStyle | string | null }>
         defaultColumnWidth?: number
         defaultRowHeight?: number
+        defaultStyle?: UnivStyle | string | null
       }>
       styles?: Record<string, UnivStyle>
+    defaultStyle?: UnivStyle | string | null
     }
     const sheets = snapshot.sheets ?? {}
     const firstSheet = sheets[snapshot.sheetOrder?.[0] ?? ''] ?? Object.values(sheets)[0]
-    // The estimator's set print area wins (mirrors the Typst item sheet);
-    // otherwise the used range. Hidden rows/columns zero out so image
-    // anchors walk the same geometry the grid exports.
-    const range = toRangeLike(itemNode.print?.range) ?? usedCellRange(
+    // A shared workbook has one global print area for its own exported tab.
+    // Component quantities still use each item's local final cell, even when
+    // that cell falls outside the shared page's print area.
+    const range = (itemNode.sharedSheetId ? null : toRangeLike(itemNode.print?.range)) ?? usedCellRange(
       snapshot as Parameters<typeof usedCellRange>[0],
       itemNode.finalCell ?? null
     )
@@ -114,15 +117,19 @@ export async function prepareComponentExcelParts(
       throw new Error(`Component Excel: item '${hint}' has no printable spreadsheet detail.`)
     }
     const media = extractItemMedia(itemNode, range)
-    const defW = firstSheet.defaultColumnWidth ?? 88
-    const defH = firstSheet.defaultRowHeight ?? 24
+    const defW = firstSheet.defaultColumnWidth && firstSheet.defaultColumnWidth > 0 ? firstSheet.defaultColumnWidth : 88
+    const defH = firstSheet.defaultRowHeight && firstSheet.defaultRowHeight > 0 ? firstSheet.defaultRowHeight : 24
+    // Anchor geometry uses the same resolved heights/widths as the grid
+    // (ia/ah-aware via the shared resolver), never h-or-default alone.
     const colWidthsPx: number[] = []
     for (let c = range.startColumn; c <= range.endColumn; c++) {
-      colWidthsPx.push(firstSheet.columnData?.[String(c)]?.hd === 1 ? 0 : firstSheet.columnData?.[String(c)]?.w ?? defW)
+      const datum = firstSheet.columnData?.[String(c)]
+      colWidthsPx.push(datum?.hd === 1 ? 0 : resolveColWidthPx(datum, defW))
     }
     const rowHeightsPx: number[] = []
     for (let r = range.startRow; r <= range.endRow; r++) {
-      rowHeightsPx.push(firstSheet.rowData?.[String(r)]?.hd === 1 ? 0 : firstSheet.rowData?.[String(r)]?.h ?? defH)
+      const datum = firstSheet.rowData?.[String(r)]
+      rowHeightsPx.push(datum?.hd === 1 ? 0 : resolveRowHeightPx(datum, defH))
     }
     const fc = itemNode.finalCell
     if (!fc) {
@@ -145,7 +152,10 @@ export async function prepareComponentExcelParts(
       rowData: firstSheet.rowData,
       columnData: firstSheet.columnData,
       defaultColW: defW,
-      defaultRowH: defH
+      defaultRowH: defH,
+      // Worksheet default wins; the workbook default applies when the sheet
+      // carries none (both exist in the installed typedefs).
+      defaultStyle: firstSheet.defaultStyle ?? snapshot.defaultStyle ?? null
     }
     detailInputs.push({
       kind: 'sheet',

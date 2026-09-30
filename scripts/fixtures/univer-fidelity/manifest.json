@@ -1,0 +1,367 @@
+{
+  "generator": "scripts/create-univer-fidelity.cjs",
+  "version": "0.25.0",
+  "method": "Univer facade mutations followed by FWorkbook.save()",
+  "cases": [
+    {
+      "sheet": "Fonts and decoration",
+      "cell": "C3",
+      "label": "Arial"
+    },
+    {
+      "sheet": "Fonts and decoration",
+      "cell": "C4",
+      "label": "Calibri"
+    },
+    {
+      "sheet": "Fonts and decoration",
+      "cell": "C5",
+      "label": "Times New Roman"
+    },
+    {
+      "sheet": "Fonts and decoration",
+      "cell": "C6",
+      "label": "Courier New"
+    },
+    {
+      "sheet": "Fonts and decoration",
+      "cell": "C8",
+      "label": "Size 8"
+    },
+    {
+      "sheet": "Fonts and decoration",
+      "cell": "C9",
+      "label": "Size 11"
+    },
+    {
+      "sheet": "Fonts and decoration",
+      "cell": "C10",
+      "label": "Size 14"
+    },
+    {
+      "sheet": "Fonts and decoration",
+      "cell": "C11",
+      "label": "Size 20"
+    },
+    {
+      "sheet": "Fonts and decoration",
+      "cell": "C13",
+      "label": "Bold"
+    },
+    {
+      "sheet": "Fonts and decoration",
+      "cell": "C14",
+      "label": "Italic"
+    },
+    {
+      "sheet": "Fonts and decoration",
+      "cell": "C15",
+      "label": "Underline"
+    },
+    {
+      "sheet": "Fonts and decoration",
+      "cell": "C16",
+      "label": "Strike"
+    },
+    {
+      "sheet": "Fonts and decoration",
+      "cell": "C17",
+      "label": "Color and fill"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C3",
+      "label": "Numeric left"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C4",
+      "label": "Numeric center"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C5",
+      "label": "Numeric right"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C6",
+      "label": "General number"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C7",
+      "label": "General text"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C8",
+      "label": "General boolean"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C10",
+      "label": "Vertical top"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C11",
+      "label": "Vertical middle"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C12",
+      "label": "Vertical bottom"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C14",
+      "label": "WRAP"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C15",
+      "label": "CLIP"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C16",
+      "label": "OVERFLOW"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C19",
+      "label": "Angle -90"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C20",
+      "label": "Angle -45"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C21",
+      "label": "Angle 0"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C22",
+      "label": "Angle 45"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C23",
+      "label": "Angle 90"
+    },
+    {
+      "sheet": "Alignment wrap rotation",
+      "cell": "C26",
+      "label": "Vertical mode + wrap"
+    },
+    {
+      "sheet": "Border enum matrix",
+      "cell": "C3",
+      "label": "NONE"
+    },
+    {
+      "sheet": "Border enum matrix",
+      "cell": "C4",
+      "label": "THIN"
+    },
+    {
+      "sheet": "Border enum matrix",
+      "cell": "C5",
+      "label": "HAIR"
+    },
+    {
+      "sheet": "Border enum matrix",
+      "cell": "C6",
+      "label": "DOTTED"
+    },
+    {
+      "sheet": "Border enum matrix",
+      "cell": "C7",
+      "label": "DASHED"
+    },
+    {
+      "sheet": "Border enum matrix",
+      "cell": "C8",
+      "label": "DASH_DOT"
+    },
+    {
+      "sheet": "Border enum matrix",
+      "cell": "C9",
+      "label": "DASH_DOT_DOT"
+    },
+    {
+      "sheet": "Border enum matrix",
+      "cell": "C10",
+      "label": "DOUBLE"
+    },
+    {
+      "sheet": "Border enum matrix",
+      "cell": "C11",
+      "label": "MEDIUM"
+    },
+    {
+      "sheet": "Border enum matrix",
+      "cell": "C12",
+      "label": "MEDIUM_DASHED"
+    },
+    {
+      "sheet": "Border enum matrix",
+      "cell": "C13",
+      "label": "MEDIUM_DASH_DOT"
+    },
+    {
+      "sheet": "Border enum matrix",
+      "cell": "C14",
+      "label": "MEDIUM_DASH_DOT_DOT"
+    },
+    {
+      "sheet": "Border enum matrix",
+      "cell": "C15",
+      "label": "SLANT_DASH_DOT"
+    },
+    {
+      "sheet": "Border enum matrix",
+      "cell": "C16",
+      "label": "THICK"
+    },
+    {
+      "sheet": "Number formats",
+      "cell": "C3",
+      "label": "General"
+    },
+    {
+      "sheet": "Number formats",
+      "cell": "C4",
+      "label": "Decimal"
+    },
+    {
+      "sheet": "Number formats",
+      "cell": "C5",
+      "label": "Grouping"
+    },
+    {
+      "sheet": "Number formats",
+      "cell": "C6",
+      "label": "Percent"
+    },
+    {
+      "sheet": "Number formats",
+      "cell": "C7",
+      "label": "Currency"
+    },
+    {
+      "sheet": "Number formats",
+      "cell": "C8",
+      "label": "Negative"
+    },
+    {
+      "sheet": "Number formats",
+      "cell": "C9",
+      "label": "Date"
+    },
+    {
+      "sheet": "Number formats",
+      "cell": "C10",
+      "label": "Time"
+    },
+    {
+      "sheet": "Number formats",
+      "cell": "C11",
+      "label": "Scientific"
+    },
+    {
+      "sheet": "Number formats",
+      "cell": "C12",
+      "label": "Fraction"
+    },
+    {
+      "sheet": "Number formats",
+      "cell": "C13",
+      "label": "Conditional"
+    },
+    {
+      "sheet": "Number formats",
+      "cell": "C14",
+      "label": "Leading zeros"
+    },
+    {
+      "sheet": "Geometry merges unicode",
+      "cell": "C9",
+      "label": "Unicode"
+    },
+    {
+      "sheet": "Geometry merges unicode",
+      "cell": "C11",
+      "label": "Rich text Unicode offsets"
+    },
+    {
+      "sheet": "Advanced cell styles",
+      "cell": "C3",
+      "label": "Superscript"
+    },
+    {
+      "sheet": "Advanced cell styles",
+      "cell": "C4",
+      "label": "Subscript"
+    },
+    {
+      "sheet": "Advanced cell styles",
+      "cell": "C5",
+      "label": "Overline"
+    },
+    {
+      "sheet": "Advanced cell styles",
+      "cell": "C6",
+      "label": "Double underline"
+    },
+    {
+      "sheet": "Advanced cell styles",
+      "cell": "C7",
+      "label": "Padding"
+    },
+    {
+      "sheet": "Advanced cell styles",
+      "cell": "C8",
+      "label": "RTL"
+    },
+    {
+      "sheet": "Advanced cell styles",
+      "cell": "C9",
+      "label": "LTR"
+    },
+    {
+      "sheet": "Advanced cell styles",
+      "cell": "C10",
+      "label": "Justified"
+    },
+    {
+      "sheet": "Advanced cell styles",
+      "cell": "C11",
+      "label": "Both"
+    },
+    {
+      "sheet": "Advanced cell styles",
+      "cell": "C12",
+      "label": "Distributed"
+    },
+    {
+      "sheet": "Advanced cell styles",
+      "cell": "C13",
+      "label": "Diagonal down"
+    },
+    {
+      "sheet": "Advanced cell styles",
+      "cell": "C14",
+      "label": "Diagonal up"
+    }
+  ],
+  "limitations": [
+    "Headless generation: no canvas-measured auto heights or source screenshots.",
+    "No chart/image render, conditional-format rule, theme-color or paragraph-list fixtures yet.",
+    "setValue ICellData used for vertical-mode and forced-text cases; all saved style IDs are assigned by Univer."
+  ]
+}

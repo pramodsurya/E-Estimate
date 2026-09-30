@@ -7,7 +7,14 @@ const { NodeCompiler } = require('@myriaddreamin/typst-ts-node-compiler')
 const root = path.resolve(__dirname, '..')
 const originalLoad = Module._load
 Module._load = function(request, parent, isMain) {
-  if (request.endsWith('.typ?raw')) return fs.readFileSync(path.resolve(path.dirname(parent.filename), request.slice(0, -4)), 'utf8')
+  if (request.endsWith('?raw')) return fs.readFileSync(path.resolve(path.dirname(parent.filename), request.slice(0, -4)), 'utf8')
+  if (request.endsWith('?inline')) {
+    const file = path.resolve(path.dirname(parent.filename), request.slice(0, -7))
+    const ext = path.extname(file).toLowerCase()
+    const mime = ext === '.png' ? 'image/png' : ext === '.svg' ? 'image/svg+xml' : 'application/octet-stream'
+    return `data:${mime};base64,${fs.readFileSync(file).toString('base64')}`
+  }
+  if (request.endsWith('?url')) return path.resolve(path.dirname(parent.filename), request.slice(0, -4))
   return originalLoad.call(this, request, parent, isMain)
 }
 require.extensions['.ts'] = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {

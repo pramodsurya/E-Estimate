@@ -136,6 +136,18 @@ async function runTests() {
   )
 
   const payload = projectExcel.buildProjectDashboardPayload(fixture())
+  const itemSettingsInput = fixture()
+  itemSettingsInput.components[0].detailPrintSettings = [{
+    pageSize: 'A3',
+    orientation: 'landscape',
+    marginsMm: { top: 10, right: 11, bottom: 12, left: 13 },
+    fontName: 'Arial',
+    fontSizePt: 9
+  }, null]
+  const separateItemPayload = projectExcel.buildProjectDashboardPayload(itemSettingsInput)
+  const separateItemTab = separateItemPayload.sheets.find((sheet) => sheet.name === 'Main Canal_1_Earthwork')
+  assert.equal(separateItemTab.printSettings.pageSize, 'A3', 'project Excel keeps item page settings on its own tab')
+  assert.equal(separateItemPayload.sheets.some((sheet) => sheet.name === 'Detailed_Main Canal'), false, 'item settings prevent a combined Detailed tab')
   const abstractExcel = loadTsModule(
     path.join(root, 'src/renderer/src/lib/excel-output/generalAbstractExcel.ts')
   )

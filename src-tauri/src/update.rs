@@ -31,13 +31,24 @@ pub struct UpdateInfo {
     pub release_name: Option<String>,
 }
 
-#[derive(Default, Clone, Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateStatusInfo {
     pub stage: String,
     pub info: Option<UpdateInfo>,
     pub percent: Option<f64>,
     pub message: Option<String>,
+}
+
+impl Default for UpdateStatusInfo {
+    fn default() -> Self {
+        Self {
+            stage: "idle".into(),
+            info: None,
+            percent: None,
+            message: None,
+        }
+    }
 }
 
 /// The update that is currently available / downloading, plus its bytes once
@@ -138,9 +149,12 @@ pub fn update_status(app: AppHandle) -> UpdateStatusInfo {
 }
 
 /// Check for an update; if one exists, announce it and start downloading. The
-/// install step is deferred until the user chooses "Restart & install".
+/// renderer installs only after saved work has been verified and the app is idle.
 #[tauri::command]
 pub async fn update_check(app: AppHandle) -> Result<(), String> {
+    if matches!(current_status(&app).stage.as_str(), "checking" | "available" | "downloading" | "downloaded") {
+        return Ok(());
+    }
     set_status(
         &app,
         UpdateStatusInfo {
@@ -222,10 +236,16 @@ pub fn update_install(app: AppHandle) -> Result<(), String> {
     let Some(pending) = pending else {
         return Err("No downloaded update to install".into());
     };
-    let Some(bytes) = pending.bytes else {
+    let Some(bytes) = pending.bytes.as_ref() else {
+        if let Some(state) = app.try_state::<UpdateState>() {
+            state.set_pending(Some(pending));
+        }
         return Err("The update has not finished downloading".into());
     };
-    if let Err(e) = pending.update.install(&bytes) {
+    if let Err(e) = pending.update.install(bytes) {
+        if let Some(state) = app.try_state::<UpdateState>() {
+            state.set_pending(Some(pending));
+        }
         return Err(fail(&app, format!("Update install failed: {e}")));
     }
     // Windows exits here; other platforms need an explicit relaunch.
@@ -246,7 +266,6 @@ async fn download(app: &AppHandle, update: Update) -> Result<(), String> {
     );
 
     let app_progress = app.clone();
-    let app_finish = app.clone();
     let mut downloaded: usize = 0;
     let mut total: Option<u64> = None;
 
@@ -270,18 +289,7 @@ async fn download(app: &AppHandle, update: Update) -> Result<(), String> {
                     },
                 );
             },
-            || {
-                let _ = app_finish.emit("update:downloaded", info_from_update(&update));
-                set_status(
-                    &app_finish,
-                    UpdateStatusInfo {
-                        stage: "downloaded".into(),
-                        info: Some(info_from_update(&update)),
-                        percent: Some(100.0),
-                        ..Default::default()
-                    },
-                );
-            },
+            || {},
         )
         .await
     {
@@ -292,5 +300,15 @@ async fn download(app: &AppHandle, update: Update) -> Result<(), String> {
     if let Some(state) = app.try_state::<UpdateState>() {
         state.set_bytes(bytes);
     }
+    set_status(
+        app,
+        UpdateStatusInfo {
+            stage: "downloaded".into(),
+            info: Some(info_from_update(&update)),
+            percent: Some(100.0),
+            ..Default::default()
+        },
+    );
+    let _ = app.emit("update:downloaded", info_from_update(&update));
     Ok(())
 }

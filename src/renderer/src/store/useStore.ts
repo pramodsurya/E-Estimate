@@ -96,6 +96,7 @@ import type { DocumentSettings } from '../lib/typist-output/documentSettings'
 import { ensureProjectHasCoverEmblem } from '../lib/typist-output/coverTypst'
 import { LEAD_MAP_IMAGE_PATH } from '../lib/leadMapGeometry'
 import { mergeLeadMapShadowFiles, stripLeadMapShadowFiles } from '../lib/leadMapCapture'
+import { collectSharedMembers, findSharedOwner, findSharedPrintSource } from '../lib/sharedSheet'
 
 const SSR_ITEM_TABLE = 'ssr_item'
 
@@ -490,6 +491,22 @@ export type DataDashboardSection = 'dashboard' | 'created' | 'catalogue' | 'rate
 interface AddItemState {
   open: boolean
   parentId: string | null
+  /** When set, the storage step defaults to appending into this shared sheet. */
+  presetSharedSheet?: { id: string; name: string; growFromItemId?: string | null } | null
+}
+
+/**
+ * Excel-style point mode: an unfinished formula carried across sheets.
+ * Only one sheet mounts at a time, so the pending text lives here while
+ * the user clicks cells in other items' sheets.
+ */
+export interface FormulaLinkState {
+  originItemId: string
+  target: { row: number; column: number }
+  text: string
+  /** Start of the last picked reference; another pick replaces it. */
+  lastPickStart?: number
+  commitRequested: boolean
 }
 
 interface AddPageState {
@@ -618,6 +635,7 @@ interface StoreState {
   past: EestimateProject[]
   future: EestimateProject[]
   addItem: AddItemState
+  formulaLink: FormulaLinkState | null
   addPage: AddPageState
   addStructure: AddStructureState
   settings: SettingsState
@@ -736,6 +754,18 @@ interface StoreState {
   ) => void
   addCustomItem: (parentId: string, name: string) => void
   addItemsFromMaster: (parentId: string, items: MasterItem[]) => void
+  addSharedItemsFromMaster: (
+    parentId: string,
+    items: MasterItem[],
+    opts: { sharedSheetId: string; sharedSheetName: string }
+  ) => void
+  addProjectDataItemsToSharedSheet: (
+    parentId: string,
+    projectDataIds: string[],
+    opts: { sharedSheetId: string; sharedSheetName: string }
+  ) => void
+  attachItemToSharedSheet: (itemId: string, sharedSheetId: string, sharedSheetName?: string) => void
+  detachItemFromSharedSheet: (itemId: string) => void
   createProjectData: (input: ProjectDataDefinitionInput) => ProjectDataDefinition | null
   updateProjectData: (id: string, input: ProjectDataDefinitionInput) => ProjectDataDefinition | null
   addProjectDataItems: (parentId: string, projectDataIds: string[]) => void
@@ -809,8 +839,13 @@ interface StoreState {
   restoreRateAnalysisDefaults: (recipe: RateAnalysisRecipe, scopeNodeId?: string) => void
 
   // modals
-  openAddItem: (parentId: string) => void
+  openAddItem: (parentId: string, presetSharedSheet?: { id: string; name: string; growFromItemId?: string | null } | null) => void
   closeAddItem: () => void
+  startFormulaLink: (link: { originItemId: string; target: { row: number; column: number }; text: string; lastPickStart?: number }) => void
+  appendFormulaLinkText: (extra: string) => void
+  cancelFormulaLink: () => void
+  requestFormulaLinkCommit: () => void
+  clearFormulaLink: () => void
   openAddPage: (parentId: string) => void
   closeAddPage: () => void
   closeAddStructure: () => void
@@ -980,7 +1015,8 @@ export const useStore = create<StoreState>((set, get) => {
     explorerFilter: '',
     past: [],
     future: [],
-    addItem: { open: false, parentId: null },
+    addItem: { open: false, parentId: null, presetSharedSheet: null },
+    formulaLink: null,
     addPage: { open: false, parentId: null },
     addStructure: { open: false, kind: 'component', parentId: null },
     settings: { open: false, nodeId: null },
@@ -1182,7 +1218,8 @@ export const useStore = create<StoreState>((set, get) => {
         expanded: {},
         past: [],
         future: [],
-        addItem: { open: false, parentId: null },
+        addItem: { open: false, parentId: null, presetSharedSheet: null },
+        formulaLink: null,
         addPage: { open: false, parentId: null },
         addStructure: { open: false, kind: 'component', parentId: null },
         settings: { open: false, nodeId: null },
@@ -1857,6 +1894,90 @@ export const useStore = create<StoreState>((set, get) => {
       set((s) => ({ expanded: { ...s.expanded, [parent.id]: true } }))
     },
 
+    addSharedItemsFromMaster: (parentId, items, opts) => {
+      const p = get().project
+      if (!p || items.length === 0) return
+      const parent = resolveItemParent(p.root, parentId)
+      const seed = findSharedOwner(p.root, opts.sharedSheetId)?.spreadsheet
+      const print = findSharedPrintSource(p.root, opts.sharedSheetId)?.print
+      const nodes = items.map((m) =>
+        createNode('item', m.side === 'SOR' ? m.description : m.code, {
+          itemSource: m.side,
+          itemCode: m.code,
+          itemDescription: m.description,
+          itemEditorType: 'spreadsheet',
+          unit: m.unit,
+          categoryKey: m.category,
+          dataVariant: m.dataVariant,
+          sorCatalogue: m.sorCatalogue,
+          sharedSheetId: opts.sharedSheetId,
+          sharedSheetName: opts.sharedSheetName,
+          ...(seed ? { spreadsheet: seed } : {}),
+          ...(print ? { print } : {})
+        })
+      )
+      mutate((root) => addChildren(root, parent.id, nodes))
+      set((s) => ({ expanded: { ...s.expanded, [parent.id]: true } }))
+    },
+
+    addProjectDataItemsToSharedSheet: (parentId, projectDataIds, opts) => {
+      const project = get().project
+      if (!project || projectDataIds.length === 0) return
+      const parent = resolveItemParent(project.root, parentId)
+      const wanted = new Set(projectDataIds)
+      const seed = findSharedOwner(project.root, opts.sharedSheetId)?.spreadsheet
+      const print = findSharedPrintSource(project.root, opts.sharedSheetId)?.print
+      const nodes = (project.projectData ?? []).flatMap((definition) =>
+        wanted.has(definition.id)
+          ? [
+              createNode('item', definition.description, {
+                itemSource: 'PROJECT_DATA',
+                itemCode: definition.code,
+                itemDescription: definition.description,
+                itemEditorType: 'spreadsheet',
+                unit: definition.unit,
+                categoryKey: PROJECT_DATA_CATEGORY,
+                projectDataId: definition.id,
+                sharedSheetId: opts.sharedSheetId,
+                sharedSheetName: opts.sharedSheetName,
+                ...(seed ? { spreadsheet: seed } : {}),
+                ...(print ? { print } : {})
+              })
+            ]
+          : []
+      )
+      if (!nodes.length) return
+      mutate((root) => addChildren(root, parent.id, nodes))
+      set((state) => ({ expanded: { ...state.expanded, [parent.id]: true } }))
+    },
+
+    attachItemToSharedSheet: (itemId, sharedSheetId, sharedSheetName) => {
+      const p = get().project
+      if (!p) return
+      const target = findNode(p.root, itemId)
+      if (!target || target.kind !== 'item') return
+      const owner = findSharedOwner(p.root, sharedSheetId)
+      const print = findSharedPrintSource(p.root, sharedSheetId)?.print
+      const name = sharedSheetName ?? owner?.sharedSheetName ?? target.sharedSheetName ?? 'Shared sheet'
+      mutate((root) => {
+        let next = patchNode(root, itemId, {
+          sharedSheetId,
+          sharedSheetName: name,
+          ...(owner?.spreadsheet ? { spreadsheet: owner.spreadsheet } : {}),
+          ...(print ? { print } : {})
+        })
+        // Keep the display name mirrored on every member.
+        for (const member of collectSharedMembers(next, sharedSheetId)) {
+          if (member.sharedSheetName !== name) next = patchNode(next, member.id, { sharedSheetName: name })
+        }
+        return next
+      })
+    },
+
+    detachItemFromSharedSheet: (itemId) => {
+      mutate((root) => patchNode(root, itemId, { sharedSheetId: undefined, sharedSheetName: undefined }))
+    },
+
     createProjectData: (input) => {
       const project = get().project
       if (!project) return null
@@ -2036,10 +2157,19 @@ export const useStore = create<StoreState>((set, get) => {
     setNodeSpreadsheet: (id, spreadsheet) => {
       const p = get().project
       if (!p) return
+      // Shared-sheet members keep a synced copy of the same grid bytes, so
+      // every member's final total keeps reading live after any member edits.
+      const edited = findNode(p.root, id)
+      let root = patchNode(p.root, id, { spreadsheet })
+      if (edited?.sharedSheetId) {
+        for (const member of collectSharedMembers(root, edited.sharedSheetId)) {
+          if (member.id !== id) root = patchNode(root, member.id, { spreadsheet })
+        }
+      }
       set({
         project: {
           ...p,
-          root: patchNode(p.root, id, { spreadsheet }),
+          root,
           updatedAt: new Date().toISOString()
         },
         dirty: true
@@ -2050,10 +2180,17 @@ export const useStore = create<StoreState>((set, get) => {
     setNodePrint: (id, print) => {
       const p = get().project
       if (!p) return
+      const item = findNode(p.root, id)
+      let root = patchNode(p.root, id, { print })
+      if (item?.sharedSheetId) {
+        for (const member of collectSharedMembers(root, item.sharedSheetId)) {
+          if (member.id !== id) root = patchNode(root, member.id, { print })
+        }
+      }
       set({
         project: {
           ...p,
-          root: patchNode(p.root, id, { print }),
+          root,
           updatedAt: new Date().toISOString()
         },
         dirty: true
@@ -2711,8 +2848,17 @@ export const useStore = create<StoreState>((set, get) => {
       })
     },
 
-    openAddItem: (parentId) => set({ addItem: { open: true, parentId } }),
-    closeAddItem: () => set({ addItem: { open: false, parentId: null } }),
+    openAddItem: (parentId, presetSharedSheet) =>
+      set({ addItem: { open: true, parentId, presetSharedSheet: presetSharedSheet ?? null } }),
+    closeAddItem: () => set({ addItem: { open: false, parentId: null, presetSharedSheet: null } }),
+    startFormulaLink: (link) =>
+      set({ formulaLink: { ...link, commitRequested: false } }),
+    appendFormulaLinkText: (extra) =>
+      set((s) => (s.formulaLink ? { formulaLink: { ...s.formulaLink, text: `${s.formulaLink.text}${extra}`, lastPickStart: undefined } } : {})),
+    cancelFormulaLink: () => set({ formulaLink: null }),
+    requestFormulaLinkCommit: () =>
+      set((s) => (s.formulaLink ? { formulaLink: { ...s.formulaLink, commitRequested: true } } : {})),
+    clearFormulaLink: () => set({ formulaLink: null }),
     openAddPage: (parentId) => set({ addPage: { open: true, parentId } }),
     closeAddPage: () => set({ addPage: { open: false, parentId: null } }),
     closeAddStructure: () => set({ addStructure: { open: false, kind: 'component', parentId: null } }),

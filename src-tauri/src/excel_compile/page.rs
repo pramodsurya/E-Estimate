@@ -20,5 +20,12 @@ pub fn generate_excel_page_workbook(payload: &PagePayload, req: &ExcelCompileReq
     ws.set_print_fit_to_pages(1, 0);
     let img_dir = excel_cache_dir().map_err(XlsxError::CustomError)?;
     write_detail_grid(ws, &payload.grid, &img_dir, &EXCEL_UNIQUE)?;
+    for extra in &payload.extra_sheets {
+        let name = unique_grid_sheet_name(&mut taken, &extra.name);
+        let ws = workbook.add_worksheet();
+        ws.set_name(&name)?;
+        ws.set_portrait();
+        write_detail_grid(ws, &extra.grid, &img_dir, &EXCEL_UNIQUE)?;
+    }
     super::print_settings::save_with_print_settings(workbook, req)
 }

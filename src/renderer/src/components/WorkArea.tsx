@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { useStore, useSelectedNode } from '../store/useStore'
 import { findNode } from '../lib/tree'
+import { findSharedOwner } from '../lib/sharedSheet'
+import type { ProjectNode } from '../types/project'
 import { parseGuideWallDetailId } from '../lib/guideWall'
 import { parseBundDetailId } from '../lib/bund'
 import { parseCanalDetailId } from '../lib/canal'
@@ -15,6 +17,7 @@ import CanalDetail from './canal/CanalDetail'
 import PageEditor from './editors/PageEditor'
 const loadItemSpreadsheet = () => import('./editors/ItemSpreadsheet')
 const ItemSpreadsheet = lazy(loadItemSpreadsheet)
+import FormulaLinkBanner from './editors/FormulaLinkBanner'
 import RateAnalysisDashboard from './rateanalysis/RateAnalysisDashboard'
 import DataDashboard from './data/DataDashboard'
 import LeadDashboard from './lead/LeadDashboard'
@@ -34,6 +37,11 @@ export default function WorkArea(): JSX.Element {
   const detailComponentId = parseGuideWallDetailId(selectedId)
   const bundDetailComponentId = parseBundDetailId(selectedId)
   const canalDetailComponentId = parseCanalDetailId(selectedId)
+  const itemEditor = (item: ProjectNode): JSX.Element => {
+    const owner = item.sharedSheetId && root ? findSharedOwner(root, item.sharedSheetId) ?? item : item
+    const key = item.sharedSheetId ? `shared:${item.sharedSheetId}` : item.id
+    return <ItemSpreadsheet key={key} node={owner} focusedItemId={item.id} />
+  }
 
   useEffect(() => {
     if (view === 'home' || view === 'newproject') return
@@ -99,15 +107,16 @@ export default function WorkArea(): JSX.Element {
       ) : owner && owner.templateId === 'canal' ? (
         <CanalDetail key={owner.id} node={owner} />
       ) : (
-        <ItemSpreadsheet key={selected.id} node={selected} />
+        itemEditor(selected)
       )
   } else {
-    content = <ItemSpreadsheet key={selected.id} node={selected} />
+    content = itemEditor(selected)
   }
 
   return (
     <div className="workarea">
       <ClusterBreadcrumb />
+      <FormulaLinkBanner />
       <Suspense fallback={<div className="workarea-loading">Loading...</div>}>{content}</Suspense>
     </div>
   )

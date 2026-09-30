@@ -302,8 +302,7 @@ const trenchedProfiles = canal.canalHeartingProfiles({
   ground: [{ offset: -20, rl: 99 }, { offset: 20, rl: 99 }], designPopulated: true
 })
 assert.ok(trenchedProfiles.every((profile) => profile.trench.length === 4), 'trapezoidal cutoff trenches drawn')
-near(trenchedProfiles[0].level.height / 2, 1.5, 1e-9, 'cutoff trench depth is half hearting height')
-near(trenchedProfiles[0].trench[0].rl - trenchedProfiles[0].trench[3].rl, 1.5, 1e-9, 'trench polygon uses automatic half height')
+near(trenchedProfiles[0].trench[0].rl - trenchedProfiles[0].trench[3].rl, 1.5, 1e-9, 'trench polygon uses the configured cutoff depth')
 assert.equal(
   canal.canalHeartingProfiles(zonedCanal, { id: 'high-ground', chainage: 0, ground: [{ offset: -20, rl: 102 }, { offset: 20, rl: 102 }], designPopulated: true }).length,
   0,
@@ -364,18 +363,18 @@ near(toeGround[0].offset, fillProfile[0].offset, 0.001, 'section ground starts a
 near(toeGround[toeGround.length - 1].offset, fillProfile[fillProfile.length - 1].offset, 0.001, 'section ground ends at right bank toe')
 assert.deepEqual(toeGround.map((point) => point.rl), [99, 99], 'entered toe RLs are preserved')
 const fillAreas = canal.canalSectionAreas(makeCanal(), fillSection)
-near(fillAreas.filling, 47.535, 0.01, 'new canal without a foundation reach fills from existing ground')
+near(fillAreas.filling, 61.155, 0.01, 'new canal bank fill extends down to the default stripped level')
 near(fillAreas.cutting, 0, 1e-9, 'no cutting on a fill section')
 near(
   canal.canalStrippedOrCutLevelAt({ ...makeCanal(), strippingDepth: 0.6 }, fillSection, 0),
-  99,
+  98.4,
   1e-9,
-  'new canal without a foundation reach uses existing ground'
+  'new canal uses the configured stripped level'
 )
 const strippingBands = canal.canalStrippingBands({ ...makeCanal(), strippingDepth: 0.6 }, fillSection)
-assert.equal(strippingBands.length, 0, 'new canal has no stripping work')
+assert.equal(strippingBands.length, 2, 'new canal strips beneath both actual bund footprints')
 const foundationReachCanal = { ...makeCanal(), foundationExcavationReaches: [{ id: 'f1', fromChainage: 0, toChainage: 100, foundationRl: 98.4, bands: canal.defaultCanalExcavationBands() }] }
-near(canal.canalSectionAreas(foundationReachCanal, fillSection).filling, 61.155, 0.01, 'new bank fill is measured from the excavated foundation plane')
+near(canal.canalSectionAreas(foundationReachCanal, fillSection).filling, 61.155, 0.01, 'legacy foundation reach does not add a second void below stripping')
 const foundationBands = canal.canalFoundationExcavationBands(foundationReachCanal, fillSection)
 assert.ok(foundationBands.length > 0, 'foundation excavation is drawn below the bank footprint')
 near(Math.min(...foundationBands.flat().map((point) => point.rl)), 98.4, 1e-9, 'drawn foundation excavation uses the active reach depth')
@@ -604,7 +603,7 @@ const fillTwo = {
     { id: 'fill-100', chainage: 100, ground: fillGround }
   ]
 }
-near(canal.canalBankVolumeTotals(fillTwo).totalFill, 4753.5, 1, 'bank fill between two populated sections')
+near(canal.canalBankVolumeTotals(fillTwo).totalFill, 6115.5, 1, 'bank fill between two populated sections includes the stripped foundation depth')
 const fillGap = {
   ...levelMake(),
   sections: [
@@ -613,7 +612,7 @@ const fillGap = {
     { id: 'fill-100', chainage: 100, ground: fillGround }
   ]
 }
-near(canal.canalBankVolumeTotals(fillGap).totalFill, 4753.5, 1, 'bank fill bridges unpopulated sections')
+near(canal.canalBankVolumeTotals(fillGap).totalFill, 6115.5, 1, 'bank fill bridges unpopulated sections')
 
 // --- syncCanalItems writes chapter quantities into estimate items -------------
 const canalComponent = (canalData) => ({
@@ -648,7 +647,7 @@ assert.deepEqual(cutCleared.children[0].canal.materialItems, [], 'registry empti
 
 // Fill canal: homogeneous bank fill goes to the borrow-area item.
 const fillSynced = canal.syncCanalItems(canalComponent(fillTwo), 'c')
-near(itemByCode(fillSynced, 'IRR-CAW-2-7').computedQuantity, 4753.5, 1, 'bank fill reaches the estimate')
+near(itemByCode(fillSynced, 'IRR-CAW-2-7').computedQuantity, 6115.5, 1, 'bank fill including the stripped depth reaches the estimate')
 
 // Repair canal: stripping is classified with the cut bands.
 const repairFill = { ...levelMake(), mode: 'repair', sections: fillTwo.sections }
@@ -665,28 +664,32 @@ near(itemByCode(liningSynced, 'IRR-CCDW-2-3').computedQuantity, 2.106 + 0.398 + 
 const liningOff = { ...liningCanal, liningReaches: liningCanal.liningReaches.map((reach) => ({ ...reach, provide: false })) }
 assert.equal(itemByCode(canal.syncCanalItems(canalComponent(liningOff), 'c'), 'IRR-CAW-7-6'), undefined, 'unprovided lining reaches bill nothing')
 
-// Foundation treatment: void replacement bills under its own SSR code.
+// Foundation treatment is configured per bank-height tier, not per reach:
+// every tier carries the same treatment here so the whole length is treated.
+const tieredFillConfig = (patch) => {
+  const base = canal.defaultCanalBankDesignConfig('new')
+  const withWorks = (tiers) => tiers.map((tier) => ({ ...tier, foundationTreatment: { ...canal.defaultCanalTierFoundationConfig(), ...patch } }))
+  return { ...base, leftTiers: withWorks(base.leftTiers), rightTiers: withWorks(base.rightTiers) }
+}
+// Foundation replacement filling is removed from the first-build workflow.
 const treatCanal = {
   ...levelMake(),
+  design: { ...fillTwo.design, bankConfig: tieredFillConfig({ foundation: '5-1', foundationPercentage: 100 }) },
   foundationExcavationReaches: [{ id: 'f1', fromChainage: 0, toChainage: 100, kind: 'foundation', foundationRl: 98.4, strippingDepth: 0.6, bands: canal.defaultCanalExcavationBands() }],
-  foundationFillReaches: [{ id: 't1', workReachId: 'w1', fromChainage: 0, toChainage: 100, kind: '5-1', percentage: 100, foundationDepth: 0, thickness: 0, width: 0, blanketWidthMode: 'automatic', blanketLeftWidth: 0, blanketRightWidth: 0, height: 0, side: 'both', material: { code: 'IRR-CAW-5-1' } }],
   sections: fillTwo.sections
 }
 const treatSynced = canal.syncCanalItems(canalComponent(treatCanal), 'c')
-near(itemByCode(treatSynced, 'IRR-CAW-5-1').computedQuantity, 1362, 1, 'foundation replacement fill reaches the estimate')
-assert.equal(
-  treatSynced.children[0].canal.materialItems.find((entry) => entry.code === 'IRR-CAW-5-1').role,
-  'foundation',
-  'treatment items carry their operation role'
-)
+assert.equal(itemByCode(treatSynced, 'IRR-CAW-5-1'), undefined, 'removed foundation replacement filling does not reach the estimate')
+assert.equal(treatSynced.children[0].canal.materialItems.some((entry) => entry.code === 'IRR-CAW-5-1'), false, 'removed foundation item is absent from the material registry')
 
-// Filter drains: fabric area bills under its SSR code.
+// Reach-based filter fabric was removed; tier filters and the dedicated bed
+// drainage/porous-plug chapter own the remaining drainage works.
 const drainCanal = {
   ...levelMake(),
   filterDrainReaches: [{ id: 'd1', fromChainage: 0, toChainage: 100, kind: '5-12', orientation: 'longitudinal', side: 'both', width: 1.5, depth: 0.2, thickness: 0.2, spacing: 30, count: 1, material: { code: 'IRR-CAW-5-12' } }],
   sections: fillTwo.sections
 }
-near(itemByCode(canal.syncCanalItems(canalComponent(drainCanal), 'c'), 'IRR-CAW-5-12').computedQuantity, 300, 1e-9, 'filter fabric area reaches the estimate')
+assert.equal(itemByCode(canal.syncCanalItems(canalComponent(drainCanal), 'c'), 'IRR-CAW-5-12'), undefined, 'legacy reach-based filter fabric does not reach the estimate')
 
 // Bund-style overlap: drain plugs share the lining plugs code, so both
 // chapters merge into one estimate line instead of two.
@@ -708,8 +711,9 @@ near(itemByCode(canal.syncCanalItems(canalComponent(pickedBlindage), 'c'), 'RB_B
 const earthenRoad = { ...metalRoad, design: { ...metalRoad.design, serviceRoadReaches: [{ ...metalReach, constructionType: 'earthen' }] } }
 assert.equal(itemByCode(canal.syncCanalItems(canalComponent(earthenRoad), 'c'), 'RB_WORK_6411571526E0'), undefined, 'earthen roads bill no pavement')
 
-// Foundation Filling tab gating: visible once a foundation reach exists,
-// even before sections are populated (quantities read zero until then).
+// Bund Foundation & Filters tab gating: visible once a bund
+// foundation-excavation reach exists, even before sections are populated
+// (quantities read zero until then).
 const unpopulatedFoundation = {
   ...levelMake(),
   foundationExcavationReaches: [{ id: 'f1', fromChainage: 0, toChainage: 100, kind: 'foundation', foundationRl: 98.4, strippingDepth: 0.6, bands: canal.defaultCanalExcavationBands() }],
@@ -732,15 +736,16 @@ assert.deepEqual(canal.canalSectionAreas(levelMake(), unpopulatedSection), { cut
 
 // IRR-CAW-5-4 bills per sq.m at its code-fixed 0.25 m thickness (SSR unit),
 // while 5-5 bills by volume: manual 1 m + 1 m blankets over 100 m.
-const blanketBase = { ...treatCanal, foundationFillReaches: [] }
-const reach54 = { id: 'b4', workReachId: 'w4', fromChainage: 0, toChainage: 100, kind: '5-4', percentage: 100, foundationDepth: 0, thickness: 0.25, width: 2, blanketWidthMode: 'manual', blanketLeftWidth: 1, blanketRightWidth: 1, height: 0, side: 'both', material: { code: 'IRR-CAW-5-4' } }
-const measured54 = canal.canalFoundationFillQuantity({ ...blanketBase, foundationFillReaches: [reach54] }, reach54)
-assert.equal(measured54.unit, 'sq.m', '5-4 bills in sq.m per SSR')
-assert.equal(measured54.quantity, 200, '5-4 bills plan area, not volume')
-const reach55 = { ...reach54, id: 'b5', workReachId: 'w5', kind: '5-5', thickness: 0.3, material: { code: 'IRR-CAW-5-5' } }
-const measured55 = canal.canalFoundationFillQuantity({ ...blanketBase, foundationFillReaches: [reach55] }, reach55)
-assert.equal(measured55.unit, 'cu.m', '5-5 bills in cu.m per SSR')
-assert.equal(measured55.quantity, 60, '5-5 bills plan area times thickness')
+const withTierBlanket = (patch) => ({
+  ...treatCanal,
+  design: { ...treatCanal.design, bankConfig: tieredFillConfig(patch) }
+})
+const measured54 = canal.canalTierFoundationQuantities(withTierBlanket({ blanket: '5-4', blanketWidthMode: 'manual', blanketLeftWidth: 1, blanketRightWidth: 1 }))
+assert.equal(measured54.blanketUnit, 'sq.m', '5-4 bills in sq.m per SSR')
+assert.equal(measured54.blanketQuantity, 200, '5-4 bills plan area, not volume')
+const measured55 = canal.canalTierFoundationQuantities(withTierBlanket({ blanket: '5-5', blanketWidthMode: 'manual', blanketLeftWidth: 1, blanketRightWidth: 1, blanketThickness: 0.3 }))
+assert.equal(measured55.blanketUnit, 'cu.m', '5-5 bills in cu.m per SSR')
+assert.equal(measured55.blanketQuantity, 60, '5-5 bills plan area times thickness')
 
 // Repair banks bill the PMW repair items, never CAW new-work codes: the
 // SSR splits homogeneous formation (3-17, placed without compaction) from
@@ -1083,11 +1088,20 @@ const tierQuantities = canal.canalTierFoundationQuantities(tieredWorksCanal, lef
 assert.ok(tierQuantities.blanketQuantity > 0, 'tier calculates sand blanket plan area')
 assert.ok(tierQuantities.filterVolume > 0, 'tier calculates horizontal filter volume')
 
+// Blanket and filters are embedded inside the gross bank envelope. Their
+// physical volumes must replace ordinary earth fill rather than double-bill it.
+const tieredBankVolumes = canal.canalBankVolumeTotals(tieredWorksCanal)
+const netTieredEarth = tieredBankVolumes.homogeneous + tieredBankVolumes.hearting + tieredBankVolumes.casing
+const embeddedDrainageVolume = tierQuantities.blanketQuantity * 0.25 + tierQuantities.filterVolume + tierQuantities.chimneyVolume
+near(
+  tieredBankVolumes.totalFill - netTieredEarth,
+  embeddedDrainageVolume,
+  1,
+  'blanket and filter volumes are deducted from ordinary bank earth fill'
+)
+
 const tieredSynced = canal.syncCanalItems(canalComponent(tieredWorksCanal), 'c')
 assert.ok(itemByCode(tieredSynced, 'IRR-CAW-5-4'), 'tier-based sand blanket bills in estimate')
 assert.ok(itemByCode(tieredSynced, 'IRR-CAW-5-7'), 'tier-based horizontal filter bills in estimate')
 
 console.log('canal: defaults, geometry, sections, drainage codes, flow inheritance, programmatic berms, manual berms with discard rules and sync ok')
-
-
-

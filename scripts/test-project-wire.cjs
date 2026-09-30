@@ -34,6 +34,9 @@ function loadTsModule(filePath, mocks = {}) {
   loadedModule.paths = Module._nodeModulePaths(path.dirname(filePath))
   loadedModule.require = (request) => {
     if (request in mocks) return mocks[request]
+    if (request.endsWith('.typ?raw')) {
+      return fs.readFileSync(path.resolve(path.dirname(filePath), request.slice(0, -4)), 'utf8')
+    }
     if (request.startsWith('.')) {
       const resolved = path.resolve(path.dirname(filePath), request)
       const tsFile = resolved.endsWith('.ts') ? resolved : resolved + '.ts'
@@ -126,8 +129,15 @@ function mocks() {
     './coverExcel': { buildCoverExcelPayload: async () => ({ workName: 'Kodangal Lift' }) },
     './pageExcel': {
       preparePageExcelPayload: async () => null,
-      projectPageSheetName: (node) => `Page_${node.id}`
+      projectPageSheetName: (node) => `Page_${node.id}`,
+      projectSharedSheetName: (node) => `Shared_${node.sharedSheetId}`
     },
+    '../sharedSheet': {
+      sharedSheetScopeKey: (id) => `shared-sheet-${id}`,
+      findSharedOwner: () => null,
+      findSharedPrintSource: () => null
+    },
+    '../typist-output/itemTypst': { itemSheetScopeKey: (item) => `item-sheet-${item.id}` },
     '../dataSheets': {
       collectDataSheets: () => [dataSheet],
       calculateDataSheets: async (sheets) => sheets.map((sheet) => ({
@@ -203,6 +213,27 @@ function mocks() {
 async function runTests() {
   console.log('--- Testing project dashboard wiring ---')
 
+  const { resolveItemExcelDocumentSettings } = loadTsModule(
+    path.join(root, 'src/renderer/src/lib/excel-output/excelDocumentSettings.ts')
+  )
+  const itemPrintProject = project()
+  const itemWithPrint = {
+    ...ITEM_NODE,
+    print: {
+      pageSize: 'A3',
+      orientation: 'landscape',
+      margins: { top: 10, right: 11, bottom: 12, left: 13 }
+    }
+  }
+  itemPrintProject.root = {
+    ...itemPrintProject.root,
+    children: [{ ...COMP_NODE, children: [itemWithPrint] }]
+  }
+  const itemGeometry = resolveItemExcelDocumentSettings(itemPrintProject, 'item-sheet-n1', itemWithPrint)
+  assert.equal(itemGeometry.pageSize, 'A3', 'item spreadsheet paper size reaches Excel')
+  assert.equal(itemGeometry.orientation, 'landscape', 'item spreadsheet orientation reaches Excel')
+  assert.equal(itemGeometry.margins.left, 13, 'item spreadsheet margins reach Excel')
+
   const wire = loadTsModule(
     path.join(root, 'src/renderer/src/lib/excel-output/projectWire.ts'),
     mocks()
@@ -258,8 +289,30 @@ async function runTests() {
   const payload = projectExcel.buildProjectDashboardPayload(input)
   assert.deepEqual(
     payload.sheets.map((s) => s.name),
-    ['Gen Abstract', 'Abstract_Main Canal', 'Detailed_Main Canal']
+    ['Gen Abstract', 'Abstract_Main Canal', 'Main Canal_1_Earthwork']
   )
+  assert.equal(payload.sheets[2].printSettings.pageSize, 'A4', 'item tab keeps its own resolved page settings')
+
+  const sharedProject = project()
+  sharedProject.root.children[0] = {
+    ...COMP_NODE,
+    children: [
+      ITEM_NODE,
+      { id: 'shared-a', kind: 'item', sharedSheetId: 'group-1', children: [] },
+      { id: 'shared-b', kind: 'item', sharedSheetId: 'group-1', children: [] }
+    ]
+  }
+  const sharedMocks = mocks()
+  sharedMocks['./pageExcel'] = {
+    preparePageExcelPayload: async (_project, node, name) => node.sharedSheetId
+      ? { name, grid: grid([{ r: 0, c: 0, value: 'Shared measurement' }], [20]) }
+      : null,
+    projectPageSheetName: (node) => `Page_${node.id}`,
+    projectSharedSheetName: (node) => `Shared_${node.sharedSheetId}`
+  }
+  const sharedWire = loadTsModule(path.join(root, 'src/renderer/src/lib/excel-output/projectWire.ts'), sharedMocks)
+  const sharedInput = await sharedWire.assembleProjectDashboardInput(sharedProject)
+  assert.deepEqual(sharedInput.components[0].pages.map((page) => page.name), ['Shared_group-1'], 'one shared group produces one Excel tab')
 
   // 7. Fail-loud: unsynced lead variant throws naming it.
   const wire2 = loadTsModule(

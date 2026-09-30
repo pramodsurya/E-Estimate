@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   ArrowDownAZ,
   ArrowLeft,
@@ -13,7 +13,8 @@ import {
 } from 'lucide-react'
 import Modal from './Modal'
 import { useStore } from '../../store/useStore'
-import { findNode } from '../../lib/tree'
+import { findNode, newId } from '../../lib/tree'
+import { collectSharedGroups } from '../../lib/sharedSheet'
 import { projectDataRate } from '../../lib/projectData'
 import {
   SOR_CATEGORIES,
@@ -57,10 +58,14 @@ const MAX_RENDERED_ITEMS = 250
 
 export default function AddItemModal(): JSX.Element {
   const parentId = useStore((s) => s.addItem.parentId)
+  const presetSharedSheet = useStore((s) => s.addItem.presetSharedSheet)
   const project = useStore((s) => s.project)
   const close = useStore((s) => s.closeAddItem)
   const addItems = useStore((s) => s.addItemsFromMaster)
   const addProjectDataItems = useStore((s) => s.addProjectDataItems)
+  const addSharedItems = useStore((s) => s.addSharedItemsFromMaster)
+  const addSharedProjectDataItems = useStore((s) => s.addProjectDataItemsToSharedSheet)
+  const attachItemToSharedSheet = useStore((s) => s.attachItemToSharedSheet)
 
   const [selected, setSelected] = useState<Map<string, MasterItem>>(new Map())
   const [selectedProjectData, setSelectedProjectData] = useState<Set<string>>(new Set())
@@ -68,6 +73,11 @@ export default function AddItemModal(): JSX.Element {
   const [variantSelections, setVariantSelections] = useState<Record<string, DataVariantSelection>>({})
   const [preparingVariants, setPreparingVariants] = useState(false)
   const [variantError, setVariantError] = useState<string | null>(null)
+  // Storage step: separate sheet per item (legacy) vs one shared sheet.
+  const [storageStep, setStorageStep] = useState(false)
+  const [storageMode, setStorageMode] = useState<'separate' | 'new-shared' | 'existing-shared'>('separate')
+  const [sharedName, setSharedName] = useState('')
+  const [existingSheetId, setExistingSheetId] = useState<string | null>(null)
 
   const parentName = (() => {
     if (!project) return ''
@@ -84,36 +94,94 @@ export default function AddItemModal(): JSX.Element {
       return n
     })
 
-  const addPreparedItems = (): void => {
+  const storageGroups = (() => {
+    if (!project) return []
+    const targetId = parentId ?? project.root.id
+    const parentNode = findNode(project.root, targetId)
+    return parentNode ? collectSharedGroups(parentNode) : []
+  })()
+
+  const openStorageStep = (): void => {
+    const count = selected.size + selectedProjectData.size
+    // Grow flow: the target sheet was chosen before the picker opened, so
+    // picked items go straight into it — no question, any count.
+    if (presetSharedSheet?.growFromItemId) {
+      addPreparedItemsWith('existing-shared', presetSharedSheet.id)
+      return
+    }
+    // Rule 1: a single item always gets its own sheet — no question asked.
+    if (count <= 1) {
+      setStorageMode('separate')
+      addPreparedItemsWith('separate', null)
+      return
+    }
+    // Rule 2: two or more items ask shared vs separate.
+    const presetValid =
+      presetSharedSheet && storageGroups.some((group) => group.id === presetSharedSheet.id)
+        ? presetSharedSheet
+        : null
+    setStorageMode(presetValid ? 'existing-shared' : 'new-shared')
+    setSharedName(`${parentName} — Sheet`)
+    setExistingSheetId(presetValid ? presetValid.id : null)
+    setStorageStep(true)
+  }
+
+  const addPreparedItemsWith = (
+    mode: 'separate' | 'new-shared' | 'existing-shared',
+    existingId: string | null
+  ): void => {
     if (selected.size + selectedProjectData.size === 0 || !project) return
     const targetId = parentId ?? project.root.id
-    if (selected.size) {
-      addItems(
-        targetId,
-        Array.from(selected.values()).map((item) => ({
-          ...item,
-          dataVariant: variantSelections[item.code],
-          unit: variantSelections[item.code]?.unit ?? item.unit
-        }))
-      )
-    }
-    if (selectedProjectData.size) {
-      addProjectDataItems(targetId, Array.from(selectedProjectData))
+    const prepared = Array.from(selected.values()).map((item) => ({
+      ...item,
+      dataVariant: variantSelections[item.code],
+      unit: variantSelections[item.code]?.unit ?? item.unit
+    }))
+    if (mode === 'new-shared') {
+      const opts = {
+        sharedSheetId: newId(),
+        sharedSheetName: sharedName.trim() || `${parentName} — Sheet`
+      }
+      if (prepared.length) addSharedItems(targetId, prepared, opts)
+      if (selectedProjectData.size) addSharedProjectDataItems(targetId, Array.from(selectedProjectData), opts)
+    } else if (mode === 'existing-shared' && existingId) {
+      // Grow flow: the single sheet becomes the first member now — only
+      // when items are actually added. Cancelling the picker converts nothing.
+      if (presetSharedSheet?.growFromItemId) {
+        attachItemToSharedSheet(
+          presetSharedSheet.growFromItemId,
+          presetSharedSheet.id,
+          presetSharedSheet.name
+        )
+      }
+      const parentNode = findNode(project.root, targetId)
+      const group = parentNode ? collectSharedGroups(parentNode).find((g) => g.id === existingId) : undefined
+      const opts = {
+        sharedSheetId: existingId,
+        sharedSheetName: group?.name ?? presetSharedSheet?.name ?? 'Shared sheet'
+      }
+      if (prepared.length) addSharedItems(targetId, prepared, opts)
+      if (selectedProjectData.size) addSharedProjectDataItems(targetId, Array.from(selectedProjectData), opts)
+    } else {
+      if (prepared.length) addItems(targetId, prepared)
+      if (selectedProjectData.size) addProjectDataItems(targetId, Array.from(selectedProjectData))
     }
     close()
   }
 
+  const addPreparedItems = (): void => addPreparedItemsWith(storageMode, existingSheetId)
+
   const confirm = async (): Promise<void> => {
     if (selected.size + selectedProjectData.size === 0 || !project) return
     if (selected.size === 0) {
-      addPreparedItems()
+      openStorageStep()
       return
     }
     const ssrCodes = Array.from(selected.values())
       .filter((item) => item.side === 'SSR')
       .map((item) => item.code)
     if (!ssrCodes.length) {
-      addPreparedItems()
+      openStorageStep()
       return
     }
     setPreparingVariants(true)
@@ -121,7 +189,7 @@ export default function AddItemModal(): JSX.Element {
     try {
       const specs = await fetchDataVariantSpecs(ssrCodes, project.meta.sorYear)
       if (!Object.keys(specs).length) {
-        addPreparedItems()
+        openStorageStep()
         return
       }
       setVariantSpecs(specs)
@@ -151,6 +219,10 @@ export default function AddItemModal(): JSX.Element {
   const variantCodes = variantSpecs ? Object.keys(variantSpecs) : []
   const allVariantsChosen = variantCodes.every((code) => Boolean(variantSelections[code]))
   const selectedCount = selected.size + selectedProjectData.size
+  const storageReady =
+    storageMode === 'separate' ||
+    storageMode === 'new-shared' ||
+    (storageMode === 'existing-shared' && existingSheetId !== null)
 
   const footer = (
     <>
@@ -161,7 +233,17 @@ export default function AddItemModal(): JSX.Element {
         <button className="btn ghost" onClick={close}>
           Cancel
         </button>
-        {variantSpecs ? (
+        {storageStep ? (
+          <>
+            <button className="btn ghost" onClick={() => setStorageStep(false)}>
+              <ArrowLeft size={15} /> Back
+            </button>
+            <button className="btn" disabled={!storageReady} onClick={addPreparedItems}>
+              <Plus size={15} />
+              {`Add Item${selectedCount === 1 ? '' : 's'} (${selectedCount})`}
+            </button>
+          </>
+        ) : variantSpecs ? (
           <>
             <button
               className="btn ghost"
@@ -172,8 +254,8 @@ export default function AddItemModal(): JSX.Element {
             >
               <ArrowLeft size={15} /> Back
             </button>
-            <button className="btn" disabled={!allVariantsChosen} onClick={addPreparedItems}>
-              <Check size={15} /> Add Prepared DATA{selectedCount === 1 ? '' : 's'}
+            <button className="btn" disabled={!allVariantsChosen} onClick={openStorageStep}>
+              <Check size={15} /> Continue
             </button>
           </>
         ) : (
@@ -197,7 +279,18 @@ export default function AddItemModal(): JSX.Element {
 
   return (
     <Modal title="Add Item" size="lg" onClose={close} bodyFlush footer={footer}>
-      {variantSpecs ? (
+      {storageStep ? (
+        <StorageChoice
+          mode={storageMode}
+          onMode={setStorageMode}
+          sharedName={sharedName}
+          onSharedName={setSharedName}
+          groups={storageGroups}
+          existingSheetId={existingSheetId}
+          onExistingSheetId={setExistingSheetId}
+          selectedCount={selectedCount}
+        />
+      ) : variantSpecs ? (
         <VariantReview
           specs={variantSpecs}
           selections={variantSelections}
@@ -253,6 +346,119 @@ export default function AddItemModal(): JSX.Element {
         </>
       )}
     </Modal>
+  )
+}
+
+/**
+ * Storage step: one spreadsheet per item (legacy) or a single shared
+ * spreadsheet holding all the added items. A shared sheet keeps one workbook
+ * while each item fixes its own Final № and print area; more items can be
+ * appended to the same sheet later from the sheet itself.
+ */
+function StorageChoice({
+  mode,
+  onMode,
+  sharedName,
+  onSharedName,
+  groups,
+  existingSheetId,
+  onExistingSheetId,
+  selectedCount
+}: {
+  mode: 'separate' | 'new-shared' | 'existing-shared'
+  onMode: (mode: 'separate' | 'new-shared' | 'existing-shared') => void
+  sharedName: string
+  onSharedName: (name: string) => void
+  groups: { id: string; name: string; memberIds: string[] }[]
+  existingSheetId: string | null
+  onExistingSheetId: (id: string) => void
+  selectedCount: number
+}): JSX.Element {
+  const cardStyle = (active: boolean): CSSProperties => ({
+    textAlign: 'left',
+    width: '100%',
+    cursor: 'pointer',
+    color: 'inherit',
+    font: 'inherit',
+    ...(active
+      ? { borderColor: 'var(--accent, #2f6fed)', background: 'rgba(47,111,237,0.08)' }
+      : {})
+  })
+  return (
+    <div className="data-variant-review">
+      <div className="data-variant-review-heading">
+        <div>
+          <h3>How to store {selectedCount === 1 ? 'this item' : `these ${selectedCount} items`}?</h3>
+          <p>
+            A shared sheet holds every item in one spreadsheet. Each item still
+            fixes its own Final № and print area, and totals keep working per item.
+          </p>
+        </div>
+      </div>
+      <div className="data-variant-cards">
+        <button
+          type="button"
+          className={`data-variant-card${mode === 'separate' ? ' selected' : ''}`}
+          onClick={() => onMode('separate')}
+          style={cardStyle(mode === 'separate')}
+        >
+          <strong>Separate sheet per item</strong>
+          <p>Current behaviour — each item opens its own spreadsheet.</p>
+        </button>
+        <button
+          type="button"
+          className={`data-variant-card${mode === 'new-shared' ? ' selected' : ''}`}
+          onClick={() => onMode('new-shared')}
+          style={cardStyle(mode === 'new-shared')}
+        >
+          <strong>Single shared sheet</strong>
+          <p>One spreadsheet with a labelled block per item. Fix Final № per item inside it.</p>
+        </button>
+        {mode === 'new-shared' ? (
+          <label style={{ display: 'block', fontSize: 13 }}>
+            Sheet name
+            <input
+              className="text-input"
+              value={sharedName}
+              onChange={(event) => onSharedName(event.target.value)}
+              placeholder="e.g. Retaining Wall — Sheet"
+              style={{ display: 'block', width: '100%', marginTop: 6 }}
+            />
+          </label>
+        ) : null}
+        {groups.length > 0 ? (
+          <button
+            type="button"
+            className={`data-variant-card${mode === 'existing-shared' ? ' selected' : ''}`}
+            onClick={() => {
+              onMode('existing-shared')
+              if (!existingSheetId) onExistingSheetId(groups[0].id)
+            }}
+            style={cardStyle(mode === 'existing-shared')}
+          >
+            <strong>Add to an existing sheet</strong>
+            <p>Append {selectedCount === 1 ? 'this item' : 'these items'} to a sheet already under this component.</p>
+          </button>
+        ) : null}
+        {mode === 'existing-shared' && groups.length > 0 ? (
+          <label style={{ display: 'block', fontSize: 13 }}>
+            Existing sheet
+            <select
+              className="text-input"
+              value={existingSheetId ?? groups[0].id}
+              onChange={(event) => onExistingSheetId(event.target.value)}
+              style={{ display: 'block', width: '100%', marginTop: 6 }}
+            >
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name} ({group.memberIds.length} item{group.memberIds.length === 1 ? '' : 's'})
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+      </div>
+    </div>
   )
 }
 

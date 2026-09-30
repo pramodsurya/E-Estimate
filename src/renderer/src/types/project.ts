@@ -233,7 +233,8 @@ export interface HeaderFooterParts {
 }
 
 /**
- * Per-item Print Layout configuration. Page-geometry fields (pageSize,
+ * Print Layout configuration. Shared-sheet items mirror one group-wide config
+ * across their member nodes. Page-geometry fields (pageSize,
  * orientation, margins) default to the node's inherited NodeSettings when
  * unset. Stored on the item node so it persists in the project file and can be
  * reused by the future project-wide PDF Maker.
@@ -1071,6 +1072,28 @@ export interface CanalTierFoundationConfig {
   rockToeSide: 'left' | 'right' | 'both';
   rockToeWidth: number;
   rockToeHeight: number;
+  /** Physical rock toe at the land-side bank toe (IRR-CAW-5-6). */
+  rockToeProtection: boolean;
+  rockToeProtectionSide: 'left' | 'right' | 'both';
+  rockToeTopWidth: number;
+  rockToeProtectionHeight: number;
+  rockToeInnerSlope: number;
+  rockToeFilter: boolean;
+  /** Buried graded/geotextile filter at the land-side toe. */
+  toeFilter: boolean;
+  toeFilterSide: 'left' | 'right' | 'both';
+  toeFilterKind: '5-7' | '5-12' | '5-13';
+  toeFilterWidth: number;
+  toeFilterDepth: number;
+  /** Open longitudinal ditch carrying rainfall runoff and discharged seepage. */
+  toeDrain: boolean;
+  toeDrainSide: 'left' | 'right' | 'both';
+  toeDrainBottomWidth: number;
+  toeDrainDepth: number;
+  toeDrainLeftSlope: number;
+  toeDrainRightSlope: number;
+  toeDrainBermWidth: number;
+  toeDrainProtection: 'none' | 'rubble' | 'concrete';
 }
 
 /** A single fill-height bracket / tier governing canal bank geometry and zoning. */
@@ -1157,6 +1180,8 @@ export interface CanalDesign {
   heartingLeftSlope: number;
   heartingRightSlope: number;
   heartingTrenchEnabled: boolean;
+  /** Vertical depth of the impervious cutoff trench below prepared ground (m). */
+  heartingTrenchDepth: number;
   /** Finished bottom width of the cutoff trench (m). */
   heartingTrenchWidth: number;
   /** Cutoff-trench side slopes, horizontal metres per 1 m vertical. */
@@ -1305,32 +1330,6 @@ export interface CanalFoundationExcavationReach {
   bands: CanalExcavationBand[];
 }
 
-export type CanalFoundationFillKind = '5-1' | '5-2' | '5-3' | '5-4' | '5-5' | '5-7' | '5-10';
-
-export interface CanalFoundationFillReach {
-  id: string;
-  /** Groups foundation fill, blanket and rock-toe selections saved for one reach. */
-  workReachId: string;
-  fromChainage: number;
-  toChainage: number;
-  kind: CanalFoundationFillKind;
-  /** Share of foundation-excavation void replaced by 5-1/5-2/5-3. */
-  percentage: number;
-  /** Vertical replacement-fill depth above the foundation excavation bottom RL. */
-  foundationDepth: number;
-  /** Blanket thickness; 5-4 is fixed at 0.25 m. */
-  thickness: number;
-  /** Plan width for blankets, or base width for a rock toe/filter. */
-  width: number;
-  blanketWidthMode: 'automatic' | 'manual';
-  blanketLeftWidth: number;
-  blanketRightWidth: number;
-  /** Rock-toe height or filter depth. */
-  height: number;
-  side: 'left' | 'right' | 'both';
-  material: TemplateMaterialRef;
-}
-
 export type CanalFilterDrainKind = '5-6' | '5-7' | '5-8' | '5-9' | '5-11' | '5-12' | '5-13';
 
 export interface CanalFilterDrainReach {
@@ -1413,6 +1412,186 @@ export interface CanalLiningReach {
   bill: CanalLiningBilling;
   /** Per-item SSR code overrides; a blank key keeps the default code. */
   itemOverrides: Partial<Record<CanalLiningItemKey, TemplateMaterialRef>>;
+  /** Versioned reach worksheet. Missing means the original billing remains active. */
+  designV2?: CanalLiningDesign;
+  /** Chapter 1 worksheet; when present it replaces earlier lining billing. */
+  cnsChapter?: CanalCnsChapter;
+  liningChapter?: CanalLiningChapter;
+  jointsChapter?: CanalJointsChapter;
+  reliefChapter?: CanalReliefChapter;
+}
+
+export interface CanalReliefChapter {
+  version: 1;
+  completed?: boolean;
+  required: boolean | null;
+  outlets: CanalReliefOutlet[];
+}
+
+export interface CanalReliefOutlet {
+  id: string;
+  kind: 'gi' | 'pvc';
+  surfaces: CanalLiningSurface[];
+  /** CAW 7-19–23 for GI; fixed CAW 7-24 for PVC. */
+  code: string;
+  placement: 'spacing' | 'chainages' | 'approved' | null;
+  firstChainage: number | null;
+  spacingM: number | null;
+  chainagesText: string;
+  approvedCount: number | null;
+  /** Separate CAW 7-25/26 quantities; never inferred from pipe count. */
+  rockHoleCount: number | null;
+  filterPocketCount: number | null;
+}
+
+export interface CanalJointsChapter {
+  version: 1;
+  completed?: boolean;
+  required: boolean | null;
+  mastic: CanalJointLayout;
+  expansion: CanalJointLayout;
+}
+
+export interface CanalJointLayout {
+  enabled: boolean;
+  surfaces: CanalLiningSurface[];
+  direction: 'transverse' | 'longitudinal' | null;
+  placement: 'spacing' | 'locations' | null;
+  firstChainage: number | null;
+  spacingM: number | null;
+  locationsText: string;
+  /** Approved longitudinal joint schedule lengths by surface. */
+  longitudinalLengths: Record<CanalLiningSurface, number | null>;
+  /** Layout-based measurement for new worksheets; legacy lengths remain approved schedules. */
+  longitudinalMode?: 'full' | 'parts' | 'approved' | null;
+  longitudinalLines?: Record<CanalLiningSurface, number | null>;
+  longitudinalRuns?: Record<CanalLiningSurface, { fromChainage: number | null; toChainage: number | null; lines: number | null }[]>;
+  distinctScope: boolean | null;
+  reference: string;
+}
+
+export interface CanalLiningChapter {
+  version: 1;
+  completed?: boolean;
+  surfaces: CanalLiningSurface[];
+  sameSpecification: boolean | null;
+  specifications: Record<CanalLiningSurface, CanalLiningChapterSpec>;
+  membrane: boolean | null;
+  membraneSurfaces: CanalLiningSurface[];
+  membraneMicrons: 500 | 750 | 1000 | null;
+}
+
+export interface CanalLiningChapterSpec {
+  method: 'concrete' | 'pcc' | 'stone' | 'masonry' | null;
+  placement: 'paver' | 'conventional' | null;
+  code: string;
+  thicknessMm: number | null;
+  slabSource: 'manufacture' | 'supplied' | null;
+  slabCount: number | null;
+  lugs: boolean | null;
+  lugCode: string;
+  lugCount: number | null;
+  /** Explicit drawing confirmation when the lug differs from the usual SSR size pair. */
+  lugMismatchConfirmed?: boolean | null;
+  lugDrawingReference?: string;
+  lugLengthM: number | null;
+  /** Layout-based measurement for new worksheets; legacy lengths remain approved schedules. */
+  lugLayout?: 'along' | 'across' | 'approved' | null;
+  lugRows?: Record<CanalLiningSurface, number | null>;
+  lugFirstChainage?: number | null;
+  lugSpacingM?: number | null;
+  reinforced: boolean | null;
+  steelMode: 'schedule' | 'area' | null;
+  steelQuantity: number | null;
+  steelSurfaces: CanalLiningSurface[];
+}
+
+export interface CanalCnsChapter {
+  version: 1;
+  completed?: boolean;
+  required: boolean | null;
+  coverage: 'bed-and-sides' | 'bed' | null;
+  bedThicknessMm: number | null;
+  sideThicknessMm: number | null;
+  source: 'borrow' | 'excavated-heaps' | null;
+  compaction: 95 | 98 | null;
+}
+
+export type CanalLiningSurface = 'bed' | 'left' | 'right';
+export type CanalLiningMethod = 'none' | 'concrete' | 'pcc' | 'stone' | 'masonry' | 'cns';
+
+export interface CanalLiningSurfaceDesign {
+  method: CanalLiningMethod;
+  /** Catalogue selection determines specification and measurement unit together. */
+  code: string;
+  thicknessMm: number | null;
+  manufacture: boolean;
+  /** Confirmed slab schedule, distinct from the indicative area-based count. */
+  slabCount: number | null;
+  jointWidthMm: number;
+}
+
+export interface CanalLiningLayer {
+  id: string;
+  enabled: boolean;
+  kind: 'cns' | 'ldpe';
+  surfaces: CanalLiningSurface[];
+  code: string;
+  thicknessMm: number | null;
+  /** Explicit designed returns, not procurement wastage. */
+  returnsArea: number;
+}
+
+export type CanalLiningWorkKind = 'longitudinal-drain' | 'transverse-drain' | 'graded-drain' |
+  'plug' | 'relief' | 'weep' | 'mastic' | 'expansion' | 'template' | 'lug' |
+  'steps' | 'sleepers' | 'coping' | 'profile-wall' | 'level-stone' | 'reinforcement' | 'paver-shift' | 'drop';
+
+export interface CanalLiningWork {
+  id: string;
+  kind: CanalLiningWorkKind;
+  enabled: boolean;
+  surfaces: CanalLiningSurface[];
+  fromChainage: number | null;
+  toChainage: number | null;
+  placement: 'spacing' | 'manual' | 'area' | 'continuous' | 'quantity';
+  /** Absolute layout origin; preserved when a reach is split. */
+  referenceChainage: number;
+  spacing: number | null;
+  chainages: number[];
+  rows: number;
+  offsets: number[];
+  widthM: number | null;
+  depthM: number | null;
+  lengthM: number | null;
+  /** Area per plug on each selected surface. */
+  areaPerUnit: number | null;
+  filterPocket: boolean;
+  rockHole: boolean;
+  /** Required for mastic when the lining item already includes joint sealing. */
+  distinctScope: boolean;
+  material: TemplateMaterialRef | null;
+  manufacture: boolean;
+  manufactureCode: string;
+  manualQuantity: number | null;
+  note: string;
+}
+
+export interface CanalLiningDesign {
+  version: 2;
+  name: string;
+  sameSides: boolean;
+  topMode: 'fsl' | 'freeboard' | 'rl';
+  leftFreeboard: number | null;
+  rightFreeboard: number | null;
+  topRl: number | null;
+  surfaces: Record<CanalLiningSurface, CanalLiningSurfaceDesign>;
+  layers: CanalLiningLayer[];
+  drainageDecision: 'pending' | 'none' | 'provided';
+  groundwaterRl: number | null;
+  subgrade: 'unknown' | 'soil' | 'rock';
+  reference: string;
+  works: CanalLiningWork[];
+  migrationNotes: string[];
 }
 
 export interface CanalData {
@@ -1444,8 +1623,6 @@ export interface CanalData {
   strippingDepth: number;
   /** New-canal bank-foundation excavation; replaces stripping in new work. */
   foundationExcavationReaches: CanalFoundationExcavationReach[];
-  /** Optional treatments placed in or beside saved foundation-excavation reaches. */
-  foundationFillReaches: CanalFoundationFillReach[];
   /** Optional filter and drain works. */
   filterDrainReaches: CanalFilterDrainReach[];
   /** Soil/rock classification percentages for canal cut and stripping. */
@@ -1525,6 +1702,15 @@ export interface ProjectNode {
 
   /** Spreadsheet item nodes: Univer workbook data stored in the project file. */
   spreadsheet?: SpreadsheetDocument
+
+  /**
+   * Shared-sheet group id. Items carrying the same id share one workbook:
+   * every member keeps a synced copy of the same grid and print config.
+   * `finalCell` stays per item. Absent means the item owns a private sheet.
+   */
+  sharedSheetId?: string
+  /** Display name of the shared sheet (mirrored on every member). */
+  sharedSheetName?: string
 
   /** Item nodes. */
   itemSource?: ItemSource

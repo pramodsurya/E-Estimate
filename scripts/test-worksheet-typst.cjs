@@ -10,11 +10,21 @@ const path = require('node:path')
 const ts = require('typescript')
 const { NodeCompiler } = require('@myriaddreamin/typst-ts-node-compiler')
 
-// Vite raw template imports in Node's standalone regression runner.
+// Vite query imports in Node's standalone regression runner. Every branch
+// resolves relative to the IMPORTING file
+// (`path.dirname(parent.filename)`): `?raw` returns file text; `?inline`
+// assets return a data URI; `?url` assets return the absolute file path.
 const rawModule = require('node:module')
 const originalLoad = rawModule._load
 rawModule._load = function (request, parent, isMain) {
-  if (request.endsWith('.typ?raw')) return fs.readFileSync(path.resolve(path.dirname(parent.filename), request.slice(0, -4)), 'utf8')
+  if (request.endsWith('?raw')) return fs.readFileSync(path.resolve(path.dirname(parent.filename), request.slice(0, -4)), 'utf8')
+  if (request.endsWith('?inline')) {
+    const file = path.resolve(path.dirname(parent.filename), request.slice(0, -7))
+    const ext = path.extname(file).toLowerCase()
+    const mime = ext === '.png' ? 'image/png' : ext === '.svg' ? 'image/svg+xml' : 'application/octet-stream'
+    return `data:${mime};base64,${fs.readFileSync(file).toString('base64')}`
+  }
+  if (request.endsWith('?url')) return path.resolve(path.dirname(parent.filename), request.slice(0, -4))
   return originalLoad.call(this, request, parent, isMain)
 }
 

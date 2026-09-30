@@ -4,7 +4,6 @@ import { useClusterStore } from '../../store/useClusterStore'
 import { isClusterPath } from '../../lib/cluster'
 import EstimateMark from '../tutorial/EstimateMark'
 import ClusterMark from '../tutorial/ClusterMark'
-import FirstRunCard from '../tutorial/FirstRunCard'
 
 export default function HomeScreen(): JSX.Element {
   const startNewProject = useStore((s) => s.startNewProject)
@@ -32,9 +31,6 @@ export default function HomeScreen(): JSX.Element {
         <span className="home-title">E-Estimate</span>
       </div>
       <div className="home-subtitle">Construction cost estimation · Telangana SOR / SSR</div>
-
-      {/* The invitation. Disappears for good once it has been answered. */}
-      <FirstRunCard />
 
       <div className="home-columns">
         <div className="home-col">

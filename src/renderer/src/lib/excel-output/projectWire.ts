@@ -4,8 +4,8 @@
  *
  * Mapping rules (fail-loud — unknown keys, unsynced leads, quantity-less
  * rows all throw naming the culprit):
- * - Components: every component/subcomponent node gets Abstract + Detailed
- *   sheets via the shared prepareComponentExcelParts; sub-components roll
+ * - Components: every component/subcomponent node gets an Abstract and
+ *   individual external-item detail tabs via prepareComponentExcelParts; sub-components roll
  *   into their parent as S- rows. General Abstract lines follow the
  *   estimator's componentLines order (top-level components only).
  * - Items: staticQty seeds from the component abstract rawQty; the live
@@ -24,10 +24,10 @@
  *   factor; combined rows carry their static chargeable quantity.
  * - Bund and Guide Wall components reuse their special calculated sheets.
  *   Generated rows reference exact recorded total cells; manually added
- *   Univer items remain on the normal combined Detailed sheet.
+ *   items keep their own page settings on separate detail tabs.
  */
 import { buildProjectDashboardPayload, planProjectAddresses, projectExcelFileName, type ProjectCellRef, type ProjectChargeInput, type ProjectComponentInput, type ProjectDashboardInput, type ProjectDataInput, type ProjectItemInput, type ProjectLeadInput, type ProjectSeigInput, type ProjectSheetPayload } from './projectExcel'
-import { applyGeneratedExcelFont, excelPrintSettings, resolveExcelDocumentSettings } from './excelDocumentSettings'
+import { applyGeneratedExcelFont, excelPrintSettings, resolveExcelDocumentSettings, resolveItemExcelDocumentSettings } from './excelDocumentSettings'
 import { excelSignatureRows } from './excelSignature'
 import { buildDataExcelPayload } from './dataExcel'
 import { buildLeadExcelPayload } from './leadPayload'
@@ -36,7 +36,9 @@ import { prepareComponentExcelParts } from './componentDetailPrep'
 import { prepareBundExcelPlan, projectBundSheetNames } from './bundExcel'
 import { guideWallTotalKey, prepareGuideWallExcelPlan, projectGuideWallSheetName } from './guideWallExcel'
 import { buildCoverExcelPayload } from './coverExcel'
-import { preparePageExcelPayload, projectPageSheetName } from './pageExcel'
+import { preparePageExcelPayload, projectPageSheetName, projectSharedSheetName } from './pageExcel'
+import { findSharedOwner, findSharedPrintSource, sharedSheetScopeKey } from '../sharedSheet'
+import { itemSheetScopeKey } from '../typist-output/itemTypst'
 import { calculateDataSheets, collectDataSheets, type DataSheet } from '../dataSheets'
 import { buildRateAnalysisRenderData } from '../typist-output/dataTypst'
 import { resolveSeigniorageRowDescription } from '../typist-output/seigniorageTypst'
@@ -123,6 +125,7 @@ export async function assembleProjectDashboardInput(project: EestimateProject, p
   const projectItems: ProjectItemInput[] = []
   const manualDataRows: ProjectDataInput[] = []
   const itemDataKey = new Map<string, string>()
+  const emittedSharedSheets = new Set<string>()
   for (const comp of sheetComps) {
     const compRates: Record<string, number | null> = snapshot?.componentRates?.[comp.id] ?? {}
     const compRecipes: Record<string, RateAnalysisRecipe> = snapshot?.componentRecipes?.[comp.id] ?? {}
@@ -168,6 +171,11 @@ export async function assembleProjectDashboardInput(project: EestimateProject, p
         templateQuantityRefs.set(itemKeys[i], { sheet: guidePlan.sheets[0].name, ...ref })
       })
     }
+    const sharedItems = comp.children.filter((child) => {
+      if (child.kind !== 'item' || !child.sharedSheetId || emittedSharedSheets.has(child.sharedSheetId)) return false
+      emittedSharedSheets.add(child.sharedSheetId)
+      return true
+    })
     components.push({
       name: comp.name,
       signatures: excelSignatureRows(project, comp.id),
@@ -176,16 +184,39 @@ export async function assembleProjectDashboardInput(project: EestimateProject, p
       itemKeys,
       headers: parts.headers,
       details: parts.details,
+      detailPrintSettings: parts.directNodes.map((item, index) => {
+        if (!parts.details[index]) return null
+        const owner = item.sharedSheetId ? findSharedOwner(project.root, item.sharedSheetId) ?? item : item
+        const printNode = item.sharedSheetId ? findSharedPrintSource(project.root, item.sharedSheetId) ?? owner : item
+        return excelPrintSettings(resolveItemExcelDocumentSettings(
+          project,
+          item.sharedSheetId ? sharedSheetScopeKey(item.sharedSheetId) : itemSheetScopeKey(item),
+          { ...owner, print: printNode.print }
+        ))
+      }),
       templateSheets: templateSheets.map((sheet) => ({
         ...sheet,
         printSettings: excelPrintSettings(resolveExcelDocumentSettings(project, `component-${comp.id}`, comp))
       })),
       pages: (await Promise.all(
-        comp.children
-          .filter((child) => child.kind === 'page')
+        [...comp.children.filter((child) => child.kind === 'page'), ...sharedItems]
           .map(async (page) => {
-            const payload = await preparePageExcelPayload(project, page, projectPageSheetName(page))
-            return payload ? { ...payload, printSettings: excelPrintSettings(resolveExcelDocumentSettings(project, `item-doc-${page.id}`, page)) } : null
+            const payload = await preparePageExcelPayload(
+              project,
+              page,
+              page.sharedSheetId ? projectSharedSheetName(page) : projectPageSheetName(page)
+            )
+            if (!payload) return null
+            const owner = page.sharedSheetId ? findSharedOwner(project.root, page.sharedSheetId) ?? page : page
+            const printSource = page.sharedSheetId ? findSharedPrintSource(project.root, page.sharedSheetId) ?? owner : page
+            return {
+              ...payload,
+              printSettings: excelPrintSettings(resolveItemExcelDocumentSettings(
+                project,
+                page.sharedSheetId ? sharedSheetScopeKey(page.sharedSheetId) : `item-doc-${page.id}`,
+                { ...owner, print: printSource.print }
+              ))
+            }
           })
       )).filter((page) => page !== null),
       subs: subsOf(comp)

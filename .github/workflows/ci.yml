@@ -32,5 +32,7 @@ jobs:
         run: npm run typecheck
       - name: Tests
         run: npm test
+      - name: Automatic updater tests
+        run: npm run test:auto-update
       - name: Native calculation tests
         run: cargo test --manifest-path src-tauri/estimate-core/Cargo.toml

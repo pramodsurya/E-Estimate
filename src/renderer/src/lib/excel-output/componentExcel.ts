@@ -285,6 +285,8 @@ export function buildComponentDetailedSheet(
   })
   return {
     name,
+    // Mixed-source stack: per-block pixel lanes cannot merge, so this grid
+    // carries chars only and the writer uses its chars fallback.
     grid: { cells, merges, colWidthsChars, rowHeightsPt, images, rowBreaks },
     // One Excel worksheet cannot change orientation between item blocks.
     // A wide item must not be clipped merely because a preceding item was
@@ -300,7 +302,10 @@ export function buildComponentDetailedSheet(
  * correctly. Document images without flow positions land on their own rows
  * after content, in order (declared approximation).
  */
-export function buildComponentDetailSheets(inputs: PreparedDetailInput[]): Array<ComponentDetailSheet | null> {
+export function buildComponentDetailSheets(
+  inputs: PreparedDetailInput[],
+  opts?: { itemCellTabs?: Map<string, string> }
+): Array<ComponentDetailSheet | null> {
   const used = new Set<string>()
   const uniqueName = (hint: string): string => {
     const base = sanitizeSheetName(hint)
@@ -320,7 +325,11 @@ export function buildComponentDetailSheets(inputs: PreparedDetailInput[]): Array
     if (input.kind === 'sheet') {
       if (!input.sheet || !input.range) return null
       const formulaVerdicts: FormulaCellVerdict[] = []
-      const grid = flattenSheet(input.sheet, input.range, { sheetName: name, verdicts: formulaVerdicts })
+      const grid = flattenSheet(input.sheet, input.range, {
+        sheetName: name,
+        verdicts: formulaVerdicts,
+        itemCellTabs: opts?.itemCellTabs
+      })
       grid.pageSetup = input.pageSetup
       if ((input.images ?? []).length && (input.colWidthsPx ?? []).length && (input.rowHeightsPx ?? []).length) {
         for (const img of input.images ?? []) {

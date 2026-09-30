@@ -12,6 +12,7 @@
 import type { EestimateProject, ProjectNode } from '../../types/project'
 import { nodeDisplayName } from '../../components/nodeVisual'
 import { createUniverWorkbookData, usedCellRange } from '../univerSpreadsheet'
+import { findItemByCode, findItemById } from '../itemCellRef'
 import {
   buildItemSheetRenderData,
   extractItemMedia,
@@ -22,6 +23,7 @@ import {
   parseDocumentToTypstData
 } from '../typist-output/documentTypst'
 import {
+  flattenSheet,
   measureImageDimensions,
   splitDataUrl,
   toRangeLike,
@@ -34,14 +36,148 @@ import {
 } from './detailGrid'
 import { buildComponentDetailSheets, type ComponentDetailSheet, type PreparedDetailInput } from './componentExcel'
 import { findNode } from '../tree'
+import { findSharedContentSource, findSharedOwner, findSharedPrintSource } from '../sharedSheet'
 import { sanitizeSheetName } from './detailGrid'
-import { excelPrintSettings, resolveExcelDocumentSettings } from './excelDocumentSettings'
+import { resolveColWidthPx, resolveRowHeightPx } from './univerResolve'
+import { excelPrintSettings, resolveItemExcelDocumentSettings } from './excelDocumentSettings'
 import { itemSheetScopeKey } from '../typist-output/itemTypst'
 
 export interface PageExcelPayload {
   name: string
   grid: DetailGrid
   landscape: boolean
+  /**
+   * Referenced item sheets, exported as extra tabs at natural coordinates so
+   * rewritten `ITEMCELL("CODE","C18")` formulas resolve natively as
+   * `'Tab'!C18`. Absent when the sheet references nothing.
+   */
+  extraSheets?: Array<{ name: string; grid: DetailGrid }>
+}
+
+/**
+ * Item codes referenced via `ITEMCELL("CODE",...)` in a sheet snapshot's
+ * formula cells (first sheet). Codes are string literals by construction.
+ */
+export function collectItemCellCodes(snapshot: {
+  sheetOrder?: string[]
+  sheets?: Record<string, { cellData?: Record<string, Record<string, UnivCell>> }>
+}): string[] {
+  const sheets = snapshot.sheets ?? {}
+  const first = sheets[snapshot.sheetOrder?.[0] ?? ''] ?? Object.values(sheets)[0]
+  const cells = first?.cellData ?? {}
+  const seen = new Set<string>()
+  const out: string[] = []
+  const call = /ITEMCELL\s*\(\s*"((?:[^"]|"")+)"\s*,\s*"(?:[^"]|"")+"\s*(?:,\s*"((?:[^"]|"")+)"\s*)?\)/gi
+  for (const row of Object.values(cells)) {
+    for (const cell of Object.values(row ?? {})) {
+      if (typeof cell?.f !== 'string') continue
+      for (;;) {
+        const m = call.exec(cell.f)
+        if (!m) break
+        const code = m[2] ? `id:${m[2].replace(/""/g, '"')}` : m[1].replace(/""/g, '"').trim()
+        if (code && !seen.has(code.toLowerCase())) {
+          seen.add(code.toLowerCase())
+          out.push(code)
+        }
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * Builds one raw extra tab per referenced item: the source grid flattened
+ * from A1 to its used end at natural coordinates (no header rows, no
+ * rebase), so `'Tab'!C18` in the main sheet lands on the source's C18.
+ * Unresolvable or empty sources are skipped — their formulas keep the
+ * cached-value fallback.
+ */
+export function buildItemCellExtraSheets(
+  project: EestimateProject,
+  node: ProjectNode,
+  reservedNames: string[]
+): { tabs: Map<string, string>; sheets: Array<{ name: string; grid: DetailGrid }> } {
+  const empty = { tabs: new Map<string, string>(), sheets: [] as Array<{ name: string; grid: DetailGrid }> }
+  if (node.itemEditorType === 'document' || node.kind === 'page') return empty
+  const snapshot = createUniverWorkbookData(node) as Parameters<typeof collectItemCellCodes>[0] & {
+    styles?: Record<string, UnivStyle>
+    defaultStyle?: UnivStyle | string | null
+  }
+  const codes = collectItemCellCodes(snapshot)
+  if (!codes.length) return empty
+  interface ResolvedSource {
+    code: string
+    tab: string
+    source: ProjectNode
+    snapshot: {
+      sheetOrder?: string[]
+      sheets?: Record<string, {
+        cellData?: Record<string, Record<string, UnivCell>>
+        mergeData?: Array<{ startRow: number; startColumn: number; endRow: number; endColumn: number }>
+        rowData?: Record<string, { h?: number; ia?: number; ah?: number; hd?: number; s?: UnivStyle | string | null }>
+        columnData?: Record<string, { w?: number; hd?: number; s?: UnivStyle | string | null }>
+        defaultColumnWidth?: number
+        defaultRowHeight?: number
+        defaultStyle?: UnivStyle | string | null
+      }>
+      styles?: Record<string, UnivStyle>
+    defaultStyle?: UnivStyle | string | null
+    }
+    used: { endRow: number; endColumn: number }
+  }
+  // Pass 1: resolve sources and fix tab names, so nested references rewrite
+  // regardless of processing order.
+  const taken = new Set(reservedNames.map((name) => name.toLowerCase()))
+  const tabs = new Map<string, string>()
+  const resolved: ResolvedSource[] = []
+  for (const code of codes) {
+    const source = code.startsWith('id:')
+      ? findItemById(project.root, code.slice(3))
+      : findItemByCode(project.root, code)
+    if (!source || source.itemEditorType === 'document') continue
+    const sourceSnap = createUniverWorkbookData(source) as ResolvedSource['snapshot']
+    const used = usedCellRange(
+      sourceSnap as Parameters<typeof usedCellRange>[0],
+      source.finalCell ?? null
+    )
+    if (!used) continue
+    // Tab names must be Excel-safe: quotes would break formula quoting.
+    let base = sanitizeSheetName(source.itemCode || source.name).replace(/["']/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 31) || 'Sheet'
+    if (taken.has(base.toLowerCase())) {
+      let n = 2
+      while (taken.has(`${base.slice(0, 28)}_${n}`.toLowerCase())) n += 1
+      base = `${base.slice(0, 28)}_${n}`
+    }
+    taken.add(base.toLowerCase())
+    tabs.set(code.toUpperCase(), base)
+    resolved.push({ code, tab: base, source, snapshot: sourceSnap, used })
+  }
+  // Pass 2: flatten each tab (nested ITEMCELL calls resolve via the full map).
+  const sheets: Array<{ name: string; grid: DetailGrid }> = []
+  for (const entry of resolved) {
+    const sourceSheets = entry.snapshot.sheets ?? {}
+    const first =
+      sourceSheets[entry.snapshot.sheetOrder?.[0] ?? ''] ?? Object.values(sourceSheets)[0]
+    if (!first) continue
+    const grid = flattenSheet(
+      {
+        cellData: first.cellData,
+        mergeData: first.mergeData,
+        styles: entry.snapshot.styles,
+        rowData: first.rowData,
+        columnData: first.columnData,
+        defaultColW: first.defaultColumnWidth ?? 88,
+        defaultRowH: first.defaultRowHeight ?? 24,
+        // Worksheet default wins; the workbook default applies when the
+        // sheet carries none (both exist in the installed typedefs).
+        defaultStyle: first.defaultStyle ?? entry.snapshot.defaultStyle ?? null
+      },
+      { startRow: 0, startColumn: 0, endRow: entry.used.endRow, endColumn: entry.used.endColumn },
+      { sheetName: entry.tab, itemCellTabs: tabs }
+    )
+    sheets.push({ name: entry.tab, grid })
+  }
+  return { tabs, sheets }
 }
 
 /**
@@ -104,12 +240,14 @@ export async function preparePageDetailInput(
     sheets?: Record<string, {
       cellData?: Record<string, Record<string, UnivCell>>
       mergeData?: Array<{ startRow: number; startColumn: number; endRow: number; endColumn: number }>
-      rowData?: Record<string, { h?: number; hd?: number }>
-      columnData?: Record<string, { w?: number; hd?: number }>
+      rowData?: Record<string, { h?: number; ia?: number; ah?: number; hd?: number; s?: UnivStyle | string | null }>
+      columnData?: Record<string, { w?: number; hd?: number; s?: UnivStyle | string | null }>
       defaultColumnWidth?: number
       defaultRowHeight?: number
+      defaultStyle?: UnivStyle | string | null
     }>
     styles?: Record<string, UnivStyle>
+    defaultStyle?: UnivStyle | string | null
   }
   const sheets = snapshot.sheets ?? {}
   const firstSheet = sheets[snapshot.sheetOrder?.[0] ?? ''] ?? Object.values(sheets)[0]
@@ -120,15 +258,19 @@ export async function preparePageDetailInput(
   )
   if (!firstSheet || !range) return { kind: null, sheetNameHint: hint }
   const media = extractItemMedia(node, range)
-  const defW = firstSheet.defaultColumnWidth ?? 88
-  const defH = firstSheet.defaultRowHeight ?? 24
+  const defW = firstSheet.defaultColumnWidth && firstSheet.defaultColumnWidth > 0 ? firstSheet.defaultColumnWidth : 88
+  const defH = firstSheet.defaultRowHeight && firstSheet.defaultRowHeight > 0 ? firstSheet.defaultRowHeight : 24
+  // Anchor geometry uses the same resolved heights/widths as the grid
+  // (ia/ah-aware via the shared resolver), never h-or-default alone.
   const colWidthsPx: number[] = []
   for (let c = range.startColumn; c <= range.endColumn; c++) {
-    colWidthsPx.push(firstSheet.columnData?.[String(c)]?.hd === 1 ? 0 : firstSheet.columnData?.[String(c)]?.w ?? defW)
+    const datum = firstSheet.columnData?.[String(c)]
+    colWidthsPx.push(datum?.hd === 1 ? 0 : resolveColWidthPx(datum, defW))
   }
   const rowHeightsPx: number[] = []
   for (let r = range.startRow; r <= range.endRow; r++) {
-    rowHeightsPx.push(firstSheet.rowData?.[String(r)]?.hd === 1 ? 0 : firstSheet.rowData?.[String(r)]?.h ?? defH)
+    const datum = firstSheet.rowData?.[String(r)]
+    rowHeightsPx.push(datum?.hd === 1 ? 0 : resolveRowHeightPx(datum, defH))
   }
   const sheetInput: SheetSnapshotInput = {
     cellData: firstSheet.cellData,
@@ -137,7 +279,10 @@ export async function preparePageDetailInput(
     rowData: firstSheet.rowData,
     columnData: firstSheet.columnData,
     defaultColW: defW,
-    defaultRowH: defH
+    defaultRowH: defH,
+    // Worksheet default wins; the workbook default applies when the sheet
+    // carries none (both exist in the installed typedefs).
+    defaultStyle: firstSheet.defaultStyle ?? snapshot.defaultStyle ?? null
   }
   return {
     kind: 'sheet',
@@ -156,6 +301,7 @@ function shiftGrid(grid: DetailGrid, rows: number): DetailGrid {
     cells: grid.cells.map((c) => ({ ...c, r: c.r + rows })),
     merges: grid.merges.map((m) => ({ ...m, r1: m.r1 + rows, r2: m.r2 + rows })),
     colWidthsChars: grid.colWidthsChars,
+    ...(grid.colWidthsPx ? { colWidthsPx: grid.colWidthsPx } : {}),
     rowHeightsPt: grid.rowHeightsPt,
     images: grid.images.map((i) => ({ ...i, r: i.r + rows })),
     rowBreaks: grid.rowBreaks.map((b) => b + rows)
@@ -173,10 +319,33 @@ export function buildPageExcelPayload(
   project: EestimateProject,
   node: ProjectNode,
   detail: ComponentDetailSheet | null,
-  nameOverride?: string
+  nameOverride?: string,
+  extraSheets?: Array<{ name: string; grid: DetailGrid }>
 ): PageExcelPayload | null {
   if (!detail) return null
   const renderData = buildItemSheetRenderData(project, node)
+  if (node.sharedSheetId && node.itemEditorType !== 'document') {
+    return {
+      name: nameOverride ?? sanitizeSheetName(node.sharedSheetName || 'Shared sheet'),
+      landscape: renderData.setup.flipped,
+      ...(extraSheets?.length ? { extraSheets } : {}),
+      grid: {
+        ...detail.grid,
+        pageSetup: {
+          paperSize: renderData.setup.paper === 'a2' ? 'A2'
+            : renderData.setup.paper === 'a3' ? 'A3'
+              : renderData.setup.paper === 'us-letter' ? 'Letter'
+                : renderData.setup.paper === 'us-legal' ? 'Legal' : 'A4',
+          marginsMm: {
+            top: renderData.setup.marginTop,
+            right: renderData.setup.marginRight,
+            bottom: renderData.setup.marginBottom,
+            left: renderData.setup.marginLeft
+          }
+        }
+      }
+    }
+  }
   const width = Math.max(1, detail.grid.colWidthsChars.length)
   const lastCol = width - 1
   const title = renderData.code && !renderData.item.startsWith(renderData.code)
@@ -253,6 +422,7 @@ export function buildPageExcelPayload(
   return {
     name: nameOverride ?? detail.name,
     landscape: renderData.setup.flipped,
+    ...(extraSheets?.length ? { extraSheets } : {}),
     grid: {
       cells: [...header, ...shifted.cells, ...sigCells],
       merges: [...headerMerges, ...shifted.merges, ...sigMerges],
@@ -293,14 +463,33 @@ export function projectPageSheetName(node: ProjectNode): string {
   return `${base.slice(0, Math.max(1, 31 - suffix.length))}${suffix}`
 }
 
+export function projectSharedSheetName(node: ProjectNode): string {
+  const suffix = `_S${(node.sharedSheetId || node.id).replace(/[^A-Za-z0-9]/g, '').slice(-6) || 'sheet'}`
+  const base = sanitizeSheetName(node.sharedSheetName || 'Shared sheet')
+  return `${base.slice(0, Math.max(1, 31 - suffix.length))}${suffix}`
+}
+
 /** Shared standalone/project preparation path for one explicit page node. */
 export async function preparePageExcelPayload(
   project: EestimateProject,
   node: ProjectNode,
   nameOverride?: string
 ): Promise<PageExcelPayload | null> {
-  const details = buildComponentDetailSheets([await preparePageDetailInput(node)])
-  return buildPageExcelPayload(project, node, details[0] ?? null, nameOverride)
+  const owner = node.sharedSheetId ? findSharedOwner(project.root, node.sharedSheetId) ?? node : node
+  const source = node.sharedSheetId ? findSharedContentSource(project.root, node.sharedSheetId) ?? owner : owner
+  const printSource = node.sharedSheetId ? findSharedPrintSource(project.root, node.sharedSheetId) ?? owner : owner
+  const sheetNode = node.sharedSheetId
+    ? { ...owner, spreadsheet: source.spreadsheet, print: printSource.print, finalCell: undefined }
+    : node
+  // The main tab name is deterministic (first detail input), so reserve it
+  // before naming the referenced tabs it may point at.
+  const mainName = sanitizeSheetName(sheetNode.sharedSheetName || nodeDisplayName(sheetNode) || 'Detail')
+  const extras = buildItemCellExtraSheets(project, sheetNode, [mainName, nameOverride ?? mainName])
+  const details = buildComponentDetailSheets([await preparePageDetailInput(sheetNode)], {
+    itemCellTabs: extras.tabs
+  })
+  const detail = details[0] ?? null
+  return buildPageExcelPayload(project, sheetNode, detail, nameOverride, extras.sheets)
 }
 
 /**
@@ -310,11 +499,12 @@ export async function preparePageExcelPayload(
  */
 export async function exportItemNodeExcel(project: EestimateProject, node: ProjectNode): Promise<void> {
   const section = findNode(project.root, node.id) ?? node
-  const payload = await preparePageExcelPayload(project, section)
+  const sheet = section.sharedSheetId ? findSharedOwner(project.root, section.sharedSheetId) ?? section : section
+  const payload = await preparePageExcelPayload(project, sheet)
   if (!payload) throw new Error('This item has no printable content to export.')
   const result = await window.api.excel.compile({
     kind: 'page', preferPath: true, page: payload,
-    printSettings: excelPrintSettings(resolveExcelDocumentSettings(project, itemSheetScopeKey(section), section))
+    printSettings: excelPrintSettings(resolveItemExcelDocumentSettings(project, itemSheetScopeKey(sheet), sheet))
   })
   if (!result || !result.ok || !result.filePath) {
     throw new Error(result?.error || 'Excel engine did not return a workbook path.')
@@ -324,7 +514,7 @@ export async function exportItemNodeExcel(project: EestimateProject, node: Proje
   }
   await window.api.export.workbook(
     '',
-    pageExcelFileName(project.meta.name, section.name),
+    pageExcelFileName(project.meta.name, sheet.sharedSheetName || sheet.name),
     undefined,
     { sourcePath: result.filePath }
   )

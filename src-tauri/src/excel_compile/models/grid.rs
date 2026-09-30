@@ -21,7 +21,20 @@ pub struct GridFontPayload {
     #[serde(default)]
     pub align: Option<String>,
     #[serde(default)]
+    pub valign: Option<String>,
+    #[serde(default)]
     pub wrap: Option<bool>,
+    /// Excel rotation degrees (-90..90). Univer tr.v == 1 arrives here as -90
+    /// (continuous canvas-rotated string). Ignored when `vertical_text` is set.
+    #[serde(default)]
+    pub rotation: Option<i16>,
+    /// Writer-level stacked text (Excel 255). Nothing in the Univer mapping
+    /// sets this; kept for explicit stacked-text payloads.
+    #[serde(default, alias = "verticalText")]
+    pub vertical_text: Option<bool>,
+    /// Univer text direction (td): 1 = left-to-right, 2 = right-to-left.
+    #[serde(default, alias = "readingOrder")]
+    pub reading_order: Option<u8>,
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]
@@ -144,6 +157,10 @@ pub struct DetailGridPayload {
     pub merges: Vec<GridMergePayload>,
     #[serde(default, alias = "colWidthsChars")]
     pub col_widths: Vec<f64>,
+    /// Resolved source pixel widths (0 = hidden), sent only by 1:1 snapshot
+    /// grids. The writer prefers these via `set_column_width_pixels`.
+    #[serde(default, alias = "colWidthsPx")]
+    pub col_widths_px: Option<Vec<f64>>,
     #[serde(default, alias = "rowHeightsPt")]
     pub row_heights: Vec<Option<f64>>,
     #[serde(default)]

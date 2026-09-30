@@ -47,6 +47,23 @@ export function resolveExcelDocumentSettings(
   return source ? parseDocumentSettingsFromTypst(source, saved) : saved
 }
 
+/** An item can also set paper geometry from the spreadsheet print controls. */
+export function resolveItemExcelDocumentSettings(
+  project: EestimateProject,
+  scopeKey: string,
+  node: ProjectNode
+): DocumentSettings {
+  const inherited = resolveExcelDocumentSettings(project, undefined, node)
+  const withPrint = normalizeDocumentSettings({
+    pageSize: node.print?.pageSize,
+    orientation: node.print?.orientation,
+    margins: node.print?.margins
+  }, inherited)
+  const withStudio = normalizeDocumentSettings(project.printStudioDocumentSettings?.[scopeKey] ?? {}, withPrint)
+  const source = project.printStudioDocuments?.[scopeKey]
+  return source ? parseDocumentSettingsFromTypst(source, withStudio) : withStudio
+}
+
 export function excelPrintSettings(settings: DocumentSettings): ExcelPrintSettings {
   return {
     pageSize: settings.pageSize,

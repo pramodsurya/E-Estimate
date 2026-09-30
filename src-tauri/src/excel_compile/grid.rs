@@ -23,20 +23,31 @@ fn grid_rgb(raw: &Option<String>, fallback: u32) -> Color {
 }
 
 fn grid_border_style(raw: &Option<String>) -> Option<FormatBorder> {
+    // Tokens from detailGrid mapBorderSide, which follows the installed
+    // Univer BorderStyleTypes 1:1 (1 THIN .. 13 THICK).
     match raw.as_deref() {
-        // Codes follow the old ExcelJS adapters: 2 medium, 3 dashed, 6 double.
-        Some("medium") => Some(FormatBorder::Medium),
-        Some("dashed") => Some(FormatBorder::Dashed),
-        Some("double") => Some(FormatBorder::Double),
         Some("thin") => Some(FormatBorder::Thin),
+        Some("hair") => Some(FormatBorder::Hair),
+        Some("dotted") => Some(FormatBorder::Dotted),
+        Some("dashed") => Some(FormatBorder::Dashed),
+        Some("dashDot") => Some(FormatBorder::DashDot),
+        Some("dashDotDot") => Some(FormatBorder::DashDotDot),
+        Some("double") => Some(FormatBorder::Double),
+        Some("medium") => Some(FormatBorder::Medium),
+        Some("mediumDashed") => Some(FormatBorder::MediumDashed),
+        Some("mediumDashDot") => Some(FormatBorder::MediumDashDot),
+        Some("mediumDashDotDot") => Some(FormatBorder::MediumDashDotDot),
+        Some("slantDashDot") => Some(FormatBorder::SlantDashDot),
+        Some("thick") => Some(FormatBorder::Thick),
         _ => None,
     }
 }
 
-/// Cell format from a grid font spec. `base_size` applies when the spec omits one.
+/// Cell format from a grid font spec. `base_size` applies when the spec omits one;
+/// callers pass 11.0 (Univer DEFAULT_STYLES: Arial 11).
 fn grid_format(spec: &GridFontPayload, base_size: f64) -> Format {
     let mut fmt = Format::new()
-        .set_font_name(spec.font_name.as_deref().unwrap_or("Calibri"))
+        .set_font_name(spec.font_name.as_deref().unwrap_or("Arial"))
         .set_font_size(spec.size.unwrap_or(base_size));
     if spec.bold.unwrap_or(false) {
         fmt = fmt.set_bold();
@@ -66,12 +77,47 @@ fn grid_format(spec: &GridFontPayload, base_size: f64) -> Format {
         Some("left") => {
             fmt = fmt.set_align(FormatAlign::Left);
         }
+        Some("justify") => {
+            fmt = fmt.set_align(FormatAlign::Justify);
+        }
+        _ => {}
+    }
+    // Univer vt only: TOP (1), MIDDLE (2), BOTTOM (3). Unspecified stays at
+    // the Excel default — never forced to vertical centre.
+    match spec.valign.as_deref() {
+        Some("top") => {
+            fmt = fmt.set_align(FormatAlign::Top);
+        }
+        Some("middle") => {
+            fmt = fmt.set_align(FormatAlign::VerticalCenter);
+        }
+        Some("bottom") => {
+            fmt = fmt.set_align(FormatAlign::Bottom);
+        }
         _ => {}
     }
     if spec.wrap.unwrap_or(false) {
         fmt = fmt.set_text_wrap();
     }
-    fmt = fmt.set_align(FormatAlign::VerticalCenter);
+    // Writer-level stacked text (Excel 255) wins over an angle; the Univer
+    // mapping never sends it — tr.v === 1 arrives as rotation -90, matching
+    // Univer's canvas-rotated continuous string. Angles clamp to Excel's range.
+    if spec.vertical_text.unwrap_or(false) {
+        fmt = fmt.set_rotation(270);
+    } else if let Some(angle) = spec.rotation {
+        fmt = fmt.set_rotation(angle.clamp(-90, 90));
+    }
+    // Univer td only: 1 = left-to-right, 2 = right-to-left. Unspecified keeps
+    // Excel's context-dependent default.
+    match spec.reading_order {
+        Some(1) => {
+            fmt = fmt.set_reading_direction(1);
+        }
+        Some(2) => {
+            fmt = fmt.set_reading_direction(2);
+        }
+        _ => {}
+    }
     fmt
 }
 
@@ -113,8 +159,9 @@ fn grid_apply_border(mut fmt: Format, border: &Option<GridBorderPayload>) -> For
 /// and stay at their floor.
 /// Row height for a wrapped-text row: grows past `floor` so long
 /// descriptions are never clipped, never shrinks below it. Use this for
-/// EVERY wrapped row in every current and future writer instead of a fixed
-/// height — a fixed height on a wrap row clips the text in Excel.
+/// wrapped rows in the hand-built writers (cover, component abstract, DATA).
+/// Detail grids (`write_detail_grid`) instead keep their read heights as-is
+/// for a faithful conversion.
 pub(crate) fn wrap_text_height(text: &str, width_chars: f64, size_pt: f64, floor: f64) -> f64 {
     if text.trim().is_empty() {
         return floor;
@@ -153,7 +200,7 @@ fn grid_write_value(
                     || r.style.color.is_some()
                     || r.style.bg.is_some()
                 {
-                    (grid_format(&r.style, 10.0), r.text.clone())
+                    (grid_format(&r.style, 11.0), r.text.clone())
                 } else {
                     (default_fmt.clone(), r.text.clone())
                 }
@@ -243,9 +290,26 @@ pub(crate) fn write_detail_grid(
     if !breaks.is_empty() {
         ws.set_page_breaks(&breaks)?;
     }
-    for (i, w) in grid.col_widths.iter().enumerate() {
-        // Zero width = hidden (mirrors the Typst sheet); never clamp it away.
-        ws.set_column_width(i as u16, if *w <= 0.0 { 0.0 } else { w.clamp(4.0, 120.0) })?;
+    // Column widths: prefer exact source pixels (set_column_width_pixels,
+    // no char conversion) when the grid carries them; otherwise the chars
+    // fallback with no minimum floor (capped at Excel's 255-char limit).
+    // Zero stays hidden on both lanes.
+    if let Some(px) = grid.col_widths_px.as_ref() {
+        for (i, w) in px.iter().enumerate() {
+            let pixels = w.max(0.0).min(1785.0) as u32;
+            ws.set_column_width_pixels(i as u16, pixels)?;
+        }
+    } else {
+        for (i, w) in grid.col_widths.iter().enumerate() {
+            ws.set_column_width(
+                i as u16,
+                if *w <= 0.0 {
+                    0.0
+                } else {
+                    w.min(255.0)
+                },
+            )?;
+        }
     }
     for (i, h) in grid.row_heights.iter().enumerate() {
         if let Some(px) = h {
@@ -262,7 +326,7 @@ pub(crate) fn write_detail_grid(
         ws.merge_range(m.r1, m.c1 as u16, m.r2, m.c2 as u16, "", &Format::new())?;
     }
     for cell in &grid.cells {
-        let mut fmt = grid_format(&cell.style, 10.0);
+        let mut fmt = grid_format(&cell.style, 11.0);
         if let Some(pattern) = cell.num_fmt.as_deref() {
             if !pattern.trim().is_empty() {
                 fmt = fmt.set_num_format(pattern);
@@ -271,64 +335,10 @@ pub(crate) fn write_detail_grid(
         fmt = grid_apply_border(fmt, &cell.border);
         grid_write_value(ws, cell, &fmt)?;
     }
-    // Auto-height: wrapped text grows its row past the explicit/default
-    // height so descriptions are never clipped. Hidden (0-height) rows stay
-    // hidden; formula results are unknowable and keep their floor.
-    let mut grown: std::collections::HashMap<u32, f64> = std::collections::HashMap::new();
-    for cell in &grid.cells {
-        let text: Option<String> = if !cell.runs.is_empty() {
-            Some(
-                cell.runs
-                    .iter()
-                    .map(|run| run.text.as_str())
-                    .collect::<Vec<_>>()
-                    .join(""),
-            )
-        } else {
-            match cell.value.as_ref() {
-                Some(serde_json::Value::String(s)) => Some(s.clone()),
-                _ => None,
-            }
-        };
-        let text = match text {
-            Some(t) => t,
-            None => continue,
-        };
-        // Merged origins span their columns; plain cells use one column.
-        let mut span = cell.c;
-        for m in &grid.merges {
-            if m.r1 == cell.r && m.c1 == cell.c && m.c2 > span {
-                span = m.c2;
-            }
-        }
-        let mut width_chars = 0.0;
-        for (i, w) in grid.col_widths.iter().enumerate() {
-            if (i as u32) >= cell.c && (i as u32) <= span {
-                width_chars += if *w <= 0.0 { 0.0 } else { w.clamp(4.0, 120.0) };
-            }
-        }
-        let size = cell.style.size.unwrap_or(10.0);
-        let floor = match grid.row_heights.get(cell.r as usize).and_then(|h| *h) {
-            Some(h) if h > 0.0 => h,
-            Some(_) => continue,
-            None => 15.0,
-        };
-        let need = wrap_text_height(&text, width_chars, size, floor);
-        grown
-            .entry(cell.r)
-            .and_modify(|e| *e = e.max(need))
-            .or_insert(need);
-    }
-    for (r, h) in grown {
-        let current = grid
-            .row_heights
-            .get(r as usize)
-            .and_then(|h| *h)
-            .unwrap_or(15.0);
-        if h > current {
-            ws.set_row_height(r, h)?;
-        }
-    }
+    // Row heights stay as read: the grid carries the estimator's explicit
+    // heights (hidden rows are 0, the rest convert px to pt in the renderer),
+    // and null keeps the Excel default. No auto-growth — a faithful
+    // conversion never invents heights the source never had.
     for img in &grid.images {
         let ext = grid_image_ext(&img.mime).ok_or_else(|| {
             XlsxError::CustomError(format!("unsupported detail image mime: {}", img.mime))

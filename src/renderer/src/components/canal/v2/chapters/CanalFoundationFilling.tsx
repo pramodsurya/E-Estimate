@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Layers, Shield, Sparkles, Check, ChevronRight } from 'lucide-react'
+import { Layers, Shield, Sparkles, Check, ChevronRight, Droplets } from 'lucide-react'
 import type {
   CanalData,
   CanalBankTier,
@@ -12,16 +12,12 @@ import {
   canalSectionBankTier,
   canalSectionBankFillHeight,
   canalTierFoundationQuantities,
+  canalTierToeProtectionQuantities,
   orderedCanalSections
 } from '../../../../lib/canal'
 import CanalSectionDiagram from '../../CanalSectionDiagram'
-
-const FOUNDATION_OPTIONS = [
-  { value: 'none', label: 'None' },
-  { value: '5-1', label: 'Rubble-and-sand foundation filling (IRR-CAW-5-1)' },
-  { value: '5-2', label: 'Sand filling below foundations (IRR-CAW-5-2)' },
-  { value: '5-3', label: 'Rubble-and-murum foundation filling (IRR-CAW-5-3)' }
-] as const
+import SsrCode from '../../../templates/SsrCode'
+import { Details as ToeFilterDetails, ToeFilterSketch } from './CanalFiltersDrains'
 
 const BLANKET_OPTIONS = [
   { value: 'none', label: 'None' },
@@ -36,10 +32,10 @@ function getTierBadgeText(tier: CanalBankTier): string {
   const f = tier.foundationTreatment
   if (!f) return 'No works'
   const parts: string[] = []
-  if (f.foundation !== 'none') parts.push(`Fill ${f.foundation}`)
   if (f.blanket !== 'none') parts.push(f.blanket === '5-4' ? '25cm Blanket' : 'Var Blanket')
   if (f.horizontalFilter) parts.push('Filter')
   if (f.rockToe) parts.push('Chimney')
+  if (f.toeFilter) parts.push('Toe Filter')
   return parts.length ? parts.join(' · ') : 'No works'
 }
 
@@ -62,7 +58,11 @@ export default function CanalFoundationFilling({
 
   const sortedTiers = [...activeTiers].sort((a, b) => a.minFillHeight - b.minFillHeight)
   const currentTier = sortedTiers.find((t) => t.id === selectedTierId) ?? sortedTiers[0]
-  const treatment: CanalTierFoundationConfig = currentTier?.foundationTreatment ?? defaultCanalTierFoundationConfig()
+  const currentTierId = currentTier ? currentTier.id : ''
+  const treatment: CanalTierFoundationConfig = {
+    ...defaultCanalTierFoundationConfig(),
+    ...(currentTier?.foundationTreatment ?? {})
+  }
 
   const patchTreatment = (patch: Partial<CanalTierFoundationConfig>): void => {
     if (!currentTier) return
@@ -91,23 +91,38 @@ export default function CanalFoundationFilling({
 
   const sections = orderedCanalSections(data)
   const sectionsInTier = sections.filter((s) => {
+    if (s.designPopulated === false) return false
     const leftT = canalSectionBankTier(data, s, 'left')
     const rightT = canalSectionBankTier(data, s, 'right')
-    return leftT?.id === currentTier?.id || rightT?.id === currentTier?.id
+    const leftMatches = leftT != null && leftT.id === currentTierId
+    const rightMatches = rightT != null && rightT.id === currentTierId
+    return isSymmetrical
+      ? leftMatches || rightMatches
+      : activeSide === 'left' ? leftMatches : rightMatches
   })
-  const previewSection = sections.find((s) => s.id === selectedSectionId) ?? sectionsInTier[0] ?? sections[0]
+  const requestedPreviewSection = sections.find((s) => s.id === selectedSectionId)
+  const previewSection = requestedPreviewSection && sectionsInTier.some((section) => section.id === requestedPreviewSection.id)
+    ? requestedPreviewSection
+    : sectionsInTier[0]
 
   const tierSummary = canalTierFoundationQuantities(data, currentTier?.id)
   const grandSummary = canalTierFoundationQuantities(data)
+  const tierToeSummary = canalTierToeProtectionQuantities(data, currentTier?.id)
+  const grandToeSummary = canalTierToeProtectionQuantities(data)
+  const selectedToeFilterQuantity = treatment.toeFilterKind === '5-7'
+    ? tierToeSummary.toeFilterGradedVolume
+    : treatment.toeFilterKind === '5-12'
+      ? tierToeSummary.toeFilterFabric200Area
+      : tierToeSummary.toeFilterFabric250Area
 
   return (
     <section className="canal-chapter">
       <header className="canal-v2-section-header">
         <div>
-          <span className="canal-v2-section-kicker">Bund Foundation &amp; Filters</span>
-          <h2>Bund Foundation &amp; Filters</h2>
+          <span className="canal-v2-section-kicker">Bund Drainage &amp; Filters</span>
+          <h2>Bund Drainage &amp; Filters</h2>
           <p>
-            Configure bund foundation filling, sand blanket, and drainage filters by bank height tier.
+            Configure sand blankets and internal drainage filters by bank height tier.
             Works apply automatically to cross-sections matching each tier bracket.
           </p>
         </div>
@@ -137,7 +152,7 @@ export default function CanalFoundationFilling({
       <div className="canal-tier-continuum" style={{ marginBottom: 16 }}>
         <div className="canal-tier-continuum-header">
           <strong>Bank Height Tiers</strong>
-          <span>Click a tier to configure its foundation treatment and filters</span>
+          <span>Click a tier to configure its blanket and internal filters</span>
         </div>
         <div className="canal-tier-bracket-track">
           {sortedTiers.map((tier) => {
@@ -178,7 +193,7 @@ export default function CanalFoundationFilling({
         <div className="canal-earthwork-card" style={{ display: 'grid', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
             <div>
-              <strong style={{ fontSize: 16 }}>{currentTier.name} Foundation &amp; Filter Settings</strong>
+              <strong style={{ fontSize: 16 }}>{currentTier.name} Drainage &amp; Filter Settings</strong>
               <div style={{ color: 'var(--text-dim)', fontSize: 12 }}>
                 Height range: {currentTier.minFillHeight} m to {currentTier.maxFillHeight < 9000 ? `${currentTier.maxFillHeight} m` : 'top'} · {sectionsInTier.length} sections in this tier
               </div>
@@ -186,49 +201,10 @@ export default function CanalFoundationFilling({
           </div>
 
           <div className="canal-foundation-work-groups">
-            {/* 1. Foundation Filling Card */}
-            <section className="canal-foundation-work-group group-foundation">
-              <strong>1. Foundation Filling</strong>
-              <small>Replaces excavated void beneath bund footprint with firm fill material.</small>
-              <label className="canal-bank-field">
-                <span>Selection</span>
-                <select
-                  value={treatment.foundation}
-                  onChange={(e) => patchTreatment({ foundation: e.target.value as CanalTierFoundationConfig['foundation'] })}
-                >
-                  {FOUNDATION_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {treatment.foundation !== 'none' && (
-                <>
-                  <label className="canal-bank-field">
-                    <span>Foundation filling (%)</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="any"
-                      value={treatment.foundationPercentage}
-                      onChange={(e) => patchTreatment({ foundationPercentage: Math.min(100, Math.max(0, Number(e.target.value))) })}
-                    />
-                  </label>
-                  <div className="canal-foundation-rule">
-                    <strong>Bund footprint void replacement</strong>
-                    <span>{treatment.foundationPercentage}% of foundation excavation depth below the bund footprint.</span>
-                  </div>
-                </>
-              )}
-            </section>
-
-            {/* 2. Sand Blanket Card */}
+            {/* 1. Sand Blanket Card */}
             <section className="canal-foundation-work-group group-blanket">
-              <strong>2. Sand Blanket</strong>
-              <small>Horizontal drainage blanket placed across the stripped bund foundation plane.</small>
+              <strong>1. Sand Blanket</strong>
+              <small>Horizontal drainage blanket placed directly on the stripped/prepared bund level.</small>
               <label className="canal-bank-field">
                 <span>Selection</span>
                 <select
@@ -251,7 +227,7 @@ export default function CanalFoundationFilling({
                       value={treatment.blanketWidthMode}
                       onChange={(e) => patchTreatment({ blanketWidthMode: e.target.value as CanalTierFoundationConfig['blanketWidthMode'] })}
                     >
-                      <option value="automatic">Automatic — full valid bund foundation width</option>
+                      <option value="automatic">Automatic — valid prepared bund footprint</option>
                       <option value="manual">Manual left / right widths</option>
                     </select>
                   </label>
@@ -282,7 +258,7 @@ export default function CanalFoundationFilling({
                   ) : (
                     <div className="canal-foundation-rule">
                       <strong>Automatic extent</strong>
-                      <span>Follows outer toe to canal bed boundary under each bund.</span>
+                      <span>Starts on the stripped level at the land-side toe and stops at the impervious core/trench where zoned.</span>
                     </div>
                   )}
 
@@ -304,9 +280,9 @@ export default function CanalFoundationFilling({
               )}
             </section>
 
-            {/* 3. Filters Card */}
+            {/* 2. Filters Card */}
             <section className="canal-foundation-work-group group-rocktoe">
-              <strong>3. Drainage Filters</strong>
+              <strong>2. Drainage Filters</strong>
               <small>Graded filter drains protecting downstream bund toe and relieving seepage pressures.</small>
 
               <label className="canal-check-row">
@@ -357,7 +333,7 @@ export default function CanalFoundationFilling({
                   ) : (
                     <div className="canal-foundation-rule">
                       <strong>Automatic filter length</strong>
-                      <span>Outer toe to impervious-hearting toe (zoned) or half bund foundation width (homogeneous).</span>
+                      <span>Outer toe to impervious-hearting toe (zoned) or half the prepared bund footprint (homogeneous).</span>
                     </div>
                   )}
 
@@ -414,6 +390,60 @@ export default function CanalFoundationFilling({
                   )}
                 </>
               )}
+
+              <div className="canal-foundation-rule" style={{ marginTop: 12 }}>
+                <strong><Droplets size={15} /> Subsurface toe filter</strong>
+                <span>Buried filter at the land-side toe. It receives seepage from the horizontal/chimney system and releases it toward the open toe ditch or a designed outlet.</span>
+              </div>
+              <label className="canal-check-row">
+                <input
+                  type="checkbox"
+                  checked={treatment.toeFilter}
+                  onChange={(e) => patchTreatment({ toeFilter: e.target.checked })}
+                />
+                <span>Provide subsurface toe filter</span>
+              </label>
+              {treatment.toeFilter && (
+                <div className="canal-work-card-body canal-tier-work-layout">
+                  <div className="canal-preview-stack">
+                    <ToeFilterSketch kind={treatment.toeFilterKind} width={treatment.toeFilterWidth} depth={treatment.toeFilterDepth} />
+                    <div className="canal-live-quantity">
+                      <span>Selected tier toe-filter quantity</span>
+                      <SsrCode code={`IRR-CAW-${treatment.toeFilterKind}`} />
+                      <strong>{n3(selectedToeFilterQuantity)} {treatment.toeFilterKind === '5-7' ? 'CUM' : 'SQM'}</strong>
+                    </div>
+                    <ToeFilterDetails kind={treatment.toeFilterKind} quantity={selectedToeFilterQuantity} />
+                  </div>
+                  <div className="canal-control-stack">
+                    <label className="canal-bank-field">
+                      <span>Apply at land-side toe of</span>
+                      <select value={treatment.toeFilterSide} onChange={(e) => patchTreatment({ toeFilterSide: e.target.value as CanalTierFoundationConfig['toeFilterSide'] })}>
+                        <option value="both">Both banks</option>
+                        <option value="left">Left bank only</option>
+                        <option value="right">Right bank only</option>
+                      </select>
+                    </label>
+                    <fieldset className="canal-choice-group">
+                      <legend>Filter construction</legend>
+                      <label><input type="radio" checked={treatment.toeFilterKind === '5-7'} onChange={() => patchTreatment({ toeFilterKind: '5-7', toeFilterDepth: 0.6 })} /> Graded sand/aggregate filter (IRR-CAW-5-7)</label>
+                      <label><input type="radio" checked={treatment.toeFilterKind !== '5-7'} onChange={() => patchTreatment({ toeFilterKind: '5-12' })} /> Geotextile + aggregate filter</label>
+                    </fieldset>
+                    {treatment.toeFilterKind !== '5-7' && (
+                      <fieldset className="canal-choice-group compact">
+                        <legend>Filter fabric</legend>
+                        <label><input type="radio" checked={treatment.toeFilterKind === '5-12'} onChange={() => patchTreatment({ toeFilterKind: '5-12' })} /> 200 gsm (IRR-CAW-5-12)</label>
+                        <label><input type="radio" checked={treatment.toeFilterKind === '5-13'} onChange={() => patchTreatment({ toeFilterKind: '5-13' })} /> 250 gsm (IRR-CAW-5-13)</label>
+                      </fieldset>
+                    )}
+                    <label className="canal-bank-field"><span>Filter width (m)</span><input type="number" min="0" step="any" value={treatment.toeFilterWidth} onChange={(e) => patchTreatment({ toeFilterWidth: Math.max(0, Number(e.target.value)) })} /></label>
+                    {treatment.toeFilterKind === '5-7' ? (
+                      <label className="canal-bank-field"><span>Filter depth (m)</span><input type="number" min="0" step="any" value={treatment.toeFilterDepth} onChange={(e) => patchTreatment({ toeFilterDepth: Math.max(0, Number(e.target.value)) })} /></label>
+                    ) : (
+                      <div className="canal-foundation-rule"><strong>Code-fixed construction</strong><span>200 mm aggregate course between two polypropylene filter-fabric layers.</span></div>
+                    )}
+                  </div>
+                </div>
+              )}
             </section>
           </div>
 
@@ -426,14 +456,24 @@ export default function CanalFoundationFilling({
                   value={previewSection?.id ?? ''}
                   onChange={(e) => setSelectedSectionId(e.target.value)}
                 >
-                  {sections.map((s, idx) => {
+                  {sectionsInTier.map((s, idx) => {
                     const lTier = canalSectionBankTier(data, s, 'left')
                     const rTier = canalSectionBankTier(data, s, 'right')
-                    const fillH = canalSectionBankFillHeight(data, s, 'left')
-                    const inThis = lTier?.id === currentTier.id || rTier?.id === currentTier.id
+                    const leftMatches = lTier?.id === currentTierId
+                    const rightMatches = rTier?.id === currentTierId
+                    const matchingBanks = isSymmetrical
+                      ? [leftMatches ? 'L' : '', rightMatches ? 'R' : ''].filter(Boolean).join('+')
+                      : activeSide === 'left' ? 'L' : 'R'
+                    const matchingFillHeights = isSymmetrical
+                      ? [
+                          leftMatches ? canalSectionBankFillHeight(data, s, 'left') : null,
+                          rightMatches ? canalSectionBankFillHeight(data, s, 'right') : null
+                        ].filter((height): height is number => height != null)
+                      : [canalSectionBankFillHeight(data, s, activeSide)]
+                    const fillLabel = matchingFillHeights.map((height) => n3(height)).join(' / ')
                     return (
                       <option key={s.id} value={s.id}>
-                        {idx + 1} · Ch {n3(s.chainage)} m (Fill {n3(fillH)}m · {lTier?.name ?? 'Tier'}) {inThis ? '★' : ''}
+                        {idx + 1} · Ch {n3(s.chainage)} m ({matchingBanks} Fill {fillLabel} m · {currentTier.name})
                       </option>
                     )
                   })}
@@ -441,7 +481,7 @@ export default function CanalFoundationFilling({
               </label>
               {previewSection && (
                 <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-                  Active section: Ch {n3(previewSection.chainage)} m · Left Fill: {n3(canalSectionBankFillHeight(data, previewSection, 'left'))} m
+                  Active section: Ch {n3(previewSection.chainage)} m · {currentTier.name} · Blanket {treatment.blanket === 'none' ? 'not enabled' : `${treatment.blanket === '5-4' ? '0.25' : n3(treatment.blanketThickness)} m`}
                 </div>
               )}
             </div>
@@ -450,11 +490,10 @@ export default function CanalFoundationFilling({
               <CanalSectionDiagram
                 data={data}
                 section={previewSection}
-                showFoundationExcavation
-                resolveSavedFoundationWorks
+                showFoundationExcavation={false}
               />
             ) : (
-              <div className="canal-diagram-empty">No cross-sections found. Add sections in Chapter 4.</div>
+              <div className="canal-diagram-empty">No populated cross-section currently matches {currentTier.name}.</div>
             )}
           </div>
 
@@ -463,20 +502,22 @@ export default function CanalFoundationFilling({
             <div className="canal-earthwork-summary" style={{ display: 'grid', gap: 6, padding: 14, borderRadius: 8, background: 'var(--surface-2)' }}>
               <strong style={{ fontSize: 13, color: 'var(--accent)' }}>{currentTier.name} Quantities</strong>
               <div style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-                <span>Foundation filling: <strong>{n3(tierSummary.foundationVolume)} cu.m</strong></span>
                 <span>Sand blanket: <strong>{n3(tierSummary.blanketQuantity)} {tierSummary.blanketUnit}</strong></span>
                 <span>Horizontal filter drain: <strong>{n3(tierSummary.filterVolume)} cu.m</strong></span>
                 <span>Chimney filter: <strong>{n3(tierSummary.chimneyVolume)} cu.m</strong></span>
+                <span>Subsurface toe filter: <strong>{n3(selectedToeFilterQuantity)} {treatment.toeFilterKind === '5-7' ? 'cu.m' : 'sq.m'}</strong></span>
               </div>
             </div>
 
             <div className="canal-earthwork-summary" style={{ display: 'grid', gap: 6, padding: 14, borderRadius: 8, background: 'var(--surface-2)' }}>
-              <strong style={{ fontSize: 13, color: 'var(--text)' }}>Total Project Bund Foundation Quantities</strong>
+              <strong style={{ fontSize: 13, color: 'var(--text)' }}>Total Project Bund Drainage Quantities</strong>
               <div style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-                <span>Foundation filling ({grandSummary.foundationCode}): <strong>{n3(grandSummary.foundationVolume)} cu.m</strong></span>
                 <span>Sand blanket ({grandSummary.blanketCode}): <strong>{n3(grandSummary.blanketQuantity)} {grandSummary.blanketUnit}</strong></span>
                 <span>Horizontal filter drain (IRR-CAW-5-7): <strong>{n3(grandSummary.filterVolume)} cu.m</strong></span>
                 <span>Chimney filter (IRR-CAW-5-10): <strong>{n3(grandSummary.chimneyVolume)} cu.m</strong></span>
+                <span>Toe filter (IRR-CAW-5-7): <strong>{n3(grandToeSummary.toeFilterGradedVolume)} cu.m</strong></span>
+                <span>Toe filter (IRR-CAW-5-12): <strong>{n3(grandToeSummary.toeFilterFabric200Area)} sq.m</strong></span>
+                <span>Toe filter (IRR-CAW-5-13): <strong>{n3(grandToeSummary.toeFilterFabric250Area)} sq.m</strong></span>
               </div>
             </div>
           </div>

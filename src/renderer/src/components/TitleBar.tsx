@@ -25,11 +25,10 @@ import {
 import { isComponentLike } from '../lib/tree'
 import { isRenamable } from './nodeVisual'
 import EstimateMark from './tutorial/EstimateMark'; import ClusterMark from './tutorial/ClusterMark'
-import HelpMenu from './tutorial/HelpMenu'
 import { isTauriRuntime } from '../lib/platformApi'
 import { LEAD_MAP_IMAGE_PATH } from '../lib/leadMapGeometry'; import { useClusterStore } from '../store/useClusterStore'; import { isClusterPath } from '../lib/cluster'
 
-type MenuName = 'file' | 'component' | 'help' | null
+type MenuName = 'file' | 'component' | null
 
 export default function TitleBar(): JSX.Element {
   const [menu, setMenu] = useState<MenuName>(null)
@@ -170,21 +169,6 @@ export default function TitleBar(): JSX.Element {
             Component
           </button>
           {menu === 'component' && componentMenu()}
-        </div>
-
-        {/* Help is where the tutorial lives once the first run is behind you. */}
-        <div className="tb-menu">
-          <button
-            data-tour="menu-help"
-            className={`tb-menu-btn ${menu === 'help' ? 'open' : ''}`}
-            onClick={() => {
-              setNotificationsOpen(false)
-              setMenu(menu === 'help' ? null : 'help')
-            }}
-          >
-            Help
-          </button>
-          {menu === 'help' && <HelpMenu onPick={close} />}
         </div>
 
           <button className="tb-iconbtn" title="Undo" disabled={!canUndo} onClick={() => undo()}>
@@ -398,7 +382,7 @@ function NotificationPanel(): JSX.Element {
                     <span className="tb-notification-muted">Automatic download is starting…</span>
                   )}
                   {notification.status === 'update-downloaded' && (
-                    <button type="button" className="btn primary" onClick={() => window.api.update.install()}>
+                    <button type="button" className="btn primary" onClick={() => void window.api.update.install().catch(() => undefined)}>
                       Restart &amp; install
                     </button>
                   )}

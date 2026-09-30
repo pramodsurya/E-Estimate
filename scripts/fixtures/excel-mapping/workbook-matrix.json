@@ -1,0 +1,207 @@
+{
+  "$schemaNote": "Excel/Univer mapping fixtures for Task C. Source of truth: workbook.save() snapshot. Inputs are Univer-style sheet snapshots (cellData/mergeData/styles/rowData/columnData); 'expect' records the mapping outcome per cell. Implemented in detailGrid.ts mapUniverStyle/flattenSheet: ht 1-3 + 4/5/6=>JUSTIFIED + 0/missing general (numbers right), vt 1-3 + 0/missing bottom (Excel default), tr {a deg, v vertical} (v=1 => rotation -90 continuous, never stacked 255; else rotation folded to -90..90), td => readingOrder 1/2, WRAP tb=3 only (tb 1/2 never wrap), hd rows/cols => zero-size, va/bold/italic/ul/st/numFmt/borders via normRgb. Caller-level inputs carried here (flattenSheet returns empty images/rowBreaks): images[], pageSetup, rowBreaks, sheetFlags (freeze/tabColor/gridlines/rtl), sharedSheetId dedupe, pd (Typst inset only).",
+  "planRefs": [
+    "positions: cellData matrix (r,c) 1:1; merge non-origins skipped; absolute refs, Typst rebase sub-range only",
+    "values: v+t(1S/2N/3B/4FORCE_S)+f -> formula else cached v; formula wins over runs",
+    "richtext: p.body{dataStream,textRuns[st,ed,ts]} -> runs else plain",
+    "numfmt: n.pattern verbatim else general",
+    "fonts: ff,fs,it/bl,ul/bbl/st/ol,va inline-or-sId else default",
+    "color/fill: bg,cl,bd.cl via normRgb; gridlinesColor sheet-only",
+    "halign: ht 1L/2C/3R +gap 4JUST/5BOTH/6DIST; BOTH/DIST=>JUSTIFIED fallback",
+    "valign/dir: vt 1TOP/2MID/3BOT; td + RTL flag",
+    "wrap: WRAP=3 only; tb2=CLIP no-wrap; auto-height gated on wrap",
+    "rotation: tr{a deg,v vertical}; v1=>rotation -90 continuous (canvas-rotated, never stacked 255) else angle folded",
+    "sizes: row{h,ah,hd,s}+defaultRowH; col{w,hd,s}+defaultColW; ah+wrap=>auto height",
+    "hidden: hd row/col/sheet -> Excel hidden, Typst omit",
+    "borders: bd s 0NONE..13; 2medium/3dashed/6double else thin",
+    "padding: pd px -> Typst inset; Excel no-op",
+    "merges: mergeData[] -> merge/span; validate types",
+    "drawings: IMAGE via anchors + scale; chart=>PNG",
+    "print/shared: usedCellRange+EE_PRINT range/gridlines/repeat+printConfig; sharedSheetId dedupe",
+    "tall-row regression: vertical-text header row keeps explicit tall height; numerics stay numeric"
+  ],
+  "sheets": [
+    {
+      "name": "Matrix",
+      "kind": "shared-multi-item",
+      "sharedSheetId": "SHARED-ABSTRACT",
+      "note": "Two estimate items share one sheet (sharedSheetId dedupe => one Excel sheet). Item tag carried in column A.",
+      "defaultColW": 88,
+      "defaultRowH": 24,
+      "range": { "startRow": 0, "startColumn": 0, "endRow": 9, "endColumn": 4 },
+      "rowData": {
+        "0": { "h": 90 },
+        "3": { "hd": 1 },
+        "5": { "h": 60 }
+      },
+      "columnData": {
+        "4": { "hd": 1 },
+        "1": { "w": 120 },
+        "2": { "w": 120 }
+      },
+      "styles": {
+        "h1": { "bl": 1, "ht": 2, "fs": 12, "ff": "Arial", "bg": { "rgb": "#D9E2F3" } },
+        "vert": { "ht": 2, "vt": 2, "tr": { "v": 1 } },
+        "rot45": { "ht": 2, "vt": 2, "tr": { "a": 45 } },
+        "money": { "n": { "pattern": "#,##0.00" } },
+        "pct": { "n": { "pattern": "0.00%" } },
+        "clip": { "tb": 2 },
+        "wrap": { "tb": 3 }
+      },
+      "mergeData": [
+        { "startRow": 0, "startColumn": 0, "endRow": 0, "endColumn": 3 },
+        { "startRow": 8, "startColumn": 0, "endRow": 9, "endColumn": 0 }
+      ],
+      "cellData": {
+        "0": {
+          "0": { "v": "Shared Abstract — Items CD-01 + CD-02", "s": "h1" },
+          "4": { "v": "hidden-col marker", "s": "h1" }
+        },
+        "1": {
+          "0": { "v": "Item", "s": "h1" },
+          "1": { "v": "Quantity", "s": "vert" },
+          "2": { "v": "Rate (45°)", "s": "rot45" },
+          "3": { "v": "Amount", "s": "h1" }
+        },
+        "2": {
+          "0": { "v": "CD-01 Earthwork", "s": { "bl": 1 } },
+          "1": { "v": 10, "s": "money", "t": 2 },
+          "2": { "v": 100.5, "s": { "n": { "pattern": "#,##0.00" } }, "t": 2, "f": "=B3*C3" },
+          "3": { "v": 1005, "s": "money", "t": 2 }
+        },
+        "3": {
+          "0": { "v": "hidden row: must export zero-height, Typst omits", "s": "clip" },
+          "1": { "v": 1, "t": 2 }
+        },
+        "4": {
+          "0": {
+            "p": { "body": { "dataStream": "Stone pitching", "textRuns": [{ "st": 0, "ed": 5, "ts": { "bl": 1, "cl": { "rgb": "#C00000" } } }] } },
+            "s": { "ff": "Calibri", "fs": 11 }
+          },
+          "1": { "v": 5, "t": 2 },
+          "2": { "v": 200, "t": 2 },
+          "3": { "v": 0.15, "s": "pct", "t": 2 }
+        },
+        "5": {
+          "0": { "v": "This is a long wrap cell: WRAP=3 must wrap with auto-height growth", "s": "wrap" },
+          "1": { "v": "This is a long clip cell: tb2 must NOT wrap", "s": "clip" },
+          "2": {
+            "v": "cached 999",
+            "t": 1,
+            "f": "=SUM(C3:C5)",
+            "p": { "body": { "dataStream": "rich loser", "textRuns": [{ "st": 0, "ed": 10, "ts": { "it": 1 } }] } }
+          },
+          "3": { "v": "2026-09-25", "s": { "n": { "pattern": "yyyy-mm-dd" } }, "t": 1 }
+        },
+        "6": {
+          "0": { "v": "borders", "s": { "bd": { "t": { "s": 2, "cl": { "rgb": "#000000" } }, "l": { "s": 3 }, "b": { "s": 6 }, "r": { "s": 1 } } } },
+          "1": { "v": "justify", "s": { "ht": 4 } },
+          "2": { "v": "both=>justified", "s": { "ht": 5 } },
+          "3": { "v": "dist=>justified", "s": { "ht": 6 } }
+        },
+        "7": {
+          "0": { "v": "valign top", "s": { "vt": 1, "pd": 4 } },
+          "1": { "v": "valign mid", "s": { "vt": 2 } },
+          "2": { "v": "valign bottom", "s": { "vt": 3 } },
+          "3": { "v": true, "t": 3 }
+        },
+        "8": {
+          "0": { "v": "span rows 8-9", "s": { "bl": 1, "it": 1, "ul": { "s": 1 }, "st": { "s": 1 }, "bg": { "rgb": "rgb(255,242,204)" } } },
+          "1": { "v": "sub", "s": { "va": 2 } },
+          "2": { "v": "sup", "s": { "va": 3 } },
+          "3": { "v": "force string 007", "t": 4 }
+        }
+      },
+      "images": [
+        {
+          "relLeftPx": 250,
+          "relTopPx": 300,
+          "widthPx": 44,
+          "heightPx": 44,
+          "origWPx": 44,
+          "origHPx": 44,
+          "mime": "image/png",
+          "dataBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        }
+      ],
+      "pageSetup": { "paperSize": "A3", "marginsMm": { "top": 10, "right": 11, "bottom": 12, "left": 13 } },
+      "rowBreaks": [5],
+      "expect": {
+        "A1:D1 merged with title text at origin; covered B1,C1,D1 skipped": true,
+        "B2 vertical text (tr.v=1) keeps row 0 tall height 90px->67.5pt; numerics B3/C3/D3 stay numeric": true,
+        "C2 rotation 45deg (tr.a=45)": true,
+        "hidden row 3 exports height 0; hidden col E exports width 0": true,
+        "C3 formula kept live (=B3*C3 rebased); cached value carried": true,
+        "C6 formula wins over rich runs (runs dropped when formula passes gate)": true,
+        "wrap cell A6 wraps + auto-height grows; clip cell B6 no wrap": true,
+        "numFmts verbatim: #,##0.00 and 0.00% and yyyy-mm-dd": true,
+        "borders: top hair(s:2), left dotted(s:3), bottom dash-dot-dot(s:6), right thin(s:1) per installed BorderStyleTypes": true,
+        "ht 4 JUSTIFIED; ht 5/6 fall back to JUSTIFIED": true,
+        "vt 1/2/3 top/middle/bottom; pd 4px Typst-only inset": true,
+        "bool D8 stays boolean": true,
+        "t:4 forces string '007' (leading zeros kept)": true,
+        "image anchors near row 5 area at scale 1x1; mime png": true,
+        "pageSetup A3 + margins; rowBreak after grid row 5; print area A1:E10": true
+      }
+    },
+    {
+      "name": "Single-Item",
+      "kind": "single-item",
+      "note": "Minimal single-item sheet: plain values, one merge, default sizes.",
+      "defaultColW": 88,
+      "defaultRowH": 24,
+      "range": { "startRow": 0, "startColumn": 0, "endRow": 2, "endColumn": 1 },
+      "mergeData": [{ "startRow": 0, "startColumn": 0, "endRow": 0, "endColumn": 1 }],
+      "cellData": {
+        "0": { "0": { "v": "Single Item Sheet", "s": { "bl": 1, "ht": 2 } } },
+        "1": { "0": { "v": "Qty" }, "1": { "v": 7, "t": 2 } },
+        "2": { "0": { "v": "Note" }, "1": { "v": "plain", "s": { "tb": 1 } } }
+      },
+      "expect": {
+        "title merged A1:B1; qty numeric; tb:1 (OVERFLOW) treated as no-wrap": true
+      }
+    },
+    {
+      "name": "Custom-Component",
+      "kind": "custom-component",
+      "note": "Custom component sheet: RTL direction flag, freeze pane origin, gridlines off, tabColor; exercises sheet-level flags.",
+      "sheetFlags": { "rtl": true, "freeze": { "r": 1, "c": 0 }, "gridlines": false, "tabColor": "4472C4" },
+      "defaultColW": 88,
+      "defaultRowH": 24,
+      "range": { "startRow": 0, "startColumn": 0, "endRow": 1, "endColumn": 1 },
+      "cellData": {
+        "0": { "0": { "v": "Component X", "s": { "bl": 1 } }, "1": { "v": "مجموع", "s": { "td": 1 } } },
+        "1": { "0": { "v": 3, "t": 2 }, "1": { "v": 30, "t": 2, "f": "=A2*10" } }
+      },
+      "expect": {
+        "RTL flag set from td; freeze at A2; gridlines hidden; tabColor 4472C4": true,
+        "B2 live formula over cached 30": true
+      }
+    },
+    {
+      "name": "Project-Export",
+      "kind": "project-export",
+      "note": "Project export composes Matrix + Single-Item writers and resolves cross-sheet links (ITEMCELL rewrite).",
+      "sharedSheetId": "SHARED-ABSTRACT",
+      "cellData": {
+        "0": { "0": { "v": "Project Total", "s": { "bl": 1 } }, "1": { "v": 0, "t": 2, "f": "='Matrix'!D3+10" } }
+      },
+      "range": { "startRow": 0, "startColumn": 0, "endRow": 0, "endColumn": 1 },
+      "expect": {
+        "cross-sheet formula qualified with sheet name; sharedSheetId dedupes Matrix": true
+      }
+    }
+  ],
+  "inexactFormatExceptions": [
+    "padding pd: Typst inset only; Excel has no cell padding — no-op (indent approx only)",
+    "gridlinesColor: sheet-level only, never per-cell",
+    "ht 5 BOTH / ht 6 DIST => Excel JUSTIFIED fallback (no BOTH/DIST equivalent)",
+    "rotation direction: Univer +90 canvas-clockwise reads top-to-bottom; Excel carries -90 (XML 180), Typst rotate(90deg) in y-down space — same visual, recorded here",
+    "borders: Typst DOUBLE paints two strokes; slant falls back to dash-dot; diagonal keys unsupported",
+    "image anchor: nearest-cell approx; floating px positions not exact",
+    "document sheets: one column profile (widest table); paragraphs merge across it",
+    "auto-height: estimate only (chars/width heuristic); formula results keep floor height",
+    "hidden hd: zero-size convention (width/height 0), not Excel hide-flag paths",
+    "readingOrder td 1/2: Excel readingOrder verbatim; Typst direction rendering approximate (RTL mark only)"
+  ]
+}

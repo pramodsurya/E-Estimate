@@ -1,5 +1,10 @@
 import { useEffect } from 'react'
 import { useStore, type AppNotificationStatus } from '../store/useStore'
+import { useClusterStore } from '../store/useClusterStore'
+import {
+  canPrepareAutomaticUpdate,
+  UPDATE_CHECK_INTERVAL_MS
+} from '../lib/autoUpdatePolicy'
 
 type UpdateStage =
   | 'idle'
@@ -18,10 +23,25 @@ interface UpdateInfo {
 
 type UpdateApi = Window['api']
 
+async function saveAndInstallUpdate(
+  install: () => Promise<void>,
+  stillSafe: () => boolean
+): Promise<boolean> {
+  let project = useStore.getState()
+  let cluster = useClusterStore.getState()
+  if (project.project && project.dirty) await project.saveProject({ requireSaved: true })
+  if (cluster.cluster && cluster.clusterDirty) await cluster.saveCluster()
+  project = useStore.getState()
+  cluster = useClusterStore.getState()
+  // A save can finish after another edit. Never exit with pending changes.
+  if (!stillSafe() || project.dirty || cluster.clusterDirty) return false
+  await install()
+  return true
+}
+
 /**
  * Keeps the notification centre synchronized with the shell updater API.
  *
- * Tauri: update commands are stubbed until tauri-plugin-updater is wired.
  * This component is deliberately headless: update prompts and actions belong
  * in the title-bar bell, where they cannot cover an estimate or simulation.
  */
@@ -36,6 +56,9 @@ export default function UpdateNotification(): null {
     const unsubs: (() => void)[] = []
     let sawLiveEvent = false
     let knownInfo: UpdateInfo = {}
+    let downloaded = false
+    let installing = false
+    let lastActivityAt = Date.now()
 
     const publish = (
       stage: UpdateStage,
@@ -74,7 +97,7 @@ export default function UpdateNotification(): null {
         stage === 'downloading'
           ? `${version} · ${Math.round(percent ?? 0)}% downloaded`
           : stage === 'downloaded'
-            ? `${version} is ready. It will install when you close the app, or restart now.`
+            ? message || `${version} is ready. After 10 minutes idle, the app will save, install and reopen. Save any untitled project or cluster first.`
             : stage === 'error'
               ? message || 'The update service returned an unexpected error.'
               : `${version} was found. Its verified installer will download automatically.`
@@ -94,9 +117,69 @@ export default function UpdateNotification(): null {
       )
     }
 
+    const recordActivity = (): void => {
+      lastActivityAt = Date.now()
+    }
+
+    const safeToPrepare = (): boolean => {
+      const project = useStore.getState()
+      const cluster = useClusterStore.getState()
+      return canPrepareAutomaticUpdate({
+        idleForMs: Date.now() - lastActivityAt,
+        unsavedProject: Boolean(project.project && !project.filePath),
+        unsavedCluster: Boolean(cluster.cluster && !cluster.clusterPath),
+        creatingProject: project.view === 'newproject',
+        editorOpen: project.addItem.open || project.addPage.open ||
+          project.addStructure.open || project.settings.open,
+        simulationRunning: Object.keys(project.bundSimulationJobs).length > 0,
+        clusterLoading: cluster.loading
+      })
+    }
+
+    const installWhenSafe = (): void => {
+      if (!downloaded || installing || !safeToPrepare()) return
+      installing = true
+      void saveAndInstallUpdate(api.update.install, safeToPrepare)
+        .then((installed) => {
+          if (!installed) recordActivity()
+        })
+        .catch((error: unknown) => {
+          // Delay retries after a save failure; the native updater reports its
+          // own install errors through update:error.
+          recordActivity()
+          if (downloaded) {
+            publish('downloaded', {}, 100,
+              `Automatic update is waiting for work to be saved: ${error instanceof Error ? error.message : String(error)}`, true)
+          }
+        })
+        .finally(() => {
+          installing = false
+        })
+    }
+
+    const checkPeriodically = (): void => {
+      if (downloaded || installing) return
+      void api.update.status().then((value) => {
+        const status = value as { stage?: UpdateStage } | undefined
+        if (status?.stage === 'checking' || status?.stage === 'available' ||
+          status?.stage === 'downloading' || status?.stage === 'downloaded') return
+        return api.update.check()
+      }).catch(() => undefined)
+    }
+
+    const activityEvents = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'] as const
+    activityEvents.forEach((event) => window.addEventListener(event, recordActivity, { passive: true }))
+    const onVisibilityChange = (): void => {
+      if (!document.hidden) recordActivity()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    const installTimer = window.setInterval(installWhenSafe, 30_000)
+    const checkTimer = window.setInterval(checkPeriodically, UPDATE_CHECK_INTERVAL_MS)
+
     unsubs.push(
       api.update.onChecking(() => {
         sawLiveEvent = true
+        downloaded = false
       })
     )
     unsubs.push(
@@ -108,6 +191,7 @@ export default function UpdateNotification(): null {
     unsubs.push(
       api.update.onNotAvailable(() => {
         sawLiveEvent = true
+        downloaded = false
         publish('not-available')
       })
     )
@@ -120,12 +204,15 @@ export default function UpdateNotification(): null {
     unsubs.push(
       api.update.onDownloaded((value: unknown) => {
         sawLiveEvent = true
+        downloaded = true
         publish('downloaded', value as UpdateInfo, 100, undefined, true)
+        installWhenSafe()
       })
     )
     unsubs.push(
       api.update.onError((message: string) => {
         sawLiveEvent = true
+        downloaded = false
         publish('error', {}, undefined, message, true)
       })
     )
@@ -137,10 +224,18 @@ export default function UpdateNotification(): null {
         | { stage: UpdateStage; info?: UpdateInfo; percent?: number; message?: string }
         | undefined
       if (!state || sawLiveEvent) return
+      downloaded = state.stage === 'downloaded'
       publish(state.stage, state.info, state.percent, state.message, state.stage !== 'downloading')
+      if (downloaded) installWhenSafe()
     })
 
-    return () => unsubs.forEach((unsubscribe) => unsubscribe())
+    return () => {
+      unsubs.forEach((unsubscribe) => unsubscribe())
+      activityEvents.forEach((event) => window.removeEventListener(event, recordActivity))
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.clearInterval(installTimer)
+      window.clearInterval(checkTimer)
+    }
   }, [dismiss, upsert])
 
   return null

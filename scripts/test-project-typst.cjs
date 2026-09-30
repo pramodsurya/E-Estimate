@@ -202,7 +202,7 @@ function loadBookApi() {
       itemSheetShadowFiles: () => ({}),
       itemSheetTypstTemplate: () => '= Page\n',
       resolveItemSheetDocumentSettings: () => ({}),
-      itemSheetScopeKey: (node) => `item-sheet-${node.id}`
+      itemSheetScopeKey: (node) => node.sharedSheetId ? `shared-sheet-${node.sharedSheetId}` : `item-sheet-${node.id}`
     },
     './documentSettings': {
       applyDocumentSettingsToTypst: (src) => src
@@ -217,9 +217,10 @@ function loadBookApi() {
         compilePrelude: '',
         compileInputs: {
           'ee-data': JSON.stringify({
-            component: { name: node.name },
+            component: { name: node.name, totalFormatted: '0' },
             items: [],
-            itemScope: options?.itemScope ?? 'all'
+            itemScope: options?.itemScope ?? 'all',
+            includeExternalItems: options?.includeExternalItems ?? true
           })
         },
         shadowFiles: {}
@@ -233,6 +234,11 @@ function loadBookApi() {
         const visit = (node) => node.id === id ? node : node.children?.map(visit).find(Boolean)
         return visit(root)
       }
+    },
+    '../sharedSheet': {
+      findSharedOwner: (root, id) => root.children?.flatMap((node) => [node, ...(node.children ?? [])]).find((node) => node.sharedSheetId === id) ?? null,
+      findSharedContentSource: (root, id) => root.children?.find((node) => node.sharedSheetId === id) ?? null,
+      findSharedPrintSource: (root, id) => root.children?.find((node) => node.sharedSheetId === id) ?? null
     },
     './dataTypst': {
       dataSheetsCompileInputs: () => ({ 'ee-data': '{}' }),
@@ -276,6 +282,7 @@ const {
   assembleProjectBookFromParts,
   typstSourcePrintsChildItems,
   collectProjectTypstParts,
+  assembleComponentPrintWithItems,
   aliasShadowPathForIncludedPart,
   upgradeLegacyTypstApis
 } = bookApi
@@ -426,8 +433,6 @@ const bookPdf = bookCompiler.pdf({
   inputs: book.inputs
 })
 assert(bookPdf?.length > 8_000, 'project book wrapper must compile in one pass')
-const bookOut = path.join(root, 'tmp/pdfs/project-book-typst.pdf')
-fs.writeFileSync(bookOut, bookPdf)
 assert(
   pdfContains(bookPdf, 'Restoration of Mallampet Tank') ||
     pdfContains(bookPdf, 'Mallampet') ||
@@ -480,11 +485,41 @@ assert.deepEqual(
 )
 const componentPart = collected.find((part) => part.kind === 'component')
 assert(componentPart.source.includes('EE.component.name'), 'uses saved component Typst')
+assert.equal(JSON.parse(componentPart.inputs['ee-data']).itemScope, 'all')
+assert.equal(JSON.parse(componentPart.inputs['ee-data']).includeExternalItems, false, 'component loop receives template-owned items only')
 assert.equal(
   collected.some((part) => part.kind === 'item'),
-  false,
-  'does not emit items separately when component Typst already prints items'
+  true,
+  'emits external items with their own Typst source even when component source loops items'
 )
+const customItemProject = {
+  ...stubProject,
+  printStudioDocuments: {
+    ...stubProject.printStudioDocuments,
+    'item-sheet-item-1': '= Custom item layout\n'
+  }
+}
+const customItemParts = collectProjectTypstParts(customItemProject)
+assert.equal(customItemParts.find((part) => part.id === 'item-sheet-item-1').source, '= Custom item layout\n', 'project PDF uses saved item Typst')
+const componentSequence = assembleComponentPrintWithItems(
+  customItemProject,
+  customItemProject.root.children[1],
+  savedComponent,
+  {},
+  () => undefined
+)
+assert(componentSequence.mainContent.includes('#include "parts/item-sheet-item-1.typ"'), 'component PDF includes the item source as its own page')
+assert.equal(componentSequence.parts[1].source, '= Custom item layout\n', 'component preview uses saved item Typst')
+assert.equal(JSON.parse(componentSequence.parts[0].inputs['ee-data']).itemScope, 'direct')
+const componentCompiler = NodeCompiler.create({ workspace: root })
+for (const [vpath, bytes] of Object.entries(componentSequence.shadowFiles)) {
+  componentCompiler.mapShadow(path.join(root, vpath), Buffer.from(bytes, 'base64'))
+}
+const componentPdf = componentCompiler.pdf({
+  mainFileContent: componentSequence.mainContent,
+  inputs: componentSequence.inputs
+})
+assert(componentPdf.length > 1_000, 'component plus saved external item compiles as one PDF')
 const assembled = assembleProjectBookFromParts(collected, stubProject.meta.name)
 assert(assembled.mainContent.includes('#include "parts/front-cover.typ"'))
 assert(assembled.mainContent.includes('#include "parts/general-abstract.typ"'))
@@ -495,6 +530,22 @@ assert(
   'collector aliases emblem under parts/ for included cover.typ'
 )
 console.log(`Project book collector passed (${collected.length} parts)`)
+
+const sharedBookProject = {
+  ...stubProject,
+  root: {
+    ...stubProject.root,
+    children: stubProject.root.children.map((node) => node.id === 'c1'
+      ? { ...node, children: [
+          ...node.children,
+          { id: 'shared-a', kind: 'item', name: 'Code A', sharedSheetId: 'group-1', sharedSheetName: 'Measurement Sheet', children: [] },
+          { id: 'shared-b', kind: 'item', name: 'Code B', sharedSheetId: 'group-1', sharedSheetName: 'Measurement Sheet', children: [] }
+        ] }
+      : node)
+  }
+}
+const sharedBookParts = collectProjectTypstParts(sharedBookProject)
+assert.deepEqual(sharedBookParts.filter((part) => part.kind === 'item').map((part) => part.id), ['item-sheet-item-1', 'shared-sheet-group-1'], 'each ordinary item has its own page and shared members produce one group page')
 
 const mixedTemplateProject = {
   ...stubProject,

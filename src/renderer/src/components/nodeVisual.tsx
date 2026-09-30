@@ -1,4 +1,4 @@
-import { BookOpen, Box, Component as ComponentIcon, FileText, Layers, ScrollText, Table2 } from 'lucide-react'
+import { BookOpen, Box, Component as ComponentIcon, FileText, Hash, Layers, ScrollText, Table2 } from 'lucide-react'
 import { projectItemDisplayName } from '../lib/projectItems'
 import type { ProjectNode } from '../types/project'
 
@@ -16,6 +16,9 @@ export function NodeIcon({ node, size = 15 }: { node: ProjectNode; size?: number
       return <FileText size={size} color="var(--page)" />
     case 'item':
     default:
+      if (node.sharedSheetId) {
+        return <Hash size={size} color={node.itemSource === 'SOR' ? 'var(--item-sor)' : 'var(--item-ssr)'} />
+      }
       if (node.itemEditorType === 'document') {
         return (
           <FileText

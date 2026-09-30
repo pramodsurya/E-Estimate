@@ -154,7 +154,7 @@ export interface EestimateApi {
     status: () => Promise<unknown>
     check: () => Promise<unknown>
     download: () => Promise<unknown>
-    install: () => void
+    install: () => Promise<void>
     onChecking: (cb: () => void) => () => void
     onAvailable: (cb: (info: unknown) => void) => () => void
     onNotAvailable: (cb: (info: unknown) => void) => () => void

@@ -887,8 +887,8 @@ assert.match(updateRs, /pub async fn update_check|\.updater\(\)/,
   'the Tauri updater is wired through tauri-plugin-updater, not stubbed')
 assert.match(updaterSource, /download automatically/,
   'the bell explains that verified updates download automatically')
-assert.match(updaterSource, /install when you close the app/,
-  'the bell explains the default install-on-exit behavior')
+assert.match(updaterSource, /After 10 minutes idle, the app will save, install and reopen/,
+  'the bell explains automatic installation after a safe idle period')
 const storeSource = fs.readFileSync(
   path.join(root, 'src/renderer/src/store/useStore.ts'),
   'utf8'

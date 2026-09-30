@@ -1241,6 +1241,16 @@ textarea {
 .tree-row.selected {
   background: var(--bg-active);
 }
+.tree-row.shared-sheet-row {
+  border-left: 2px solid var(--component);
+  background: var(--bg-hover);
+}
+.tree-row.shared-sheet-row .node-label {
+  font-weight: 600;
+}
+.tree-row.shared-sheet-row.active-group {
+  border-left-color: var(--accent, #2f6fed);
+}
 
 /* Drag-to-reorder: grip appears on hover, a rule marks the landing edge. */
 .tree-grip {

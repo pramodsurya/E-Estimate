@@ -30,6 +30,7 @@ import { applyDocumentSettingsToTypst } from './documentSettings'
 import { resolveComponentPrintPart } from './componentTypst'
 import { prepareBundCompileInputs } from './bund/bundCompileWorker'
 import { findNode } from '../tree'
+import { findSharedContentSource, findSharedOwner, findSharedPrintSource } from '../sharedSheet'
 import {
   dataSheetsCompileInputs,
   dataSignatureSettings,
@@ -345,17 +346,24 @@ function pagePart(project: EestimateProject, node: ProjectNode): ProjectTypstPar
 }
 
 function itemPart(project: EestimateProject, node: ProjectNode): ProjectTypstPart {
+  const owner = node.sharedSheetId ? findSharedOwner(project.root, node.sharedSheetId) ?? node : node
+  const sheetNode = node.sharedSheetId
+    ? findSharedContentSource(project.root, node.sharedSheetId) ?? node
+    : node
+  const printNode = node.sharedSheetId
+    ? findSharedPrintSource(project.root, node.sharedSheetId) ?? node
+    : node
   const saved = project.printStudioDocuments?.[itemSheetScopeKey(node)]
-  const settings = resolveItemSheetDocumentSettings(project, node)
-  const source = saved ?? applyDocumentSettingsToTypst(itemSheetTypstTemplate(project, node), settings)
+  const settings = resolveItemSheetDocumentSettings(project, { ...owner, print: printNode.print })
+  const source = saved ?? applyDocumentSettingsToTypst(itemSheetTypstTemplate(project, owner), settings)
   return {
     id: itemSheetScopeKey(node),
-    label: node.name,
+    label: node.sharedSheetId ? node.sharedSheetName || 'Shared sheet' : node.name,
     kind: 'item',
     source,
     prelude: EE_ITEM_TABLE_PRELUDE,
-    inputs: itemSheetCompileInputs(project, node),
-    shadowFiles: itemSheetShadowFiles(node)
+    inputs: itemSheetCompileInputs(project, sheetNode),
+    shadowFiles: itemSheetShadowFiles(sheetNode, printNode.print?.range ?? null)
   }
 }
 
@@ -365,12 +373,14 @@ function emitComponentBranch(
   recipes: ReturnType<typeof computeProjectPrintInputs>['recipes'],
   rateOf: ReturnType<typeof computeProjectPrintInputs>['rateOf'],
   parts: ProjectTypstPart[],
+  emittedSharedSheets: Set<string>,
   deferBundInputs = false
 ): void {
   const hasSubcomponents = node.children.some((child) => child.kind === 'subcomponent')
   const resolved = resolveComponentPrintPart(project, node, recipes, rateOf, {
     itemScope: hasSubcomponents ? 'direct' : 'all',
-    deferBundInputs
+    deferBundInputs,
+    includeExternalItems: false
   })
   parts.push({
     id: resolved.scopeKey,
@@ -386,14 +396,19 @@ function emitComponentBranch(
     if (child.kind === 'page') parts.push(pagePart(project, child))
   }
 
-  if (!typstSourcePrintsChildItems(resolved.source)) {
-    for (const child of node.children) {
-      if (child.kind === 'item' && !child.templateGenerated) parts.push(itemPart(project, child))
+  for (const child of node.children) {
+    if (child.kind !== 'item' || child.templateGenerated) continue
+    if (child.sharedSheetId) {
+      if (emittedSharedSheets.has(child.sharedSheetId)) continue
+      emittedSharedSheets.add(child.sharedSheetId)
+      parts.push(itemPart(project, child))
+    } else {
+      parts.push(itemPart(project, child))
     }
   }
 
   for (const child of node.children) {
-    if (child.kind === 'subcomponent') emitComponentBranch(project, child, recipes, rateOf, parts, deferBundInputs)
+    if (child.kind === 'subcomponent') emitComponentBranch(project, child, recipes, rateOf, parts, emittedSharedSheets, deferBundInputs)
   }
 }
 
@@ -404,6 +419,7 @@ export function collectProjectTypstParts(
 ): ProjectTypstPart[] {
   const { recipes, rateOf, seigniorage } = computeProjectPrintInputs(project, undefined, options)
   const parts: ProjectTypstPart[] = []
+  const emittedSharedSheets = new Set<string>()
   const rootPages = project.root.children.filter((child) => child.kind === 'page')
   const cover = rootPages.find((page) => page.pageTemplate === 'front')
   if (cover) parts.push(pagePart(project, cover))
@@ -459,7 +475,7 @@ export function collectProjectTypstParts(
   })
 
   for (const child of project.root.children) {
-    if (child.kind === 'component') emitComponentBranch(project, child, recipes, rateOf, parts, options?.deferBundInputs)
+    if (child.kind === 'component') emitComponentBranch(project, child, recipes, rateOf, parts, emittedSharedSheets, options?.deferBundInputs)
   }
 
   parts.push(leadPart, seignioragePart, dataPart)
@@ -469,7 +485,8 @@ export function collectProjectTypstParts(
 
 export function assembleProjectBookFromParts(
   parts: ProjectTypstPart[],
-  title = 'Estimate'
+  title = 'Estimate',
+  layout: 'book' | 'sequence' = 'book'
 ): ProjectBookCompile {
   const inputs: Record<string, string> = {}
   const shadowFiles: Record<string, string> = {}
@@ -509,15 +526,52 @@ export function assembleProjectBookFromParts(
   }
 
   return {
-    mainContent: buildProjectBookWrapper(
-      parts.map((part, index) => ({ label: part.label, kind: part.kind, path: partPaths[index]! })),
-      title
-    ),
+    mainContent: layout === 'sequence'
+      ? partPaths.map((path, index) => `${index ? '#pagebreak()\n' : ''}#include "${path}"`).join('\n')
+      : buildProjectBookWrapper(
+        parts.map((part, index) => ({ label: part.label, kind: part.kind, path: partPaths[index]! })),
+        title
+      ),
     inputs,
     shadowFiles,
     parts,
     partPaths
   }
+}
+
+/** Compile a component studio source followed by each external item's own studio source. */
+export function assembleComponentPrintWithItems(
+  project: EestimateProject,
+  node: ProjectNode,
+  editorSource: string,
+  recipes: ReturnType<typeof computeProjectPrintInputs>['recipes'],
+  rateOf: ReturnType<typeof computeProjectPrintInputs>['rateOf'],
+  extraInputs: Record<string, string> = {}
+): ProjectBookCompile {
+  const resolved = resolveComponentPrintPart(project, node, recipes, rateOf, {
+    itemScope: 'direct',
+    deferBundInputs: true,
+    includeExternalItems: false
+  })
+  const parts: ProjectTypstPart[] = [{
+    id: resolved.scopeKey,
+    label: resolved.label,
+    kind: 'component',
+    source: editorSource,
+    prelude: resolved.compilePrelude,
+    inputs: { ...resolved.compileInputs, ...extraInputs },
+    shadowFiles: resolved.shadowFiles
+  }]
+  const emittedSharedSheets = new Set<string>()
+  for (const child of node.children) {
+    if (child.kind !== 'item' || child.templateGenerated) continue
+    if (child.sharedSheetId) {
+      if (emittedSharedSheets.has(child.sharedSheetId)) continue
+      emittedSharedSheets.add(child.sharedSheetId)
+    }
+    parts.push(itemPart(project, child))
+  }
+  return assembleProjectBookFromParts(parts, node.name, 'sequence')
 }
 
 export function assembleProjectBookCompile(

@@ -8,15 +8,20 @@
  * structural types only with no runtime import.
  */
 declare namespace ExcelJS {
+  // Full installed Univer BorderStyleTypes coverage (0 NONE–13 THICK):
+  // every token the byCode map emits is accepted downstream by
+  // src-tauri/src/excel_compile/grid.rs (FormatBorder::DashDotDot,
+  // MediumDashDotDot, Thick, ...).
   type BorderStyle =
-    | 'thin' | 'dotted' | 'dashDot' | 'hair' | 'dashed' | 'medium'
-    | 'mediumDashed' | 'mediumDashDot' | 'slantDashDot' | 'double'
+    | 'thin' | 'dotted' | 'dashDot' | 'dashDotDot' | 'hair' | 'dashed' | 'medium'
+    | 'mediumDashed' | 'mediumDashDot' | 'mediumDashDotDot' | 'slantDashDot' | 'double'
+    | 'thick'
   interface Color { argb?: string }
   interface Font {
     name?: string; size?: number; family?: number; bold?: boolean
     italic?: boolean; underline?: boolean; strike?: boolean; color?: Color
   }
-  interface Alignment { vertical?: string; horizontal?: string; wrapText?: boolean }
+  interface Alignment { vertical?: string; horizontal?: string; wrapText?: boolean; textRotation?: number; readingOrder?: number }
   interface Border { style?: BorderStyle; color?: Color }
   interface Borders { top?: Border; left?: Border; bottom?: Border; right?: Border; diagonal?: Border }
   interface Fill { type?: string; pattern?: string; fgColor?: Color; bgColor?: Color }
@@ -37,6 +42,7 @@ declare namespace ExcelJS {
 import type { CellRange, Margins, Orientation, PaperSize } from '../../types/project'
 import type { DocumentSettings } from '../typist-output/documentSettings'
 import { PAPER_MM, PX_PER_MM } from '../printRender'
+import { resolveIColorRgb, type UnivIColorStyle } from './univerResolve'
 
 /** Paper dimensions mapping in millimeters. */
 const PAPER_SIZES_MM: Record<string, { width: number; height: number; excelPaperSize: number }> = {
@@ -126,6 +132,11 @@ export function applyScaledColumnWidths(
 
   columnWidthsPx.forEach((widthPx, index) => {
     const colNum = index + 1
+    // Hidden columns (hd === 1 -> width 0) stay zero-sized, like the grid.
+    if (widthPx === 0) {
+      ws.getColumn(colNum).width = 0
+      return
+    }
     const scaledPx = Math.max(20, widthPx * scale)
     const excelWidth = Number((scaledPx / PX_PER_EXCEL_CHAR).toFixed(2))
     ws.getColumn(colNum).width = excelWidth
@@ -174,14 +185,24 @@ export function applyMerges(
 export function applyCellStyle(
   cell: ExcelJS.Cell,
   style: any,
-  isHeader = false
+  isHeader = false,
+  opts?: { hasRichText?: boolean }
 ): void {
   if (!style) return
+  // Installed font-colour resolution differs by paint path: document cells
+  // (rich `p` or nonzero rotation) resolve `{th}` through getColorStyle,
+  // plain-text font reads `.rgb` only (engine-render _renderText).
+  const tr0 = style.tr as { a?: unknown; v?: unknown } | null | undefined
+  const themeFont =
+    opts?.hasRichText === true ||
+    (!!tr0 && typeof tr0 === 'object' &&
+      (tr0.v === 1 || (typeof tr0.a === 'number' && Number.isFinite(tr0.a) && (tr0.a as number) % 360 !== 0)))
+  const hex = (raw: string): string | undefined => normColorHex(raw) ?? undefined
 
-  // Font
+  // Font (Univer DEFAULT_STYLES: Arial 11 when the snapshot is silent).
   const font: Partial<ExcelJS.Font> = {
-    name: style.ff || 'Trebuchet MS',
-    size: style.fs || 10,
+    name: style.ff || 'Arial',
+    size: style.fs || 11,
     family: 2
   }
   if (style.bl || isHeader) font.bold = true
@@ -189,7 +210,7 @@ export function applyCellStyle(
   if (style.ul) font.underline = true
   if (style.st) font.strike = true
 
-  const colorHex = normColorHex(style.cl?.rgb)
+  const colorHex = resolveIColorRgb(style.cl as UnivIColorStyle | undefined, hex, { theme: themeFont })
   if (colorHex) {
     font.color = { argb: 'FF' + colorHex }
   } else {
@@ -197,8 +218,9 @@ export function applyCellStyle(
   }
   cell.font = font
 
-  // Fill
-  const bgHex = normColorHex(style.bg?.rgb)
+  // Fill (installed sheet fills read `.rgb` only — _setBgStylesCache — so a
+  // theme-only fill paints nothing, matching the canvas).
+  const bgHex = resolveIColorRgb(style.bg as UnivIColorStyle | undefined, hex)
   if (bgHex && bgHex !== 'ffffff') {
     cell.fill = {
       type: 'pattern',
@@ -207,30 +229,54 @@ export function applyCellStyle(
     }
   }
 
-  // Alignment
+  // Alignment (Univer defs: ht 1L/2C/3R (+string forms), 4/5/6 justify
+  // fallback; ht 0/missing is general (Excel's own default handles numbers);
+  // vt 1TOP/2MID/3BOT, vt 0/missing stays at Excel's default (bottom);
+  // tb WRAP=3 only — CLIP=2 never wraps).
   const alignment: Partial<ExcelJS.Alignment> = {
-    vertical: style.vt === 1 ? 'top' : style.vt === 3 ? 'bottom' : 'middle',
-    wrapText: style.tb === 2 || style.tb === 3 || Boolean(style.wrapText)
+    vertical: style.vt === 1 ? 'top' : style.vt === 2 ? 'middle' : style.vt === 3 ? 'bottom' : undefined,
+    wrapText: style.tb === 3 || Boolean(style.wrapText)
   }
-  if (style.ht === 2) alignment.horizontal = 'center'
-  else if (style.ht === 3) alignment.horizontal = 'right'
-  else if (style.ht === 1) alignment.horizontal = 'left'
+  if (style.ht === 2 || style.ht === 'c') alignment.horizontal = 'center'
+  else if (style.ht === 3 || style.ht === 'r') alignment.horizontal = 'right'
+  else if (style.ht === 1 || style.ht === 'l') alignment.horizontal = 'left'
+  else if (style.ht === 4 || style.ht === 5 || style.ht === 6) alignment.horizontal = 'justify'
+  // Rotation: Univer canvas-rotates laid-out lines, so tr.v === 1 is a
+  // continuous 90-degree clockwise rotation (Excel -90), not stacked text;
+  // tr.a folds into Excel's -90..90 textRotation window.
+  const tr = style.tr
+  if (tr && typeof tr === 'object') {
+    if (tr.v === 1) alignment.textRotation = -90
+    else if (typeof tr.a === 'number' && Number.isFinite(tr.a) && tr.a % 360 !== 0) {
+      alignment.textRotation = Math.round(((tr.a + 90) % 180 + 180) % 180 - 90)
+    }
+  }
+  if (style.td === 1) alignment.readingOrder = 1
+  else if (style.td === 2) alignment.readingOrder = 2
   cell.alignment = alignment
 
-  // Borders
+  // Borders: codes follow the installed Univer BorderStyleTypes (0 NONE,
+  // 1 THIN, 2 HAIR, 3 DOTTED, 4 DASHED, 5 DASH_DOT, 6 DASH_DOT_DOT, 7 DOUBLE,
+  // 8 MEDIUM, 9 MEDIUM_DASHED, 10 MEDIUM_DASH_DOT, 11 MEDIUM_DASH_DOT_DOT,
+  // 12 SLANT_DASH_DOT, 13 THICK). Explicit NONE writes no border.
   if (style.bd) {
     const borders: Partial<ExcelJS.Borders> = {}
-    const borderSide = (s: any): Partial<ExcelJS.Border> => {
-      if (!s) return { style: 'thin', color: { argb: 'FF000000' } }
-      const hex = normColorHex(s.cl?.rgb) || '000000'
-      const styleType: ExcelJS.BorderStyle = s.s === 2 ? 'medium' : s.s === 3 ? 'dashed' : s.s === 6 ? 'double' : 'thin'
-      return { style: styleType, color: { argb: 'FF' + hex } }
+    const borderSide = (s: any): Partial<ExcelJS.Border> | undefined => {
+      if (!s || s.s === 0) return undefined
+      // Installed sheet borders resolve {th} (_setBorderProps getColorStyle).
+      const hex = resolveIColorRgb(s.cl as UnivIColorStyle | undefined, (raw: string) => normColorHex(raw) ?? undefined, { theme: true }) || '000000'
+      const byCode: Record<number, ExcelJS.BorderStyle> = {
+        1: 'thin', 2: 'hair', 3: 'dotted', 4: 'dashed', 5: 'dashDot', 6: 'dashDotDot',
+        7: 'double', 8: 'medium', 9: 'mediumDashed', 10: 'mediumDashDot',
+        11: 'mediumDashDotDot', 12: 'slantDashDot', 13: 'thick'
+      }
+      return { style: byCode[s.s] ?? 'thin', color: { argb: 'FF' + hex } }
     }
-    if (style.bd.t) borders.top = borderSide(style.bd.t)
-    if (style.bd.r) borders.right = borderSide(style.bd.r)
-    if (style.bd.b) borders.bottom = borderSide(style.bd.b)
-    if (style.bd.l) borders.left = borderSide(style.bd.l)
-    cell.border = borders
+    if (style.bd.t) { const b = borderSide(style.bd.t); if (b) borders.top = b }
+    if (style.bd.r) { const b = borderSide(style.bd.r); if (b) borders.right = b }
+    if (style.bd.b) { const b = borderSide(style.bd.b); if (b) borders.bottom = b }
+    if (style.bd.l) { const b = borderSide(style.bd.l); if (b) borders.left = b }
+    if (borders.top || borders.right || borders.bottom || borders.left) cell.border = borders
   }
 }
 
@@ -271,8 +317,9 @@ export function applyRichText(
     if (run.ts?.bl) font.bold = true
     if (run.ts?.it) font.italic = true
     if (run.ts?.ul) font.underline = true
-    if (run.ts?.cl?.rgb) {
-      const hex = normColorHex(run.ts.cl.rgb)
+    // Rich runs paint through the document path, which resolves {th}.
+    if (run.ts?.cl) {
+      const hex = resolveIColorRgb(run.ts.cl as UnivIColorStyle | undefined, (raw: string) => normColorHex(raw) ?? undefined, { theme: true })
       if (hex) font.color = { argb: 'FF' + hex }
     }
     richText.push({
@@ -296,12 +343,12 @@ export function applyRichText(
   return false
 }
 
-/** Helper: normalize RGB/HEX color to 6-char hex. */
+/** Helper: normalize RGB/HEX color to 6-char hex (8-hex drops the alpha prefix, like normRgb). */
 export function normColorHex(raw?: string | null): string | null {
   if (!raw) return null
   const s = raw.trim().replace(/^#/, '')
   if (/^[0-9a-fA-F]{6}$/.test(s)) return s.toUpperCase()
-  if (/^[0-9a-fA-F]{8}$/.test(s)) return s.slice(0, 6).toUpperCase()
+  if (/^[0-9a-fA-F]{8}$/.test(s)) return s.slice(2).toUpperCase()
   const rgb = /^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i.exec(raw)
   if (rgb) {
     const toHex = (n: string) => Number(n).toString(16).padStart(2, '0').toUpperCase()

@@ -20,6 +20,7 @@
 
 import type { CellRange, ChartDef, PrintConfig } from '../../types/project'
 import { computeUsedRange, PAPER_MM, PX_PER_MM } from '../printRender'
+import { themeIndexToRgbHex } from '../excel-output/univerResolve'
 
 /* ------------------------------------------------------------------ */
 /* Minimal structural views of the Univer snapshot (mirrors printRender). */
@@ -27,6 +28,7 @@ import { computeUsedRange, PAPER_MM, PX_PER_MM } from '../printRender'
 
 interface ColorStyle {
   rgb?: string
+  th?: number
 }
 interface BorderStyle {
   s?: number
@@ -234,9 +236,21 @@ function normColor(raw: string | null | undefined): string | null {
   return null
 }
 
-function colourOf(c: ColorStyle | null | undefined): string | null {
-  if (!c || !c.rgb) return null
-  return normColor(c.rgb)
+/**
+ * IColorStyle to a Typst `rgb("...")` literal with the installed precedence
+ * (truthy rgb wins, else indexed theme): whether `th` resolves at all is a
+ * per-path installed rule — sheet borders and document (rich/rotated) font
+ * resolve it, plain-text font and sheet fills read `.rgb` only — so callers
+ * pass `theme: true` only on resolving paths (canvas parity otherwise).
+ */
+function colourOf(c: ColorStyle | null | undefined, opts?: { theme?: boolean }): string | null {
+  if (!c) return null
+  if (c.rgb) return normColor(c.rgb)
+  if (opts?.theme) {
+    const hex = themeIndexToRgbHex(c.th)
+    if (hex) return `rgb("#${hex}")`
+  }
+  return null
 }
 
 function resolveStyle(
@@ -481,18 +495,19 @@ function escapeTypst(text: string): string {
 function escapeQuoted(text: string): string { return text.replace(/\\/g, '\\\\').replace(/"/g, '\\"') }
 function borderSide(b: BorderStyle | null | undefined): string | null {
   if (!b || !b.s) return null
-  const color = colourOf(b.cl) ?? 'rgb("#000000")'
+  // Installed sheet borders resolve {th} (_setBorderProps getColorStyle).
+  const color = colourOf(b.cl, { theme: true }) ?? 'rgb("#000000")'
   const widths: Record<number, string> = { 1: '0.5pt', 2: '0.5pt', 3: '0.5pt', 4: '1pt', 5: '1pt', 6: '1pt', 7: '1.5pt', 8: '1pt', 9: '1pt', 10: '1pt', 11: '1pt', 12: '1pt', 13: '1.5pt' }
   return (widths[b.s] ?? '0.5pt') + ' + ' + color
 }
-function textArgs(style: StyleData | null): string {
+function textArgs(style: StyleData | null, opts?: { themeFont?: boolean }): string {
   if (!style) return ''
   const parts: string[] = []
   if (style.ff) parts.push('font: "' + escapeQuoted(style.ff) + '"')
   if (style.fs && style.fs > 0) parts.push('size: ' + style.fs + 'pt')
   if (style.bl) parts.push('weight: "bold"')
   if (style.it) parts.push('style: "italic"')
-  const fg = colourOf(style.cl)
+  const fg = colourOf(style.cl, { theme: opts?.themeFont })
   if (fg) parts.push('fill: ' + fg)
   const deco: string[] = []
   if (style.ul?.s) deco.push('underline')
@@ -511,7 +526,8 @@ function runArgs(ts: Record<string, unknown> | undefined): string {
   if (ul?.s) deco.push('underline')
   if (st?.s) deco.push('line-through')
   if (deco.length) parts.push('decor: (' + deco.join(', ') + ')')
-  const colour = normColor((ts.cl as { rgb?: string } | undefined)?.rgb)
+  // Rich runs paint through the document path, which resolves {th}.
+  const colour = colourOf(ts.cl as ColorStyle | undefined, { theme: true })
   if (colour) parts.push('fill: ' + colour)
   if (typeof ts.fs === 'number' && ts.fs > 0) parts.push('size: ' + ts.fs + 'pt')
   if (typeof ts.ff === 'string' && ts.ff) parts.push('font: "' + escapeQuoted(ts.ff) + '"')
@@ -521,7 +537,13 @@ function cellContent(cell: CellData, style: StyleData | null): string {
   const body = cell.p?.body
   const stream = body?.dataStream
   const runs = body?.textRuns
-  const base = textArgs(style)
+  // Document paint path (rich `p` or nonzero rotation) resolves font `{th}`;
+  // plain font reads `.rgb` only (engine-render _renderText).
+  const tr0 = style?.tr
+  const themeFont =
+    cell.p != null ||
+    (!!tr0 && (tr0.v === 1 || (typeof tr0.a === 'number' && Number.isFinite(tr0.a) && tr0.a % 360 !== 0)))
+  const base = textArgs(style, { themeFont })
   const plain = escapeTypst(cellDisplayText(cell, style)).replace(/\n/g, '#linebreak()')
   if (typeof stream !== 'string' || !stream.length || !runs?.length) {
     return rotationWrap(style, base ? '#text(' + base + ')[' + plain + ']' : plain)

@@ -3,7 +3,7 @@ import { Pencil, Settings2, Waves } from 'lucide-react'
 import { useStore } from '../../../store/useStore'
 import { findNode } from '../../../lib/tree'
 import type { CanalData, CanalDesign, ProjectNode } from '../../../types/project'
-import { migrateCanalData, canalDesignProfile, canalFlowLabel, canalGroundProfileBetweenToes, canalShowsFoundationFilling, orderedCanalSections } from '../../../lib/canal'
+import { migrateCanalData, canalDesignProfile, canalFlowLabel, canalGroundProfileBetweenToes, orderedCanalSections } from '../../../lib/canal'
 import CanalDesignLevels from './chapters/CanalDesignLevels'
 import CanalBankDesign from './chapters/CanalBankDesign'
 import CanalCutDesign from './chapters/CanalCutDesign'
@@ -23,7 +23,7 @@ export interface CanalChapterDefinition {
   shortTitle: string
 }
 
-function getCanalChapters(mode: CanalData['mode'], showFoundationFilling: boolean): CanalChapterDefinition[] {
+function getCanalChapters(mode: CanalData['mode']): CanalChapterDefinition[] {
   const chapters: CanalChapterDefinition[] = [
     { id: 'design-levels', number: 1, title: 'Design Levels', shortTitle: 'Design' },
     { id: 'bank-design', number: 2, title: 'Bank Design', shortTitle: 'Bank Design' },
@@ -37,9 +37,9 @@ function getCanalChapters(mode: CanalData['mode'], showFoundationFilling: boolea
     title: mode === 'new' ? 'Jungle Cutting & LA' : 'Jungle Cutting',
     shortTitle: mode === 'new' ? 'Jungle & LA' : 'Jungle'
   })
-  if (showFoundationFilling) chapters.push({ id: 'foundation-filling', number: chapters.length + 1, title: 'Bund Foundation & Filters', shortTitle: 'Bund Foundation & Filters' })
+  chapters.push({ id: 'foundation-filling', number: chapters.length + 1, title: 'Bund Drainage & Filters', shortTitle: 'Bund Drainage & Filters' })
   chapters.push(
-    { id: 'filters-drains', number: chapters.length + 1, title: 'Rock Toe & Drainage', shortTitle: 'Rock Toe & Drainage' },
+    { id: 'filters-drains', number: chapters.length + 1, title: 'Rock Toe & Open Toe Ditch', shortTitle: 'Rock Toe & Toe Ditch' },
     { id: 'lining', number: chapters.length + 2, title: 'Lining', shortTitle: 'Lining' },
     { id: 'roads-access', number: chapters.length + 3, title: 'Roads & Access', shortTitle: 'Roads & Access' }
   )
@@ -56,8 +56,7 @@ export default function CanalDashboardV2({
   onEditSetup: (step: 1 | 2) => void
 }): JSX.Element {
   const [activeChapter, setActiveChapter] = useState<string>('design-levels')
-  const showFoundationFilling = useMemo(() => canalShowsFoundationFilling(data), [data])
-  const chapters = useMemo(() => getCanalChapters(data.mode, showFoundationFilling), [data.mode, showFoundationFilling])
+  const chapters = useMemo(() => getCanalChapters(data.mode), [data.mode])
   const sections = useMemo(() => orderedCanalSections(data), [data])
   const visibleChapter = chapters.some((chapter) => chapter.id === activeChapter) ? activeChapter : 'earthwork'
 

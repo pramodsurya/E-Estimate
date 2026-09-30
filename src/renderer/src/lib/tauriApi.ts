@@ -103,13 +103,10 @@ export function createTauriApi(): EestimateApi {
       reveal: (path) => invoke('export_reveal', { path })
     },
     update: {
-      // TODO: wire tauri-plugin-updater — commands below invoke stub handlers in update.rs
       status: () => invoke('update_status'),
       check: () => invoke('update_check'),
       download: () => invoke('update_download'),
-      install: () => {
-        void invoke('update_install')
-      },
+      install: () => invoke<void>('update_install'),
       onChecking: (cb) => subscribeVoid('update:checking-for-update', cb),
       onAvailable: (cb) => subscribe('update:available', cb),
       onNotAvailable: (cb) => subscribe('update:not-available', cb),

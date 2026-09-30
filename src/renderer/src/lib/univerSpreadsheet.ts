@@ -247,8 +247,8 @@ export function usedCellRange(
   }
 
   if (raw.sheets) {
-    // One sheet per item, so every sheet in the snapshot belongs to this item;
-    // walking them all cannot pick the wrong one.
+    // Each node stores one workbook snapshot (shared members mirror its bytes),
+    // so every sheet here belongs to the same workbook.
     for (const sheet of Object.values(raw.sheets)) {
       for (const [rowKey, row] of Object.entries(sheet?.cellData ?? {})) {
         for (const [columnKey, cell] of Object.entries(row ?? {})) {

@@ -697,6 +697,39 @@
 @media (max-width: 680px) { .canal-rocktoe-form-layout { grid-template-columns: 1fr; } }
 @media (max-width: 680px) { .canal-finished-section-preview > header { align-items: stretch; flex-direction: column; } .canal-finished-section-preview > header .canal-bank-field { width: 100%; } }
 .canal-drainage-designer { display: grid; gap: 18px; }
+.canal-bank-side-pills { display: flex; gap: 8px; }
+.canal-tier-toe-panel { display: grid; gap: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-1); }
+.canal-tier-toe-panel > header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.canal-tier-toe-panel > header > div { display: grid; gap: 3px; }
+.canal-tier-toe-panel > header small { color: var(--text-dim); }
+.canal-tier-toe-panel > header > span { padding: 5px 8px; border-radius: 999px; background: color-mix(in srgb, #22d3ee 12%, var(--surface-2)); color: #67e8f9; font-size: 10px; font-weight: 700; }
+.canal-tier-work-layout { grid-template-columns: minmax(360px, 1.1fr) minmax(300px, .9fr); gap: 18px; align-items: start; }
+.canal-tier-toe-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+@media (max-width: 1024px) { .canal-tier-toe-grid { grid-template-columns: 1fr; } }
+.canal-tier-side-card-body { display: flex; flex-direction: column; gap: 14px; padding: 16px; min-width: 0; }
+.canal-toe-visual-frame { display: flex; align-items: center; justify-content: center; min-height: 190px; max-height: 220px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 9px; background: #181a1c; overflow: hidden; box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35); }
+.canal-toe-visual-frame .bund-rocktoe-diagram-host { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+.canal-toe-visual-frame .bund-rocktoe-diagram-host svg, .canal-toe-visual-frame svg.bund-rocktoe-diagram { max-width: 100%; max-height: 180px; width: auto; height: auto; display: block; }
+.canal-toe-visual-frame svg.bund-toe-diagram { max-width: 100%; max-height: 180px; width: auto; height: auto; display: block; margin: 0 auto; }
+.canal-toe-live-metric { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 8px; border-left: 3px solid #22d3ee; background: color-mix(in srgb, #22d3ee 8%, var(--surface-2)); }
+.rocktoe .canal-toe-live-metric { border-left-color: #f59e0b; background: color-mix(in srgb, #f59e0b 8%, var(--surface-2)); }
+.canal-toe-metric-info { display: grid; gap: 4px; }
+.canal-toe-metric-info > span { font-size: 11px; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.canal-toe-metric-val { display: grid; gap: 2px; text-align: right; }
+.canal-toe-metric-val > strong { font-size: 18px; font-weight: 700; color: var(--text); font-feature-settings: "tnum"; }
+.canal-toe-metric-val > small { font-size: 10.5px; color: var(--text-dim); }
+.canal-toe-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 10px; padding: 36px 20px; margin: 16px; border: 1.5px dashed var(--border); border-radius: 10px; background: color-mix(in srgb, var(--surface-2) 40%, transparent); }
+.canal-toe-empty-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 12px; color: var(--text-dim); background: var(--surface-2); }
+.rocktoe .canal-toe-empty-icon { color: #f59e0b; background: color-mix(in srgb, #f59e0b 12%, var(--surface-2)); }
+.drainage.toe .canal-toe-empty-icon { color: #22d3ee; background: color-mix(in srgb, #22d3ee 12%, var(--surface-2)); }
+.drainage.bed .canal-toe-empty-icon { color: #38bdf8; background: color-mix(in srgb, #38bdf8 12%, var(--surface-2)); }
+.drainage.plugs .canal-toe-empty-icon { color: #2dd4bf; background: color-mix(in srgb, #2dd4bf 12%, var(--surface-2)); }
+.bed .canal-toe-live-metric { border-left-color: #38bdf8; background: color-mix(in srgb, #38bdf8 8%, var(--surface-2)); }
+.plugs .canal-toe-live-metric { border-left-color: #2dd4bf; background: color-mix(in srgb, #2dd4bf 8%, var(--surface-2)); }
+.canal-toe-visual-frame svg.canal-system-sketch { max-width: 100%; max-height: 210px; width: 100%; height: auto; display: block; border: none; background: transparent; }
+.canal-toe-visual-frame svg.canal-detailed-drain-sketch text { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.canal-toe-empty-state h4 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
+.canal-toe-empty-state p { margin: 0; max-width: 320px; font-size: 11.5px; color: var(--text-dim); line-height: 1.45; }
 .canal-drainage-heading { display: grid; gap: 4px; margin-top: 4px; padding: 5px 2px; }
 .canal-drainage-heading > span { color: #67e8f9; font-size: 10px; font-weight: 800; letter-spacing: .16em; }
 .canal-drainage-heading h3 { margin: 0; font-size: 19px; }
@@ -729,6 +762,14 @@
 .canal-locked-value small { display: flex; align-items: center; gap: 5px; color: #67e8f9; font-size: 9.5px; }
 .canal-system-sketch { width: 100%; min-height: 190px; border: 1px solid var(--border); border-radius: 10px; background: #202224; color: #a3a3a3; }
 .canal-system-sketch text { fill: currentColor; font: 12px system-ui, sans-serif; }
+.canal-toe-drain-sketch { min-height: 300px; }
+.canal-toe-drain-sketch .toe-sketch-title { fill: #e5e7eb; font-size: 13px; font-weight: 800; letter-spacing: .08em; }
+.canal-toe-drain-sketch .toe-sketch-method { fill: #67e8f9; font-size: 11px; font-weight: 700; }
+.canal-toe-drain-sketch .toe-sketch-label { fill: #fbbf24; font-size: 10px; font-weight: 800; paint-order: stroke; stroke: #202224; stroke-width: 3px; }
+.canal-toe-drain-sketch .toe-sketch-material { fill: #e5e7eb; font-size: 9.5px; font-weight: 650; paint-order: stroke; stroke: #202224; stroke-width: 2px; }
+.canal-toe-drain-sketch .toe-sketch-note { fill: #a3a3a3; font-size: 9.5px; }
+.canal-toe-drain-sketch .toe-sketch-water { fill: #38bdf8; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+.canal-toe-drain-sketch .toe-sketch-depth { fill: #d4d4d4; font-size: 10px; writing-mode: vertical-rl; }
 .canal-live-quantity { display: grid; gap: 5px; padding: 13px 14px; border-left: 3px solid #22d3ee; border-radius: 8px; background: color-mix(in srgb, #22d3ee 8%, var(--surface-2)); }
 .canal-live-quantity > span, .canal-live-quantity small { color: var(--text-dim); font-size: 10.5px; }
 .canal-live-quantity > strong { color: #e6fbff; font-size: 20px; }
@@ -752,8 +793,9 @@
 .canal-chainage-chips button { padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
 .canal-add-object { justify-self: start; }
 @media (max-width: 980px) { .canal-designer-split, .canal-design-object > .canal-designer-split { grid-template-columns: 1fr; } }
+@media (max-width: 980px) { .canal-tier-work-layout { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .canal-fixed-spec-grid { grid-template-columns: 1fr; } .canal-ssr-details dl { grid-template-columns: 1fr; } .canal-manual-chainages > div:last-child { grid-template-columns: 1fr; } }
-.canal-foundation-work-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.canal-foundation-work-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
 .canal-foundation-work-group { display: grid; gap: 12px; min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); }
 .canal-foundation-work-group.group-foundation { border-top: 3px solid #f0b84b; }
 .canal-foundation-work-group.group-blanket { border-top: 3px solid #60d1b2; }
@@ -2538,6 +2580,16 @@
   margin-top: 6px;
   padding-left: 8px;
   border-left: 2px solid #3b82f6;
+}
+
+.canal-tier-impervious-trench {
+  flex: 1 0 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
 }
 
 .canal-tier-recipe-grid {

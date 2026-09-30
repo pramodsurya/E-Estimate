@@ -3,7 +3,7 @@ import { NodeIcon, nodeDisplayName } from '../nodeVisual'
 import UniverDocument from './UniverDocument'
 import UniverSpreadsheet from './UniverSpreadsheet'
 
-export default function ItemSpreadsheet({ node }: { node: ProjectNode }): JSX.Element {
+export default function ItemSpreadsheet({ node, focusedItemId }: { node: ProjectNode; focusedItemId?: string }): JSX.Element {
   if (node.itemEditorType === 'document') {
     return (
       <div className="editor-page">
@@ -21,5 +21,5 @@ export default function ItemSpreadsheet({ node }: { node: ProjectNode }): JSX.El
     )
   }
 
-  return <UniverSpreadsheet node={node} />
+  return <UniverSpreadsheet node={node} focusedItemId={focusedItemId} />
 }

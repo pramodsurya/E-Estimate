@@ -3,7 +3,7 @@
  *
  * One workbook pulls every statement together the way the Typst project book
  * (`collectProjectTypstParts`) orders them. This builder owns only the project
- * tabs (General Abstract, per-component Abstract + Detailed, and explicit
+ * tabs (General Abstract, per-component Abstract + item detail, and explicit
  * Page nodes). The native writer reuses the established Cover, Lead,
  * Seigniorage, and DATA writers rather than recreating those layouts here.
  *
@@ -24,8 +24,8 @@
  *
  * Template-owned sheets can also be included without recreating them here.
  * Bund and Guide Wall generated items explicitly reference their special
- * sheets' recorded total cells; custom items still reference the normal
- * Detailed sheet. The dashboard wires those refs; this module resolves them.
+ * sheets' recorded total cells; external items reference their own detail
+ * tabs. The dashboard wires those refs; this module resolves them.
  */
 import {
   buildComponentDetailedSheet,
@@ -171,6 +171,8 @@ export interface ProjectComponentInput {
   itemKeys: string[]
   headers: DetailedItemHeader[]
   details: Array<ComponentDetailSheet | null>
+  /** Per-item print settings require separate tabs; Excel cannot vary page setup within one tab. */
+  detailPrintSettings?: Array<ExcelPrintSettings | null>
   /** Template-owned sheets (for example the calculated Guide Wall layout). */
   templateSheets?: ProjectSheetPayload[]
   /** Explicit page nodes directly under this component/sub-component. */
@@ -350,9 +352,33 @@ export function buildProjectDashboardPayload(input: ProjectDashboardInput): Proj
   // ---- Detailed/template sheets first: their qty cells are quantity sources. ----
   const detQty = new Map<string, ProjectCellRef>()
   const detByComp = new Map<string, string>()
+  const usedDetailNames = new Set<string>()
   for (const comp of input.components) {
     for (const templateSheet of comp.templateSheets ?? []) sheets.push(templateSheet)
     sheets.push(...(comp.pages ?? []))
+    if (comp.detailPrintSettings) {
+      comp.details.forEach((detail, slot) => {
+        if (!detail) return
+        const base = sanitizeSheetName(`${comp.name}_${slot + 1}_${detail.name}`)
+        let name = base
+        let suffix = 2
+        while (usedDetailNames.has(name) || sheets.some((sheet) => sheet.name === name)) {
+          name = sanitizeSheetName(`${base.slice(0, 27)}_${suffix++}`)
+        }
+        usedDetailNames.add(name)
+        sheets.push({
+          name,
+          grid: detail.grid,
+          landscape: detail.landscape,
+          printSettings: comp.detailPrintSettings?.[slot] ?? comp.printSettings
+        })
+        if (detail.qtyRef) {
+          detQty.set(comp.itemKeys[slot]!, { sheet: name, r: detail.qtyRef.r, c: detail.qtyRef.c })
+        }
+        detByComp.set(comp.name, name)
+      })
+      continue
+    }
     const det = buildComponentDetailedSheet(comp.name, comp.headers, comp.details)
     if (!det) continue
     det.qtyRefs.forEach((ref, slot) => {

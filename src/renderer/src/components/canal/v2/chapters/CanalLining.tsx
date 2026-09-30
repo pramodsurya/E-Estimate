@@ -1,211 +1,131 @@
-import { useEffect, useState } from 'react'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
-import type { CanalData, CanalLiningItemKey, CanalLiningReach, TemplateMaterialRef } from '../../../../types/project'
-import type { CanalLiningTotals } from '../../../../types/eestimateApi'
-import type { MasterItem } from '../../../../lib/masterData'
-import {
-  CANAL_LINING_CODE,
-  CANAL_LINING_DEFAULT_MODEL_WALL_INTERVAL_M,
-  CANAL_LINING_DEFAULT_PANEL_M,
-  CANAL_LINING_DEFAULT_PLUG_BED_SQM,
-  CANAL_LINING_DEFAULT_PLUG_SLOPE_SQM,
-  CANAL_LINING_DEFAULT_STEPS_INTERVAL_M,
-  CANAL_LINING_DEFAULT_THICKNESS_MM,
-  CANAL_LINING_MASTIC_JOINT_CODE,
-  CANAL_LINING_MODEL_WALL_CODE,
-  CANAL_LINING_PLUG_CODE,
-  CANAL_LINING_TARFELT_JOINT_CODE,
-  canalCopingWidthForDischarge,
-  canalLiningReachQuantities,
-  canalLiningTotals,
-  defaultCanalLiningReach,
-  orderedCanalSections
-} from '../../../../lib/canal'
-import SsrCode from '../../../templates/SsrCode'
-import UnifiedCodePicker from '../../../templates/UnifiedCodePicker'
+import { useState } from 'react'
+import { Plus, Trash2 } from 'lucide-react'
+import type { CanalCnsChapter, CanalData, CanalLiningReach } from '../../../../types/project'
+import { canalBedLevelAt, canalDesignProfile, canalGroundLevelAt, canalSectionAreas, canalSectionBankTier, defaultCanalLiningReach, orderedCanalSections } from '../../../../lib/canal'
+import { cnsCode, defaultCnsChapter, measureCnsReach, normalizeCnsChapter, treatmentSectionAt } from '../../../../lib/canalCns'
+import { defaultLiningChapter, measureLiningChapter } from '../../../../lib/canalLiningChapter'
+import { liningCatalogueItem } from '../../../../lib/canalLiningCatalogue'
+import LiningChapterTwo from './LiningChapterTwo'
+import LiningChapterThree from './LiningChapterThree'
+import LiningChapterFour from './LiningChapterFour'
+import LiningSectionPreview from './LiningSectionPreview'
+import { defaultJointsChapter } from '../../../../lib/canalJoints'
+import { defaultReliefChapter } from '../../../../lib/canalRelief'
+import './canalLining.css'
 
-const n3 = (value: number | undefined | null): string => (Number(value) || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 })
-
-const ITEM_META: Array<{ key: CanalLiningItemKey; label: string; code: string; note: string }> = [
-  { key: 'lining', label: 'Canal lining concrete', code: CANAL_LINING_CODE, note: 'In-situ M-15 lining in bed and slopes, measured in sq.m.' },
-  { key: 'modelWall', label: 'Model / profile walls', code: CANAL_LINING_MODEL_WALL_CODE, note: 'Walls at the model-section interval, with soffit.' },
-  { key: 'steps', label: 'Steps', code: CANAL_LINING_MODEL_WALL_CODE, note: 'Steps at the entered interval across the reach.' },
-  { key: 'sleepers', label: 'Sleepers', code: CANAL_LINING_MODEL_WALL_CODE, note: 'Two sleeper courses along the reach.' },
-  { key: 'porousPlugs', label: 'Porous plugs', code: CANAL_LINING_PLUG_CODE, note: 'Precast plugs in bed and slopes at the entered spacing.' },
-  { key: 'masticJoints', label: 'Mastic joints', code: CANAL_LINING_MASTIC_JOINT_CODE, note: 'Longitudinal and transverse contraction joints.' },
-  { key: 'tarfeltJoints', label: 'Tarfelt joints', code: CANAL_LINING_TARFELT_JOINT_CODE, note: 'Expansion joint boards at every model section.' }
-]
-
-function OptionalNumberField({ label, value, placeholder, onChange }: {
-  label: string
-  value: number | null
-  placeholder: string
-  onChange: (value: number | null) => void
-}): JSX.Element {
-  return <label className="canal-bank-field"><span>{label}</span><input type="number" min={0} step="any" value={value ?? ''} placeholder={placeholder} onChange={(event) => {
-    const raw = event.target.value
-    onChange(raw === '' ? null : Math.max(0, Number(raw) || 0))
-  }} /></label>
+const n = (v: number): string => new Intl.NumberFormat('en-IN', { maximumFractionDigits: 3 }).format(v)
+function reachProgress(reach: CanalLiningReach): string {
+  const completed = [reach.cnsChapter?.completed && 1, reach.liningChapter?.completed && 2, reach.jointsChapter?.completed && 3, reach.reliefChapter?.completed && 4].filter(Boolean)
+  return completed.length ? `Chapters designed: ${completed.join(', ')}` : 'Design in progress'
 }
-
-function SectionSelect({ label, value, sections, onChange }: {
-  label: string
-  value: number
-  sections: CanalData['sections']
-  onChange: (value: number) => void
-}): JSX.Element {
-  return <label className="canal-bank-field"><span>{label}</span><select value={value} onChange={(event) => onChange(Number(event.target.value))}>
-    {sections.map((section, index) => <option value={section.chainage} key={section.id}>{index + 1} · Ch {section.chainage} m</option>)}
-  </select></label>
+function Choice<T extends string | boolean | number>({ name, value, options, onChange }: { name: string; value: T | null; options: { value: T; label: string }[]; onChange: (value: T) => void }): JSX.Element {
+  return <div className="cns-choices">{options.map(option => <label key={String(option.value)} className={value === option.value ? 'is-selected' : ''}><input type="radio" name={name} checked={value === option.value} onChange={() => onChange(option.value)} /><span>{option.label}</span></label>)}</div>
 }
-
-export default function CanalLining({ data, onCommit }: {
-  data: CanalData
-  onCommit: (update: (current: CanalData) => CanalData) => void
-}): JSX.Element {
-  const [picker, setPicker] = useState<{ reachId: string; key: CanalLiningItemKey } | null>(null)
-  const sections = (orderedCanalSections(data))
+function Thickness({ label, value, onChange }: { label: string; value: number | null; onChange: (value: number | null) => void }): JSX.Element {
+  return <label className="cns-number"><span>{label}</span><div><input type="number" min="1" step="1" value={value ?? ''} onChange={event => onChange(event.target.value === '' ? null : Number(event.target.value))} /><span>mm</span></div></label>
+}
+export default function CanalLining({ data, onCommit }: { data: CanalData; onCommit: (update: (current: CanalData) => CanalData) => void }): JSX.Element {
+  const [selectedId, setSelectedId] = useState('')
+  const [sectionCh, setSectionCh] = useState<number | null>(null)
+  const [activeChapter, setActiveChapter] = useState<1 | 2 | 3 | 4>(1)
   const reaches = data.liningReaches ?? []
-  const totals = canalLiningTotals(data)
-  const updateReaches = (liningReaches: CanalLiningReach[]): void => onCommit((current) => ({ ...current, liningReaches }))
-  const patchReach = (id: string, patch: Partial<CanalLiningReach>): void =>
-    updateReaches(reaches.map((reach) => reach.id === id ? { ...reach, ...patch } : reach))
-  const materialFromItem = (item: MasterItem): TemplateMaterialRef => ({
-    code: item.code,
-    description: item.description,
-    unit: item.unit,
-    categoryKey: item.category,
-    side: item.side,
-    dataVariant: item.dataVariant,
-    sorCatalogue: item.sorCatalogue
-  })
-  const addReach = (): void => {
-    const from = sections[0]?.chainage ?? 0
-    const to = sections[sections.length - 1]?.chainage ?? from
-    updateReaches([...reaches, defaultCanalLiningReach(from, to)])
+  const reach = reaches.find(r => r.id === selectedId) ?? reaches[0]
+  const chapter = reach?.cnsChapter ? normalizeCnsChapter(reach.cnsChapter) : null
+  const q = reach && chapter ? measureCnsReach(data, reach) : null
+  const lining = reach?.liningChapter ? measureLiningChapter(data,reach) : null
+  const updateReach = (patch: Partial<CanalLiningReach>): void => {
+    if (!reach) return
+    const extentChanged = patch.fromChainage != null || patch.toChainage != null
+    onCommit(current => ({ ...current, liningReaches: current.liningReaches.map(r => r.id === reach.id ? {
+      ...r, ...patch,
+      ...(extentChanged && r.liningChapter ? {liningChapter:{...r.liningChapter,completed:false}}:{}),
+      ...((extentChanged || patch.liningChapter) && r.jointsChapter ? {jointsChapter:{...r.jointsChapter,completed:false}}:{}),
+      ...((extentChanged || (patch.liningChapter && patch.liningChapter.surfaces.length > 0 && r.reliefChapter?.outlets.some(outlet => outlet.surfaces.some(surface => !patch.liningChapter!.surfaces.includes(surface))))) && r.reliefChapter ? {reliefChapter:{...r.reliefChapter,completed:false}}:{})
+    } : r) }))
   }
-  const autoCoping = canalCopingWidthForDischarge(data.design.discharge)
-  const overlapping = reaches.some((reach, index) => reaches.some((other, otherIndex) =>
-    index < otherIndex &&
-    reach.fromChainage < other.toChainage &&
-    other.fromChainage < reach.toChainage
-  ))
-
-  return <section className="canal-chapter canal-lining-chapter">
-    <header className="canal-v2-section-header">
-      <div>
-        <span className="canal-v2-section-kicker">Chapter {data.mode === 'new' ? 6 : 5}</span>
-        <h2>Lining</h2>
-        <p>Add a reach, keep the Chapter 1 geometry, and leave a blank wherever the automatic value is acceptable.</p>
-      </div>
-      <button type="button" className="btn primary" disabled={!sections.length} onClick={addReach}>+ Add lining reach</button>
-    </header>
-
-    <div className="canal-bank-recommendation">
-      <strong>Kept automatically:</strong> bed width, FSD, freeboard, side slope and bed fall come from Design Levels; lining freeboard, coping width, thickness, panel and plug spacing fall back to the defaults shown as placeholders. Blank fields stay blank.
-    </div>
-
-    {overlapping && <div className="canal-road-warning">Two lining reaches overlap. Overlapping chainage is measured twice — trim one of the reaches.</div>}
-
-    {!reaches.length ? <div className="canal-zoned-empty">No lining reach added. The canal is currently unlined.</div> : <div className="canal-road-reach-list">
-      {reaches.map((reach, index) => {
-        const quantities = canalLiningReachQuantities(data, reach)
-        const rows: Array<[string, string]> = []
-        if (reach.bill.lining) {
-          rows.push(['Lining in bed', `${n3(quantities.liningBedArea)} sq.m`])
-          rows.push(['Lining in slopes', `${n3(quantities.liningSlopeArea)} sq.m`])
-        }
-        if (reach.bill.modelWall) {
-          rows.push(['Model / profile walls', `${n3(quantities.modelWallVolume)} cu.m · ${quantities.modelWallCount} nos`])
-          rows.push(['Soffit', `${n3(quantities.soffitVolume)} cu.m`])
-        }
-        if (reach.bill.steps) rows.push(['Steps', `${n3(quantities.stepsVolume)} cu.m · ${quantities.stepsCount} nos`])
-        if (reach.bill.sleepers) rows.push(['Sleepers', `${n3(quantities.sleepersVolume)} cu.m`])
-        if (reach.bill.porousPlugs) {
-          rows.push(['Porous plugs — slopes', `${quantities.plugsSlope} nos`])
-          rows.push(['Porous plugs — bed', `${quantities.plugsBed} nos`])
-        }
-        if (reach.bill.masticJoints) {
-          rows.push(['Mastic joints — longitudinal', `${n3(quantities.masticLongitudinal)} rmt`])
-          rows.push(['Mastic joints — transverse', `${n3(quantities.masticTransverse)} rmt`])
-        }
-        if (reach.bill.tarfeltJoints) rows.push(['Tarfelt expansion joints', `${n3(quantities.tarfeltLength)} rmt · ${quantities.tarfeltCount} nos`])
-        return <section className="canal-bank-design canal-road-reach" key={reach.id}>
-          <div className="canal-road-reach-head">
-            <div className="canal-cross-panel-title">Lining reach {index + 1}<small>Ch {quantities.fromChainage} m to Ch {quantities.toChainage} m · {quantities.sectionCount} sections</small></div>
-            <button type="button" className="btn ghost" onClick={() => updateReaches(reaches.filter((item) => item.id !== reach.id))}><Trash2 size={14} /> Remove</button>
-          </div>
-
-          <label className="canal-earthwork-check"><input type="checkbox" checked={reach.provide} onChange={(event) => patchReach(reach.id, { provide: event.target.checked })} /> Provide lining in this reach</label>
-
-          <div className="canal-road-grid">
-            <SectionSelect label="From section" value={reach.fromChainage} sections={sections} onChange={(fromChainage) => patchReach(reach.id, { fromChainage, ...(fromChainage > reach.toChainage ? { toChainage: fromChainage } : {}) })} />
-            <SectionSelect label="To section" value={reach.toChainage} sections={sections} onChange={(toChainage) => patchReach(reach.id, { toChainage, ...(toChainage < reach.fromChainage ? { fromChainage: toChainage } : {}) })} />
-          </div>
-
-          <div className="canal-earthwork-summary">
-            <span>Bed width <strong>{n3(quantities.bedWidth)} m</strong></span>
-            <span>FSD <strong>{n3(quantities.fullSupplyDepth)} m</strong></span>
-            <span>Freeboard <strong>{n3(quantities.freeBoard)} m</strong></span>
-            <span>Side slope <strong>{n3(quantities.sideSlope)} H : 1V</strong></span>
-            <span>Discharge <strong>{n3(quantities.discharge)} cumecs</strong></span>
-          </div>
-
-          <div className="canal-cross-panel-title">Reach inputs<small>Blank keeps the automatic value shown in the placeholder. Coping auto value for this discharge: {n3(autoCoping)} m.</small></div>
-          <div className="canal-road-grid">
-            <OptionalNumberField label="Lining thickness (mm)" value={reach.thicknessMm} placeholder={`${CANAL_LINING_DEFAULT_THICKNESS_MM} (auto)`} onChange={(thicknessMm) => patchReach(reach.id, { thicknessMm })} />
-            <small className="canal-dimension-note">SSR IRR-CAW-7-6 rate is for 75 mm lining; the billed area does not vary with this field.</small>
-            <OptionalNumberField label="Lining freeboard (m)" value={reach.liningFb} placeholder={`${n3(quantities.freeBoard)} (design FB)`} onChange={(liningFb) => patchReach(reach.id, { liningFb })} />
-            <OptionalNumberField label="Coping / lug width (m)" value={reach.copingWidthM} placeholder={`${n3(autoCoping)} (auto)`} onChange={(copingWidthM) => patchReach(reach.id, { copingWidthM })} />
-            <OptionalNumberField label="Panel length (m)" value={reach.panelLengthM} placeholder={`${CANAL_LINING_DEFAULT_PANEL_M} (auto)`} onChange={(panelLengthM) => patchReach(reach.id, { panelLengthM })} />
-            <OptionalNumberField label="Model wall interval (m)" value={reach.modelWallIntervalM} placeholder={`${CANAL_LINING_DEFAULT_MODEL_WALL_INTERVAL_M} (auto)`} onChange={(modelWallIntervalM) => patchReach(reach.id, { modelWallIntervalM })} />
-            <OptionalNumberField label="Steps interval (m)" value={reach.stepsIntervalM} placeholder={`${CANAL_LINING_DEFAULT_STEPS_INTERVAL_M} (auto)`} onChange={(stepsIntervalM) => patchReach(reach.id, { stepsIntervalM })} />
-            <OptionalNumberField label="Plug spacing, slopes (sq.m)" value={reach.plugSlopeSpacingSqm} placeholder={`${CANAL_LINING_DEFAULT_PLUG_SLOPE_SQM} (auto)`} onChange={(plugSlopeSpacingSqm) => patchReach(reach.id, { plugSlopeSpacingSqm })} />
-            <OptionalNumberField label="Plug spacing, bed (sq.m)" value={reach.plugBedSpacingSqm} placeholder={`${CANAL_LINING_DEFAULT_PLUG_BED_SQM} (auto)`} onChange={(plugBedSpacingSqm) => patchReach(reach.id, { plugBedSpacingSqm })} />
-          </div>
-
-          <div className="canal-cross-panel-title">Operations to be billed<small>Unchecked operations are kept out of the measurement below.</small></div>
-          <div className="canal-bank-operations">
-            {ITEM_META.map((meta) => {
-              const override = reach.itemOverrides[meta.key]
-              return <div className="canal-lining-bill-row" key={meta.key}>
-                <label className={reach.bill[meta.key] ? 'is-selected' : ''}>
-                  <input type="checkbox" checked={reach.bill[meta.key]} onChange={(event) => patchReach(reach.id, { bill: { ...reach.bill, [meta.key]: event.target.checked } })} />
-                  <span><strong>{meta.label} · <SsrCode code={override?.code ?? meta.code} description={override?.description} /></strong><small>{meta.note}</small></span>
-                </label>
-                <button type="button" className="btn ghost" onClick={() => setPicker({ reachId: reach.id, key: meta.key })}><Pencil size={14} /> Change code</button>
-              </div>
-            })}
-          </div>
-
-          <div className="canal-road-items"><strong>Automatically measured lining</strong>
-            {!reach.provide ? <div><span>Reach skipped</span><b>Nothing billed from this reach</b></div> : rows.length ? rows.map(([label, value]) => <div key={label}><span>{label}</span><b>{value}</b></div>) : <div><span>No operation selected</span><b>Choose at least one operation above</b></div>}
-          </div>
-          <div className="canal-road-rate-status"><strong>Rate source:</strong> each billed operation resolves its rate from the selected SSR code; blank code fields keep the defaults. Quantities update automatically whenever Chapter 1 or the reach limits change.</div>
-
-          {picker?.reachId === reach.id && <UnifiedCodePicker
-            title={`Change ${ITEM_META.find((meta) => meta.key === picker.key)?.label ?? 'lining'} code`}
-            hint="Search the same SSR and SOR sources available in Add Item."
-            onClose={() => setPicker(null)}
-            onPick={(item) => {
-              patchReach(reach.id, { itemOverrides: { ...reach.itemOverrides, [picker.key]: materialFromItem(item) } })
-              setPicker(null)
-            }}
-          />}
-        </section>
-      })}
-    </div>}
-
-    {reaches.some((reach) => reach.provide) && <div className="canal-road-items"><strong>Lining totals · {totals.reaches} reach{totals.reaches === 1 ? '' : 'es'} · {n3(totals.length)} m</strong>
-      <div><span>Lining in bed</span><b>{n3(totals.liningBedArea)} sq.m</b></div>
-      <div><span>Lining in slopes</span><b>{n3(totals.liningSlopeArea)} sq.m</b></div>
-      <div><span>Model walls / soffit</span><b>{n3(totals.modelWallVolume)} / {n3(totals.soffitVolume)} cu.m</b></div>
-      <div><span>Steps / sleepers</span><b>{n3(totals.stepsVolume)} / {n3(totals.sleepersVolume)} cu.m</b></div>
-      <div><span>Porous plugs, slopes / bed</span><b>{totals.plugsSlope} / {totals.plugsBed} nos</b></div>
-      <div><span>Mastic joints, long. / transverse</span><b>{n3(totals.masticLongitudinal)} / {n3(totals.masticTransverse)} rmt</b></div>
-      <div><span>Tarfelt expansion joints</span><b>{n3(totals.tarfeltLength)} rmt</b></div>
-    </div>}
-
-    <button type="button" className="btn ghost" disabled={!sections.length} onClick={addReach}><Plus size={14} /> Add lining reach</button>
+  const update = (patch: Partial<CanalCnsChapter>): void => updateReach({ cnsChapter: { ...(chapter ?? defaultCnsChapter()), ...patch, completed: false } })
+  const add = (): void => {
+    const next = { ...defaultCanalLiningReach(0, data.lengthM), cnsChapter: defaultCnsChapter() }
+    onCommit(current => ({ ...current, liningReaches: [...current.liningReaches, next] })); setSelectedId(next.id); setSectionCh(null);setActiveChapter(1)
+  }
+  const openChapterTwo = (): void => {
+    if (!reach) return
+    if (!reach.liningChapter) updateReach({ liningChapter: defaultLiningChapter() })
+    setActiveChapter(2)
+  }
+  const openChapterThree = (): void => {
+    if (!reach) return
+    if (!reach.jointsChapter) updateReach({ jointsChapter: defaultJointsChapter() })
+    setActiveChapter(3)
+  }
+  const openChapterFour = (): void => {
+    if (!reach) return
+    if (!reach.reliefChapter) updateReach({ reliefChapter: defaultReliefChapter() })
+    setActiveChapter(4)
+  }
+  const sections = orderedCanalSections(data).filter(s => !reach || (s.chainage >= reach.fromChainage && s.chainage <= reach.toChainage))
+  const sectionDataPending = !!reach && [reach.fromChainage, reach.toChainage].some(ch => {
+    const section = treatmentSectionAt(data, ch)
+    return !section || section.ground.length < 2 || section.designPopulated === false
+  })
+  const rows = q?.rows.length ? q.rows : lining?.earthwork.rows ?? []
+  const previewRow = rows.find(r => r.chainage === sectionCh) ?? rows[0]
+  const fallback = sections.find(s => s.chainage === sectionCh) ?? sections[0]
+  const basePreview = previewRow ?? (fallback ? { chainage: fallback.chainage, ground: fallback.ground, profile: canalDesignProfile(data, fallback), polygon: [] } : null)
+  const preview = basePreview ? {...basePreview,polygon:q?.rows.find(r=>r.chainage===basePreview.chainage)?.polygon??[]} : null
+  const sourceComplete = chapter && cnsCode(chapter) != null
+  const chapterAnswersComplete = chapter?.required === false || (chapter?.required === true && !!chapter.coverage && (chapter.bedThicknessMm ?? 0) > 0 && (chapter.coverage === 'bed' || (chapter.sideThicknessMm ?? 0) > 0) && !!sourceComplete)
+  const complete = q && q.errors.length === 0
+  const previewSection = preview ? treatmentSectionAt(data,preview.chainage) : null
+  const originalAreas = previewSection ? canalSectionAreas(data,previewSection) : null
+  const liningRow = lining?.earthwork.rows.find(r=>r.chainage===preview?.chainage)
+  const cnsRow = q?.rows.find(r=>r.chainage===preview?.chainage)
+  return <section className="canal-chapter cns-workspace">
+    <header className="canal-v2-section-header"><div><span className="canal-v2-section-kicker">Design by reach</span><h2>Lining</h2><p>Choose a reach, prepare its supporting ground, then specify the lining.</p></div><button type="button" className="btn primary" onClick={add} disabled={data.lengthM <= 0}><Plus size={15} /> Add reach</button></header>
+    <div className="cns-layout"><aside className="cns-reach-list"><h3>Your reaches</h3>{reaches.map((r,i) => <button type="button" className={r.id === reach?.id ? 'active' : ''} key={r.id} onClick={() => { setSelectedId(r.id); setSectionCh(null);setActiveChapter(r.reliefChapter?4:r.jointsChapter?3:r.liningChapter?2:1) }}><strong>Reach {i + 1}</strong><span>Ch {n(r.fromChainage)}–{n(r.toChainage)} m</span><small>{reachProgress(r)}</small></button>)}{!reaches.length && <p>No reaches yet.</p>}</aside>
+    <main className="cns-editor">{!reach ? <div className="cns-empty"><h3>Start with a lining reach</h3><p>Use the section and tier information to choose its start and end chainages.</p><button type="button" className="btn primary" onClick={add} disabled={data.lengthM <= 0}>Create first reach</button></div> : <>
+      <div className="cns-extent" id={`lining-extent-${reach.id}`}><label>Start chainage (m)<input type="number" min="0" value={reach.fromChainage} onChange={event => updateReach({ fromChainage: Number(event.target.value), ...(chapter ? { cnsChapter: { ...chapter, completed: false } } : {}) })} /></label><label>End chainage (m)<input type="number" min="0" max={data.lengthM} value={reach.toChainage} onChange={event => updateReach({ toChainage: Number(event.target.value), ...(chapter ? { cnsChapter: { ...chapter, completed: false } } : {}) })} /></label><button type="button" className="btn ghost" aria-label="Remove reach" onClick={() => onCommit(current => ({ ...current, liningReaches: current.liningReaches.filter(r => r.id !== reach.id) }))}><Trash2 size={16} /></button></div>
+      {!reach.provide && <div className="cns-included">This saved reach is excluded from the estimate. <button type="button" className="btn secondary" onClick={() => updateReach({ provide: true })}>Include reach</button></div>}
+      <details className="cns-ground-info"><summary>Section and tier information for this reach</summary><p>Section observations only. Choose reach limits yourself.</p><div className="cns-table-scroll"><table><thead><tr><th>Chainage m</th><th>At canal centre</th><th>Bank tiers L / R</th><th>Entered strata</th></tr></thead><tbody>{sections.map(s => {
+        const bed = canalBedLevelAt(data,s.chainage), gl = canalGroundLevelAt(s.ground,0)
+        const condition = bed == null || gl == null ? 'Ground pending' : gl > bed + .001 ? 'Cutting' : gl < bed - .001 ? 'Filling' : 'At ground level'
+        const tier = (side: 'left' | 'right'): string => canalSectionBankTier(data,s,side)?.name ?? '—'
+        return <tr key={s.id}><td>{n(s.chainage)}</td><td>{condition}</td><td>{tier('left')} / {tier('right')}</td><td>{s.strata?.map(t => `${t.name} (${n(t.thickness)} m)`).join(' · ') || 'Not entered'}</td></tr>
+      })}</tbody></table></div></details>
+      {chapter && <nav className="lining-chapter-nav" aria-label="Lining chapters">
+        <button type="button" id="lining-chapter-one" className={`${activeChapter===1?'active':''} ${chapter.completed&&chapterAnswersComplete?'is-complete':''}`} onClick={()=>setActiveChapter(1)}>1. Soil treatment{chapter.completed&&chapterAnswersComplete?' ✓':''}</button>
+        <button type="button" className={`${activeChapter===2?'active':''} ${reach.liningChapter?.completed?'is-complete':''}`} onClick={openChapterTwo}>2. Lining{reach.liningChapter?.completed?' ✓':''}</button>
+        <button type="button" className={`${activeChapter===3?'active':''} ${reach.jointsChapter?.completed?'is-complete':''}`} onClick={openChapterThree}>3. Joints{reach.jointsChapter?.completed?' ✓':''}</button>
+        <button type="button" className={`${activeChapter===4?'active':''} ${reach.reliefChapter?.completed?'is-complete':''}`} onClick={openChapterFour}>4. Drainage{reach.reliefChapter?.completed?' ✓':''}</button>
+      </nav>}
+      {chapter && sectionDataPending && <p className="cns-help">Section data is pending for this reach. You can continue through all lining chapters; quantities will remain pending until the sections are ready.</p>}
+      {!chapter ? <div className="cns-saved"><h3>Replace the saved worksheet with Chapter 1</h3><p>The previous editor has been removed. Starting Chapter 1 replaces this reach’s active lining calculations; earlier settings remain stored.</p><button type="button" className="btn primary" onClick={() => updateReach({ cnsChapter: defaultCnsChapter() })}>Start Chapter 1</button></div> : activeChapter===4 && reach.reliefChapter ? <LiningChapterFour data={data} reach={reach} onChange={reliefChapter=>updateReach({reliefChapter})} onCommit={onCommit} /> : activeChapter===3 && reach.jointsChapter ? <LiningChapterThree data={data} reach={reach} onChange={jointsChapter=>updateReach({jointsChapter})} onNext={openChapterFour} onOpenLining={openChapterTwo} /> : activeChapter===2 && reach.liningChapter ? <LiningChapterTwo key={reach.id} data={data} reach={reach} onChange={liningChapter=>updateReach({liningChapter})} onNext={openChapterThree} /> : <div className="cns-chapter">
+        <header><span>CHAPTER 1</span><h3>CNS Soil Treatment</h3><p>Only the treatment specified beneath the lining.</p></header>
+        <fieldset><legend>1. Is CNS treatment required?</legend><Choice name={`required-${reach.id}`} value={chapter.required} options={[{ value: true, label: 'Yes' }, { value: false, label: 'No' }]} onChange={required => update({ required })} /></fieldset>
+        {chapter.required === true && <>
+          <fieldset><legend>2. Where is CNS required?</legend><Choice name={`coverage-${reach.id}`} value={chapter.coverage} options={[{ value: 'bed-and-sides', label: 'Bed and both inner sides' }, { value: 'bed', label: 'Bed only' }]} onChange={coverage => update({ coverage })} /></fieldset>
+          {chapter.coverage && <>
+            <fieldset><legend>3. What thickness is specified?</legend><div className="cns-thickness"><Thickness label="Bed thickness" value={chapter.bedThicknessMm} onChange={bedThicknessMm => update({ bedThicknessMm })} />{chapter.coverage === 'bed-and-sides' && <Thickness label="Side thickness (both sides)" value={chapter.sideThicknessMm} onChange={sideThicknessMm => update({ sideThicknessMm })} />}</div><p className="cns-help">Measured perpendicular to each surface. Side coverage follows the design up to bank-top level.</p></fieldset>
+            {chapter.bedThicknessMm != null && chapter.bedThicknessMm > 0 && (chapter.coverage === 'bed' || (chapter.sideThicknessMm != null && chapter.sideThicknessMm > 0)) && <>
+              <fieldset><legend>4. Where will the CNS soil come from?</legend><Choice name={`source-${reach.id}`} value={chapter.source} options={[{ value: 'borrow', label: 'Approved borrow area' }, { value: 'excavated-heaps', label: 'Suitable excavated CNS soil already collected beside the canal' }]} onChange={source => update({ source, compaction: source === 'excavated-heaps' ? 95 : null })} /></fieldset>
+              {chapter.source === 'borrow' && <fieldset><legend>5. What compaction is specified?</legend><Choice name={`compaction-${reach.id}`} value={chapter.compaction} options={[{ value: 98, label: '98%' }, { value: 95, label: '95%' }]} onChange={compaction => update({ compaction })} /></fieldset>}
+              {chapter.source === 'excavated-heaps' && <p className="cns-included">CAW 7-3 specifies 95% compaction. The collected soil must be suitable CNS material.</p>}
+            </>}
+          </>}
+        </>}
+        {chapter.required === false && <p className="cns-included">No CNS item or CNS earthwork adjustment will be generated for this reach.</p>}
+        {lining && lining.errors.length>0 && chapter.required===true && <p className="cns-help">Chapter 2 is incomplete. This reach’s CNS and lining quantities are provisional and excluded from the estimate until its lining specification is resolved.</p>}
+        {chapter.required === true && sourceComplete && q && <div className="cns-results"><strong>{q.code} · CUM</strong><div className="cns-result-grid"><div><span>CNS</span><b>{n(q.cns)} m³</b></div><div><span>Additional excavation</span><b>{n(q.excavation)} m³</b></div><div><span>Ordinary fill replaced</span><b>{n(q.replacement)} m³</b></div></div>{q.errors.length > 0 && <div className="cns-errors" role="status">{q.errors.map(error => <p key={error}>{error}</p>)}<p>These quantities are excluded until resolved.</p></div>}<details><summary>View calculation</summary><p>Average end area × interval length. Bed/side corners are joined once. Excavation follows the entered strata and configured earthwork items.</p><div className="cns-table-scroll"><table><thead><tr><th>Ch m</th><th>CNS m²</th><th>Extra cut m²</th><th>Fill replaced m²</th><th>Already excavated m²</th></tr></thead><tbody>{q.rows.map(row => <tr key={row.chainage}><td>{n(row.chainage)}</td><td>{n(row.cns)}</td><td>{n(row.excavation)}</td><td>{n(row.replacement)}</td><td>{n(row.alreadyExcavated)}</td></tr>)}</tbody></table></div><p>Excavation: {Object.entries(q.excavationByCode).map(([code,qty]) => `${code}: ${n(qty)} m³`).join(' · ') || 'None'}</p><p>Fill replaced: homogeneous {n(q.zones.homogeneous)}, hearting {n(q.zones.hearting)}, casing {n(q.zones.casing)} m³.</p><details><summary>SSR description</summary><p>{liningCatalogueItem(q.code ?? '')?.description}</p></details></details></div>}
+        {chapter.required != null && q && !sourceComplete && q.errors.filter(e => !e.startsWith('Choose') && !e.startsWith('Enter a positive')).length > 0 && <div className="cns-errors" role="status">{q.errors.filter(e => !e.startsWith('Choose') && !e.startsWith('Enter a positive')).map(e => <p key={e}>{e}</p>)}</div>}
+        <footer><span>{chapter.completed && chapterAnswersComplete ? complete ? 'Chapter 1 complete' : 'Chapter 1 design complete; quantities pending.' : 'Answers save automatically.'}</span><div className="lining-footer-actions"><button type="button" className={`btn ${chapter.completed&&chapterAnswersComplete?'secondary':'primary'}`} disabled={!chapterAnswersComplete} onClick={() => updateReach({ cnsChapter: { ...chapter, completed: true } })}>{chapter.completed && chapterAnswersComplete ? 'Completed' : 'Complete Chapter 1'}</button>{chapter.completed&&chapterAnswersComplete&&<button type="button" className="btn primary" onClick={openChapterTwo}>Next: Lining →</button>}</div></footer>
+      </div>}
+      {chapter && preview && <div className="cns-section-view">
+        <div><strong>Section preview</strong><select aria-label="Preview section chainage" value={preview.chainage} onChange={event => setSectionCh(Number(event.target.value))}>{(rows.length ? rows : sections).map(s=><option key={s.chainage} value={s.chainage}>Ch {n(s.chainage)} m</option>)}</select></div>
+        <LiningSectionPreview data={data} reach={reach} row={preview} />
+        <p className="cns-help">The finished opening stays fixed. Layers follow the selected surfaces; thicknesses use the section scale. Thin LDPE and unfinished selections are enlarged for visibility. Material patterns and steel dots are schematic, not slab joints or bar spacing.</p>
+        <div className="cns-table-scroll"><table><caption>Section areas at Ch {n(preview.chainage)} m · m²</caption><thead><tr><th>Original cutting</th><th>CNS</th><th>Lining + membrane</th><th>Extra cutting</th><th>Ordinary fill replaced</th></tr></thead><tbody><tr><td>{n(originalAreas?.cutting??0)}</td><td>{n(cnsRow?.cns??0)}</td><td>{n(liningRow?.cns??0)}</td><td>{n((cnsRow?.excavation??0)+(liningRow?.excavation??0))}</td><td>{n((cnsRow?.replacement??0)+(liningRow?.replacement??0))}</td></tr></tbody></table></div>
+        <p className="cns-help">Reach volumes use average section areas × interval length. Incomplete answers show a provisional preview.</p>
+      </div>}
+    </> }</main></div>
   </section>
 }

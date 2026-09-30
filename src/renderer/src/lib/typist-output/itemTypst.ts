@@ -21,6 +21,7 @@
  */
 
 import defaultItemTemplate from './item.typ?raw'
+import defaultSharedSheetTemplate from './sharedSheet.typ?raw'
 import defaultItemDocTemplate from './itemdoc.typ?raw'
 import univerSheetPrelude from './univerSheet.typ?raw'
 import univerDocPrelude from './univerDoc.typ?raw'
@@ -38,7 +39,9 @@ import {
   type WorksheetSnapshotLike
 } from './worksheetTypst'
 import { createUniverWorkbookData, usedCellRange } from '../univerSpreadsheet'
+import { attachEeDisplayText, type EeWorkbookLike } from './univerDisplayText'
 import { nodeDisplayName } from '../../components/nodeVisual'
+import { findSharedContentSource, findSharedOwner, findSharedPrintSource, sharedSheetScopeKey } from '../sharedSheet'
 import { getItemRate, readFinalValueFromSnapshot } from '../finalNumber'
 import {
   applyDocumentSettingsToTypst,
@@ -134,6 +137,7 @@ export interface ItemSheetRenderData {
 }
 
 export function itemSheetScopeKey(node: ProjectNode): string {
+  if (node.sharedSheetId && node.itemEditorType !== 'document') return sharedSheetScopeKey(node.sharedSheetId)
   return node.itemEditorType === 'document' || node.kind === 'page'
     ? `item-doc-${node.id}`
     : `item-sheet-${node.id}`
@@ -463,45 +467,55 @@ export function buildItemSheetRenderData(
   project: EestimateProject,
   item: ProjectNode
 ): ItemSheetRenderData {
-  const qty = readFinalValueFromSnapshot(item)
-  const rate = getItemRate(project, item)
+  const shared = Boolean(item.sharedSheetId && item.itemEditorType !== 'document')
+  const owner = shared && item.sharedSheetId
+    ? findSharedOwner(project.root, item.sharedSheetId) ?? item
+    : item
+  const sheetNode = shared && item.sharedSheetId
+    ? findSharedContentSource(project.root, item.sharedSheetId) ?? item
+    : item
+  const printNode = shared && item.sharedSheetId
+    ? findSharedPrintSource(project.root, item.sharedSheetId) ?? item
+    : item
+  const qty = shared ? null : readFinalValueFromSnapshot(item)
+  const rate = shared ? null : getItemRate(project, item)
   const amount = qty != null && rate != null ? qty * rate : null
-  const signature = resolveSignatureFooter(project, item.id)
-  const settings = resolveItemSheetDocumentSettings(project, item)
-  const config = resolveItemConfig(project, item)
+  const signature = resolveSignatureFooter(project, owner.id)
+  const settings = resolveItemSheetDocumentSettings(project, shared ? { ...owner, print: printNode.print } : owner)
+  const config = resolveItemConfig(project, shared ? { ...owner, spreadsheet: sheetNode.spreadsheet, print: printNode.print, finalCell: undefined } : item)
   const isDocument = item.itemEditorType === 'document' || item.kind === 'page'
-  const snapshot = isDocument ? null : createUniverWorkbookData(item)
-  const media = isDocument ? extractDocumentMedia(item) : extractItemMedia(item, config.range)
+  const snapshot = isDocument ? null : createUniverWorkbookData(sheetNode)
+  const media = isDocument ? extractDocumentMedia(item) : extractItemMedia(sheetNode, config.range)
   const docData = isDocument
     ? parseDocumentToTypstData(item.documentData, item.documentPrintArea, item.documentFinal)
     : undefined
 
-  const projectDataDef = item.projectDataId
+  const projectDataDef = !shared && item.projectDataId
     ? project.projectData?.find((d) => d.id === item.projectDataId)
     : undefined
   const resolvedCode = item.itemCode || projectDataDef?.code || ''
   const resolvedUnit = item.unit || projectDataDef?.unit || ''
-  const resolvedDesc =
+  const resolvedDesc = shared ? '' :
     projectDataDef?.description ||
     item.itemDescription ||
     nodeDisplayName(item)
 
-  const descriptionRuns = resolveItemDescriptionRuns(project, item)
+  const descriptionRuns = shared ? [] : resolveItemDescriptionRuns(project, item)
   const cleanDescription = stripRichFormatting(resolvedDesc)
 
   return {
     project: project.meta.name || project.root.name || 'Detailed Estimate',
-    item: nodeDisplayName(item),
-    code: resolvedCode,
-    unit: resolvedUnit,
-    description: cleanDescription,
-    descriptionRuns,
+    item: shared ? (item.sharedSheetName || 'Shared sheet') : nodeDisplayName(item),
+    code: shared ? '' : resolvedCode,
+    unit: shared ? '' : resolvedUnit,
+    description: shared ? '' : cleanDescription,
+    descriptionRuns: shared ? [] : descriptionRuns,
     setup: setupFromSettings(settings),
     final: {
       qty: fmtQty(qty),
       rate: rate != null ? fmtMoney(rate) : '—',
       amount: amount != null ? fmtMoney(amount) : '—',
-      unit: item.unit || ''
+      unit: shared ? '' : item.unit || ''
     },
     signature: signature?.enabled
       ? signature.rows.map((row) => ({ designation: row.designation, office: row.office }))
@@ -519,12 +533,23 @@ export function buildItemSheetRenderData(
   }
 }
 
-/** The `inputs` map handed to the Typst compiler on preview/export. */
+/**
+ * The `inputs` map handed to the Typst compiler on preview/export.
+ *
+ * Display text is a compile-time annotation, not data: `_ee` is attached to
+ * a clone here so `buildItemSheetRenderData` (and the saved snapshot behind
+ * it) stays pristine while the Typst renderer consumes installed-Univer
+ * display text verbatim.
+ */
 export function itemSheetCompileInputs(
   project: EestimateProject,
   item: ProjectNode
 ): Record<string, string> {
-  return { 'ee-data': JSON.stringify(buildItemSheetRenderData(project, item)) }
+  const data = buildItemSheetRenderData(project, item)
+  if (data.univer && typeof data.univer === 'object') {
+    data.univer = attachEeDisplayText(data.univer as EeWorkbookLike)
+  }
+  return { 'ee-data': JSON.stringify(data) }
 }
 
 /* ------------------------------------------------------------------ */
@@ -645,6 +670,7 @@ export function itemSheetTypstTemplate(
   if (item?.itemEditorType === 'document' || item?.kind === 'page') {
     return defaultItemDocTemplate
   }
+  if (item?.sharedSheetId) return defaultSharedSheetTemplate
   return defaultItemTemplate
 }
 
@@ -660,9 +686,9 @@ export function resolveItemSheetDocumentSettings(
   const nodeSettings = resolveNodeSettings(project.root, item.id)
   return normalizeDocumentSettings(
     {
-      pageSize: nodeSettings.pageSize,
-      orientation: nodeSettings.orientation,
-      margins: nodeSettings.margins as Margins
+      pageSize: item.print?.pageSize ?? nodeSettings.pageSize,
+      orientation: item.print?.orientation ?? nodeSettings.orientation,
+      margins: (item.print?.margins ?? nodeSettings.margins) as Margins
     },
     base
   )

@@ -6,7 +6,6 @@ import SideBar from './components/SideBar'
 import WorkArea from './components/WorkArea'
 import UpdateNotification from './components/UpdateNotification'
 import ErrorBoundary from './components/ErrorBoundary'
-import TutorialOverlay from './components/tutorial/TutorialOverlay'
 
 const AddItemModal = lazy(() => import('./components/modals/AddItemModal'))
 const AddPageModal = lazy(() => import('./components/modals/AddPageModal'))
@@ -140,11 +139,6 @@ export default function App(): JSX.Element {
           {addStructureOpen && <AddStructureModal />}
           {settingsOpen && <SettingsModal />}
         </Suspense>
-      </ErrorBoundary>
-
-      {/* The guided tour. Renders nothing until someone asks for it. */}
-      <ErrorBoundary label="the tutorial">
-        <TutorialOverlay />
       </ErrorBoundary>
 
       {/* Headless updater bridge; visible status and actions live in the bell. */}

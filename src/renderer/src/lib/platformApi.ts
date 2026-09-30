@@ -127,7 +127,7 @@ export function createBrowserApi(): EestimateApi {
       status: async () => ({ idle: true }),
       check: async () => ({ idle: true }),
       download: async () => ({ idle: true }),
-      install: () => undefined,
+      install: async () => undefined,
       onChecking: () => noopSubscribe(),
       onAvailable: () => noopSubscribe(),
       onNotAvailable: () => noopSubscribe(),

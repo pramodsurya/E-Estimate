@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useOptimistic, useTransition } from 'react'
-import { ChevronDown, ChevronRight, ChevronUp, Pencil, Plus, Ruler, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronUp, FolderOpen, Pencil, Plus, Ruler, Trash2 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { ProjectNode } from '../../types/project'
 import { canMoveNode, isComponentLike } from '../../lib/tree'
@@ -37,6 +37,22 @@ function TreeNode({
   // Template-generated items (e.g. the Guide Wall CCDW items) are driven by the
   // component's Detailed dashboard, so they are not shown as tree nodes.
   const visibleChildren = node.children.filter((child) => !child.templateGenerated)
+  const sharedGroups = new Map<string, ProjectNode[]>()
+  for (const child of visibleChildren) {
+    if (child.kind !== 'item' || !child.sharedSheetId) continue
+    const members = sharedGroups.get(child.sharedSheetId) ?? []
+    members.push(child)
+    sharedGroups.set(child.sharedSheetId, members)
+  }
+  const renderedGroups = new Set<string>()
+  const childRows = visibleChildren.flatMap((child) => {
+    const id = child.kind === 'item' ? child.sharedSheetId : undefined
+    const members = id ? sharedGroups.get(id) : undefined
+    if (!id || !members || members.length < 2) return [<TreeNode key={child.id} node={child} depth={depth + 1} />]
+    if (renderedGroups.has(id)) return []
+    renderedGroups.add(id)
+    return [<SharedSheetTreeGroup key={`shared:${id}`} members={members} depth={depth + 1} />]
+  })
   // Template components always carry a synthetic "Detailed" row.
   const isTemplate =
     node.templateId === 'guide-wall' ||
@@ -236,12 +252,37 @@ function TreeNode({
           depth={depth + 1}
         />
       )}
-      {isOpen && visibleChildren.map((c) => <TreeNode key={c.id} node={c} depth={depth + 1} />)}
+      {isOpen && childRows}
     </>
   )
 }
 
 export default TreeNode
+
+function SharedSheetTreeGroup({ members, depth }: { members: ProjectNode[]; depth: number }): JSX.Element {
+  const [open, setOpen] = useState(true)
+  const selectedId = useStore((state) => state.selectedId)
+  const select = useStore((state) => state.select)
+  const selectedMember = members.find((member) => member.id === selectedId)
+  const name = members[0]?.sharedSheetName || 'Shared sheet'
+  return (
+    <>
+      <div
+        className={`tree-row shared-sheet-row ${selectedMember ? 'active-group' : ''}`}
+        data-tour="tree-shared-sheet"
+        style={{ paddingLeft: 6 + depth * 12 }}
+        onClick={() => select(selectedMember?.id ?? members[0]!.id)}
+      >
+        <span className="twisty" onClick={(event) => { event.stopPropagation(); setOpen(!open) }}>
+          {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </span>
+        <span className="node-icon"><FolderOpen size={15} color="var(--component)" /></span>
+        <span className="node-label" title={`${members.length} items use one spreadsheet`}>{name} ({members.length})</span>
+      </div>
+      {open && members.map((member) => <TreeNode key={member.id} node={member} depth={depth + 1} />)}
+    </>
+  )
+}
 
 /** Synthetic "Detailed" tree row that opens a template component's dashboard. */
 function TemplateDetailRow({

@@ -10,7 +10,14 @@ const root = path.resolve(__dirname, '..')
 const rawModule = require('node:module')
 const originalLoad = rawModule._load
 rawModule._load = function (request, parent, isMain) {
-  if (request.endsWith('.typ?raw') || request.endsWith('.typ')) {
+  if (request.endsWith('?inline')) {
+    const file = path.resolve(path.dirname(parent.filename), request.slice(0, -7))
+    const ext = path.extname(file).toLowerCase()
+    const mime = ext === '.png' ? 'image/png' : ext === '.svg' ? 'image/svg+xml' : 'application/octet-stream'
+    return `data:${mime};base64,${fs.readFileSync(file).toString('base64')}`
+  }
+  if (request.endsWith('?url')) return path.resolve(path.dirname(parent.filename), request.slice(0, -4))
+  if (request.endsWith('?raw') || request.endsWith('.typ')) {
     const rawPath = path.resolve(path.dirname(parent.filename), request.replace(/\?raw$/, ''))
     if (fs.existsSync(rawPath)) return fs.readFileSync(rawPath, 'utf8')
     return ''

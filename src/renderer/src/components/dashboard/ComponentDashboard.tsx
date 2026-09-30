@@ -15,7 +15,8 @@ import {
 import { useState } from 'react'
 import { useStore } from '../../store/useStore'
 import { componentScopeKey, resolveComponentPrintPart } from '../../lib/typist-output/componentTypst'
-import { excelPrintSettings, resolveExcelDocumentSettings } from '../../lib/excel-output/excelDocumentSettings'
+import { assembleComponentPrintWithItems } from '../../lib/typist-output/projectPrintBook'
+import { excelPrintSettings, resolveExcelDocumentSettings, resolveItemExcelDocumentSettings } from '../../lib/excel-output/excelDocumentSettings'
 import { buildComponentExcelPayload, componentExcelFileName } from '../../lib/excel-output/componentExcel'
 import { prepareComponentExcelParts } from '../../lib/excel-output/componentDetailPrep'
 import { bundExcelFileName, prepareBundExcelPlan } from '../../lib/excel-output/bundExcel'
@@ -49,6 +50,9 @@ import { resolveManualAreaAllowance } from '../../lib/manualAreaAllowance'
 import { resolveAreaAllowance } from '../../lib/masterData'
 import { ALLOWANCE_TYPES } from '../newproject/NewProjectForm'
 import { collectProjectItems } from '../../lib/projectPrintInputs'
+import { findSharedOwner, findSharedPrintSource, sharedSheetScopeKey } from '../../lib/sharedSheet'
+import { itemSheetScopeKey } from '../../lib/typist-output/itemTypst'
+import { sanitizeSheetName } from '../../lib/excel-output/detailGrid'
 
 
 const money = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 })
@@ -222,7 +226,24 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
       const rate = currentSnapshot?.componentRates?.[node.id]?.[item.id]
       return dashboardItemIsSynced(currentSnapshot, item) && typeof rate === 'number' ? rate : undefined
     }
-    const { renderData, directNodes, details, detailed } = await prepareComponentExcelParts(current, section, recipes, currentRateOf)
+    const { renderData, directNodes, details } = await prepareComponentExcelParts(current, section, recipes, currentRateOf)
+    // Each external item needs its own worksheet to retain its own paper,
+    // orientation and margins. A single stacked worksheet cannot hold them.
+    const exportDetails = details.map((detail, index) => detail && {
+      ...detail,
+      name: sanitizeSheetName(`Item_${index + 1}_${detail.name}`)
+    })
+    const itemSheetPrintSettings = Object.fromEntries(exportDetails.flatMap((detail, index) => {
+      if (!detail) return []
+      const item = directNodes[index]!
+      const owner = item.sharedSheetId ? findSharedOwner(current.root, item.sharedSheetId) ?? item : item
+      const printNode = item.sharedSheetId ? findSharedPrintSource(current.root, item.sharedSheetId) ?? owner : item
+      const scope = item.sharedSheetId ? sharedSheetScopeKey(item.sharedSheetId) : itemSheetScopeKey(item)
+      return [[detail.name, excelPrintSettings(resolveItemExcelDocumentSettings(current, scope, {
+        ...owner,
+        print: printNode.print
+      }))]]
+    }))
     // Bund template nodes export the bund workbook: the same component
     // Abstract + external details with the three bund sheets injected
     // between the Items register and the details (mirrors injectBundLayout).
@@ -240,8 +261,9 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
         kind: 'bund',
         preferPath: true,
         printSettings: documentPrintSettings,
+        sheetPrintSettings: itemSheetPrintSettings,
         bund: {
-          component: buildComponentExcelPayload(renderData, details, detailed, quantityOverrides),
+          component: buildComponentExcelPayload(renderData, exportDetails, null, quantityOverrides),
           sheets: plan.sheets
         }
       })
@@ -274,8 +296,9 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
         kind: 'guidewall',
         preferPath: true,
         printSettings: documentPrintSettings,
+        sheetPrintSettings: itemSheetPrintSettings,
         guidewall: {
-          component: buildComponentExcelPayload(renderData, details, detailed, quantityOverrides),
+          component: buildComponentExcelPayload(renderData, exportDetails, null, quantityOverrides),
           sheets: plan.sheets
         }
       })
@@ -293,7 +316,8 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
       kind: 'component',
       preferPath: true,
       printSettings: documentPrintSettings,
-      component: buildComponentExcelPayload(renderData, details, detailed)
+      sheetPrintSettings: itemSheetPrintSettings,
+      component: buildComponentExcelPayload(renderData, exportDetails, null)
     }
     const result = await window.api.excel.compile(payload)
     if (!result || !result.ok || !result.filePath) {
@@ -580,28 +604,31 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
           onRequestSync={async () => {
             if (!(await syncDashboard())) throw new Error('Component Sync did not complete. Check the dashboard error and retry.')
           }}
-          assembleCompile={node.templateId === 'bund' && node.bund ? async (source) => {
+          assembleCompile={async (source) => {
             const current = useStore.getState().project
             const section = current ? findNode(current.root, node.id) : null
-            if (!current || !section) throw new Error('The active bund component has changed.')
-            const bundInputs = await prepareBundCompileInputs(current, node.id)
+            if (!current || !section) throw new Error('The active component has changed.')
+            const bundInputs = section.templateId === 'bund' && section.bund
+              ? await prepareBundCompileInputs(current, node.id)
+              : {}
             const latest = useStore.getState().project
             const latestSection = latest ? findNode(latest.root, node.id) : null
-            if (!latest || !latestSection || latest.id !== current.id) throw new Error('The active bund component changed during preparation.')
+            if (!latest || !latestSection || latest.id !== current.id) throw new Error('The active component changed during preparation.')
             const latestRates = latest.dashboardSnapshot?.componentRates?.[node.id] ?? EMPTY_RATES
-            const latestPart = resolveComponentPrintPart(
+            const assembled = assembleComponentPrintWithItems(
               latest,
               latestSection,
+              source,
               latest.dashboardSnapshot?.componentRecipes?.[node.id] ?? EMPTY_RECIPES,
               (item) => latestRates[item.id] ?? undefined,
-              { deferBundInputs: true }
+              bundInputs
             )
             return {
-              mainContent: latestPart.compilePrelude + source,
-              inputs: { ...latestPart.compileInputs, ...bundInputs },
-              shadowFiles: latestPart.shadowFiles
+              mainContent: assembled.mainContent,
+              inputs: assembled.inputs,
+              shadowFiles: assembled.shadowFiles
             }
-          } : undefined}
+          }}
           onSave={async (source, settings) => {
             updatePrintStudioDocument(componentPrintStudio.scopeKey, source, settings)
             await useStore.getState().saveProject({ requireSaved: true })
