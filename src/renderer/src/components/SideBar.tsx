@@ -33,7 +33,7 @@ export default function SideBar(): JSX.Element {
               className={`data-sidebar-link ${dataDashboardSection === 'created' ? 'active' : ''}`}
               onClick={() => setDataDashboardSection('created')}
             >
-              <span>Created DATA</span>
+              <span>Project DATA</span>
               <small>{projectDataCount}</small>
             </button>
             <button

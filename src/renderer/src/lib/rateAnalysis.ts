@@ -1334,7 +1334,7 @@ function calculationAbstractRows(recipe: RateAnalysisRecipe): RateAnalysisStored
       value: '',
       unit: '',
       basis: '',
-      percent: `${formatCalculated(recipe.overheadPercent)}%`,
+      percent: `${formatPercentValue(recipe.overheadPercent)}%`,
       amount: ''
     },
     { label: 'Total cost for', value: '', unit: recipe.unit, basis: String(recipe.outputQuantity), percent: '', amount: '' },
@@ -2579,6 +2579,7 @@ export async function fetchItemRate(
   try {
     const recipe = await fetchRateAnalysis(node, year, options)
     if (recipe.itemSource === 'SOR') {
+      if ((recipe.unresolvedLines ?? 0) > 0) return null
       // Resource pickers need the raw SOR cost. An enclosing SSR DATA adds its
       // own contractor profit, so returning the adopted direct-item rate here
       // would apply profit twice.

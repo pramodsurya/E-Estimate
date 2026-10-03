@@ -12652,26 +12652,26 @@ textarea {
 .project-ssr-line-head,
 .project-ssr-line {
   display: grid;
-  min-width: 720px;
-  grid-template-columns: minmax(190px, 1.9fr) minmax(70px, .55fr) minmax(75px, .7fr) minmax(80px, .72fr) minmax(92px, .78fr) 30px;
+  min-width: 825px;
+  grid-template-columns: minmax(190px, 1.9fr) minmax(70px, .55fr) minmax(75px, .7fr) minmax(80px, .72fr) 95px minmax(92px, .78fr) 30px;
   gap: 5px;
   align-items: center;
   padding: 6px 8px;
 }
 .project-ssr-lines.has-formula-column .project-ssr-line-head,
 .project-ssr-lines.has-formula-column .project-ssr-line {
-  min-width: 900px;
-  grid-template-columns: minmax(165px, 1.55fr) minmax(65px, .48fr) minmax(195px, 1.28fr) minmax(70px, .58fr) minmax(76px, .65fr) minmax(91px, .72fr) 30px;
+  min-width: 1005px;
+  grid-template-columns: minmax(165px, 1.55fr) minmax(65px, .48fr) minmax(195px, 1.28fr) minmax(70px, .58fr) minmax(76px, .65fr) 95px minmax(91px, .72fr) 30px;
 }
 .project-ssr-lines.has-applicability-column .project-ssr-line-head,
 .project-ssr-lines.has-applicability-column .project-ssr-line {
-  min-width: 950px;
-  grid-template-columns: minmax(150px, 1.25fr) minmax(60px, .42fr) minmax(178px, 1.05fr) minmax(70px, .55fr) minmax(76px, .62fr) minmax(91px, .7fr) 30px;
+  min-width: 1055px;
+  grid-template-columns: minmax(150px, 1.25fr) minmax(60px, .42fr) minmax(178px, 1.05fr) minmax(70px, .55fr) minmax(76px, .62fr) 95px minmax(91px, .7fr) 30px;
 }
 .project-ssr-lines.has-formula-column.has-applicability-column .project-ssr-line-head,
 .project-ssr-lines.has-formula-column.has-applicability-column .project-ssr-line {
-  min-width: 1120px;
-  grid-template-columns: minmax(140px, 1.1fr) minmax(60px, .4fr) minmax(178px, .98fr) minmax(175px, 1.1fr) minmax(65px, .48fr) minmax(76px, .55fr) minmax(91px, .65fr) 30px;
+  min-width: 1225px;
+  grid-template-columns: minmax(140px, 1.1fr) minmax(60px, .4fr) minmax(178px, .98fr) minmax(175px, 1.1fr) minmax(65px, .48fr) minmax(76px, .55fr) 95px minmax(91px, .65fr) 30px;
 }
 .project-ssr-line-head {
   border-bottom: 1px solid var(--border-soft);
@@ -20774,4 +20774,38 @@ button.bund-sim-run-row:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Timely rates are visible opt-in controls in the project DATA builder. */
+.project-data-timely-rates {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  background: var(--bg-elevated);
+}
+.project-data-timely-rates > label,
+.project-data-timely-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+.project-data-timely-rates small {
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.project-data-timely-rates input[type="checkbox"],
+.project-data-timely-row input[type="checkbox"] {
+  width: 14px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0;
+  accent-color: var(--accent);
+}
+.project-data-timely-row .btn-mini {
+  padding: 3px 4px;
+  font-size: 10px;
 }

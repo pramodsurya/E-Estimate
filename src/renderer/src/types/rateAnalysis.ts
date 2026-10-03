@@ -1,4 +1,4 @@
-import type { ConveyanceClass, PipeLeadSource } from './project'
+import type { ConveyanceClass, PipeLeadSource, ProjectDataRateSource } from './project'
 
 export type RateAnalysisSectionKey = 'materials' | 'machinery' | 'labour'
 
@@ -49,6 +49,17 @@ export interface RateAnalysisLine {
   rate: number
   /** Builder-only rate expression, resolved before the final SSR DATA is rendered. */
   rateFormula?: string
+  /** Opt in to the saved catalogue rate for the selected project/comparison year. */
+  timelyRates?: boolean
+  sorRateLink?: ProjectDataRateSource & { itemSource: 'SOR'; component?: string }
+  /** Annual SSR input-row link for built-in project DATA; quantities remain editable. */
+  ssrRateLink?: {
+    itemCode: string
+    section: RateAnalysisSectionKey
+    description: string
+    unit: string
+    resourceIdentity?: RateAnalysisLine['resourceIdentity']
+  }
   /**
    * Lead belongs to this resource row, never to the whole SSR item. Multiple
    * Material/Machinery rows can independently be selected for Lead.

@@ -13,6 +13,7 @@ import {
   resolveProjectSsrSections
 } from '../../lib/projectData'
 import { fetchItemRate } from '../../lib/rateAnalysis'
+import { projectDataRowCanRefresh, projectDataRowTimely, withProjectDataRowTimely } from '../../lib/projectDataRateLinks'
 import { useStore } from '../../store/useStore'
 import {
   fetchSeigniorageCharges,
@@ -31,7 +32,7 @@ import ProjectDataImageField from './ProjectDataImageField'
 
 export type ProjectSsrDataDraft = Pick<
   ProjectSsrDataDefinition,
-  'description' | 'imageDataUrl' | 'unit' | 'outputQuantity' | 'overheadPercent' | 'sections' | 'lead'
+  'description' | 'imageDataUrl' | 'unit' | 'outputQuantity' | 'overheadPercent' | 'sections' | 'lead' | 'timelyRates' | 'timelyOverhead' | 'rateSource'
 >
 
 const SECTION_KEYS: RateAnalysisSectionKey[] = ['materials', 'machinery', 'labour']
@@ -116,6 +117,7 @@ export default function ProjectSsrDataEditor({
   zone: 'zone_1' | 'zone_2' | 'zone_3'
 }): JSX.Element {
   const [pickerSection, setPickerSection] = useState<RateAnalysisSectionKey | null>(null)
+  const [pickerLineId, setPickerLineId] = useState<string | null>(null)
   const [seigniorageCharges, setSeigniorageCharges] = useState<SeigniorageCharge[]>([])
   const [seigniorageChargesLoading, setSeigniorageChargesLoading] = useState(true)
   useEffect(() => {
@@ -146,11 +148,9 @@ export default function ProjectSsrDataEditor({
 
   const update = (patch: Partial<ProjectSsrDataDraft>): void => onChange({ ...value, ...patch })
   const updateLines = (sectionKey: RateAnalysisSectionKey, lines: RateAnalysisLine[]): void => {
-    update({
-      sections: value.sections.map((section) =>
-        section.key === sectionKey ? { ...section, lines } : section
-      )
-    })
+    const sections = value.sections.map(section => section.key === sectionKey ? {...section,lines} : section)
+    const linked = sections.flatMap(section => section.lines).filter(projectDataRowCanRefresh)
+    update({sections,timelyRates:linked.length > 0 && linked.every(line => projectDataRowTimely(line))})
   }
   const addManualLine = (sectionKey: RateAnalysisSectionKey): void => {
     const section = value.sections.find((candidate) => candidate.key === sectionKey)
@@ -178,6 +178,7 @@ export default function ProjectSsrDataEditor({
       return {
         ...line,
         ...patch,
+        ...(rateWasEdited ? { timelyRates: false } : {}),
         ...(edited.length
           ? { editedFields: Array.from(new Set([...(line.editedFields ?? []), ...edited])) }
           : {}),
@@ -199,9 +200,7 @@ export default function ProjectSsrDataEditor({
     const seigniorageCharge = sectionKey === 'materials'
       ? matchMaterialToSeigniorage(item.description, item.code, seigniorageCharges)
       : null
-    updateLines(sectionKey, [
-      ...lines,
-      {
+    const resource: RateAnalysisLine = {
         ...newProjectDataLine(lines.length, sectionKey),
         description: item.description,
         unit: item.unit ?? '',
@@ -215,6 +214,8 @@ export default function ProjectSsrDataEditor({
           ? item.code
           : undefined,
         rateSource: `SOR ${item.category} · ${year}`,
+        sorRateLink: { itemSource: 'SOR', categoryKey: item.category, itemCode: item.code, sorCatalogue: item.sorCatalogue },
+        timelyRates: Boolean(value.timelyRates || pickerLineId),
         userAdded: false,
         editedFields: undefined,
         seigniorageApplicable: Boolean(seigniorageCharge),
@@ -229,12 +230,46 @@ export default function ProjectSsrDataEditor({
             }
           : undefined
       }
-    ])
+    updateLines(sectionKey, pickerLineId
+      ? lines.map(line => line.id === pickerLineId
+        ? { ...line, ...resource, id: line.id, slNo: line.slNo, quantity: line.quantity,
+            description: line.description.trim() || resource.description,
+            amount: line.quantity * rate, ssrRateLink: undefined, sourceValues: undefined }
+        : line)
+      : [...lines,resource])
     setPickerSection(null)
+    setPickerLineId(null)
+  }
+
+  const linkedRows = value.sections.flatMap(section => section.lines).filter(projectDataRowCanRefresh)
+  const timelyRows = linkedRows.filter(line => projectDataRowTimely(line)).length
+  const setWholeTimely = (checked: boolean): void => update({
+    timelyRates: checked,
+    timelyOverhead: checked && value.rateSource?.itemSource === 'SSR',
+    sections: value.sections.map(section => ({...section,lines:section.lines.map(line => withProjectDataRowTimely(line,checked))}))
+  })
+
+  const setRowTimely = (sectionKey: RateAnalysisSectionKey, id: string, checked: boolean): void => {
+    const sections = value.sections.map(section => section.key === sectionKey
+      ? {...section,lines:section.lines.map(line => line.id === id ? withProjectDataRowTimely(line,checked) : line)}
+      : section)
+    const rows = sections.flatMap(section => section.lines).filter(projectDataRowCanRefresh)
+    update({sections,timelyRates:rows.length > 0 && rows.every(line => projectDataRowTimely(line))})
   }
 
   return (
     <div className="project-ssr-editor">
+      <div className="project-data-timely-rates">
+        <label>
+          <input type="checkbox" checked={linkedRows.length > 0 && timelyRows === linkedRows.length &&
+            (value.rateSource?.itemSource !== 'SSR' || Boolean(value.timelyOverhead))}
+            disabled={!linkedRows.length} onChange={event => setWholeTimely(event.target.checked)} />
+          <strong>Timely rates — whole DATA</strong>
+        </label>
+        <small>Update linked SOR/SSR prices for the project or comparison year. Quantities stay as entered.
+          {linkedRows.length > 0 ? ` ${timelyRows} of ${linkedRows.length} linked rows selected.` : ' Select a catalogue source first.'}
+          {' '}Manual rows keep their rates until you link a code.</small>
+      </div>
       <div className="project-ssr-header-grid">
         <div className="project-ssr-description-stack">
           <label className="project-ssr-description-field">
@@ -281,8 +316,13 @@ export default function ProjectSsrDataEditor({
               min="0"
               step="any"
               value={value.overheadPercent}
-              onChange={(event) => update({ overheadPercent: Math.max(0, numeric(event.target.value, 0)) })}
+              onChange={(event) => update({ overheadPercent: Math.max(0, numeric(event.target.value, 0)), timelyOverhead: false })}
             />
+            <span className="project-data-timely-row">
+              <input type="checkbox" checked={Boolean(value.timelyOverhead)} disabled={value.rateSource?.itemSource !== 'SSR'}
+                aria-label="Timely rates for profit and overhead" onChange={event => update({timelyOverhead:event.target.checked})} />
+              Timely overhead
+            </span>
           </label>
         </div>
       </div>
@@ -320,7 +360,7 @@ export default function ProjectSsrDataEditor({
                   <small>₹ {money(sectionTotals[sectionKey])}</small>
                 </div>
                 <div>
-                  <button type="button" className="btn-mini" onClick={() => setPickerSection(sectionKey)}>
+                  <button type="button" className="btn-mini" onClick={() => {setPickerLineId(null);setPickerSection(sectionKey)}}>
                     <Search size={13} /> Add SOR resource
                   </button>
                   <button type="button" className="btn-mini" onClick={() => addManualLine(sectionKey)}>
@@ -339,6 +379,7 @@ export default function ProjectSsrDataEditor({
                     {formulaVisible ? <span>Rate formula</span> : null}
                     <span>Quantity</span>
                     <span>Rate</span>
+                    <span>Timely rates</span>
                     <span>Amount</span>
                     <span></span>
                   </div>
@@ -434,6 +475,16 @@ export default function ProjectSsrDataEditor({
                             onChange={(rate) => updateLine(sectionKey, line.id, { rate })}
                           />
                         )}
+                        <div className="project-data-timely-row">
+                          <input type="checkbox" aria-label={`Timely rates for ${line.description || 'row ' + (index + 1)}`}
+                            checked={projectDataRowTimely(line)} disabled={!projectDataRowCanRefresh(line)}
+                            title={projectDataRowCanRefresh(line) ? 'Use this catalogue code for the selected year' : hasFormula ? 'Formula rows follow their referenced rates' : 'Link a SOR code to enable yearly updates'}
+                            onChange={event => setRowTimely(sectionKey,line.id,event.target.checked)} />
+                          {!hasFormula && <button type="button" className="btn-mini" title={line.ssrRateLink?.itemCode ?? line.sorRateLink?.itemCode ?? 'Select a SOR source for this row'}
+                            onClick={() => {setPickerLineId(line.id);setPickerSection(sectionKey)}}>
+                            {projectDataRowCanRefresh(line) ? 'Code' : 'Link code'}
+                          </button>}
+                        </div>
                         <strong>₹ {money(resolvedLine.amount)}</strong>
                         <div className="project-ssr-line-tools">
                           {!formulaVisible && (
@@ -481,7 +532,7 @@ export default function ProjectSsrDataEditor({
           section={pickerSection}
           year={year}
           zone={zone}
-          onClose={() => setPickerSection(null)}
+          onClose={() => {setPickerSection(null);setPickerLineId(null)}}
           onPick={(item, rate) => addSorResource(pickerSection, item, rate)}
         />
       ) : null}

@@ -27,6 +27,15 @@ export interface DataVariantSelection {
   addonId?: string
 }
 
+/** Saved catalogue selection; descriptions are never used to guess a new source. */
+export interface ProjectDataRateSource {
+  itemSource: 'SOR' | 'SSR'
+  itemCode: string
+  categoryKey: string
+  sorCatalogue?: SorCatalogueItemSelection
+  dataVariant?: DataVariantSelection
+}
+
 interface ProjectDataDefinitionBase {
   id: string
   code: string
@@ -34,6 +43,15 @@ interface ProjectDataDefinitionBase {
   unit: string
   /** Optional image supplied by the estimator when creating this DATA. */
   imageDataUrl?: string
+  /** Whole-DATA control. SSR rows can independently opt out. */
+  timelyRates?: boolean
+  rateSource?: ProjectDataRateSource
+  rateRefresh?: {
+    status: 'pending' | 'ready' | 'error'
+    year?: string
+    zone?: SorZone
+    error?: string
+  }
   /**
    * Whole-DATA Lead. Used when a published SSR carries one transport rule for
    * the complete work (for example excavated disposal or fabricated parts),
@@ -71,6 +89,22 @@ export interface ProjectSsrDataDefinition extends ProjectDataDefinitionBase {
   outputQuantity: number
   overheadPercent: number
   sections: RateAnalysisSection[]
+  /** Whether the profit/overhead follows the saved SSR source. */
+  timelyOverhead?: boolean
+  /** Built-in DATA uses the ordinary editor, with annual SSR input-rate refresh. */
+  builtIn?: {
+    key: 'm25-wearing-coat'
+    sourceItemCode: string
+    mixItemCode: string
+    initialized: boolean
+    rateStatus: 'pending' | 'ready' | 'error'
+    resolvedYear?: string
+    resolvedZone?: SorZone
+    quantitySourceYear?: string
+    sourceOverheadPercent?: number
+    sourceLeadApplicability?: unknown
+    error?: string
+  }
 }
 
 export type ProjectDataDefinition = ProjectSorDataDefinition | ProjectSsrDataDefinition

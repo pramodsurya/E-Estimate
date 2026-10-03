@@ -41,6 +41,8 @@ import {
   projectItemKey
 } from '../lib/projectItems'
 import { PROJECT_DATA_CATEGORY } from '../lib/projectData'
+import { ensureBuiltInProjectData, nextProjectDataCode } from '../lib/projectDataDefaults'
+import { pendingProjectDataRates, projectDataUsesTimelyRates } from '../lib/projectDataRateLinks'
 import { canonicalLeadConveyanceClass } from '../lib/leadApplicability'
 import {
   normalizeLeadApplications,
@@ -325,14 +327,6 @@ function normalizeLeadPrintSettings(settings: LeadPrintSettings | undefined): Le
   return normalizeLeadPrintLayoutSettings(settings)
 }
 
-function nextProjectDataCode(definitions: ProjectDataDefinition[]): string {
-  const highest = definitions.reduce((max, definition) => {
-    const match = /^DATA-SOR-(\d+)$/i.exec(definition.code.trim())
-    return match ? Math.max(max, Number(match[1])) : max
-  }, 0)
-  return `DATA-SOR-${String(highest + 1).padStart(3, '0')}`
-}
-
 function normalizeLeadVariant(variant: LeadVariant): LeadVariant {
   const materialName = /\b(?:mur+um|mor+um)\b/i.test(variant.materialName)
     ? 'Earth'
@@ -452,7 +446,7 @@ function normalizeLoaded(rawData: EestimateProject): EestimateProject {
   // maps back before anything reads the snapshot.
   const data = expandLoadedProject(rawData)
   const normalizedRoot = ensureTemplateComponentsSynced(normalizeNode(data.root))
-  return ensureProjectHasCoverEmblem({
+  return ensureBuiltInProjectData(ensureProjectHasCoverEmblem({
     ...data,
     meta: {
       ...data.meta,
@@ -475,7 +469,7 @@ function normalizeLoaded(rawData: EestimateProject): EestimateProject {
       (item) => item.name.trim() && Number.isFinite(item.cost) && item.cost >= 0
     ),
     earthworkOverrides: data.earthworkOverrides ?? {}
-  })
+  }))
 }
 
 export type AppView = 'home' | 'newproject' | 'project' | 'cluster'
@@ -767,6 +761,8 @@ interface StoreState {
   attachItemToSharedSheet: (itemId: string, sharedSheetId: string, sharedSheetName?: string) => void
   detachItemFromSharedSheet: (itemId: string) => void
   createProjectData: (input: ProjectDataDefinitionInput) => ProjectDataDefinition | null
+  refreshBuiltInProjectData: () => Promise<void>
+  refreshProjectDataRates: (force?: boolean) => Promise<void>
   updateProjectData: (id: string, input: ProjectDataDefinitionInput) => ProjectDataDefinition | null
   addProjectDataItems: (parentId: string, projectDataIds: string[]) => void
   deleteNode: (id: string) => void
@@ -1057,7 +1053,7 @@ export const useStore = create<StoreState>((set, get) => {
 
     startNewProject: () => {
       if (!confirmProjectReplacementWhileSimulation('Starting a new project')) return
-      const draft = ensureProjectHasCoverEmblem(createDraftProject())
+      const draft = ensureBuiltInProjectData(ensureProjectHasCoverEmblem(createDraftProject()))
       set({
         view: 'newproject',
         project: draft,
@@ -1978,18 +1974,64 @@ export const useStore = create<StoreState>((set, get) => {
       mutate((root) => patchNode(root, itemId, { sharedSheetId: undefined, sharedSheetName: undefined }))
     },
 
+    refreshBuiltInProjectData: async () => get().refreshProjectDataRates(true),
+
+    refreshProjectDataRates: async (force = false) => {
+      const current = get().project
+      if (!current) return
+      const seeded = ensureBuiltInProjectData(current)
+      if (seeded !== current) set({ project: seeded, dirty: true })
+      const year = seeded.meta.sorYear
+      const zone = seeded.meta.sorZone ?? 'zone_3'
+      if (!year) return
+      const { createProjectDataRateResolver } = await import('../lib/projectDataTimelyRates')
+      const resolve = createProjectDataRateResolver(year,zone)
+      const definitions = seeded.projectData ?? []
+      const updates = await Promise.all(definitions.map(async (definition) => {
+        if (!projectDataUsesTimelyRates(definition)) return null
+        try {
+          const resolved = await resolve(definition,force)
+          return resolved === definition ? null : { original: definition, resolved }
+        } catch (reason) {
+          return { original: definition, resolved: { ...definition,
+            rateRefresh: { status: 'error' as const, year, zone,
+              error: reason instanceof Error ? reason.message : 'Unable to refresh SOR/SSR rates.' },
+            ...(definition.kind === 'ssr' && definition.builtIn ? {
+              builtIn: { ...definition.builtIn, rateStatus: 'error' as const,
+                error: reason instanceof Error ? reason.message : 'Unable to refresh SSR rates.' }
+            } : {})
+          } }
+        }
+      }))
+      set((state) => {
+        const project = state.project
+        if (!project || project.id !== seeded.id || project.meta.sorYear !== year ||
+          (project.meta.sorZone ?? 'zone_3') !== zone) return state
+        let changed = false
+        const projectData = (project.projectData ?? []).map((definition) => {
+          const update = updates.find((entry) => entry?.original === definition)
+          // A concurrent estimator edit owns the definition; never overwrite it.
+          if (!update) return definition
+          changed = true
+          return update.resolved
+        })
+        if (!changed) return state
+        return { project: { ...project, projectData, updatedAt: new Date().toISOString() }, dirty: true }
+      })
+    },
+
     createProjectData: (input) => {
       const project = get().project
       if (!project) return null
       const now = new Date().toISOString()
       const definitions = project.projectData ?? []
-      const definition: ProjectDataDefinition = {
+      const definition: ProjectDataDefinition = pendingProjectDataRates({
         ...input,
         id: newId(),
         code: nextProjectDataCode(definitions),
         createdAt: now,
         updatedAt: now
-      }
+      })
       set((state) => ({
         project: state.project
           ? {
@@ -2010,14 +2052,14 @@ export const useStore = create<StoreState>((set, get) => {
       const existing = project?.projectData?.find((definition) => definition.id === id)
       if (!project || !existing) return null
       const now = new Date().toISOString()
-      const definition = {
+      const definition = pendingProjectDataRates({
         ...existing,
         ...input,
         id: existing.id,
         code: existing.code,
         createdAt: existing.createdAt,
         updatedAt: now
-      } as ProjectDataDefinition
+      } as ProjectDataDefinition)
       set((state) => ({
         project: state.project
           ? {
@@ -2263,9 +2305,11 @@ export const useStore = create<StoreState>((set, get) => {
       const p = get().project
       if (!p) return
       const meta = { ...p.meta, ...patch }
+      const rateContextChanged = meta.sorYear !== p.meta.sorYear || meta.sorZone !== p.meta.sorZone
+      const projectData = rateContextChanged ? p.projectData?.map(pendingProjectDataRates) : p.projectData
       const root = patch.name ? { ...p.root, name: patch.name } : p.root
       set({
-        project: { ...p, meta, root, updatedAt: new Date().toISOString() },
+        project: { ...p, meta, root, projectData, updatedAt: new Date().toISOString() },
         dirty: true
       })
     },

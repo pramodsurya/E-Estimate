@@ -6,6 +6,8 @@ import SideBar from './components/SideBar'
 import WorkArea from './components/WorkArea'
 import UpdateNotification from './components/UpdateNotification'
 import ErrorBoundary from './components/ErrorBoundary'
+import { projectDataRatesReady } from './lib/projectDataDefaults'
+import { projectDataUsesTimelyRates } from './lib/projectDataRateLinks'
 
 const AddItemModal = lazy(() => import('./components/modals/AddItemModal'))
 const AddPageModal = lazy(() => import('./components/modals/AddPageModal'))
@@ -57,6 +59,28 @@ function ProjectAutosaveController(): null {
     return () => window.clearTimeout(handle)
   }, [projectRevision, filePath, dirty])
 
+  return null
+}
+
+/** Refresh opted-in project DATA whenever its year, zone or source selection changes. */
+function TimelyDataController(): null {
+  const projectId = useStore((state) => state.project?.id)
+  const year = useStore((state) => state.project?.meta.sorYear)
+  const zone = useStore((state) => state.project?.meta.sorZone)
+  const definitions = useStore((state) => state.project?.projectData)
+  const needsRefresh = useStore((state) => {
+    const project = state.project
+    if (!project) return false
+    const definitions = project.projectData ?? []
+    if (!definitions.some(data => data.kind === 'ssr' && data.builtIn)) return true
+    const year = project.meta.sorYear
+    const zone = project.meta.sorZone ?? 'zone_3'
+    return definitions.some(definition => projectDataUsesTimelyRates(definition) &&
+      !projectDataRatesReady(definition,year,zone) &&
+      !(definition.rateRefresh?.status === 'error' && definition.rateRefresh.year === year && definition.rateRefresh.zone === zone))
+  })
+  const refresh = useStore((state) => state.refreshProjectDataRates)
+  useEffect(() => { if (needsRefresh) void refresh() }, [projectId, year, zone, definitions, needsRefresh, refresh])
   return null
 }
 
@@ -117,6 +141,7 @@ export default function App(): JSX.Element {
   return (
     <div className="app">
       <ProjectAutosaveController />
+      <TimelyDataController />
       <TitleBar />
       {showShell && <UnsavedProjectNotice />}
       <div className="app-body">
