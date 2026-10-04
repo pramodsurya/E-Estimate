@@ -21,6 +21,8 @@ import { buildDataExcelWorkbook } from '../../lib/excel-output/dataExcel'
 import type { MasterItem } from '../../lib/masterData'
 import { resolveProjectPrintSettings } from '../../lib/projectPrintSettings'
 import { projectDataRate } from '../../lib/projectData'
+import { projectDataRatesReady } from '../../lib/projectDataDefaults'
+import { projectDataUsesTimelyRates } from '../../lib/projectDataRateLinks'
 import { fetchRateAnalysis } from '../../lib/rateAnalysis'
 import { supabase } from '../../lib/supabase'
 import { resolveTemplateDashboardMaterials } from '../../lib/templateDashboardSync'
@@ -77,6 +79,7 @@ export default function DataDashboard(): JSX.Element | null {
   const [printPdfUrl, setPrintPdfUrl] = useState<string | null>(null)
   const [exportingExcel, setExportingExcel] = useState(false)
   const [createDataOpen, setCreateDataOpen] = useState(false)
+  const [createDataSource,setCreateDataSource] = useState<{item:MasterItem;recipe:RateAnalysisRecipe} | null>(null)
   const [editingData, setEditingData] = useState<ProjectDataDefinition | null>(null)
   const [creationNotice, setCreationNotice] = useState('')
   const printFrameRef = useRef<HTMLIFrameElement>(null)
@@ -256,7 +259,7 @@ export default function DataDashboard(): JSX.Element | null {
             {isDashboard
               ? 'DATA Dashboard'
               : dataDashboardSection === 'created'
-                ? 'Created DATA'
+                ? 'Project DATA'
                 : 'SOR / SSR DATA'}
           </h1>
           {isDashboard ? (
@@ -271,7 +274,7 @@ export default function DataDashboard(): JSX.Element | null {
             </div>
           ) : dataDashboardSection === 'created' ? (
             <div className="aggregate-meta">
-              <span>{projectData.length} project-created DATA definition(s)</span>
+              <span>{projectData.length} built-in / created DATA definition(s)</span>
               <span>Editable in this project</span>
             </div>
           ) : (
@@ -428,24 +431,33 @@ export default function DataDashboard(): JSX.Element | null {
       {dataDashboardSection === 'created' && (
         <CreatedDataLibrary
           definitions={projectData}
+          year={project.meta.sorYear}
+          zone={project.meta.sorZone ?? 'zone_3'}
+          onRefresh={() => void useStore.getState().refreshProjectDataRates(true)}
           onCreate={() => setCreateDataOpen(true)}
           onEdit={setEditingData}
         />
       )}
       {dataDashboardSection === 'catalogue' && (
-        <BackendDataLibrary project={project} />
+        <BackendDataLibrary project={project} onCreateFromSource={(item,recipe) => {
+          setCreateDataSource({item,recipe});setCreateDataOpen(true)
+        }} />
       )}
       {dataDashboardSection === 'rates' && <MaterialRatesPanel />}
       {(createDataOpen || editingData) && (
         <CreateProjectDataModal
           editingDefinition={editingData ?? undefined}
+          prefillRecipe={createDataSource?.recipe}
+          prefillItem={createDataSource?.item}
           onClose={() => {
             setCreateDataOpen(false)
             setEditingData(null)
+            setCreateDataSource(null)
           }}
           onSaved={(definition) => {
             setCreateDataOpen(false)
             setEditingData(null)
+            setCreateDataSource(null)
             setDataDashboardSection('created')
             setCreationNotice(
               `${definition.code} ${editingData ? 'updated' : 'created'}. Add it from a Component or Sub-component: Add Item → Project DATA.`
@@ -459,10 +471,16 @@ export default function DataDashboard(): JSX.Element | null {
 
 function CreatedDataLibrary({
   definitions,
+  year,
+  zone,
+  onRefresh,
   onCreate,
   onEdit
 }: {
   definitions: ProjectDataDefinition[]
+  year: string
+  zone: NonNullable<EestimateProject['meta']['sorZone']>
+  onRefresh: () => void
   onCreate: () => void
   onEdit: (definition: ProjectDataDefinition) => void
 }): JSX.Element {
@@ -470,10 +488,10 @@ function CreatedDataLibrary({
     <section className="created-data-library">
       <div className="created-data-library-intro">
         <div>
-          <strong>Your created DATA</strong>
+          <strong>Project DATA</strong>
           <p>
-            These definitions are editable. Creating DATA here does not add an Item to the
-            estimate; add it later through <b>Add Item → Project DATA</b>.
+            Built-in M25 wearing coat and your created DATA use the same editable definitions.
+            Add them to the estimate through <b>Add Item → Project DATA</b>.
           </p>
         </div>
         <button className="btn" onClick={onCreate}>
@@ -488,31 +506,48 @@ function CreatedDataLibrary({
         </div>
       ) : (
         <div className="created-data-list">
-          {definitions.map((definition) => (
+          {definitions.map((definition) => {
+            const ready = projectDataRatesReady(definition, year, zone)
+            const builtIn = definition.kind === 'ssr' ? definition.builtIn : undefined
+            return (
             <article className="created-data-card" key={definition.id}>
               <div className="created-data-card-heading">
                 <span className={`created-data-kind ${definition.kind}`}>{definition.kind.toUpperCase()}</span>
                 <strong>{definition.code}</strong>
                 <small>{definition.unit}</small>
+                {builtIn && <small>Built-in · SSR {year || 'year pending'}</small>}
+                <small>{projectDataUsesTimelyRates(definition) ? `Timely rates · ${year || 'year pending'}` : 'Fixed rates'}</small>
               </div>
               <p>{definition.description}</p>
+              {builtIn && <p className="project-data-form-note">
+                Checked rows follow the selected SSR year and zone. Quantities and fixed rates are preserved.
+                The M20 production inputs are retained; review productivity for your work.
+              </p>}
+              {!ready && <p className="rate-warning">
+                {definition.rateRefresh?.error || builtIn?.error || 'Rates pending for the selected year.'}
+                {year && <button className="btn-mini" onClick={onRefresh}>Retry rates</button>}
+              </p>}
               <div className="created-data-card-footer">
                 <span>
-                  Rate <b>₹ {money.format(projectDataRate(definition))}</b> / {definition.unit}
+                  {ready ? <>Rate <b>₹ {money.format(projectDataRate(definition))}</b> / {definition.unit}</>
+                    : <b>Rate pending</b>}
                 </span>
-                <button className="btn-mini" onClick={() => onEdit(definition)}>
+                <button className="btn-mini" disabled={Boolean(builtIn && !builtIn.initialized)} onClick={() => onEdit(definition)}>
                   Edit
                 </button>
               </div>
             </article>
-          ))}
+          )})}
         </div>
       )}
     </section>
   )
 }
 
-function BackendDataLibrary({ project }: { project: EestimateProject }): JSX.Element {
+function BackendDataLibrary({ project,onCreateFromSource }: {
+  project: EestimateProject
+  onCreateFromSource: (item:MasterItem,recipe:RateAnalysisRecipe) => void
+}): JSX.Element {
   const [source, setSource] = useState<'SSR' | 'SOR'>('SSR')
   const [sorDetailOpen, setSorDetailOpen] = useState(false)
   const [selected, setSelected] = useState<MasterItem | null>(null)
@@ -563,7 +598,12 @@ function BackendDataLibrary({ project }: { project: EestimateProject }): JSX.Ele
   ) : error ? (
     <div className="rate-warning">Unable to load {selected.code}: {error}</div>
   ) : recipe ? (
-    <BackendDataPreview recipe={recipe} source={selected.side} />
+    <>
+      <button type="button" className="btn compact" onClick={() => onCreateFromSource(selected,recipe)}>
+        <Plus size={15} /> Create New DATA from {selected.code}
+      </button>
+      <BackendDataPreview recipe={recipe} source={selected.side} />
+    </>
   ) : null
 
   return (

@@ -1,0 +1,1995 @@
+{
+  "source": "Connected Telangana catalogue snapshot, 2026-10-02. Used only for deterministic tests; runtime fetches live SSR/SOR.",
+  "base": {
+    "code": "IRR-CCDW-2-29",
+    "subject": "IRR-CCDW",
+    "chapter": "IRR-CCDW-2",
+    "description": "Providing and laying insitu M- 20 ( 28 days cube compressive strength not less than 20 N /\nsqmm ) grade cement concrete using 20 mm down size approved, clean, hard, graded\naggregates for wearing coat including cost of all materials, machinery, labour, formwork, cleaning, batching, mixing, placing in position in alternate panels, levelling, compacting, finishing, curing, packing joints with asphalt mortar etc., complete with initial lead upto 50 m and all lifts.\nNote: If water is to be brought from other place add only lead charges @ 500 ltr / cum. to the",
+    "unit": "CUM",
+    "quantity": "15.76",
+    "materials": [
+      {
+        "sl": "1",
+        "desc": "Cement for mix",
+        "unit": "kg",
+        "quantity": "5200.80",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "CEM_OPC43",
+          "resource_key": null,
+          "source_table": "material_rate",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "Cement for incidentals @ 5 kg / cum",
+        "unit": "kg",
+        "quantity": "78.80",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "resource_key",
+          "unresolved": false,
+          "master_code": null,
+          "resource_key": "ssr:irr-ccdw-2-29:materials:cement-for-incidentals-5-kg-cum-7540f338086a",
+          "source_table": null,
+          "rate_component": null,
+          "master_resource_resolved": false
+        }
+      },
+      {
+        "sl": "2",
+        "desc": "Coarse aggregate 20-10 mm",
+        "unit": "cum",
+        "quantity": "8.20",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "resource_key",
+          "unresolved": false,
+          "master_code": null,
+          "resource_key": "ssr:irr-ccdw-2-29:materials:coarse-aggregate-20-10-mm-c5ca2b286ff5",
+          "source_table": null,
+          "rate_component": null,
+          "master_resource_resolved": false
+        }
+      },
+      {
+        "sl": "",
+        "desc": "Coarse aggregate 10 mm below",
+        "unit": "cum",
+        "quantity": "4.41",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "resource_key",
+          "unresolved": false,
+          "master_code": null,
+          "resource_key": "ssr:irr-ccdw-2-29:materials:coarse-aggregate-10-mm-below-970445492246",
+          "source_table": null,
+          "rate_component": null,
+          "master_resource_resolved": false
+        }
+      },
+      {
+        "sl": "3",
+        "desc": "Fine aggregate (Un-Screened)",
+        "unit": "cum",
+        "quantity": "7.09",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "resource_key",
+          "unresolved": false,
+          "master_code": null,
+          "resource_key": "ssr:irr-ccdw-2-29:materials:fine-aggregate-un-screened-bc7da86894a1",
+          "source_table": null,
+          "rate_component": null,
+          "master_resource_resolved": false
+        }
+      },
+      {
+        "sl": "4",
+        "desc": "Super Plasticizer",
+        "unit": "kg",
+        "quantity": "20.80",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "resource_key",
+          "unresolved": false,
+          "master_code": null,
+          "resource_key": "ssr:irr-ccdw-2-29:materials:super-plasticizer-6aa688df2f9e",
+          "source_table": null,
+          "rate_component": null,
+          "master_resource_resolved": false
+        }
+      },
+      {
+        "sl": "5",
+        "desc": "Use rate of shuttering",
+        "unit": "sqm",
+        "quantity": "7.88",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "resource_key",
+          "unresolved": false,
+          "master_code": null,
+          "resource_key": "ssr:irr-ccdw-2-29:materials:use-rate-of-shuttering-71e38d01d4e9",
+          "source_table": null,
+          "rate_component": null,
+          "master_resource_resolved": false
+        }
+      },
+      {
+        "sl": "6",
+        "desc": "Sundries ( asphalt mortar etc )",
+        "unit": "LS",
+        "quantity": "5.00",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "resource_key",
+          "unresolved": false,
+          "master_code": null,
+          "resource_key": "ssr:irr-ccdw-2-29:materials:sundries-asphalt-mortar-etc-7b40609ac2d9",
+          "source_table": null,
+          "rate_component": null,
+          "master_resource_resolved": false
+        }
+      }
+    ],
+    "machinery": [
+      {
+        "sl": "1",
+        "desc": "Concrete mixer 300/200 ltr ( diesel )",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "MC_016",
+          "table": "machinery_rate",
+          "component": "hire_charge"
+        },
+        "quantity": "8.00",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "MC_016",
+          "resource_key": null,
+          "source_table": "machinery_rate",
+          "rate_component": "hire_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "Fuel / Energy charges",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "MC_016",
+          "table": "machinery_rate",
+          "component": "fuel_charge"
+        },
+        "quantity": "8.00",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "MC_016",
+          "resource_key": null,
+          "source_table": "machinery_rate",
+          "rate_component": "fuel_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "2",
+        "desc": "5 hp pump ( diesel )",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "MC_026",
+          "table": "machinery_rate",
+          "component": "hire_charge"
+        },
+        "quantity": "0.50",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "MC_026",
+          "resource_key": null,
+          "source_table": "machinery_rate",
+          "rate_component": "hire_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "Fuel / Energy charges",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "MC_026",
+          "table": "machinery_rate",
+          "component": "fuel_charge"
+        },
+        "quantity": "0.50",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "MC_026",
+          "resource_key": null,
+          "source_table": "machinery_rate",
+          "rate_component": "fuel_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "3",
+        "desc": "Needle vibrator 40 mm dia ( petrol )",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "MC_040",
+          "table": "machinery_rate",
+          "component": "hire_charge"
+        },
+        "quantity": "8.00",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "MC_040",
+          "resource_key": null,
+          "source_table": "machinery_rate",
+          "rate_component": "hire_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "Fuel / Energy charges",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "MC_040",
+          "table": "machinery_rate",
+          "component": "fuel_charge"
+        },
+        "quantity": "8.00",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "MC_040",
+          "resource_key": null,
+          "source_table": "machinery_rate",
+          "rate_component": "fuel_charge",
+          "master_resource_resolved": true
+        }
+      }
+    ],
+    "labour": [
+      {
+        "sl": "1",
+        "desc": "Crew for Concrete mixer",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "MC_016",
+          "table": "machinery_rate",
+          "component": "crew_charge"
+        },
+        "quantity": "8.00",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "MC_016",
+          "resource_key": null,
+          "source_table": "machinery_rate",
+          "rate_component": "crew_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "2",
+        "desc": "Crew for Pump",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "MC_026",
+          "table": "machinery_rate",
+          "component": "crew_charge"
+        },
+        "quantity": "0.50",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "MC_026",
+          "resource_key": null,
+          "source_table": "machinery_rate",
+          "rate_component": "crew_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "3",
+        "desc": "Crew for Needle vibrator",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "MC_040",
+          "table": "machinery_rate",
+          "component": "crew_charge"
+        },
+        "quantity": "8.00",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "MC_040",
+          "resource_key": null,
+          "source_table": "machinery_rate",
+          "rate_component": "crew_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "4",
+        "desc": "Mason Class-I",
+        "unit": "Day",
+        "sor_ref": {
+          "code": "LAB_S_11",
+          "table": "labour_rate",
+          "component": "rate"
+        },
+        "quantity": "2.00",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "LAB_S_11",
+          "resource_key": null,
+          "source_table": "labour_rate",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "5",
+        "desc": "work inspector",
+        "unit": "Day",
+        "sor_ref": {
+          "code": "LAB_S_10",
+          "table": "labour_rate",
+          "component": "rate"
+        },
+        "quantity": "1.00",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "LAB_S_10",
+          "resource_key": null,
+          "source_table": "labour_rate",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "6",
+        "desc": "mazdoor",
+        "unit": "",
+        "quantity": "",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "resource_key",
+          "unresolved": false,
+          "master_code": null,
+          "resource_key": "ssr:irr-ccdw-2-29:labour:mazdoor-455f98d46484",
+          "source_table": null,
+          "rate_component": null,
+          "master_resource_resolved": false
+        }
+      },
+      {
+        "sl": "",
+        "desc": "for batching materials",
+        "unit": "Day",
+        "sor_ref": {
+          "code": "LAB_U_03",
+          "table": "labour_rate",
+          "component": "rate"
+        },
+        "quantity": "11.00",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "LAB_U_03",
+          "resource_key": null,
+          "source_table": "labour_rate",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "for loading mortar pans",
+        "unit": "Day",
+        "sor_ref": {
+          "code": "LAB_U_03",
+          "table": "labour_rate",
+          "component": "rate"
+        },
+        "quantity": "4.00",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "LAB_U_03",
+          "resource_key": null,
+          "source_table": "labour_rate",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "for laying",
+        "unit": "Day",
+        "sor_ref": {
+          "code": "LAB_U_03",
+          "table": "labour_rate",
+          "component": "rate"
+        },
+        "quantity": "4.00",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "LAB_U_03",
+          "resource_key": null,
+          "source_table": "labour_rate",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "for conveying concrete",
+        "unit": "Day",
+        "sor_ref": {
+          "code": "LAB_U_03",
+          "table": "labour_rate",
+          "component": "rate"
+        },
+        "quantity": "15.76",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "LAB_U_03",
+          "resource_key": null,
+          "source_table": "labour_rate",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "for cleaning/ washing/ curing",
+        "unit": "Day",
+        "sor_ref": {
+          "code": "LAB_U_03",
+          "table": "labour_rate",
+          "component": "rate"
+        },
+        "quantity": "2.00",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "master_code",
+          "unresolved": false,
+          "master_code": "LAB_U_03",
+          "resource_key": null,
+          "source_table": "labour_rate",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "7",
+        "desc": "Labour cost for shuttering",
+        "unit": "sqm",
+        "quantity": "7.88",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "resource_key",
+          "unresolved": false,
+          "master_code": null,
+          "resource_key": "ssr:irr-ccdw-2-29:labour:labour-cost-for-shuttering-79e87f2b853e",
+          "source_table": null,
+          "rate_component": null,
+          "master_resource_resolved": false
+        }
+      }
+    ],
+    "rate_structure": {
+      "variants": [
+        {
+          "label": "Rate per cum (A+B+C+D)/15.76",
+          "add_percent": null
+        }
+      ],
+      "modifiers": [],
+      "section_rules": []
+    },
+    "lead_applicability": {
+      "builtin": {
+        "mode": "initial_only",
+        "all_leads": false,
+        "overrides": null,
+        "water_note": {
+          "class": "WATER",
+          "ltr_per_cum": 500
+        },
+        "desc_evidence": [
+          "initial lead upto 50 m",
+          "add only lead charges @ 500 ltr / cum"
+        ],
+        "abstract_lines": [],
+        "initial_lead_m": 50,
+        "builtin_lead_km": null
+      },
+      "classes": [
+        "CEMENT",
+        "STONE"
+      ],
+      "earthwork": false,
+      "materials": {
+        "Cement for mix": "CEMENT",
+        "Coarse aggregate 20-10 mm": "STONE",
+        "Coarse aggregate 10 mm below": "STONE",
+        "Fine aggregate (Un-Screened)": "STONE",
+        "Cement for incidentals @ 5 kg / cum": "CEMENT"
+      },
+      "rate_refs": [
+        {
+          "class": "CEMENT",
+          "formula": "lead_amount = item_quantity * lead_rate_for_distance",
+          "column_key": "CEMENT_STEEL_PACKED",
+          "charge_code": "COM-LDLFT-2",
+          "detail_code": "COM-DTL-LDLFT-2",
+          "pricing_basis": "distance_km"
+        },
+        {
+          "class": "STONE",
+          "formula": "lead_amount = item_quantity * lead_rate_for_distance",
+          "column_key": "STONE",
+          "charge_code": "COM-LDLFT-2",
+          "detail_code": "COM-DTL-LDLFT-2",
+          "pricing_basis": "distance_km"
+        }
+      ]
+    },
+    "lead_policy": null,
+    "seigniorage_applicability": {
+      "rows": [
+        {
+          "mode": "RECIPE_MATERIAL_RATIO",
+          "notes": "Natural fine aggregate is Ordinary Sand; bill in CUM and do not levy permit fee.",
+          "status": "REVIEWED",
+          "seig_code": "SEIG_ORDINARY_SAND",
+          "charge_unit": "CUM",
+          "material_key": "SAND_FINE_AGGREGATE",
+          "permit_exempt": true,
+          "quantity_unit": "CUM",
+          "material_label": "SAND_FINE_AGGREGATE",
+          "quantity_basis": "ITEM_QTY_X_RATIO",
+          "quantity_ratio": 0.4498731,
+          "approval_status": "REVIEW_REQUIRED",
+          "item_output_qty": 15.76,
+          "permit_reference": "G.O.Ms.No.21, dt. 31.03.2022",
+          "conversion_factor": 1,
+          "conversion_required": false,
+          "recipe_material_qty": 7.09,
+          "description_quantity": null,
+          "recipe_material_desc": "Fine aggregate (Un-Screened)",
+          "recipe_material_unit": "cum",
+          "quantity_ratio_source": "SSR_RECIPE_MATERIALS",
+          "description_blend_ratio": null,
+          "description_source_text": null,
+          "description_quantity_unit": null
+        },
+        {
+          "mode": "RECIPE_MATERIAL_RATIO",
+          "status": "REVIEWED",
+          "seig_code": "SEIG_BUILDING_STONE",
+          "charge_unit": "CUM",
+          "material_key": "STONE_AGGREGATE",
+          "quantity_unit": "CUM",
+          "material_label": "STONE_AGGREGATE",
+          "quantity_basis": "ITEM_QTY_X_RATIO",
+          "quantity_ratio": 0.8001269,
+          "approval_status": "REVIEW_REQUIRED",
+          "item_output_qty": 15.76,
+          "conversion_factor": 1,
+          "conversion_required": false,
+          "recipe_material_qty": 12.61,
+          "description_quantity": null,
+          "recipe_material_desc": "Coarse aggregate 20-10 mm | Coarse aggregate 10 mm below",
+          "recipe_material_unit": "cum",
+          "quantity_ratio_source": "SSR_RECIPE_MATERIALS",
+          "description_blend_ratio": null,
+          "description_source_text": null,
+          "description_quantity_unit": null
+        }
+      ],
+      "source": "SSR_DESCRIPTION",
+      "materials": [
+        {
+          "mode": "RECIPE_MATERIAL_RATIO",
+          "notes": "Natural fine aggregate is Ordinary Sand; bill in CUM and do not levy permit fee.",
+          "status": "REVIEWED",
+          "seig_code": "SEIG_ORDINARY_SAND",
+          "charge_unit": "CUM",
+          "material_key": "SAND_FINE_AGGREGATE",
+          "permit_exempt": true,
+          "quantity_unit": "CUM",
+          "material_label": "Sand",
+          "quantity_basis": "ITEM_QTY_X_RATIO",
+          "quantity_ratio": 0.4498731,
+          "approval_status": "REVIEW_REQUIRED",
+          "item_output_qty": 15.76,
+          "item_output_unit": "CUM",
+          "permit_reference": "G.O.Ms.No.21, dt. 31.03.2022",
+          "conversion_factor": 1,
+          "conversion_required": false,
+          "recipe_material_qty": 7.09,
+          "description_quantity": null,
+          "recipe_material_desc": "Fine aggregate (Un-Screened)",
+          "recipe_material_unit": "cum",
+          "quantity_ratio_source": "SSR_RECIPE_MATERIALS",
+          "description_blend_ratio": null,
+          "description_source_text": null,
+          "description_quantity_unit": null
+        },
+        {
+          "mode": "RECIPE_MATERIAL_RATIO",
+          "notes": "No approved quantity was parsed from the SSR description; recipe material quantity is used pending review.",
+          "status": "REVIEWED",
+          "seig_code": "SEIG_BUILDING_STONE",
+          "charge_unit": "CUM",
+          "material_key": "STONE_AGGREGATE",
+          "quantity_unit": "CUM",
+          "material_label": "Stone / aggregate",
+          "quantity_basis": "ITEM_QTY_X_RATIO",
+          "quantity_ratio": 0.8001269,
+          "approval_status": "REVIEW_REQUIRED",
+          "item_output_qty": 15.76,
+          "item_output_unit": "CUM",
+          "conversion_factor": 1,
+          "conversion_required": false,
+          "recipe_material_qty": 12.61,
+          "description_quantity": null,
+          "recipe_material_desc": "Coarse aggregate 20-10 mm | Coarse aggregate 10 mm below",
+          "recipe_material_unit": "cum",
+          "quantity_ratio_source": "SSR_RECIPE_MATERIALS",
+          "description_blend_ratio": null,
+          "description_source_text": null,
+          "description_quantity_unit": null
+        }
+      ],
+      "applicable": true,
+      "generated_at": "2026-08-25T19:04:03Z",
+      "policy_basis": {
+        "purpose": "MATERIAL_SUPPLY",
+        "evidence": [
+          "SSR item description"
+        ],
+        "review_status": "REVIEW_REQUIRED"
+      },
+      "parser_version": "ssr-description-quantity-v2",
+      "schema_version": 4,
+      "approval_status": "REVIEW_REQUIRED",
+      "description_hash": "273faebedd10fce62b6d2b6e37fa1aa9"
+    },
+    "description_quantity_policy": {
+      "source": "SSR_DESCRIPTION",
+      "values": [],
+      "parser_version": "ssr-description-quantity-v2",
+      "schema_version": 1,
+      "approval_status": "REVIEW_REQUIRED",
+      "description_hash": "273faebedd10fce62b6d2b6e37fa1aa9"
+    },
+    "year": "2026-27",
+    "modifiers": []
+  },
+  "mix": {
+    "description": "Providing and laying insitu M- 25 ( 28 days cube compressive strength not less than 25 N / sq mm ) grade Cement concrete using 20 mm down size approved, clean, hard, graded aggregates for wearing coat including cost of all materials, machinery, labour, formwork, cleaning, batching, mixing, placing in position in alternate panels, levelling, compacting, finishing, curing, packing joints with asphalt mortar etc., complete with initial lead upto 1 km and all lifts. ( Cement content : 380 kg / cum with use of super plasticiser(0.4% by wt. of cement, CA : 0.80 cum, Blending Ratio of CA--65:35, FA : 0.45 cum)"
+  },
+  "years": [
+    {
+      "code": "IRR-CCDW-2-29",
+      "year": "2025-26",
+      "rates": {
+        "labour": [
+          {
+            "sl": "1",
+            "desc": "Crew for Concrete mixer",
+            "rate": "356.20",
+            "unit": "Hour",
+            "amount": "2849.60",
+            "quantity": "8.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_016",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "crew_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "2",
+            "desc": "Crew for Pump",
+            "rate": "177.20",
+            "unit": "Hour",
+            "amount": "88.60",
+            "quantity": "0.50",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_026",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "crew_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "3",
+            "desc": "Crew for Needle vibrator",
+            "rate": "256.40",
+            "unit": "Hour",
+            "amount": "2051.20",
+            "quantity": "8.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_040",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "crew_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "4",
+            "desc": "Mason Class-I",
+            "rate": "680.00",
+            "unit": "Day",
+            "amount": "1360.00",
+            "quantity": "2.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "LAB_S_11",
+              "resource_key": null,
+              "source_table": "labour_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "5",
+            "desc": "work inspector",
+            "rate": "805.00",
+            "unit": "Day",
+            "amount": "805.00",
+            "quantity": "1.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "LAB_S_10",
+              "resource_key": null,
+              "source_table": "labour_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "6",
+            "desc": "mazdoor",
+            "rate": "",
+            "unit": "",
+            "amount": "",
+            "quantity": "",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:labour:mazdoor-455f98d46484",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          },
+          {
+            "sl": "",
+            "desc": "for batching materials",
+            "rate": "605.00",
+            "unit": "Day",
+            "amount": "6655.00",
+            "quantity": "11.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "LAB_U_03",
+              "resource_key": null,
+              "source_table": "labour_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "for loading mortar pans",
+            "rate": "605.00",
+            "unit": "Day",
+            "amount": "2420.00",
+            "quantity": "4.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "LAB_U_03",
+              "resource_key": null,
+              "source_table": "labour_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "for laying",
+            "rate": "605.00",
+            "unit": "Day",
+            "amount": "2420.00",
+            "quantity": "4.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "LAB_U_03",
+              "resource_key": null,
+              "source_table": "labour_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "for conveying concrete",
+            "rate": "605.00",
+            "unit": "Day",
+            "amount": "9534.80",
+            "quantity": "15.76",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "LAB_U_03",
+              "resource_key": null,
+              "source_table": "labour_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "for cleaning/ washing/ curing",
+            "rate": "605.00",
+            "unit": "Day",
+            "amount": "1210.00",
+            "quantity": "2.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "LAB_U_03",
+              "resource_key": null,
+              "source_table": "labour_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "7",
+            "desc": "Labour cost for shuttering",
+            "rate": "149.25",
+            "unit": "sqm",
+            "amount": "1176.09",
+            "quantity": "7.88",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:labour:labour-cost-for-shuttering-79e87f2b853e",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          }
+        ],
+        "machinery": [
+          {
+            "sl": "1",
+            "desc": "Concrete mixer 300/200 ltr ( diesel )",
+            "rate": "62.60",
+            "unit": "Hour",
+            "amount": "500.80",
+            "quantity": "8.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_016",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "hire_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "Fuel / Energy charges",
+            "rate": "131.60",
+            "unit": "Hour",
+            "amount": "1052.80",
+            "quantity": "8.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_016",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "fuel_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "2",
+            "desc": "5 hp pump ( diesel )",
+            "rate": "9.90",
+            "unit": "Hour",
+            "amount": "4.95",
+            "quantity": "0.50",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_026",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "hire_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "Fuel / Energy charges",
+            "rate": "131.60",
+            "unit": "Hour",
+            "amount": "65.80",
+            "quantity": "0.50",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_026",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "fuel_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "3",
+            "desc": "Needle vibrator 40 mm dia ( petrol )",
+            "rate": "6.80",
+            "unit": "Hour",
+            "amount": "54.40",
+            "quantity": "8.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_040",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "hire_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "Fuel / Energy charges",
+            "rate": "29.60",
+            "unit": "Hour",
+            "amount": "236.80",
+            "quantity": "8.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_040",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "fuel_charge",
+              "master_resource_resolved": true
+            }
+          }
+        ],
+        "materials": [
+          {
+            "sl": "1",
+            "desc": "Cement for mix",
+            "rate": "5.10",
+            "unit": "kg",
+            "amount": "26524.08",
+            "quantity": "5200.80",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "CEM_OPC43",
+              "resource_key": null,
+              "source_table": "material_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "Cement for incidentals @ 5 kg / cum",
+            "rate": "5.10",
+            "unit": "kg",
+            "amount": "401.88",
+            "quantity": "78.80",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:materials:cement-for-incidentals-5-kg-cum-7540f338086a",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          },
+          {
+            "sl": "2",
+            "desc": "Coarse aggregate 20-10 mm",
+            "rate": "1144.00",
+            "unit": "cum",
+            "amount": "9375.31",
+            "quantity": "8.20",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:materials:coarse-aggregate-20-10-mm-c5ca2b286ff5",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          },
+          {
+            "sl": "",
+            "desc": "Coarse aggregate 10 mm below",
+            "rate": "879.00",
+            "unit": "cum",
+            "amount": "3878.85",
+            "quantity": "4.41",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:materials:coarse-aggregate-10-mm-below-970445492246",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          },
+          {
+            "sl": "3",
+            "desc": "Fine aggregate (Un-Screened)",
+            "rate": "723.00",
+            "unit": "cum",
+            "amount": "5127.52",
+            "quantity": "7.09",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:materials:fine-aggregate-un-screened-bc7da86894a1",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          },
+          {
+            "sl": "4",
+            "desc": "Super Plasticizer",
+            "rate": "73.00",
+            "unit": "kg",
+            "amount": "1518.63",
+            "quantity": "20.80",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:materials:super-plasticizer-6aa688df2f9e",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          },
+          {
+            "sl": "5",
+            "desc": "Use rate of shuttering",
+            "rate": "346.20",
+            "unit": "sqm",
+            "amount": "2728.06",
+            "quantity": "7.88",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:materials:use-rate-of-shuttering-71e38d01d4e9",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          },
+          {
+            "sl": "6",
+            "desc": "Sundries ( asphalt mortar etc )",
+            "rate": "29.00",
+            "unit": "LS",
+            "amount": "145.00",
+            "quantity": "5.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:materials:sundries-asphalt-mortar-etc-7b40609ac2d9",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          }
+        ]
+      },
+      "abstract": [
+        {
+          "unit": "",
+          "basis": "",
+          "label": "A. Cost of Materials",
+          "amount": "49699.33",
+          "percent": null
+        },
+        {
+          "unit": "",
+          "basis": "",
+          "label": "B. Hire charges of Machinery",
+          "amount": "1915.55",
+          "percent": null
+        },
+        {
+          "unit": "",
+          "basis": "",
+          "label": "C. Cost of Labour",
+          "amount": "30570.29",
+          "percent": null
+        },
+        {
+          "unit": "",
+          "basis": "",
+          "label": "",
+          "amount": "82185.17",
+          "percent": null
+        },
+        {
+          "unit": "13.615%",
+          "basis": "",
+          "label": "D. Add for contractor's profit and overheads on (A+B+C)",
+          "amount": "11189.51",
+          "percent": "13.615%"
+        },
+        {
+          "unit": "cum",
+          "basis": "15.76",
+          "label": "Total cost for",
+          "amount": "93374.68",
+          "percent": null
+        },
+        {
+          "unit": "",
+          "basis": "(A+B+C+D)/15.76",
+          "label": "Rate per cum",
+          "amount": "5924.80",
+          "percent": null
+        }
+      ]
+    },
+    {
+      "code": "IRR-CCDW-2-29",
+      "year": "2026-27",
+      "rates": {
+        "labour": [
+          {
+            "sl": "1",
+            "desc": "Crew for Concrete mixer",
+            "rate": "375.70",
+            "unit": "Hour",
+            "amount": "3005.60",
+            "group_id": "labour_1",
+            "quantity": "8.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_016",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "crew_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "2",
+            "desc": "Crew for Pump",
+            "rate": "187.20",
+            "unit": "Hour",
+            "amount": "93.60",
+            "group_id": "labour_1",
+            "quantity": "0.50",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_026",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "crew_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "3",
+            "desc": "Crew for Needle vibrator",
+            "rate": "270.40",
+            "unit": "Hour",
+            "amount": "2163.20",
+            "group_id": "labour_1",
+            "quantity": "8.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_040",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "crew_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "4",
+            "desc": "Mason Class-I",
+            "rate": "715.00",
+            "unit": "Day",
+            "amount": "1430.00",
+            "group_id": "labour_1",
+            "quantity": "2.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "LAB_S_11",
+              "resource_key": null,
+              "source_table": "labour_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "5",
+            "desc": "work inspector",
+            "rate": "845.00",
+            "unit": "Day",
+            "amount": "845.00",
+            "group_id": "labour_1",
+            "quantity": "1.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "LAB_S_10",
+              "resource_key": null,
+              "source_table": "labour_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "6",
+            "desc": "mazdoor",
+            "rate": "",
+            "unit": "",
+            "amount": "",
+            "group_id": "labour_1",
+            "quantity": "",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:labour:mazdoor-455f98d46484",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          },
+          {
+            "sl": "",
+            "desc": "for batching materials",
+            "rate": "635.00",
+            "unit": "Day",
+            "amount": "6985.00",
+            "group_id": "labour_1",
+            "quantity": "11.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "LAB_U_03",
+              "resource_key": null,
+              "source_table": "labour_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "for loading mortar pans",
+            "rate": "635.00",
+            "unit": "Day",
+            "amount": "2540.00",
+            "group_id": "labour_1",
+            "quantity": "4.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "LAB_U_03",
+              "resource_key": null,
+              "source_table": "labour_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "for laying",
+            "rate": "635.00",
+            "unit": "Day",
+            "amount": "2540.00",
+            "group_id": "labour_1",
+            "quantity": "4.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "LAB_U_03",
+              "resource_key": null,
+              "source_table": "labour_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "for conveying concrete",
+            "rate": "635.00",
+            "unit": "Day",
+            "amount": "10007.60",
+            "group_id": "labour_1",
+            "quantity": "15.76",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "LAB_U_03",
+              "resource_key": null,
+              "source_table": "labour_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "for cleaning/ washing/ curing",
+            "rate": "635.00",
+            "unit": "Day",
+            "amount": "1270.00",
+            "group_id": "labour_1",
+            "quantity": "2.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "LAB_U_03",
+              "resource_key": null,
+              "source_table": "labour_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "7",
+            "desc": "Labour cost for shuttering",
+            "rate": "156.90",
+            "unit": "sqm",
+            "amount": "1236.37",
+            "group_id": "labour_1",
+            "quantity": "7.88",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:labour:labour-cost-for-shuttering-79e87f2b853e",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          }
+        ],
+        "machinery": [
+          {
+            "sl": "1",
+            "desc": "Concrete mixer 300/200 ltr ( diesel )",
+            "rate": "67.20",
+            "unit": "Hour",
+            "amount": "537.60",
+            "group_id": "machinery_1",
+            "quantity": "8.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_016",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "hire_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "Fuel / Energy charges",
+            "rate": "142.80",
+            "unit": "Hour",
+            "amount": "1142.40",
+            "group_id": "machinery_1",
+            "quantity": "8.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_016",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "fuel_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "2",
+            "desc": "5 hp pump ( diesel )",
+            "rate": "10.70",
+            "unit": "Hour",
+            "amount": "5.35",
+            "group_id": "machinery_1",
+            "quantity": "0.50",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_026",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "hire_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "Fuel / Energy charges",
+            "rate": "142.80",
+            "unit": "Hour",
+            "amount": "71.40",
+            "group_id": "machinery_1",
+            "quantity": "0.50",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_026",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "fuel_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "3",
+            "desc": "Needle vibrator 40 mm dia ( petrol )",
+            "rate": "7.30",
+            "unit": "Hour",
+            "amount": "58.40",
+            "group_id": "machinery_1",
+            "quantity": "8.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_040",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "hire_charge",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "Fuel / Energy charges",
+            "rate": "31.80",
+            "unit": "Hour",
+            "amount": "254.40",
+            "group_id": "machinery_1",
+            "quantity": "8.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "MC_040",
+              "resource_key": null,
+              "source_table": "machinery_rate",
+              "rate_component": "fuel_charge",
+              "master_resource_resolved": true
+            }
+          }
+        ],
+        "materials": [
+          {
+            "sl": "1",
+            "desc": "Cement for mix",
+            "rate": "5.10",
+            "unit": "kg",
+            "amount": "26524.08",
+            "group_id": "materials_1",
+            "quantity": "5200.80",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "master_code",
+              "unresolved": false,
+              "master_code": "CEM_OPC43",
+              "resource_key": null,
+              "source_table": "material_rate",
+              "rate_component": "rate",
+              "master_resource_resolved": true
+            }
+          },
+          {
+            "sl": "",
+            "desc": "Cement for incidentals @ 5 kg / cum",
+            "rate": "5.10",
+            "unit": "kg",
+            "amount": "401.88",
+            "group_id": "materials_1",
+            "quantity": "78.80",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:materials:cement-for-incidentals-5-kg-cum-7540f338086a",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          },
+          {
+            "sl": "2",
+            "desc": "Coarse aggregate 20-10 mm",
+            "rate": "1230.00",
+            "unit": "cum",
+            "amount": "10080.10",
+            "group_id": "materials_1",
+            "quantity": "8.20",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:materials:coarse-aggregate-20-10-mm-c5ca2b286ff5",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          },
+          {
+            "sl": "",
+            "desc": "Coarse aggregate 10 mm below",
+            "rate": "945.00",
+            "unit": "cum",
+            "amount": "4170.10",
+            "group_id": "materials_1",
+            "quantity": "4.41",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:materials:coarse-aggregate-10-mm-below-970445492246",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          },
+          {
+            "sl": "3",
+            "desc": "Fine aggregate (Un-Screened)",
+            "rate": "777.00",
+            "unit": "cum",
+            "amount": "5510.48",
+            "group_id": "materials_1",
+            "quantity": "7.09",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:materials:fine-aggregate-un-screened-bc7da86894a1",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          },
+          {
+            "sl": "4",
+            "desc": "Super Plasticizer",
+            "rate": "78.00",
+            "unit": "kg",
+            "amount": "1622.65",
+            "group_id": "materials_1",
+            "quantity": "20.80",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:materials:super-plasticizer-6aa688df2f9e",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          },
+          {
+            "sl": "5",
+            "desc": "Use rate of shuttering",
+            "rate": "352.32",
+            "unit": "sqm",
+            "amount": "2776.31",
+            "group_id": "materials_1",
+            "quantity": "7.88",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:materials:use-rate-of-shuttering-71e38d01d4e9",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          },
+          {
+            "sl": "6",
+            "desc": "Sundries ( asphalt mortar etc )",
+            "rate": "29.00",
+            "unit": "LS",
+            "amount": "145.00",
+            "group_id": "materials_1",
+            "quantity": "5.00",
+            "resource_identity": {
+              "version": 1,
+              "resolution": "resource_key",
+              "unresolved": false,
+              "master_code": null,
+              "resource_key": "ssr:irr-ccdw-2-29:materials:sundries-asphalt-mortar-etc-7b40609ac2d9",
+              "source_table": null,
+              "rate_component": null,
+              "master_resource_resolved": false
+            }
+          }
+        ]
+      },
+      "abstract": [
+        {
+          "unit": "",
+          "basis": "",
+          "label": "A. Cost of Materials",
+          "amount": "51230.59",
+          "percent": null
+        },
+        {
+          "unit": "",
+          "basis": "",
+          "label": "B. Hire charges of Machinery",
+          "amount": "2069.55",
+          "percent": null
+        },
+        {
+          "unit": "",
+          "basis": "",
+          "label": "C. Cost of Labour",
+          "amount": "32116.37",
+          "percent": null
+        },
+        {
+          "unit": "",
+          "basis": "",
+          "label": "",
+          "amount": "85416.51",
+          "percent": null
+        },
+        {
+          "unit": "13.615%",
+          "basis": "",
+          "label": "D. Add for contractor's profit and overheads on (A+B+C)",
+          "amount": "11629.46",
+          "percent": "13.615%"
+        },
+        {
+          "unit": "cum",
+          "basis": "15.76",
+          "label": "Total cost for",
+          "amount": "97045.97",
+          "percent": null
+        },
+        {
+          "unit": "",
+          "basis": "(A+B+C+D)/15.76",
+          "label": "Rate per cum",
+          "amount": "6157.70",
+          "percent": null
+        }
+      ]
+    }
+  ],
+  "machinery": [
+    {
+      "machinery_code": "MC_016",
+      "capital_cost": "183092",
+      "tyres_tubes_cost": null,
+      "effective_from": "2025-06-01",
+      "effective_to": null,
+      "sor_year": "2025-26",
+      "source": "SoR 2025-26 (Part-1)",
+      "created_at": "2026-06-08 00:11:00.035264+00",
+      "hire_charge": "62.60",
+      "fuel_charge": "131.60",
+      "crew_charge": "356.20",
+      "hire_total": "550.40",
+      "zone_rates": null
+    },
+    {
+      "machinery_code": "MC_026",
+      "capital_cost": "41340",
+      "tyres_tubes_cost": null,
+      "effective_from": "2025-06-01",
+      "effective_to": null,
+      "sor_year": "2025-26",
+      "source": "SoR 2025-26 (Part-1)",
+      "created_at": "2026-06-08 00:11:00.035264+00",
+      "hire_charge": "9.90",
+      "fuel_charge": "131.60",
+      "crew_charge": "177.20",
+      "hire_total": "318.70",
+      "zone_rates": null
+    },
+    {
+      "machinery_code": "MC_040",
+      "capital_cost": "18252",
+      "tyres_tubes_cost": null,
+      "effective_from": "2025-06-01",
+      "effective_to": null,
+      "sor_year": "2025-26",
+      "source": "SoR 2025-26 (Part-1)",
+      "created_at": "2026-06-08 00:11:00.035264+00",
+      "hire_charge": "6.80",
+      "fuel_charge": "29.60",
+      "crew_charge": "256.40",
+      "hire_total": "292.80",
+      "zone_rates": null
+    },
+    {
+      "machinery_code": "MC_016",
+      "capital_cost": "196828.0",
+      "tyres_tubes_cost": null,
+      "effective_from": "2026-06-01",
+      "effective_to": null,
+      "sor_year": "2026-27",
+      "source": "SOR_PART1 p.62",
+      "created_at": "2026-07-11 02:42:58.311123+00",
+      "hire_charge": "67.2",
+      "fuel_charge": "142.8",
+      "crew_charge": "375.7",
+      "hire_total": "585.7",
+      "zone_rates": {
+        "zone_1": {
+          "hire_total": 627.3,
+          "crew_charge": 417.3,
+          "fuel_charge": 142.8,
+          "hire_charge": 67.2
+        },
+        "zone_2": {
+          "hire_total": 606.5,
+          "crew_charge": 396.5,
+          "fuel_charge": 142.8,
+          "hire_charge": 67.2
+        },
+        "zone_3": {
+          "hire_total": 585.7,
+          "crew_charge": 375.7,
+          "fuel_charge": 142.8,
+          "hire_charge": 67.2
+        }
+      }
+    },
+    {
+      "machinery_code": "MC_026",
+      "capital_cost": "44441.0",
+      "tyres_tubes_cost": null,
+      "effective_from": "2026-06-01",
+      "effective_to": null,
+      "sor_year": "2026-27",
+      "source": "SOR_PART1 p.62",
+      "created_at": "2026-07-11 02:42:58.311123+00",
+      "hire_charge": "10.7",
+      "fuel_charge": "142.8",
+      "crew_charge": "187.2",
+      "hire_total": "340.7",
+      "zone_rates": {
+        "zone_1": {
+          "hire_total": 360.7,
+          "crew_charge": 207.2,
+          "fuel_charge": 142.8,
+          "hire_charge": 10.7
+        },
+        "zone_2": {
+          "hire_total": 350.7,
+          "crew_charge": 197.2,
+          "fuel_charge": 142.8,
+          "hire_charge": 10.7
+        },
+        "zone_3": {
+          "hire_total": 340.7,
+          "crew_charge": 187.2,
+          "fuel_charge": 142.8,
+          "hire_charge": 10.7
+        }
+      }
+    },
+    {
+      "machinery_code": "MC_040",
+      "capital_cost": "19621.0",
+      "tyres_tubes_cost": null,
+      "effective_from": "2026-06-01",
+      "effective_to": null,
+      "sor_year": "2026-27",
+      "source": "SOR_PART1 p.63",
+      "created_at": "2026-07-11 02:42:58.311123+00",
+      "hire_charge": "7.3",
+      "fuel_charge": "31.8",
+      "crew_charge": "270.4",
+      "hire_total": "309.5",
+      "zone_rates": {
+        "zone_1": {
+          "hire_total": 339.5,
+          "crew_charge": 300.4,
+          "fuel_charge": 31.8,
+          "hire_charge": 7.3
+        },
+        "zone_2": {
+          "hire_total": 324.5,
+          "crew_charge": 285.4,
+          "fuel_charge": 31.8,
+          "hire_charge": 7.3
+        },
+        "zone_3": {
+          "hire_total": 309.5,
+          "crew_charge": 270.4,
+          "fuel_charge": 31.8,
+          "hire_charge": 7.3
+        }
+      }
+    }
+  ],
+  "labour": [
+    {
+      "labour_code": "LAB_S_10",
+      "sor_year": "2025-26",
+      "rate": "805",
+      "zone_rates": null
+    },
+    {
+      "labour_code": "LAB_S_11",
+      "sor_year": "2025-26",
+      "rate": "680",
+      "zone_rates": null
+    },
+    {
+      "labour_code": "LAB_U_03",
+      "sor_year": "2025-26",
+      "rate": "605",
+      "zone_rates": null
+    },
+    {
+      "labour_code": "LAB_S_10",
+      "sor_year": "2026-27",
+      "rate": "845.0",
+      "zone_rates": {
+        "zone_1": 925,
+        "zone_2": 885,
+        "zone_3": 845
+      }
+    },
+    {
+      "labour_code": "LAB_S_11",
+      "sor_year": "2026-27",
+      "rate": "715.0",
+      "zone_rates": {
+        "zone_1": 795,
+        "zone_2": 755,
+        "zone_3": 715
+      }
+    },
+    {
+      "labour_code": "LAB_U_03",
+      "sor_year": "2026-27",
+      "rate": "635.0",
+      "zone_rates": {
+        "zone_1": 715,
+        "zone_2": 675,
+        "zone_3": 635
+      }
+    }
+  ]
+}

@@ -16,6 +16,7 @@ import { useStore } from '../../store/useStore'
 import { findNode, newId } from '../../lib/tree'
 import { collectSharedGroups } from '../../lib/sharedSheet'
 import { projectDataRate } from '../../lib/projectData'
+import { projectDataRatesReady } from '../../lib/projectDataDefaults'
 import {
   SOR_CATEGORIES,
   SSR_CATEGORIES,
@@ -328,6 +329,8 @@ export default function AddItemModal(): JSX.Element {
             />
             <ProjectDataColumn
               definitions={projectData}
+              year={project?.meta.sorYear ?? ''}
+              zone={project?.meta.sorZone ?? 'zone_3'}
               selected={selectedProjectData}
               onToggle={(id) =>
                 setSelectedProjectData((current) => {
@@ -464,10 +467,14 @@ function StorageChoice({
 
 function ProjectDataColumn({
   definitions,
+  year,
+  zone,
   selected,
   onToggle
 }: {
   definitions: ProjectDataDefinition[]
+  year: string
+  zone: 'zone_1' | 'zone_2' | 'zone_3'
   selected: Set<string>
   onToggle: (id: string) => void
 }): JSX.Element {
@@ -475,7 +482,7 @@ function ProjectDataColumn({
     <div className="additem-col project-data-col">
       <div className="col-header">
         <h3>Project DATA</h3>
-        <span className="col-tag">Created in DATA Dashboard</span>
+        <span className="col-tag">Built-in and created DATA</span>
       </div>
       <div className="project-data-list">
         {definitions.length === 0 ? (
@@ -485,7 +492,8 @@ function ProjectDataColumn({
         ) : (
           definitions.map((definition) => {
             const selectedHere = selected.has(definition.id)
-            const rate = projectDataRate(definition)
+            const ready = projectDataRatesReady(definition, year, zone)
+            const rate = ready ? projectDataRate(definition) : null
             return (
               <button
                 type="button"
@@ -499,7 +507,7 @@ function ProjectDataColumn({
                   <strong>{definition.code}</strong>
                   <span>{definition.description}</span>
                   <small>
-                    {definition.kind === 'ssr' ? 'SSR type' : 'SOR type'} · ₹ {rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / {definition.unit}
+                    {definition.kind === 'ssr' ? 'SSR type' : 'SOR type'} · {rate === null ? 'Rate pending' : `₹ ${rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / ${definition.unit}`}
                   </small>
                 </span>
               </button>
@@ -688,6 +696,13 @@ export function BackendDataSelectionColumns({
       </div>
     </div>
   )
+}
+
+export function SorCodeSelectionColumn({sorYear,onPick}: {
+  sorYear: string
+  onPick: (item: MasterItem) => void
+}): JSX.Element {
+  return <SorSelectionColumn sorYear={sorYear} selected={new Map()} onAdd={onPick} onRemove={() => undefined} />
 }
 
 function SorSelectionColumn({

@@ -13,6 +13,7 @@ import type {
 import { recalculateRateAnalysis } from './rateAnalysis'
 import { defaultRateAnalysisLayout } from './rateAnalysisVisibility'
 import { projectItemKey } from './projectItems'
+import { projectDataUsesTimelyRates } from './projectDataRateLinks'
 import {
   applyMaterialRateOverrides,
   fetchMaterialAliases,
@@ -65,6 +66,9 @@ export function projectDataLeadApplicability(definition: ProjectDataDefinition):
   if (!selections.length) return {}
   const materials = Object.fromEntries(selections)
   return {
+    ...(definition.kind === 'ssr' && definition.builtIn?.sourceLeadApplicability &&
+    typeof definition.builtIn.sourceLeadApplicability === 'object'
+      ? definition.builtIn.sourceLeadApplicability : {}),
     classes: Array.from(new Set(selections.map(([, conveyanceClass]) => conveyanceClass))),
     materials,
     ...(definition.lead?.applicable && definition.lead.policy
@@ -284,7 +288,9 @@ export function projectSsrFormulaReferences(
 }
 
 export function projectDataRate(definition: ProjectDataDefinition): number {
+  if (projectDataUsesTimelyRates(definition) && definition.rateRefresh && definition.rateRefresh.status !== 'ready') return Number.NaN
   if (definition.kind === 'sor') return definition.rate
+  if (definition.builtIn && projectDataUsesTimelyRates(definition) && definition.builtIn.rateStatus !== 'ready') return Number.NaN
   const sectionTotals = Object.fromEntries(
     resolveProjectSsrSections(definition.sections).map((section) => [
       section.key,
@@ -306,6 +312,10 @@ export async function projectDataRecipe(
   materialRateOverrides?: Record<string, MaterialRateOverride>,
   allowance?: { percent: number; label: string }
 ): Promise<RateAnalysisRecipe> {
+  if (projectDataUsesTimelyRates(definition)) {
+    const { resolveTimelyProjectData } = await import('./projectDataTimelyRates')
+    definition = await resolveTimelyProjectData(definition, year, zone)
+  }
   if (definition.kind === 'sor') {
     return withProjectMaterialRateOverrides(
       projectSorDataRecipe(definition, node, year, zone),
@@ -313,13 +323,19 @@ export async function projectDataRecipe(
     )
   }
 
-  const sections = resolveProjectSsrSections(definition.sections)
-  const sectionTotals = Object.fromEntries(
-    sections.map((section) => [
-      section.key,
-      roundMoney(section.lines.reduce((total, line) => total + line.amount, 0))
-    ])
-  ) as Record<RateAnalysisSectionKey, number>
+  // Project DATA is derived from its current quantities and prices. It has no
+  // published abstract to retain, even when its rows were cloned from an SSR.
+  // Mark the calculation rows as quantity-derived without locking their rates;
+  // the reusable definition keeps the estimator's actual edit flags unchanged.
+  const sections = resolveProjectSsrSections(definition.sections).map((section) => ({
+    ...section,
+    lines: section.lines.map((line) => ({
+      ...line,
+      sourceValues: undefined,
+      editedFields: Array.from(new Set([...(line.editedFields ?? []), 'quantity' as const,
+        ...(line.timelyRates === false ? ['rate' as const] : [])]))
+    }))
+  }))
   const baseRate = projectDataRate(definition)
   const recipe: RateAnalysisRecipe = {
     schemaVersion: 1,
@@ -336,15 +352,6 @@ export async function projectDataRecipe(
     overheadPercent: Math.max(0, finiteNumber(definition.overheadPercent)),
     sections,
     layout: defaultRateAnalysisLayout(definition.description),
-    storedValues: {
-      sectionTotals: {
-        materials: String(sectionTotals.materials),
-        machinery: String(sectionTotals.machinery),
-        labour: String(sectionTotals.labour)
-      },
-      labourExtract: [],
-      abstract: []
-    },
     publishedRate: baseRate,
     projectDataImageUrl: definition.imageDataUrl,
     leadApplicability: projectDataLeadApplicability(definition),
@@ -423,8 +430,14 @@ function projectSorDataRecipe(
                 quantity: 1,
                 rate: definition.rate,
                 amount: definition.rate,
-                resourceCode: definition.code,
-                rateSource: 'Project DATA library'
+                resourceCode: definition.rateSource?.itemCode ?? definition.code,
+                materialCode: definition.rateSource?.categoryKey === 'material' ? definition.rateSource.itemCode : undefined,
+                timelyRates: definition.timelyRates,
+                sorRateLink: definition.rateSource?.itemSource === 'SOR' ? {...definition.rateSource,itemSource:'SOR'} : undefined,
+                userAdded: !definition.timelyRates,
+                editedFields: definition.timelyRates ? [] : ['rate'],
+                rateSource: definition.timelyRates && definition.rateSource
+                  ? `SOR ${definition.rateSource.itemCode} · ${year}` : 'Project DATA library'
               }
             ]
           : []

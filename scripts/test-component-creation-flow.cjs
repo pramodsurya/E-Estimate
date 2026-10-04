@@ -19,11 +19,11 @@ assert.ok(!modal.includes('disabled={template.comingSoon}'), 'Canal creation mus
 // --- Two-page creation wizard -------------------------------------------
 // Page 1 asks name + type only; page 2 locates every component type.
 assert.ok(modal.includes('const [page, setPage] = useState<1 | 2>(isEdit ? 2 : 1)'), 'wizard must track page 1/2 (edits open on the locate page)')
-assert.ok(modal.includes('(!isComponent || page === 1) && ('), 'name + type must show on page 1 only')
-assert.ok(modal.includes('{isComponent && page === 2 && ('), 'geometry must show on page 2 only')
+assert.ok(modal.includes('(!needsLocatePage || page === 1) && ('), 'name + type must show on page 1 only; point addons also locate sub-components')
+assert.ok(modal.includes('{(isComponent || pointTemplate) && page === 2 && ('), 'geometry must show on page 2 only')
 assert.ok(
-  modal.includes('mode={templateId ? \'line\' : locateMode}'),
-  'template locate mode must be line-only'
+  modal.includes('mode={pointTemplate ? \'point\' : templateId ? \'line\' : locateMode}'),
+  'point addons use a crossing point while alignment templates remain line-only'
 )
 assert.ok(modal.includes('goPage2'), 'page 1 must continue to the locate page')
 assert.ok(

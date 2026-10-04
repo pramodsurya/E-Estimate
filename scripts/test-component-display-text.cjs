@@ -36,7 +36,10 @@ rawModule._load = function (request, parent, isMain) {
   return originalLoad.call(this, request, parent, isMain)
 }
 
-function loadTsModule(filePath, mocks = {}) {
+function loadTsModule(filePath, mocks = {}, moduleCache = new Map()) {
+  // Match Node's module cache so template adapters can traverse the existing
+  // Canal/CNS dependency cycle without repeatedly recompiling that graph.
+  if (moduleCache.has(filePath)) return moduleCache.get(filePath).exports
   const source = fs.readFileSync(filePath, 'utf8')
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: { esModuleInterop: true, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
@@ -45,6 +48,7 @@ function loadTsModule(filePath, mocks = {}) {
   const loaded = new Module(filePath, module)
   loaded.filename = filePath
   loaded.paths = Module._nodeModulePaths(path.dirname(filePath))
+  moduleCache.set(filePath, loaded)
   loaded.require = (request) => {
     if (request in mocks) return mocks[request]
     if (request.endsWith('?raw')) return fs.readFileSync(path.resolve(path.dirname(filePath), request.slice(0, -4)), 'utf8')
@@ -58,8 +62,9 @@ function loadTsModule(filePath, mocks = {}) {
     if (request.includes('.png?')) return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
     if (request.startsWith('.')) {
       const resolved = path.resolve(path.dirname(filePath), request)
+      if (request.endsWith('.json')) return require(resolved)
       const tsFile = resolved.endsWith('.ts') ? resolved : resolved + '.ts'
-      if (fs.existsSync(tsFile)) return loadTsModule(tsFile, mocks)
+      if (fs.existsSync(tsFile)) return loadTsModule(tsFile, mocks, moduleCache)
     }
     return require(request)
   }

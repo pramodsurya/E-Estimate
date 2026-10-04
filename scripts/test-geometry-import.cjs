@@ -313,8 +313,8 @@ assert.match(
 )
 assert.match(
   modalSource,
-  /\{isComponent && page === 2 && \(\s*<GeometryImportPanel/,
-  'The import panel must render on the component location page'
+  /\{\(isComponent \|\| pointTemplate\) && page === 2 && !pointTemplate && \(\s*<GeometryImportPanel/,
+  'Alignment imports render on the component location page; point addons keep a single crossing'
 )
 assert.doesNotMatch(
   mapSource,

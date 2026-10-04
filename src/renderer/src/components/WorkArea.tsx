@@ -6,6 +6,8 @@ import type { ProjectNode } from '../types/project'
 import { parseGuideWallDetailId } from '../lib/guideWall'
 import { parseBundDetailId } from '../lib/bund'
 import { parseCanalDetailId } from '../lib/canal'
+import { parseSlrbDetailId } from '../lib/slrb'
+const SlrbDashboard = lazy(() => import('./slrb/SlrbDashboard'))
 import HomeScreen from './home/HomeScreen'
 import ClusterBreadcrumb from './cluster/ClusterBreadcrumb'
 import NewProjectForm from './newproject/NewProjectForm'
@@ -37,6 +39,7 @@ export default function WorkArea(): JSX.Element {
   const detailComponentId = parseGuideWallDetailId(selectedId)
   const bundDetailComponentId = parseBundDetailId(selectedId)
   const canalDetailComponentId = parseCanalDetailId(selectedId)
+  const slrbComponentId = parseSlrbDetailId(selectedId)
   const itemEditor = (item: ProjectNode): JSX.Element => {
     const owner = item.sharedSheetId && root ? findSharedOwner(root, item.sharedSheetId) ?? item : item
     const key = item.sharedSheetId ? `shared:${item.sharedSheetId}` : item.id
@@ -89,6 +92,9 @@ export default function WorkArea(): JSX.Element {
     // The same synthetic row under a Canal component.
     const comp = root ? findNode(root, canalDetailComponentId) : null
     content = comp ? <CanalDetail key={comp.id} node={comp} /> : <TitleDashboard />
+  } else if (slrbComponentId) {
+    const comp = root ? findNode(root, slrbComponentId) : null
+    content = comp ? <SlrbDashboard key={comp.id} node={comp} /> : <TitleDashboard />
   } else if (!selected || selected.kind === 'title') {
     content = <TitleDashboard />
   } else if (selected.kind === 'component' || selected.kind === 'subcomponent') {
@@ -100,7 +106,7 @@ export default function WorkArea(): JSX.Element {
     // owning component's Detailed dashboard rather than a spreadsheet.
     const owner = findNode(root, selected.templateOwnerId)
     content =
-      owner && owner.templateId === 'guide-wall' ? (
+      owner && owner.templateId === 'slrb' ? <SlrbDashboard key={owner.id} node={owner} /> : owner && owner.templateId === 'guide-wall' ? (
         <GuideWallDetail key={owner.id} node={owner} />
       ) : owner && owner.templateId === 'bund' ? (
         <BundDetail key={owner.id} node={owner} />

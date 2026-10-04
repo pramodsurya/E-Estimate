@@ -2,16 +2,18 @@ import { Database, Layers3, Plus, Search } from 'lucide-react'
 import { useState } from 'react'
 import { materialRefsForLeadInfo, parseLeadInfo } from '../../lib/leadApplicability'
 import type { MasterItem } from '../../lib/masterData'
-import { fetchRateAnalysis } from '../../lib/rateAnalysis'
+import { fetchItemRate, fetchRateAnalysis } from '../../lib/rateAnalysis'
+import { projectDataSsrRateLinks } from '../../lib/projectDataRateLinks'
 import { useStore } from '../../store/useStore'
 import type {
   ProjectDataDefinition,
   ProjectDataDefinitionInput,
+  ProjectDataRateSource,
   ProjectNode
 } from '../../types/project'
 import type { RateAnalysisRecipe, SeigniorageMaterialPolicy } from '../../types/rateAnalysis'
 import Modal from '../modals/Modal'
-import { SsrCodeSelectionColumn } from '../modals/AddItemModal'
+import { SorCodeSelectionColumn, SsrCodeSelectionColumn } from '../modals/AddItemModal'
 import ProjectDataImageField from './ProjectDataImageField'
 import ProjectSsrDataEditor, {
   blankProjectSsrDataDraft,
@@ -21,30 +23,38 @@ import ProjectSsrDataEditor, {
 export default function CreateProjectDataModal({
   onClose,
   onSaved,
-  editingDefinition
+  editingDefinition,
+  prefillRecipe,
+  prefillItem
 }: {
   onClose: () => void
   onSaved: (definition: ProjectDataDefinition) => void
   editingDefinition?: ProjectDataDefinition
+  prefillRecipe?: RateAnalysisRecipe
+  prefillItem?: MasterItem
 }): JSX.Element {
   const project = useStore((state) => state.project)
   const createProjectData = useStore((state) => state.createProjectData)
   const updateProjectData = useStore((state) => state.updateProjectData)
   const [screen, setScreen] = useState<'choose' | 'sor' | 'ssr'>(
-    editingDefinition?.kind ?? 'choose'
+    editingDefinition?.kind ?? (prefillRecipe ? prefillRecipe.itemSource === 'SOR' ? 'sor' : 'ssr' : 'choose')
   )
   const [description, setDescription] = useState(
-    editingDefinition?.kind === 'sor' ? editingDefinition.description : ''
+    editingDefinition?.kind === 'sor' ? editingDefinition.description : prefillRecipe?.description ?? ''
   )
   const [imageDataUrl, setImageDataUrl] = useState<string | undefined>(
     editingDefinition?.kind === 'sor' ? editingDefinition.imageDataUrl : undefined
   )
-  const [unit, setUnit] = useState(editingDefinition?.kind === 'sor' ? editingDefinition.unit : 'Cum')
+  const [unit, setUnit] = useState(editingDefinition?.kind === 'sor' ? editingDefinition.unit : prefillRecipe?.unit ?? 'Cum')
   const [rate, setRate] = useState(
-    editingDefinition?.kind === 'sor' ? String(editingDefinition.rate) : ''
+    editingDefinition?.kind === 'sor' ? String(editingDefinition.rate) : prefillRecipe?.publishedRate !== undefined ? String(prefillRecipe.publishedRate) : ''
   )
+  const [timelyRates,setTimelyRates] = useState(Boolean(editingDefinition?.timelyRates))
+  const [rateSource,setRateSource] = useState<ProjectDataRateSource | undefined>(editingDefinition?.rateSource ??
+    (prefillItem ? {itemSource:prefillItem.side,itemCode:prefillItem.code,categoryKey:prefillItem.category,sorCatalogue:prefillItem.sorCatalogue} : undefined))
   const [ssrDraft, setSsrDraft] = useState<ProjectSsrDataDraft>(() =>
-    draftFromProjectData(editingDefinition)
+    editingDefinition ? draftFromProjectData(editingDefinition)
+      : prefillRecipe?.itemSource === 'SSR' ? draftFromBackendSsr(prefillRecipe) : blankProjectSsrDataDraft()
   )
   const [error, setError] = useState('')
 
@@ -53,6 +63,8 @@ export default function CreateProjectDataModal({
     setImageDataUrl(undefined)
     setUnit('Cum')
     setRate('')
+    setTimelyRates(false)
+    setRateSource(undefined)
     setError('')
     setScreen('sor')
   }
@@ -88,7 +100,9 @@ export default function CreateProjectDataModal({
       description: normalizedDescription,
       imageDataUrl,
       unit: normalizedUnit,
-      rate: parsedRate
+      rate: parsedRate,
+      timelyRates,
+      rateSource
     })
   }
 
@@ -108,6 +122,9 @@ export default function CreateProjectDataModal({
       outputQuantity: ssrDraft.outputQuantity,
       overheadPercent: Math.max(0, ssrDraft.overheadPercent || 0),
       lead: ssrDraft.lead,
+      timelyRates: ssrDraft.timelyRates,
+      timelyOverhead: ssrDraft.timelyOverhead,
+      rateSource: ssrDraft.rateSource,
       sections: structuredClone(ssrDraft.sections)
     })
   }
@@ -135,7 +152,7 @@ export default function CreateProjectDataModal({
             <span className="project-data-create-choice-icon"><Plus size={19} /></span>
             <span>
               <strong>Create a new SOR DATA</strong>
-              <small>Enter a description, unit, and fixed rate.</small>
+              <small>Enter a fixed rate, or select a SOR code and enable Timely rates.</small>
             </span>
           </button>
           <button type="button" className="project-data-create-choice" onClick={beginNewSsr}>
@@ -170,18 +187,25 @@ export default function CreateProjectDataModal({
       >
         <div className="project-data-form project-ssr-create-form">
           <p className="project-data-form-note">
-            {editingDefinition
+            {editingDefinition?.kind === 'ssr' && editingDefinition.builtIn
+              ? 'Edit this DATA using the same Materials, Machinery and Labour builder.'
+              : editingDefinition
               ? 'Edit this independent project DATA. You may also use a backend SSR code to replace the current fields.'
-              : 'Start blank, or select an existing backend SSR code to prefill this same editable form. The new DATA remains independent of its source.'}
+              : 'Start blank, or select an SSR code to prefill the editable form. Enable Timely rates for the whole DATA or selected rows.'}
           </p>
-          <BackendSsrPrefill
+          {editingDefinition?.kind === 'ssr' && editingDefinition.builtIn ? (
+            <p className="project-data-form-note">
+              Built-in M25 wearing coat. Input rates refresh from SSR {project?.meta.sorYear} when
+              the project year or zone changes while Timely rates is checked. Edit quantities here; typing a rate turns its yearly update off.
+            </p>
+          ) : <BackendSsrPrefill
             year={project?.meta.sorYear ?? ''}
             zone={project?.meta.sorZone ?? 'zone_3'}
             onPrefilled={(draft) => {
               setSsrDraft(draft)
               setError('')
             }}
-          />
+          />}
           <ProjectSsrDataEditor
             value={ssrDraft}
             onChange={setSsrDraft}
@@ -217,6 +241,18 @@ export default function CreateProjectDataModal({
             ? 'Changes are saved only to this project DATA definition. Estimate Items using it will use the updated DATA after Sync.'
             : 'This creates a library definition only; it does not add an estimate Item.'}
         </p>
+        <BackendSorPrefill year={project?.meta.sorYear ?? ''} zone={project?.meta.sorZone ?? 'zone_3'}
+          onPrefilled={(item,rate) => {
+            setDescription(item.description);setUnit(item.unit ?? '');setRate(String(rate))
+            setRateSource({itemSource:'SOR',categoryKey:item.category,itemCode:item.code,sorCatalogue:item.sorCatalogue})
+            setError('')
+          }} />
+        <div className="project-data-timely-rates">
+          <label><input type="checkbox" checked={timelyRates} disabled={!rateSource}
+            onChange={event => setTimelyRates(event.target.checked)} /><strong>Timely rates — whole DATA</strong></label>
+          <small>{rateSource ? `Source: ${rateSource.itemCode}. ` : 'Select a SOR code first. '}
+            When checked, use that code's price for the project or comparison year. When unchecked, keep the entered rate.</small>
+        </div>
         <label>
           Description
           <textarea
@@ -231,11 +267,11 @@ export default function CreateProjectDataModal({
         <div className="project-data-form-grid">
           <label>
             Unit
-            <input className="text-input" value={unit} placeholder="Cum" onChange={(event) => setUnit(event.target.value)} />
+            <input className="text-input" value={unit} placeholder="Cum" onChange={(event) => {setUnit(event.target.value);setTimelyRates(false)}} />
           </label>
           <label>
             Rate per unit (₹)
-            <input className="text-input" inputMode="decimal" value={rate} placeholder="0.00" onChange={(event) => setRate(event.target.value)} />
+            <input className="text-input" inputMode="decimal" value={rate} placeholder="0.00" onChange={(event) => {setRate(event.target.value);setTimelyRates(false)}} />
           </label>
         </div>
         {error ? <div className="rate-warning project-data-form-error">{error}</div> : null}
@@ -253,8 +289,42 @@ function draftFromProjectData(definition?: ProjectDataDefinition): ProjectSsrDat
     outputQuantity: definition.outputQuantity,
     overheadPercent: definition.overheadPercent,
     lead: definition.lead,
-    sections: structuredClone(definition.sections)
+    timelyRates: definition.timelyRates,
+    timelyOverhead: definition.timelyOverhead ?? Boolean(definition.builtIn && definition.overheadPercent === definition.builtIn.sourceOverheadPercent),
+    rateSource: definition.rateSource ?? (definition.builtIn
+      ? {itemSource:'SSR',categoryKey:'ssr_item',itemCode:definition.builtIn.sourceItemCode} : undefined),
+    sections: structuredClone(definition.sections).map(section => ({...section,lines:section.lines.map(line => ({...line,
+      timelyRates: line.timelyRates ?? Boolean(definition.builtIn && !line.editedFields?.includes('rate'))
+    }))}))
   }
+}
+
+function BackendSorPrefill({year,zone,onPrefilled}: {
+  year: string
+  zone: 'zone_1' | 'zone_2' | 'zone_3'
+  onPrefilled: (item: MasterItem,rate: number) => void
+}): JSX.Element {
+  const [open,setOpen] = useState(false)
+  const [loading,setLoading] = useState('')
+  const [error,setError] = useState('')
+  const pick = async (item: MasterItem): Promise<void> => {
+    if (loading) return
+    setLoading(item.code);setError('')
+    try {
+      const rate = await fetchItemRate({id:`data-source:${item.code}`,kind:'item',name:item.description,children:[],
+        itemSource:'SOR',itemCode:item.code,categoryKey:item.category,sorCatalogue:item.sorCatalogue},year,{zone})
+      if (rate === null) throw new Error(`No numeric ${year} SOR rate is available for ${item.code}.`)
+      onPrefilled(item,rate);setOpen(false)
+    } catch (reason) {setError(reason instanceof Error ? reason.message : 'Unable to load SOR price.')}
+    finally {setLoading('')}
+  }
+  return <section className="project-data-backend-prefill">
+    <div><strong>Use an existing SOR code</strong><small>Copy its price and keep a source link for optional yearly updates.</small></div>
+    <button type="button" className="btn ghost compact" onClick={() => setOpen(!open)}><Search size={15} /> {open ? 'Hide codes' : 'Select a code'}</button>
+    {loading && <small>Loading {loading}…</small>}
+    {open && <div className="project-data-backend-prefill-picker"><SorCodeSelectionColumn sorYear={year} onPick={item => void pick(item)} /></div>}
+    {error && <div className="rate-warning">{error}</div>}
+  </section>
 }
 
 function BackendSsrPrefill({
@@ -340,8 +410,11 @@ function draftFromBackendSsr(recipe: RateAnalysisRecipe): ProjectSsrDataDraft {
     unit: recipe.unit,
     outputQuantity: recipe.outputQuantity,
     overheadPercent: recipe.overheadPercent,
+    timelyRates: false,
+    timelyOverhead: false,
+    rateSource: {itemSource:'SSR',itemCode:recipe.itemCode,categoryKey:'ssr_item'},
     lead: overallLeadFromBackend(leadInfo, leadRefs),
-    sections: structuredClone(recipe.sections).map((section) => ({
+    sections: projectDataSsrRateLinks(structuredClone(recipe)).map((section) => ({
       ...section,
       lines: section.lines.map((line) => {
         const leadRef = (section.key === 'materials' || section.key === 'machinery')

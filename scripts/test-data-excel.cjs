@@ -7,7 +7,7 @@ const os = require('node:os');
 const { execSync } = require('child_process');
 const readExcelRust = require('./read-excel-rust.cjs');
 
-const root = 'C:/Users/napra/OneDrive/Desktop/Software E-estimate';
+const root = path.resolve(__dirname, '..');
 
 function loadTs(filePath, mocks = {}) {
   const { outputText } = ts.transpileModule(fs.readFileSync(filePath, 'utf8'), {
