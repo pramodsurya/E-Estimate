@@ -1177,6 +1177,8 @@ export interface CanalDesign {
   minimumHeartingHeight: number;
   /** Finished width of the impervious hearting at its top (m). */
   heartingTopWidth: number;
+  /** Explicit handling of overlapping bank cores within the solid embankment. */
+  heartingConnection?: 'separate' | 'continuous';
   heartingLeftSlope: number;
   heartingRightSlope: number;
   heartingTrenchEnabled: boolean;
@@ -1229,6 +1231,14 @@ export interface CanalSoilStratum {
   slope: number;
   description?: string;
   color?: string;
+  /** Explicit excavation class for configurable ERM material columns. */
+  ermClass?: 'all-soils' | 'hdr' | 'ff' | 'hr';
+}
+
+export interface CanalErmColumn {
+  id: string;
+  name: string;
+  excavationClass: 'all-soils' | 'hdr' | 'ff' | 'hr';
 }
 
 /** One chainage cross-section along 0..lengthM. */
@@ -1251,6 +1261,14 @@ export interface CanalSection {
   designPointOffsets?: number[];
   /** Soil and rock stratigraphy varying according to depth at this section. */
   strata?: CanalSoilStratum[];
+  /** ERM geological datum, independent of surveyed ground. */
+  strataTopRl?: number;
+  /** Legacy profile extent; ERM profiles continue their deepest entered material. */
+  strataExtent?: 'continue' | 'limited';
+  /** Entered hard-rock bottom RL, shared by Excel and the ERM table. */
+  strataHardRockBottomRl?: number;
+  /** Deepest material explicitly entered, including a zero-thickness boundary. */
+  strataLastEnteredId?: string;
 }
 
 export type CanalBermFace = 'left-outer' | 'left-canal' | 'right-canal' | 'right-outer';
@@ -1595,6 +1613,8 @@ export interface CanalLiningDesign {
 }
 
 export interface CanalData {
+  /** Ordered material columns above the final continuing hard-rock layer. */
+  ermColumns?: CanalErmColumn[];
   /** False until the setup wizard finishes; Edit setup reopens the wizard. */
   configured: boolean;
   /** Repair is modelled but not built yet; setup offers New only. */

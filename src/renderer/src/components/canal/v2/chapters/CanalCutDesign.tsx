@@ -151,7 +151,7 @@ export default function CanalCutDesign({
     <section className="canal-chapter canal-cut-chapter">
       <header className="canal-v2-section-header">
         <div>
-          <span className="canal-v2-section-kicker">Chapter 3</span>
+          <span className="canal-v2-section-kicker">Chapter 4</span>
           <h2>Cut Design &amp; Berms</h2>
           <p className="settings-note">
             Configure cut berms in deep excavation using either Programmatic Rules or Manual Benches with dynamic section discard.
@@ -418,7 +418,7 @@ export default function CanalCutDesign({
           <div className="canal-cross-panel-title">
             Excavation Side Slopes by Geological Strata
             <small>
-              Side slopes (H : 1V) applied to cut faces according to the geological strata configured in Chapter 4 (Sections).
+              Side slopes (H : 1V) applied to cut faces according to the geological strata configured in Chapter 2 (Soil & Rock Strata).
             </small>
           </div>
 
@@ -563,7 +563,7 @@ export default function CanalCutDesign({
           <div className="canal-diagram-empty">
             No cutting sections found in this reach. All {sections.length} cross-sections are in embankment (filling).
             <small style={{ marginTop: '6px', display: 'block', opacity: 0.8 }}>
-              Cut berms and side slopes apply to excavation reaches. Enter ground levels above canal bed in Chapter 4 (Cross-Sections) to preview cutting sections here.
+              Cut berms and side slopes apply to excavation reaches. Enter ground levels above canal bed in Chapter 5 (Cross-Sections) to preview cutting sections here.
             </small>
           </div>
         )}

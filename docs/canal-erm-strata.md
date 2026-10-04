@@ -1,0 +1,11 @@
+# Soil & Rock Strata
+
+Chapter 2 records geological levels by chainage. Excel and the software use the same table: Chainage, Top RL, material bottom RLs, Hard Rock bottom RL. Hard Rock is a numeric RL input like every other material. There is no final material question or dropdown.
+
+Enter known material bottom RLs. Leave other material cells blank or enter -. At least one material level is required. Successive levels must not increase. The top of each layer is the previous boundary; thickness is the difference between top and bottom. The deepest entered material continues below its entered bottom RL for cutting slopes and excavation quantities, including CNS preparation. This applies to every material class, including custom columns. Recorded levels stay unchanged. Sections shows a small warning beside the affected chainage and above its diagram only when actual cutting extends below the entered limit, naming the assumed material and entered RL.
+
+Add material column accepts a name, excavation class and layer position. Existing rows receive an absent layer so existing boundaries remain unchanged. Each custom material aggregates into its selected excavation class for cutting slopes, quantities and costs.
+
+Download Excel template creates Soil & Rock Strata and Instructions sheets with current material headings, existing chainages and blank level inputs. Upload filled Excel checks the headings, parses numeric levels and hyphens, and previews all rows before Apply rows. Duplicate chainages, increasing levels, profiles without any material levels, formulas and out-of-canal chainages are rejected. Matching chainages are updated; new chainages await surveyed ground. Excel paste follows the same layout.
+
+Geological Top RL does not replace surveyed ground. Sections and excavation classification use the stored geological profile; each excavation class uses its selected SSR rate. Layers and bottom RLs survive save/load. Older profiles without finite hard-rock bottom entries are retained until edited, without adding a new bottom level.

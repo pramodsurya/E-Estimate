@@ -8,7 +8,7 @@ import {
   canalAutomaticFilterLengthsAtSection,
   canalFoundationExcavationBands,
   canalGroundLevelAt,
-  canalHeartingProfiles,
+  canalHeartingSection,
   canalServiceRoadSegments,
   canalSectionAreas,
   canalSectionBankTier,
@@ -120,7 +120,8 @@ export default function CanalSectionDiagram({
       design.length >= 2 && ground.length >= 2
         ? profileDifferenceBands(ground, design)
         : []
-    const hearting = canalHeartingProfiles(data, section)
+    const coreSection = canalHeartingSection(data, section)
+    const hearting = coreSection.profiles
     const stripping = canalStrippingBands(data, section)
     const foundation = showFoundationExcavation ? canalFoundationExcavationBands(data, section) : []
     const bedRl = canalBedLevelAt(data, section.chainage)
@@ -302,6 +303,10 @@ export default function CanalSectionDiagram({
       horizontalFilters,
       chimneyFilters,
       roads,
+      coreErrors: coreSection.errors,
+      coreTrenches: coreSection.trenches,
+      combinedTrench: coreSection.combinedTrench,
+      coreOverlap: coreSection.overlap,
       externalWorks,
       toX,
       toY,
@@ -339,6 +344,8 @@ export default function CanalSectionDiagram({
   const hasDesign = view.design.length >= 2
 
   return (
+    <>
+    {view.hearting.length > 0 && <div className="canal-bank-recommendation"><strong>{data.design.heartingConnection === 'continuous' ? (view.coreOverlap.length ? 'Continuous core beneath bed' : 'Continuous mode — cores do not meet at this section') : (view.coreOverlap.length ? 'Design conflict: separate cores overlap' : 'Separate bank cores')}</strong>{view.combinedTrench && <span> · One connected cutoff trench</span>}</div>}
     <svg
       className="canal-diagram"
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
@@ -464,18 +471,11 @@ export default function CanalSectionDiagram({
         return <g key={`chimney-filter-${index}`}><polygon points={points.map((p) => `${view.toX(p.offset)},${view.toY(p.rl)}`).join(' ')} fill="url(#canal-chimney-filter)" stroke="#22d3ee" strokeWidth="1.5"/><path d={`M ${view.toX(centre)} ${view.toY(points[2].rl)+3} L ${view.toX(centre)} ${view.toY(points[0].rl)-2} L ${view.toX(outlet)} ${view.toY(points[0].rl)-2}`} fill="none" stroke="#67e8f9" strokeWidth="1.7" markerEnd="url(#canal-filter-arrow)"/><text x={view.toX(centre)} y={view.toY(midRl)} className="canal-diagram-foundation-label" textAnchor="middle">Chimney</text></g>
       })}</g>}
 
+      {view.coreTrenches.map((points, index) => <polygon key={`core-trench-${index}`} className="canal-diagram-hearting-trench" points={points.map((p) => `${view.toX(p.offset)},${view.toY(p.rl)}`).join(' ')} />)}
       {view.hearting.map((profile) => (
         <g key={`hearting-${profile.bank}`} className="canal-diagram-hearting">
-          {profile.trench.length >= 4 && (
-            <polygon
-              className="canal-diagram-hearting-trench"
-              points={profile.trench.map((p) => `${view.toX(p.offset)},${view.toY(p.rl)}`).join(' ')}
-            />
-          )}
-          <polygon
-            className="canal-diagram-hearting-zone"
-            points={profile.points.map((p) => `${view.toX(p.offset)},${view.toY(p.rl)}`).join(' ')}
-          />
+          {(profile.pieces ?? [profile.points]).map((points, index) => <polygon key={index} className="canal-diagram-hearting-zone" style={{ stroke: 'none' }} points={points.map((p) => `${view.toX(p.offset)},${view.toY(p.rl)}`).join(' ')} />)}
+          {(data.design.heartingConnection !== 'continuous' || view.coreErrors.length > 0 || !view.coreOverlap.length) && <polygon fill="none" stroke={view.coreErrors.length ? '#f59e0b' : '#93c5fd'} strokeWidth="1.2" strokeDasharray="4 3" points={profile.points.map((p) => `${view.toX(p.offset)},${view.toY(p.rl)}`).join(' ')} />}
           <text
             x={view.toX((profile.points[1].offset + profile.points[2].offset) / 2)}
             y={view.toY(profile.level.topRl) - 5}
@@ -486,6 +486,8 @@ export default function CanalSectionDiagram({
           </text>
         </g>
       ))}
+
+      {data.design.heartingConnection !== 'continuous' && view.coreOverlap.map((points, index) => <polygon key={`core-overlap-${index}`} points={points.map((p) => `${view.toX(p.offset)},${view.toY(p.rl)}`).join(' ')} fill="#ef4444" fillOpacity="0.55" stroke="none" />)}
 
       {hasDesign && hydraulicLevels && (
         <g className="canal-diagram-hydraulic-levels">
@@ -592,5 +594,9 @@ export default function CanalSectionDiagram({
         </g>}
       </g>
     </svg>
+    {view.hearting.length > 0 && <p className="settings-note">{data.design.heartingConnection === 'continuous' && view.coreOverlap.length && !view.coreErrors.length ? 'The filled core is one connected soil zone. Internal crossing lines are removed; shared soil is counted once.' : 'Dashed outline: entered core width and slopes. Red fill marks overlap that conflicts with separate bank cores.'}</p>}
+    {view.combinedTrench && <p className="settings-note">One continuous cutoff trench spans beneath the connected cores and canal bed. The full span is included in excavation once.</p>}
+    {view.coreErrors.map((error) => <p className="canal-road-warning" role="status" key={error}>{error} Hearting and casing quantities at this section remain pending.</p>)}
+    </>
   )
 }

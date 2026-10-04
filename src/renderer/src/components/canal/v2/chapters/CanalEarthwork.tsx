@@ -93,6 +93,8 @@ export default function CanalEarthwork({ data, onCommit }: {
 }): JSX.Element {
   const totals = canalEarthworkTotals(data)
   const cns = canalCnsTotals(data)
+  const hasErm = data.sections.some((section) => section.strataTopRl != null)
+  const ermClassifiedPct = hasErm ? canalCalculateExcavationPercentagesFromStrata(data).reduce((sum, band) => sum + band.pct, 0) : 100
 
   const sections = (orderedCanalSections(data))
   const [selectedSectionId, setSelectedSectionId] = useState<string>(() => sections[0]?.id ?? '')
@@ -102,7 +104,10 @@ export default function CanalEarthwork({ data, onCommit }: {
   }
   return (
     <section className="canal-v2-section" aria-labelledby="canal-earthwork-title">
-      <header className="canal-v2-section-header"><div><span className="canal-v2-section-kicker">Chapter 5</span><h2 id="canal-earthwork-title">5. Canal Excavation & Bund Stripping</h2><p>Canal prism excavation and bund stripping are measured separately by mean sectional area.</p></div></header>
+      <header className="canal-v2-section-header"><div><span className="canal-v2-section-kicker">Chapter 6</span><h2 id="canal-earthwork-title">6. Canal Excavation & Bund Stripping</h2><p>Canal prism excavation and bund stripping are measured separately by mean sectional area.</p></div></header>
+
+      {(data.design.serviceRoadReaches?.length ?? 0) > 0 && <div className="canal-bank-recommendation"><strong>Roads &amp; Access applied:</strong> Excavation includes cutting needed for road benches and shoulders. Stripping uses the revised section footprint. Extra bank filling is included in Bank Design; pavement is measured in Roads &amp; Access.</div>}
+      {hasErm && ermClassifiedPct < 99.99 && totals.excavation > 0 && <div className="canal-road-warning" role="status">ERM levels classify {n3(ermClassifiedPct)}% of the canal cutting. Enter missing chainage strata or extend the investigation where excavation goes below its limit. Uninvestigated material is not assigned to hard rock.</div>}
 
       <section className="canal-earthwork-card">
         <div className="canal-cross-panel-title">Bund Stripping<small>Only applies to sections which have bund.</small></div>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, Sparkles, Layers, Link2, Unlink, Shield, ChevronLeft, ChevronRight, Check, AlertCircle } from 'lucide-react'
+import { Plus, Trash2, Sparkles, Layers, Link2, Unlink, ChevronLeft, ChevronRight, Check, AlertCircle } from 'lucide-react'
 import type {
   CanalBankMaterialAllocation,
   CanalBankMaterialSource,
@@ -87,6 +87,37 @@ function compatibleAllocation(allocation: CanalBankMaterialAllocation): CanalBan
   const fallback = CANAL_BANK_ITEM_OPTIONS.find((option) => option.zone === allocation.zone && option.source === allocation.source)
     ?? CANAL_BANK_ITEM_OPTIONS.find((option) => option.zone === allocation.zone)
   return fallback ? { ...allocation, source: fallback.source, compaction: fallback.compaction, watering: fallback.watering } : allocation
+}
+
+function CoreConnection({ design, name, onCommit }: { design: CanalDesign; name: string; onCommit: (patch: Partial<CanalDesign>) => void }): JSX.Element {
+  return <fieldset className="canal-core-connection">
+    <legend>How should the impervious bank cores connect?</legend>
+    <div className="canal-core-options">
+      {(['separate', 'continuous'] as const).map((mode) => {
+        const joined = mode === 'continuous'
+        const selected = (design.heartingConnection ?? 'separate') === mode
+        return <label key={mode} className={`canal-core-option${selected ? ' is-selected' : ''}`}>
+          <span><input type="radio" name={name} checked={selected} onChange={() => onCommit({ heartingConnection: mode })} /><strong>{joined ? 'Continuous core beneath bed' : 'Separate bank cores'}</strong></span>
+          <svg viewBox={`0 0 420 ${design.heartingTrenchEnabled ? 212 : 190}`} role="img" aria-label={joined ? 'Left and right impervious cores meet below the canal bed, with a connected cutoff trench when provided' : 'Separate bank cores and separate cutoff trenches when provided'}>
+            <path d="M20 160 L80 40 H150 L190 100 H230 L270 40 H340 L400 160 Z" fill="#64748b" fillOpacity="0.45" />
+            <path d="M155 48 L190 100 H230 L265 48 Z" fill="#38bdf8" fillOpacity="0.2" />
+            {joined ? <path d="M50 160 L90 70 H115 L200 140 L285 70 H310 L350 160 Z" fill="#d69b62" /> : <><path d="M50 160 L90 70 H115 L150 160 Z" fill="#d69b62" /><path d="M250 160 L285 70 H310 L350 160 Z" fill="#d69b62" /></>}
+            {design.heartingTrenchEnabled && (joined ? <path d="M50 160 H350 L340 174 H60 Z" fill="#d69b62" stroke="#f1c394" /> : <><path d="M50 160 H150 L140 174 H60 Z" fill="#d69b62" stroke="#f1c394" /><path d="M250 160 H350 L340 174 H260 Z" fill="#d69b62" stroke="#f1c394" /></>)}
+            <path d="M80 40 H150 L190 100 H230 L270 40 H340" fill="none" stroke="#cbd5e1" strokeWidth="2" />
+            <text x="210" y="25" textAnchor="middle" fill="#cbd5e1" fontSize="12">Canal opening</text>
+            <text x="210" y="88" textAnchor="middle" fill="#7dd3fc" fontSize="11">Bed</text>
+            <text x="85" y="122" textAnchor="middle" fill="#241b12" fontSize="11">Core</text>
+            <text x="325" y="122" textAnchor="middle" fill="#241b12" fontSize="11">Core</text>
+            <text x="210" y="182" textAnchor="middle" fill="#cbd5e1" fontSize="12">{joined ? 'Cores meet below the bed' : 'Casing soil remains between cores'}</text>
+            {design.heartingTrenchEnabled && <text x="210" y="204" textAnchor="middle" fill="#f1c394" fontSize="12">{joined ? 'One connected cutoff trench' : 'Separate bank cutoff trenches'}</text>}
+          </svg>
+          <small>{joined ? 'Where the two cores overlap below the bed, they form one connected impervious soil zone. The shared soil is measured once.' : 'Each bank has its own impervious core. Their shapes must remain apart.'}</small>
+        </label>
+      })}
+    </div>
+    <p className="settings-note">Schematic figures. Connection choice applies to both banks across the impervious tiers. Your entered widths and slopes determine whether the cores actually meet; selecting continuous does not add a connecting layer across a gap.</p>
+    {design.heartingTrenchEnabled && <p className="settings-note">When the cores meet in continuous mode, the cutoff trench also connects across the full span beneath them. Trench depth and outside slopes remain as entered.</p>}
+  </fieldset>
 }
 
 export default function CanalBankDesign({
@@ -345,13 +376,15 @@ export default function CanalBankDesign({
     <section className="canal-chapter canal-bank-chapter">
       <header className="canal-v2-section-header">
         <div>
-          <span className="canal-v2-section-kicker">Chapter 2</span>
+          <span className="canal-v2-section-kicker">Chapter 3</span>
           <h2>Canal Bank / Bund Design</h2>
           <p className="settings-note">
             Programmatic embankment geometry, height brackets, outer berm shelves, and impervious zoned construction rules.
           </p>
         </div>
       </header>
+
+      {(data.design.serviceRoadReaches?.length ?? 0) > 0 && <div className="canal-bank-recommendation"><strong>Roads &amp; Access applied:</strong> Active road platforms widen the crest or outer berm on their selected bank and chainages. The section preview and bank quantities include this formation; the tier widths below remain your base bank rules.</div>}
 
       {/* PRIMARY MODE SELECTOR */}
       <div className="canal-bank-mode-tabs">
@@ -397,7 +430,7 @@ export default function CanalBankDesign({
             </small>
           </div>
 
-          {/* Top Controls: Symmetry Link + Safeguards */}
+          {/* Top Controls: Symmetry Link */}
           <div className="canal-bank-top-controls">
             <div className="canal-bank-link-toggle">
               <button
@@ -413,33 +446,7 @@ export default function CanalBankDesign({
               </small>
             </div>
 
-            <div className="canal-bank-safeguards">
-              <label className="canal-bank-safeguard-item" title="Omit berm shelves when remaining vertical distance to ground is less than this threshold.">
-                <Shield size={14} style={{ color: 'var(--accent)' }} />
-                <span>Min Ground Clearance:</span>
-                <input
-                  type="number"
-                  min={0.2}
-                  step={0.1}
-                  value={bankConfig.minClearanceToGround}
-                  onChange={(e) => patchBankConfig({ minClearanceToGround: Math.max(0.2, Number(e.target.value) || 1.0) })}
-                />
-                <b>m</b>
-              </label>
 
-              <label className="canal-bank-safeguard-item" title="Minimum fill height required to construct hearting core; below this, casing fills 100%.">
-                <Shield size={14} style={{ color: '#3b82f6' }} />
-                <span>Min Hearting Height:</span>
-                <input
-                  type="number"
-                  min={0.5}
-                  step={0.5}
-                  value={design.minimumHeartingHeight}
-                  onChange={(e) => onCommit({ minimumHeartingHeight: Math.max(0.5, Number(e.target.value) || 1.0) })}
-                />
-                <b>m</b>
-              </label>
-            </div>
           </div>
 
           {/* Bank Side Switcher when Unlinked */}
@@ -613,6 +620,7 @@ export default function CanalBankDesign({
 
                       {isZonedTier && (
                         <div className="canal-tier-zoned-params">
+                          <CoreConnection design={design} name={`hearting-connection-${activeSide}-${tier.id}`} onCommit={onCommit} />
                           <NumberField
                             label="Core Top Width"
                             unit="m"
@@ -640,7 +648,6 @@ export default function CanalBankDesign({
                             />
                             <small>Maximum allowed: +{Math.max(0, design.freeBoard).toFixed(2)} m.</small>
                           </label>
-                          <NumberField label="Minimum hearting height" unit="m" value={design.minimumHeartingHeight} onChange={(minimumHeartingHeight) => onCommit({ minimumHeartingHeight })} />
                           <div className="canal-tier-impervious-trench">
                             <div className="canal-cross-panel-title">
                               Impervious Cutoff Trench
@@ -908,6 +915,7 @@ export default function CanalBankDesign({
             Impervious Zones
             <small>Applies only to the selected impervious zoned reaches.</small>
           </div>
+          <CoreConnection design={design} name="hearting-connection-legacy" onCommit={onCommit} />
           <div className="canal-design-grid">
             <label className="canal-bank-field">
               <span>Hearting top adjustment from FSL (m)</span>
@@ -920,7 +928,6 @@ export default function CanalBankDesign({
               />
               <small>Maximum allowed: +{Math.max(0, design.freeBoard).toFixed(2)} m.</small>
             </label>
-            <NumberField label="Minimum hearting height" unit="m" value={design.minimumHeartingHeight} onChange={(minimumHeartingHeight) => onCommit({ minimumHeartingHeight })} />
             <NumberField label="Hearting top width" unit="m" value={design.heartingTopWidth} onChange={(heartingTopWidth) => onCommit({ heartingTopWidth })} />
             <NumberField label="Left hearting slope" unit="H : 1V" value={design.heartingLeftSlope} onChange={(heartingLeftSlope) => onCommit({ heartingLeftSlope })} />
             <NumberField label="Right hearting slope" unit="H : 1V" value={design.heartingRightSlope} onChange={(heartingRightSlope) => onCommit({ heartingRightSlope })} />
@@ -1068,6 +1075,7 @@ export default function CanalBankDesign({
                       <div className="canal-bank-source-result">
                         <span>Resolved operation</span>
                         <strong>{item?.label ?? 'Choose a compatible combination'}</strong>
+                        {item && <span className="canal-bank-source-code">{item.code}</span>}
                       </div>
                       <button
                         type="button"

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUpDown, ClipboardCopy, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowUpDown, ClipboardCopy, Plus, Trash2 } from 'lucide-react'
 import type { CanalBermFace, CanalData, CanalPoint, CanalSection } from '../../../../types/project'
 import {
   canalGroundProfileBetweenToes,
   canalDesignProfile,
   canalGroundLevelAt,
   canalSectionAreas,
+  canalSectionStrataExtension,
   canalStrippedOrCutLevelAt,
   newManualCanalSection,
   orderedCanalSections,
@@ -151,6 +152,8 @@ export default function CanalCrossSections({ data, onCommit }: {
   const [newSectionChainage, setNewSectionChainage] = useState('')
 
   const sectionSummaries = (new Map(sections.map((section) => [section.id, canalSectionAreas(data, section)])))
+  const extensions = new Map(sections.map((section) => [section.id, canalSectionStrataExtension(data, section)]))
+  const selectedExtension = selected ? extensions.get(selected.id) : null
 
   const updateSection = (sectionId: string, patch: Partial<CanalSection>): void =>
     onCommit((current) => ({
@@ -327,7 +330,7 @@ export default function CanalCrossSections({ data, onCommit }: {
     <section className="canal-v2-section" aria-labelledby="canal-cross-title">
       <header className="canal-v2-section-header">
         <div>
-          <span className="canal-v2-section-kicker">Chapter 4</span>
+          <span className="canal-v2-section-kicker">Chapter 5</span>
           <h2 id="canal-cross-title">4. Canal Cross-Sections</h2>
           <p>Enter the ground level and populate the Chapter 1 canal design at each chainage.</p>
         </div>
@@ -385,7 +388,7 @@ export default function CanalCrossSections({ data, onCommit }: {
                   <button type="button" className="canal-cross-row-select" onClick={() => setSelectedId(section.id)}>
                     <span className="canal-cross-row-index">{index + 1}</span>
                     <span className="canal-cross-row-main">
-                      <strong>Ch {formatChainage(section.chainage)} m{bucket ? ` · ${bucket}` : ''}</strong>
+                      <strong>Ch {formatChainage(section.chainage)} m{bucket ? ` · ${bucket}` : ''}{extensions.get(section.id) && <span className="canal-strata-warning-icon" title="Cutting below entered levels; the last entered material continues below." aria-label="Last entered material continues below"><AlertTriangle size={14} /></span>}</strong>
                       <small>{populated && areas ? `Cut ${n2(areas.cutting)} · Fill ${n2(areas.filling)} m²` : 'No ground entered'}</small>
                     </span>
                   </button>
@@ -435,13 +438,14 @@ export default function CanalCrossSections({ data, onCommit }: {
                       onClick={() => setSelectedId(section.id)}
                       title={populated && areas ? `Cut ${n2(areas.cutting)} m² · Fill ${n2(areas.filling)} m² · ${bucket}` : 'Not populated'}
                     >
-                      <b>{index + 1}</b> Ch {formatChainage(section.chainage)}{bucket ? ` [${bucket[0]}]` : ''}
+                      <b>{index + 1}</b> Ch {formatChainage(section.chainage)}{bucket ? ` [${bucket[0]}]` : ''}{extensions.get(section.id) && <span className="canal-strata-warning-icon" title="Last entered material continues below" aria-label="Last entered material continues below"><AlertTriangle size={14} /></span>}
                     </button>
                   )
                 })}
               </div>
             </div>
 
+            {selectedExtension && <p className="canal-strata-extension-note" role="note"><AlertTriangle size={14} aria-hidden="true" /> Ch {formatChainage(selected.chainage)}: levels entered to RL {n2(selectedExtension.bottomRl)} m. Cutting reaches RL {n2(selectedExtension.cutBottomRl)} m; below the entered level, {selectedExtension.material} is assumed to continue.</p>}
             <div className="canal-cross-diagram-wrap">
               <CanalSectionDiagram data={data} section={displayedSection ?? selected} />
             </div>

@@ -24,6 +24,8 @@ export default function CanalJungleLa({ data, onCommit }: {
   return <section className="canal-v2-section">
     <header className="canal-v2-section-header"><div><span className="canal-v2-section-kicker">Jungle Cutting &amp; LA</span><h2>Jungle Cutting &amp; Land Acquisition</h2><p>Measure site clearance and the land corridor independently from earthwork.</p></div></header>
 
+    {(data.design.serviceRoadReaches?.length ?? 0) > 0 && <div className="canal-bank-recommendation"><strong>Roads &amp; Access applied:</strong> Automatic clearance and land widths include road platform widening at each section. Your land margins are added outside that revised footprint.</div>}
+
     <section className="canal-earthwork-card">
       <div className="canal-earthwork-card-head"><div><strong>Jungle Cutting / Clearance</strong><small>{data.mode === 'new' ? 'Automatic width follows the designed canal footprint.' : 'Automatic width follows the surveyed surface between toes.'}</small></div><div><strong>{n3(jungleTotal)} sq.m</strong></div></div>
       <div className="canal-bank-choice" role="radiogroup" aria-label="Jungle clearance measurement mode">

@@ -1,3 +1,4 @@
+import { canalStrataTopRl, ermClassIndex, ermLastEnteredLayer } from './canalErm'
 // Canal component template: canal-level design (Chapter 1), chainage
 // sections, derived section geometry, and the sync that writes computed
 // quantities into ordinary item children (so totals and every print keep
@@ -8,6 +9,7 @@ import { canalCnsTotals, measureCnsReach, normalizeCnsChapter } from './canalCns
 import { measureLiningChapter, normalizeLiningChapter } from './canalLiningChapter'
 import { measureJointsChapter, normalizeJointsChapter } from './canalJoints'
 import { measureReliefChapter, normalizeReliefChapter } from './canalRelief'
+import { coreCells, inCorePolygons } from './canalCoreGeometry'
 import type {
   CanalData,
   CanalBankMaterialAllocation,
@@ -460,7 +462,7 @@ function normalizeCanalSection(value: unknown): CanalSection | null {
     ? section.ground.map(normalizeCanalPoint).filter((p): p is CanalPoint => p != null)
     : []
   ground.sort((a, b) => a.offset - b.offset)
-  return {
+  const normalized: CanalSection = {
     id: section.id,
     chainage: section.chainage as number,
     isManual: section.isManual === true,
@@ -468,6 +470,10 @@ function normalizeCanalSection(value: unknown): CanalSection | null {
     leftToeRl: Number.isFinite(section.leftToeRl) ? section.leftToeRl as number : ground[0]?.rl ?? null,
     rightToeRl: Number.isFinite(section.rightToeRl) ? section.rightToeRl as number : ground[ground.length - 1]?.rl ?? null,
     ground,
+    strataTopRl: Number.isFinite(section.strataTopRl) ? section.strataTopRl : undefined,
+    strataExtent: section.strataExtent === 'limited' ? 'limited' : section.strataExtent === 'continue' ? 'continue' : undefined,
+    strataHardRockBottomRl: Number.isFinite(section.strataHardRockBottomRl) ? section.strataHardRockBottomRl : undefined,
+    strataLastEnteredId: typeof section.strataLastEnteredId === 'string' ? section.strataLastEnteredId : undefined,
     designPopulated: section.designPopulated !== false,
     designPointOffsets: Array.isArray(section.designPointOffsets)
       ? section.designPointOffsets.filter((offset): offset is number => Number.isFinite(offset))
@@ -478,6 +484,7 @@ function normalizeCanalSection(value: unknown): CanalSection | null {
           .map((s) => ({
             id: typeof s.id === 'string' ? s.id : newId(),
             name: s.name,
+            ermClass: s.ermClass,
             thickness: Math.max(0, s.thickness),
             slope: Math.max(0.01, s.slope),
             description: typeof s.description === 'string' ? s.description : undefined,
@@ -485,6 +492,15 @@ function normalizeCanalSection(value: unknown): CanalSection | null {
           }))
       : undefined
   }
+  if (normalized.strataTopRl != null && normalized.strataHardRockBottomRl != null && normalized.strata?.length) {
+    const last = normalized.strata.at(-1)!
+    const rockTop = normalized.strataTopRl - normalized.strata.slice(0, -1).reduce((sum, layer) => sum + layer.thickness, 0)
+    if (normalized.strataHardRockBottomRl <= rockTop) {
+      last.thickness = round3(rockTop - normalized.strataHardRockBottomRl)
+      normalized.strataExtent = 'continue'
+    }
+  }
+  return normalized
 }
 
 /** Drop pre-tier bund foundation/filter reaches; tiers replaced them. */
@@ -520,6 +536,7 @@ export function migrateCanalData(raw: CanalData): CanalData {
     0,
     Number.isFinite(design.minimumHeartingHeight) ? design.minimumHeartingHeight : 2
   )
+  design.heartingConnection = design.heartingConnection === 'continuous' ? 'continuous' : 'separate'
   design.heartingTrenchDepth = Math.max(
     0,
     Number.isFinite(design.heartingTrenchDepth) ? design.heartingTrenchDepth : 1.5
@@ -1049,6 +1066,8 @@ export interface CanalHeartingProfile {
   points: CanalPoint[]
   trench: CanalPoint[]
   level: CanalHeartingLevel
+  /** Disjoint physical core cells inside the embankment; overlaps owned once. */
+  pieces?: CanalPoint[][]
 }
 
 /** Apply the service-road platform rules that are active at one chainage. */
@@ -1066,7 +1085,8 @@ export function canalDesignAtChainage(design: CanalDesign, chainage: number): Ca
         continue
       }
       const face = `${side}-outer` as CanalBerm['face']
-      const height = Math.max(0, Math.min(canalSectionDepth(design), reach.heightAboveBed))
+      const height = Math.max(0, reach.heightAboveBed)
+      if (height > canalSectionDepth(design) + 1e-6) continue
       if (height >= canalSectionDepth(design) - 1e-6) {
         if (side === 'left') leftBankCrestWidth = Math.max(leftBankCrestWidth, platformWidth)
         else rightBankCrestWidth = Math.max(rightBankCrestWidth, platformWidth)
@@ -1077,7 +1097,49 @@ export function canalDesignAtChainage(design: CanalDesign, chainage: number): Ca
       else berms.push({ id: `road-${reach.id}-${side}`, face, heightAboveBed: height, width: platformWidth })
     }
   }
-  return { ...design, leftBankCrestWidth, rightBankCrestWidth, berms }
+  // Tiered profiles read their own crest and berm schedule. Carry road
+  // platforms into those effective rules too, without changing the saved tiers.
+  const roadTier = (tier: CanalBankTier, side: 'left' | 'right'): CanalBankTier => {
+    let crestWidth = tier.crestWidth
+    let drop = 0
+    const shelves = tier.berms.map((step) => {
+      drop += step.dropHeight
+      return { ...step, drop }
+    })
+    for (const reach of design.serviceRoadReaches ?? []) {
+      if (chainage < reach.fromChainage || chainage > reach.toChainage || !(reach.width > 0) ||
+        (reach.side !== side && reach.side !== 'both')) continue
+      const width = reach.width + 2 * Math.max(0, reach.shoulderWidth)
+      const roadDrop = reach.heightMode === 'tbl' ? 0 : canalSectionDepth(design) - Math.max(0, reach.heightAboveBed)
+      if (roadDrop < -1e-6) continue
+      if (roadDrop < 1e-6) {
+        crestWidth = Math.max(crestWidth, width)
+        continue
+      }
+      const existing = shelves.find((step) => Math.abs(step.drop - roadDrop) < 1e-6)
+      if (existing) existing.shelfWidth = Math.max(existing.shelfWidth, width)
+      else {
+        const preceding = shelves.filter((step) => step.drop < roadDrop).sort((a, b) => b.drop - a.drop)[0]
+        shelves.push({ id: `road-${reach.id}-${side}`, drop: roadDrop, dropHeight: 0, shelfWidth: width, slopeAfterBerm: preceding?.slopeAfterBerm || tier.baseSlope })
+      }
+    }
+    let previousDrop = 0
+    const tierBerms = shelves.sort((a, b) => a.drop - b.drop).map(({ drop: shelfDrop, ...step }) => {
+      const dropHeight = shelfDrop - previousDrop
+      previousDrop = shelfDrop
+      return { ...step, dropHeight }
+    })
+    return { ...tier, crestWidth, berms: tierBerms }
+  }
+  const config = design.bankConfig
+  const bankConfig = config?.mode === 'tiered' ? {
+    ...config,
+    // Resolve the two banks independently even when their saved rules are linked.
+    linkSymmetrical: false,
+    leftTiers: config.leftTiers.map((tier) => roadTier(tier, 'left')),
+    rightTiers: (config.linkSymmetrical ? config.leftTiers : config.rightTiers).map((tier) => roadTier(tier, 'right'))
+  } : config
+  return { ...design, leftBankCrestWidth, rightBankCrestWidth, berms, bankConfig }
 }
 
 export interface CanalServiceRoadSegment {
@@ -1099,7 +1161,7 @@ export function canalServiceRoadSegments(data: CanalData, section: CanalSection)
   const result: CanalServiceRoadSegment[] = []
   for (const reach of data.design.serviceRoadReaches ?? []) {
     if (section.chainage < reach.fromChainage || section.chainage > reach.toChainage || !(reach.width > 0)) continue
-    const level = bed + (reach.heightMode === 'tbl' ? canalSectionDepth(data.design) : Math.max(0, Math.min(canalSectionDepth(data.design), reach.heightAboveBed)))
+    const level = bed + (reach.heightMode === 'tbl' ? canalSectionDepth(data.design) : Math.max(0, reach.heightAboveBed))
     for (const side of reach.side === 'both' ? ['left', 'right'] as const : [reach.side]) {
       const shelves = profile.slice(0, -1).map((point, index) => [point, profile[index + 1]] as const).filter(([a, b]) =>
         Math.abs(a.rl - level) < 1e-6 && Math.abs(b.rl - level) < 1e-6 &&
@@ -1109,7 +1171,8 @@ export function canalServiceRoadSegments(data: CanalData, section: CanalSection)
       if (!shelf) continue
       const lo = Math.min(shelf[0].offset, shelf[1].offset)
       const hi = Math.max(shelf[0].offset, shelf[1].offset)
-      const width = Math.min(reach.width + 2 * Math.max(0, reach.shoulderWidth), hi - lo)
+      const width = reach.width + 2 * Math.max(0, reach.shoulderWidth)
+      if (hi - lo < width - 1e-6) continue
       const centre = (lo + hi) / 2
       result.push({ id: `${reach.id}-${side}`, side, level, fromOffset: centre - width / 2, toOffset: centre + width / 2, width, carriagewayWidth: Math.min(reach.width, width), shoulderWidth: Math.min(Math.max(0, reach.shoulderWidth), width / 2) })
     }
@@ -1124,11 +1187,12 @@ export interface CanalServiceRoadQuantities {
   shoulderArea: number
   platformArea: number
   additionalFormation: number
+  additionalExcavation: number
   hardMetalVolume: number
   blindageArea: number
 }
 
-/** Automatic road quantities for one reach; formation is only its incremental bank widening. */
+/** Incremental road earthwork is already included in the shared section quantities. */
 export function canalServiceRoadQuantities(data: CanalData, reach: CanalDesign['serviceRoadReaches'][number]): CanalServiceRoadQuantities {
   const length = Math.max(0, reach.toChainage - reach.fromChainage)
   const sideCount = reach.side === 'both' ? 2 : 1
@@ -1136,17 +1200,21 @@ export function canalServiceRoadQuantities(data: CanalData, reach: CanalDesign['
   const shoulderArea = length * sideCount * 2 * Math.max(0, reach.shoulderWidth)
   const platformArea = carriagewayArea + shoulderArea
   const withoutReach: CanalData = { ...data, design: { ...data.design, serviceRoadReaches: data.design.serviceRoadReaches.filter((item) => item.id !== reach.id) } }
-  const rows = orderedCanalSections(data).filter((section) => section.chainage >= reach.fromChainage && section.chainage <= reach.toChainage).map((section) => ({
-    chainage: section.chainage,
-    area: Math.max(0, canalSectionAreas(data, section).filling - canalSectionAreas(withoutReach, section).filling)
-  }))
+  const rows = orderedCanalSections(data).filter((section) => section.chainage >= reach.fromChainage && section.chainage <= reach.toChainage).map((section) => {
+    const withRoad = canalSectionAreas(data, section)
+    const withoutRoad = canalSectionAreas(withoutReach, section)
+    return { chainage: section.chainage, area: Math.max(0, withRoad.filling - withoutRoad.filling), cutting: Math.max(0, withRoad.cutting - withoutRoad.cutting) }
+  })
   let additionalFormation = 0
+  let additionalExcavation = 0
   for (let index = 1; index < rows.length; index += 1) {
-    additionalFormation += (rows[index - 1].area + rows[index].area) / 2 * (rows[index].chainage - rows[index - 1].chainage)
+    const length = rows[index].chainage - rows[index - 1].chainage
+    additionalFormation += (rows[index - 1].area + rows[index].area) / 2 * length
+    additionalExcavation += (rows[index - 1].cutting + rows[index].cutting) / 2 * length
   }
   return {
     length: round3(length), sideCount, carriagewayArea: round3(carriagewayArea), shoulderArea: round3(shoulderArea), platformArea: round3(platformArea),
-    additionalFormation: round3(additionalFormation),
+    additionalFormation: round3(additionalFormation), additionalExcavation: round3(additionalExcavation),
     hardMetalVolume: round3(carriagewayArea * Math.max(0, reach.hardMetalThickness)),
     blindageArea: round3(carriagewayArea)
   }
@@ -1174,7 +1242,7 @@ export function canalHeartingLevelAt(
   )
   const topRl = fsl + adjustment
   const height = topRl - preparedGroundRl
-  if (height < Math.max(0, data.design.minimumHeartingHeight)) return null
+  if (height <= 1e-6) return null
 
   if (data.design.bankSectionType === 'zoned' && (data.design.zonedReaches ?? []).length > 0) {
     const inZonedReach = data.design.zonedReaches.some(
@@ -1201,7 +1269,7 @@ export function canalHeartingLevelAt(
 }
 
 /** Impervious hearting polygons for the left and right canal banks. */
-export function canalHeartingProfiles(data: CanalData, section: CanalSection): CanalHeartingProfile[] {
+export function canalRequestedHeartingProfiles(data: CanalData, section: CanalSection): CanalHeartingProfile[] {
   const ground = orderCanalPoints(section.ground)
   const bed = canalBedLevelAt(data, section.chainage)
   if (bed == null || ground.length < 2 || section.designPopulated === false) return []
@@ -1232,7 +1300,6 @@ export function canalHeartingProfiles(data: CanalData, section: CanalSection): C
       (bank === 'left' ? to <= -design.bedWidth / 2 + 1e-6 : from >= design.bedWidth / 2 - 1e-6)
     )
     if (!footprint) continue
-    const [footprintFrom, footprintTo] = footprint
     const existingGroundRl = canalGroundLevelAt(ground, centre)
     if (existingGroundRl == null) continue
     const preparedGroundRl = canalStrippedOrCutLevelAt(data, section, centre)
@@ -1240,22 +1307,21 @@ export function canalHeartingProfiles(data: CanalData, section: CanalSection): C
     const level = canalHeartingLevelAt(data, section.chainage, preparedGroundRl, bank)
     if (!level) continue
     const configuredTopWidth = tier?.heartingTopWidth ?? design.heartingTopWidth
-    const topWidth = Math.min(Math.max(0.01, configuredTopWidth), crestWidth)
+    const topWidth = Math.max(0.01, configuredTopWidth)
     const halfWidth = topWidth / 2
-    const leftTop = Math.max(footprintFrom, centre - halfWidth)
-    const rightTop = Math.min(footprintTo, centre + halfWidth)
+    const leftTop = centre - halfWidth
+    const rightTop = centre + halfWidth
     if (!(rightTop > leftTop)) continue
     const leftSlope = tier?.heartingSideSlope ?? design.heartingLeftSlope
     const rightSlope = tier?.heartingSideSlope ?? design.heartingRightSlope
     const leftRun = Math.max(0, leftSlope) * level.height
     const rightRun = Math.max(0, rightSlope) * level.height
-    // Each hearting core belongs to one bund. Clamp its toes to that bund's
-    // fill footprint so the left and right cores can never cross beneath the
-    // canal prism or overlap one another.
-    const leftBottomOffset = Math.max(footprintFrom, leftTop - leftRun)
-    const rightBottomOffset = Math.min(footprintTo, rightTop + rightRun)
-    const leftBottomRl = canalStrippedOrCutLevelAt(data, section, leftBottomOffset) ?? preparedGroundRl
-    const rightBottomRl = canalStrippedOrCutLevelAt(data, section, rightBottomOffset) ?? preparedGroundRl
+    // Preserve the specified straight slopes; do not squeeze toes to bank
+    // footprints or move their RLs independently of the entered slope.
+    const leftBottomOffset = leftTop - leftRun
+    const rightBottomOffset = rightTop + rightRun
+    const leftBottomRl = preparedGroundRl
+    const rightBottomRl = preparedGroundRl
     const points = [
       { offset: leftBottomOffset, rl: leftBottomRl },
       { offset: leftTop, rl: level.topRl },
@@ -1264,10 +1330,10 @@ export function canalHeartingProfiles(data: CanalData, section: CanalSection): C
     ]
     const trenchDepth = Math.max(0, design.heartingTrenchDepth)
     const trenchBottomHalf = Math.max(0, design.heartingTrenchWidth) / 2
-    const trenchLeftTop = Math.max(footprintFrom, centre - trenchBottomHalf - Math.max(0, design.heartingTrenchLeftSlope) * trenchDepth)
-    const trenchRightTop = Math.min(footprintTo, centre + trenchBottomHalf + Math.max(0, design.heartingTrenchRightSlope) * trenchDepth)
-    const trenchLeftBottom = Math.max(footprintFrom, centre - trenchBottomHalf)
-    const trenchRightBottom = Math.min(footprintTo, centre + trenchBottomHalf)
+    const trenchLeftTop = centre - trenchBottomHalf - Math.max(0, design.heartingTrenchLeftSlope) * trenchDepth
+    const trenchRightTop = centre + trenchBottomHalf + Math.max(0, design.heartingTrenchRightSlope) * trenchDepth
+    const trenchLeftBottom = centre - trenchBottomHalf
+    const trenchRightBottom = centre + trenchBottomHalf
     const trench = data.mode === 'new' && design.heartingTrenchEnabled && trenchDepth > 0 &&
       trenchRightTop > trenchLeftTop && trenchRightBottom > trenchLeftBottom
         ? [
@@ -1280,6 +1346,48 @@ export function canalHeartingProfiles(data: CanalData, section: CanalSection): C
     profiles.push({ bank, points, trench, level })
   }
   return profiles
+}
+
+export function canalHeartingSection(data: CanalData, section: CanalSection): { profiles: CanalHeartingProfile[]; requested: CanalHeartingProfile[]; trenches: CanalPoint[][]; overlap: CanalPoint[][]; combinedTrench: boolean; errors: string[] } {
+  const requested = canalRequestedHeartingProfiles(data, section)
+  const cores = requested.map((p) => p.points)
+  const fill = profileDifferenceBands(section.ground, canalDesignProfile(data, section)).filter((b) => !b.cutting).map((b) => b.points)
+  const envelope = [...fill, ...canalStrippingBands(data, section)]
+  const errors: string[] = []
+  const left = requested.filter((p) => p.bank === 'left').map((p) => p.points)
+  const right = requested.filter((p) => p.bank === 'right').map((p) => p.points)
+  const overlap = coreCells([...cores, ...envelope], (x, y) => inCorePolygons(left, x, y) && inCorePolygons(right, x, y) && inCorePolygons(envelope, x, y))
+  if (overlap.length && data.design.heartingConnection !== 'continuous') errors.push('Bank cores overlap within the embankment. Choose a continuous core beneath the bed or revise the separate cores.')
+  const profile = canalDesignProfile(data, section)
+  for (const core of requested) {
+    const interference = coreCells([core.points, ...envelope, profile], (x, y) => {
+      const surface = canalGroundLevelAt(profile, x)
+      return inCorePolygons([core.points], x, y) && surface != null && y > surface + 1e-7
+    })
+    if (interference.length) errors.push(`${core.bank === 'left' ? 'Left' : 'Right'} core enters the canal opening or extends above the bank surface. Revise its width, position or slope.`)
+  }
+  const cells = coreCells([...cores, ...envelope], (x, y) => inCorePolygons(cores, x, y) && inCorePolygons(envelope, x, y))
+  const profiles = requested.map((core) => ({ ...core, pieces: [] as CanalPoint[][] }))
+  for (const points of cells) {
+    const x = points.reduce((sum, p) => sum + p.offset, 0) / points.length
+    const y = points.reduce((sum, p) => sum + p.rl, 0) / points.length
+    const owner = profiles.find((p) => inCorePolygons([p.points], x, y))
+    owner?.pieces.push(points)
+  }
+  let trenches = requested.map((core) => core.trench).filter((p) => p.length >= 4)
+  const combinedTrench = data.design.heartingConnection === 'continuous' && overlap.length > 0 && trenches.length === 2
+  if (combinedTrench) {
+    // A connected core has a connected cutoff: retain the two outside faces
+    // and extend the trench across the space between the bank cutoffs.
+    const leftTrench = [...trenches].sort((a, b) => a[0].offset - b[0].offset)[0]
+    const rightTrench = [...trenches].sort((a, b) => b[1].offset - a[1].offset)[0]
+    trenches = [[leftTrench[0], rightTrench[1], rightTrench[2], leftTrench[3]]]
+  }
+  return { profiles, requested, trenches, overlap, combinedTrench, errors }
+}
+
+export function canalHeartingProfiles(data: CanalData, section: CanalSection): CanalHeartingProfile[] {
+  return canalHeartingSection(data, section).profiles
 }
 
 /** Spacing of the two quick ground-entry points when no survey exists yet. */
@@ -1417,7 +1525,12 @@ function canalSideProfile(
     const cutBermCfg = design.cutBermConfig ?? defaultCanalCutBermConfig()
 
     // If cut berms are not enabled: continue excavation at standard canal design side slope without changing slope
-    if (!cutBermCfg.enabled) {
+    const roadBenches = (design.serviceRoadReaches ?? []).filter((reach) =>
+      section.chainage >= reach.fromChainage && section.chainage <= reach.toChainage &&
+      (reach.side === side || reach.side === 'both') && reach.width > 0
+    ).map((reach) => ({ heightAboveBed: reach.heightMode === 'tbl' ? depth : reach.heightAboveBed, width: reach.width + 2 * Math.max(0, reach.shoulderWidth) }))
+      .filter((bench) => bench.heightAboveBed >= depth - 1e-6)
+    if (!cutBermCfg.enabled && roadBenches.length === 0) {
       const continuingCut = designGroundToe(
         offset,
         (distance) => level + distance / innerSlope,
@@ -1442,19 +1555,27 @@ function canalSideProfile(
 
     const cutHeight = groundAtInnerTop - bed
     const tblHeight = depth
-    const isManual = cutBermCfg.mode === 'manual'
+    const isManual = cutBermCfg.enabled && cutBermCfg.mode === 'manual'
     const manualBerms = isManual
       ? (cutBermCfg.manualBerms ?? []).slice().sort((a, b) => a.heightAboveBed - b.heightAboveBed)
       : []
-    const progBerms = computeCutBermsForCutHeight(cutHeight, tblHeight, cutBermCfg).filter((b) => b.status === 'placed')
+    const progBerms = computeCutBermsForCutHeight(cutHeight, tblHeight, cutBermCfg).filter((b) => b.status === 'placed').map((b) => ({ heightAboveBed: b.heightAboveBed, width: b.width }))
+    for (const bench of roadBenches) {
+      const matching = progBerms.find((berm) => Math.abs(berm.heightAboveBed - bench.heightAboveBed) < 1e-6)
+      if (matching) matching.width = Math.max(matching.width, bench.width)
+      else progBerms.push(bench)
+    }
+    progBerms.sort((a, b) => a.heightAboveBed - b.heightAboveBed)
 
     if (progBerms.length > 0) {
       for (const berm of progBerms) {
         const targetLevel = bed + berm.heightAboveBed
         if (targetLevel > level + 1e-6) {
           let liftSlope: number
-          if (isManual) {
-            const prevManualBerm = manualBerms.find((mb) => Math.abs(bed + mb.heightAboveBed - level) < 0.05)
+          if (!cutBermCfg.enabled) {
+            liftSlope = innerSlope
+          } else if (isManual) {
+            const prevManualBerm = manualBerms.filter((mb) => bed + mb.heightAboveBed <= level + 1e-6).at(-1)
             liftSlope = prevManualBerm?.slope ?? cutBermCfg.manualBaseSlope ?? innerSlope
           } else {
             liftSlope = getStratumCutSlopeAtRl(level, section, design)
@@ -1486,10 +1607,10 @@ function canalSideProfile(
     // Slope from bottom of the final lift (at current `level`) up to natural ground.
     // If no berm was placed, do not alter slope; continue at standard design inner slope.
     let finalLiftSlope: number
-    if (progBerms.length === 0) {
+    if (!cutBermCfg.enabled || progBerms.length === 0) {
       finalLiftSlope = innerSlope
     } else if (isManual) {
-      const prevManualBerm = manualBerms.find((mb) => Math.abs(bed + mb.heightAboveBed - level) < 0.05)
+      const prevManualBerm = manualBerms.filter((mb) => bed + mb.heightAboveBed <= level + 1e-6).at(-1)
       finalLiftSlope = prevManualBerm?.slope ?? cutBermCfg.manualBaseSlope ?? innerSlope
     } else {
       finalLiftSlope = getStratumCutSlopeAtRl(level, section, design)
@@ -1530,7 +1651,6 @@ function canalSideProfile(
   if (crestWidth > 0) points.push({ offset, rl: level })
 
   if (tier) {
-    const minClearance = bankConfig?.minClearanceToGround ?? 1.0
     let currentSlope = Math.max(0.01, tier.baseSlope > 0 ? tier.baseSlope : (side === 'left' ? design.leftBankOuterSlope : design.rightBankOuterSlope))
     const bermSteps = tier.berms ?? []
 
@@ -1544,11 +1664,6 @@ function canalSideProfile(
         return points
       }
       const candidateOffset = offset + dir * run
-      const gAtBerm = canalGroundLevelAt(ground, candidateOffset)
-      if (gAtBerm != null && (targetLevel - gAtBerm < minClearance)) {
-        // Berm is within minimum clearance of ground; omit shelf and descend smoothly to ground
-        break
-      }
       offset = candidateOffset
       level = targetLevel
       points.push({ offset, rl: level })
@@ -1939,7 +2054,11 @@ export function canalFoundationExcavationBands(data: CanalData, section: CanalSe
       ...ground.filter((p) => p.offset > rFrom && p.offset < rTo).map((p) => p.offset),
       rTo
     ]
-    const top = topOffsets.map((offset) => ({ offset, rl: canalGroundLevelAt(ground, offset) ?? 0 }))
+    // The main cut/fill profile continues the endpoint ground RL when the
+    // bank extends beyond the survey. Use that same continuation here;
+    // missing ground must never become an invented RL-zero vertex.
+    const top = topOffsets.map((offset) => ({ offset, rl: canalGroundLevelAt(ground,
+      Math.max(ground[0].offset, Math.min(ground.at(-1)!.offset, offset)))! }))
     if (top.every((p) => p.rl <= foundationRl)) continue
     out.push([...top, ...[...top].reverse().map((p) => ({ offset: p.offset, rl: Math.min(p.rl, foundationRl) }))])
   }
@@ -1981,7 +2100,7 @@ export function canalAutomaticFilterLengthsAtSection(data: CanalData, section: C
   const outerLeft = leftRanges.length ? Math.min(...leftRanges.map(([from]) => from)) : null
   const outerRight = rightRanges.length ? Math.max(...rightRanges.map(([, to]) => to)) : null
   for (const hearting of canalHeartingProfiles(data, section)) {
-    const bottomOffsets = [hearting.points[0]?.offset, hearting.points[3]?.offset].filter(Number.isFinite) as number[]
+    const bottomOffsets = (hearting.pieces ?? [hearting.points]).flat().map((point) => point.offset)
     if (!bottomOffsets.length) continue
     if (hearting.bank === 'left' && outerLeft != null) {
       const outerHeartingToe = Math.min(...bottomOffsets)
@@ -2003,7 +2122,7 @@ export function canalSandBlanketWidthsAtSection(data: CanalData, section: CanalS
   let left = widths.left
   let right = widths.right
   for (const hearting of canalHeartingProfiles(data, section)) {
-    const offsets = [...hearting.points, ...hearting.trench].map((point) => point.offset)
+    const offsets = [...(hearting.pieces ?? [hearting.points]).flat(), ...hearting.trench].map((point) => point.offset)
     if (!offsets.length) continue
     if (hearting.bank === 'left') {
       const outer = ranges.filter(([, to]) => to <= 0).reduce((value, [from]) => Math.min(value, from), 0)
@@ -2317,6 +2436,7 @@ export function defaultSectionStrata(gl: number, cbl: number, defaultSlope: numb
 }
 
 function resolveStratumSlope(stratum: CanalSoilStratum, slopes: CanalStrataSlopeConfig): number {
+  if (stratum.ermClass) return [slopes.allSoilsSlope ?? 1.5, slopes.hdrSlope ?? 0.75, slopes.ffSlope ?? 0.5, slopes.hrSlope ?? 0.25][ermClassIndex(stratum, 0)]
   const name = (stratum.name || '').toLowerCase()
   if (name.includes('hdr') || name.includes('hard disintegrated')) return slopes.hdrSlope ?? 0.75
   if (name.includes('f&f') || name.includes('fractured') || name.includes('fissured')) return slopes.ffSlope ?? 0.5
@@ -2331,64 +2451,22 @@ function resolveStratumSlope(stratum: CanalSoilStratum, slopes: CanalStrataSlope
  * Find the stratum at a given RL elevation from the section's soil profile,
  * and return the corresponding cutting slope (bench-by-bench from bottom up).
  */
-export function getStratumCutSlopeAtRl(
-  rl: number,
-  section: CanalSection,
-  design: CanalDesign
-): number {
-  const strata = section.strata && section.strata.length > 0 ? section.strata : []
-  const slopes = design.strataSlopes ?? defaultCanalStrataSlopeConfig()
-
-  if (strata.length === 0) {
-    return design.sideSlope ?? 1.5
-  }
-
-  // Calculate cumulative boundary RLs from ground down
-  const points = orderCanalPoints(section.ground ?? [])
-  const gl =
-    section.groundEntryMode === 'separate' && section.leftToeRl != null && section.rightToeRl != null
-      ? (section.leftToeRl + section.rightToeRl) / 2
-      : section.leftToeRl ?? points[0]?.rl ?? 0
-
-  let currentRl = gl
-  for (const stratum of strata) {
-    const bottomRl = currentRl - stratum.thickness
-    if (rl >= bottomRl - 1e-6) {
-      return resolveStratumSlope(stratum, slopes)
-    }
-    currentRl = bottomRl
-  }
-
-  const bottomStratum = strata[strata.length - 1]
-  return resolveStratumSlope(bottomStratum, slopes)
+export function getStratumCutSlopeAtRl(rl: number, section: CanalSection, design: CanalDesign): number {
+  const stratum = getStratumAtRl(rl, section)
+  return stratum ? resolveStratumSlope(stratum, design.strataSlopes ?? defaultCanalStrataSlopeConfig()) : design.sideSlope ?? 1.5
 }
 
-/**
- * Find the stratum at a given RL elevation from the section's soil profile.
- */
-export function getStratumAtRl(
-  rl: number,
-  section: CanalSection
-): CanalSoilStratum | null {
-  const strata = section.strata && section.strata.length > 0 ? section.strata : []
-  if (strata.length === 0) return null
-
-  const points = orderCanalPoints(section.ground ?? [])
-  const gl =
-    section.groundEntryMode === 'separate' && section.leftToeRl != null && section.rightToeRl != null
-      ? (section.leftToeRl + section.rightToeRl) / 2
-      : section.leftToeRl ?? points[0]?.rl ?? 0
-
-  let currentRl = gl
+/** Absent layers are skipped; ERM profiles continue their deepest entered material. */
+export function getStratumAtRl(rl: number, section: CanalSection): CanalSoilStratum | null {
+  const strata = section.strata ?? []
+  if (!strata.length) return null
+  let currentRl = canalStrataTopRl(section)
   for (const stratum of strata) {
     const bottomRl = currentRl - stratum.thickness
-    if (rl >= bottomRl - 1e-6) {
-      return stratum
-    }
+    if (stratum.thickness > 0 && rl >= bottomRl - 1e-6) return stratum
     currentRl = bottomRl
   }
-
-  return strata[strata.length - 1] ?? null
+  return ermLastEnteredLayer(section)?.material ?? (section.strataExtent === 'limited' ? null : strata.at(-1) ?? null)
 }
 
 export function getSectionStrata(section: CanalSection, gl: number, cbl: number, defaultSlope: number = 1.5): CanalSoilStratum[] {
@@ -2410,18 +2488,28 @@ export interface CanalSectionStrataBand {
   color: string;
 }
 
+export function canalSectionStrataExtension(data: CanalData, section: CanalSection): { material: string; bottomRl: number; cutBottomRl: number } | null {
+  const last = ermLastEnteredLayer(section)
+  if (!last || section.ground.length < 2) return null
+  const design = canalDesignProfile(data, section)
+  if (design.length < 2) return null
+  const below = profileDifferenceBands(section.ground, design).filter((band) => band.cutting && polygonArea(clipPolygonBand(band.points, -Infinity, last.bottomRl)) > 1e-6)
+  if (!below.length) return null
+  const cutBottomRl = Math.min(...below.flatMap((band) => band.points.map((point) => point.rl)))
+  return cutBottomRl < last.bottomRl - 0.001 ? { material: last.material.name, bottomRl: last.bottomRl, cutBottomRl } : null
+}
+
 export function calculateSectionStrataBands(data: CanalData, section: CanalSection): CanalSectionStrataBand[] {
   const points = orderCanalPoints(section.ground)
   if (points.length < 2) return []
 
-  const gl = section.groundEntryMode === 'separate' && section.leftToeRl != null && section.rightToeRl != null
-    ? (section.leftToeRl + section.rightToeRl) / 2
-    : section.leftToeRl ?? points[0]?.rl ?? 0
+  const gl = canalStrataTopRl(section)
   const cbl = canalBedLevelAt(data, section.chainage) ?? data.design.bedLevelAtStart
   const totalCut = Math.max(0, gl - cbl)
   if (totalCut <= 0.001) return []
 
   const strata = getSectionStrata(section, gl, cbl, data.design.sideSlope)
+  const continuingIndex = ermLastEnteredLayer(section)?.index ?? (section.strataExtent === 'continue' ? strata.length - 1 : -1)
   if (!strata.length) return []
 
   const design = canalDesignProfile(data, section)
@@ -2440,7 +2528,9 @@ export function calculateSectionStrataBands(data: CanalData, section: CanalSecti
     const fromDepth = currentDepth
     const toDepth = round3(currentDepth + thickness)
     const topRl = currentRl
-    const bottomRl = round3(currentRl - thickness)
+    const bottomRl = i === continuingIndex
+      ? Math.min(currentRl - thickness, ...cutPolygons.flatMap((poly) => poly.map((point) => point.rl)))
+      : round3(currentRl - thickness)
 
     let stratumArea = 0
     for (const poly of cutPolygons) {
@@ -2651,9 +2741,13 @@ export function canalBankVolumeTotals(data: CanalData): CanalBankVolumeTotals {
 
   const rows = orderedCanalSections(data).filter((section) => canalMeasurableSection(data, section)).map((section) => {
     const totalFill = canalSectionAreas(data, section).filling
+    const coreSection = canalHeartingSection(data, section)
+    // Keep the design editable, but never bill an unresolved zoning layout as
+    // a different (homogeneous or automatically narrowed) core design.
+    if (coreSection.errors.length) return { chainage: section.chainage, totalFill, homogeneous: 0, hearting: 0, casing: 0 }
     if (isTiered) {
-      const heartingProfiles = canalHeartingProfiles(data, section)
-      const heartingArea = heartingProfiles.reduce((sum, profile) => sum + polygonArea(profile.points), 0)
+      const heartingProfiles = coreSection.profiles
+      const heartingArea = heartingProfiles.reduce((sum, profile) => sum + (profile.pieces ?? [profile.points]).reduce((area, p) => area + polygonArea(p), 0), 0)
       const drainage = canalEmbeddedDrainageAreasAtSection(data, section)
       const embeddedDrainageArea = drainage.blanketArea + drainage.filterArea + drainage.chimneyArea
       if (heartingArea > 0) {
@@ -2675,7 +2769,7 @@ export function canalBankVolumeTotals(data: CanalData): CanalBankVolumeTotals {
       }
     }
     const hearting = isZonedLegacy
-      ? canalHeartingProfiles(data, section).reduce((sum, profile) => sum + polygonArea(profile.points), 0)
+      ? canalHeartingProfiles(data, section).reduce((sum, profile) => sum + (profile.pieces ?? [profile.points]).reduce((area, p) => area + polygonArea(p), 0), 0)
       : 0
     return {
       chainage: section.chainage,
@@ -2735,7 +2829,10 @@ export function canalStrippingBands(data: CanalData, section: CanalSection): Can
       ...ground.filter((p) => p.offset > rFrom && p.offset < rTo).map((p) => p.offset),
       rTo
     ]
-    const top = topOffsets.map((offset) => ({ offset, rl: canalGroundLevelAt(ground, offset) ?? 0 }))
+    // Match profileDifferenceBands' endpoint ground continuation, including
+    // road widening outside the entered offsets.
+    const top = topOffsets.map((offset) => ({ offset, rl: canalGroundLevelAt(ground,
+      Math.max(ground[0].offset, Math.min(ground.at(-1)!.offset, offset)))! }))
     const bottom = [...top].reverse().map((point) => ({ offset: point.offset, rl: point.rl - depth }))
     out.push([...top, ...bottom])
   }
@@ -2754,8 +2851,10 @@ export function canalEarthworkTotals(data: CanalData): CanalEarthworkTotals {
   const rows = orderedCanalSections(data).filter((section) => canalMeasurableSection(data, section)).map((section) => {
     const areas = canalSectionAreas(data, section)
     const strippingWidth = canalFillFootprintWidth(data, section)
-    const cutoffTrench = data.mode === 'new'
-      ? canalHeartingProfiles(data, section).reduce((sum, profile) => sum + polygonArea(profile.trench), 0)
+    const coreSection = canalHeartingSection(data, section)
+    const trenches = coreSection.trenches
+    const cutoffTrench = data.mode === 'new' && !coreSection.errors.length
+      ? coreCells(trenches, (x, y) => inCorePolygons(trenches, x, y)).reduce((sum, cell) => sum + polygonArea(cell), 0)
       : 0
     return {
       chainage: section.chainage,
@@ -2794,6 +2893,27 @@ export function canalCalculateExcavationPercentagesFromStrata(data: CanalData): 
     { label: 'Fissured and fractured rock', code: CANAL_EXC_FF_CODE, defaultThickness: 2.5 },
     { label: 'Hard rock', code: CANAL_EXC_HR_CODE, defaultThickness: 4.0 }
   ]
+
+  if (data.sections.some((section) => section.strataTopRl != null)) {
+    const rows = orderedCanalSections(data).filter((section) => canalMeasurableSection(data, section)).map((section) => ({
+      chainage: section.chainage, cutting: canalSectionAreas(data, section).cutting,
+      areas: section.strataTopRl == null ? [] : calculateSectionStrataBands(data, section).reduce((areas, band, i) => {
+        const layer = section.strata?.[i]
+        const index = layer ? ermClassIndex(layer, i) : i
+        if (index >= 0 && index < 4) areas[index] = (areas[index] ?? 0) + band.area
+        return areas
+      }, [] as number[])
+    }))
+    const volumes = [0, 0, 0, 0]
+    let total = 0
+    for (let i = 1; i < rows.length; i++) {
+      const length = rows[i].chainage - rows[i - 1].chainage
+      total += (rows[i - 1].cutting + rows[i].cutting) / 2 * length
+      for (let j = 0; j < 4; j++) volumes[j] += ((rows[i - 1].areas[j] ?? 0) + (rows[i].areas[j] ?? 0)) / 2 * length
+    }
+    // Keep uninvestigated excavation unallocated; do not normalize it into hard rock.
+    return defaultLabels.map((label, i) => ({ code: label.code, label: label.label, pct: total > 0 ? round3(volumes[i] / total * 100) : 0 }))
+  }
 
   const sections = orderedCanalSections(data).filter((s) => canalMeasurableSection(data, s))
   const volumes = [0, 0, 0, 0]

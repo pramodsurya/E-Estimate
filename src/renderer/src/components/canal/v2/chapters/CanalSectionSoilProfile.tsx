@@ -1,7 +1,8 @@
+import { canalStrataTopRl } from '../../../../lib/canalErm'
 import { useState } from 'react'
 import { Plus, RotateCcw, Copy, Trash2 } from 'lucide-react'
 import type { CanalData, CanalSection, CanalSoilStratum } from '../../../../types/project'
-import { orderCanalPoints, round3 } from '../../../../lib/canal'
+import { round3 } from '../../../../lib/canal'
 import { formatChainage } from '../../../../lib/guideWall'
 import { newId } from '../../../../lib/tree'
 
@@ -68,13 +69,7 @@ export default function CanalSectionSoilProfile({
 }): JSX.Element {
   const [copiedMsg, setCopiedMsg] = useState<string | null>(null)
 
-  const points = orderCanalPoints(section.ground)
-  const gl =
-    section.groundEntryMode === 'separate' &&
-    section.leftToeRl != null &&
-    section.rightToeRl != null
-      ? (section.leftToeRl + section.rightToeRl) / 2
-      : section.leftToeRl ?? points[0]?.rl ?? 0
+  const gl = canalStrataTopRl(section)
 
   const activeStrata: CanalSoilStratum[] =
     section.strata && section.strata.length > 0
@@ -177,6 +172,9 @@ export default function CanalSectionSoilProfile({
     })
   }
 
+  if (section.strataTopRl != null) return <section className="canal-earthwork-card"><div className="canal-cross-panel-title">Soil & Rock Strata<small>Levels are edited in Chapter 2: Soil & Rock Strata. Top RL {n2(gl)} m.</small></div><table className="canal-soil-table"><thead><tr><th>Material</th><th>From RL</th><th>Entered bottom RL</th></tr></thead><tbody>{strataRows.filter((row) => row.thickness > 0 || row.id === section.strataLastEnteredId).map((row) => <tr key={row.id}><td>{row.name}</td><td>{n2(row.topRl)}</td><td>{n2(row.bottomRl)}</td></tr>)}</tbody></table></section>
+
+
   return (
     <section className="canal-earthwork-card canal-soil-profile-card">
       <div className="canal-soil-table-wrap">
@@ -195,7 +193,7 @@ export default function CanalSectionSoilProfile({
               <Plus size={13} /> Add Layer
             </button>
             <button type="button" className="btn ghost" onClick={resetToStandardStrata}>
-              <RotateCcw size={13} /> Reset to ERM Strata
+              <RotateCcw size={13} /> Reset to Soil & Rock Strata
             </button>
             <button type="button" className="btn ghost" onClick={copyToAll}>
               <Copy size={13} /> Copy to All

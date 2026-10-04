@@ -1,3 +1,4 @@
+import CanalErmStrata from './chapters/CanalErmStrata'
 import { useMemo, useState } from 'react'
 import { Pencil, Settings2, Waves } from 'lucide-react'
 import { useStore } from '../../../store/useStore'
@@ -26,10 +27,11 @@ export interface CanalChapterDefinition {
 function getCanalChapters(mode: CanalData['mode']): CanalChapterDefinition[] {
   const chapters: CanalChapterDefinition[] = [
     { id: 'design-levels', number: 1, title: 'Design Levels', shortTitle: 'Design' },
-    { id: 'bank-design', number: 2, title: 'Bank Design', shortTitle: 'Bank Design' },
-    { id: 'cut-design', number: 3, title: 'Cut Design', shortTitle: 'Cut Design' },
-    { id: 'cross-sections', number: 4, title: 'Cross-Sections', shortTitle: 'Sections' },
-    { id: 'earthwork', number: 5, title: 'Earthwork', shortTitle: 'Earthwork' }
+    { id: 'erm-strata', number: 2, title: 'Soil & Rock Strata', shortTitle: 'Soil & Rock Strata' },
+    { id: 'bank-design', number: 3, title: 'Bank Design', shortTitle: 'Bank Design' },
+    { id: 'cut-design', number: 4, title: 'Cut Design', shortTitle: 'Cut Design' },
+    { id: 'cross-sections', number: 5, title: 'Cross-Sections', shortTitle: 'Sections' },
+    { id: 'earthwork', number: 6, title: 'Earthwork', shortTitle: 'Earthwork' }
   ]
   chapters.push({
     id: 'jungle-la',
@@ -139,6 +141,7 @@ export default function CanalDashboardV2({
         {visibleChapter === 'design-levels' && (
           <CanalDesignLevels design={data.design} onCommit={commitDesign} />
         )}
+        {visibleChapter === 'erm-strata' && <CanalErmStrata data={data} onCommit={commitCanal} />}
         {visibleChapter === 'bank-design' && (
           <CanalBankDesign data={data} sections={sections} onCommit={commitDesign} />
         )}

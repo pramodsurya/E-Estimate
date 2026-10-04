@@ -259,11 +259,11 @@ const zonedCanal = makeCanal({
 })
 assert.equal(canal.canalHeartingLevelAt(zonedCanal, 600, 99), null, 'outside zoned reach')
 assert.equal(canal.canalHeartingLevelAt(zonedCanal, 0, 102), null, 'FSL below ground')
-assert.equal(canal.canalHeartingLevelAt(zonedCanal, 0, 100.5), null, 'hearting below 2 m')
+near(canal.canalHeartingLevelAt(zonedCanal, 0, 100.5).height, 1.5, 1e-9, 'zoned core stays present below the former 2 m threshold')
 assert.equal(
-  canal.canalHeartingLevelAt({ ...zonedCanal, design: { ...zonedCanal.design, minimumHeartingHeight: 3.5 } }, 0, 99),
-  null,
-  'editable minimum hearting height'
+  canal.canalHeartingLevelAt({ ...zonedCanal, design: { ...zonedCanal.design, minimumHeartingHeight: 3.5 } }, 0, 99).height,
+  3,
+  'saved minimum hearting threshold no longer suppresses a designed core'
 )
 const migratedFoundation = canal.migrateCanalData({
   ...fresh,
@@ -294,6 +294,39 @@ const heartingProfiles = canal.canalHeartingProfiles(zonedCanal, {
 })
 assert.equal(heartingProfiles.length, 2, 'hearting drawn in both banks')
 assert.ok(heartingProfiles.every((profile) => profile.points.length === 4), 'hearting profile polygons')
+
+// Preserve entered slopes and require an explicit connection for overlapping cores.
+const highCoreSection = { id: 'high-core', chainage: 0, ground: flatGround(90, 60), designPopulated: true }
+const highCoreData = { ...zonedCanal, design: { ...zonedCanal.design, heartingTopWidth: 2, heartingLeftSlope: 1, heartingRightSlope: 1, heartingConnection: 'separate' }, sections: [highCoreSection, { ...highCoreSection, id: 'high-core-end', chainage: 100 }] }
+const separateCore = canal.canalHeartingSection(highCoreData, highCoreSection)
+assert.ok(separateCore.errors.some((error) => error.includes('overlap')), 'separate bank cores report overlap instead of squeezing slopes')
+for (const profile of separateCore.requested) {
+  near((profile.points[1].offset - profile.points[0].offset) / (profile.points[1].rl - profile.points[0].rl), 1, 1e-9, 'left core face retains specified slope')
+  near((profile.points[3].offset - profile.points[2].offset) / (profile.points[2].rl - profile.points[3].rl), 1, 1e-9, 'right core face retains specified slope')
+}
+near(canal.canalBankVolumeTotals(highCoreData).hearting, 0, 1e-9, 'unresolved separate overlap does not bill an altered core')
+const continuousCoreData = { ...highCoreData, design: { ...highCoreData.design, heartingConnection: 'continuous' } }
+const continuousCore = canal.canalHeartingSection(continuousCoreData, highCoreSection)
+assert.deepEqual(continuousCore.errors, [], 'continuous below-bed overlap is supported')
+const areaOf = (p) => Math.abs(p.reduce((sum, a, i) => { const b = p[(i + 1) % p.length]; return sum + a.offset * b.rl - b.offset * a.rl }, 0)) / 2
+const unionArea = continuousCore.profiles.flatMap((p) => p.pieces).reduce((sum, p) => sum + areaOf(p), 0)
+const summedRawArea = continuousCore.requested.reduce((sum, p) => sum + areaOf(p.points), 0)
+assert.ok(unionArea > 0 && unionArea < summedRawArea, 'continuous core counts overlapped soil once')
+assert.ok(canal.canalBankVolumeTotals(continuousCoreData).hearting > 0, 'valid continuous core bills measured union')
+const openingConflict = { ...continuousCoreData, design: { ...continuousCoreData.design, heartingTopWidth: 10 } }
+assert.ok(canal.canalHeartingSection(openingConflict, highCoreSection).errors.some((error) => error.includes('canal opening')), 'continuous choice does not permit soil in water opening')
+assert.equal(canal.migrateCanalData(continuousCoreData).design.heartingConnection, 'continuous', 'core connection persists on save/load')
+const overlappingCutoffs = { ...continuousCoreData, design: { ...continuousCoreData.design, heartingTrenchEnabled: true, heartingTrenchWidth: 30, heartingTrenchDepth: 1.5, heartingTrenchLeftSlope: 0.5, heartingTrenchRightSlope: 0.5 } }
+const requestedCutoffs = canal.canalRequestedHeartingProfiles(overlappingCutoffs, highCoreSection)
+const centreDistance = Math.abs((requestedCutoffs[1].trench[0].offset + requestedCutoffs[1].trench[1].offset) / 2 - (requestedCutoffs[0].trench[0].offset + requestedCutoffs[0].trench[1].offset) / 2)
+near(canal.canalEarthworkTotals(overlappingCutoffs).cutoffTrench, (30 + 0.75 + centreDistance) * 1.5 * 100, 0.001, 'overlapping cutoff trenches bill union excavation once')
+const connectedCutoffs = { ...overlappingCutoffs, design: { ...overlappingCutoffs.design, heartingTrenchWidth: 2 } }
+const connectedSection = canal.canalHeartingSection(connectedCutoffs, highCoreSection)
+assert.equal(connectedSection.combinedTrench, true, 'connected cores connect the cutoff even when original bank trenches have a gap')
+assert.equal(connectedSection.trenches.length, 1, 'one connected trench is drawn and measured')
+near(canal.canalEarthworkTotals(connectedCutoffs).cutoffTrench, (2 + 0.75 + centreDistance) * 1.5 * 100, 0.001, 'connected cutoff includes the intervening excavation once')
+const separatedCutoffs = { ...connectedCutoffs, design: { ...connectedCutoffs.design, heartingConnection: 'separate' } }
+assert.equal(canal.canalHeartingSection(separatedCutoffs, highCoreSection).trenches.length, 2, 'separate mode retains two cutoff trenches')
 const trenchedProfiles = canal.canalHeartingProfiles({
   ...zonedCanal,
   design: { ...zonedCanal.design, heartingTrenchEnabled: true }
@@ -304,14 +337,14 @@ const trenchedProfiles = canal.canalHeartingProfiles({
 assert.ok(trenchedProfiles.every((profile) => profile.trench.length === 4), 'trapezoidal cutoff trenches drawn')
 near(trenchedProfiles[0].trench[0].rl - trenchedProfiles[0].trench[3].rl, 1.5, 1e-9, 'trench polygon uses the configured cutoff depth')
 assert.equal(
-  canal.canalHeartingProfiles(zonedCanal, { id: 'high-ground', chainage: 0, ground: [{ offset: -20, rl: 102 }, { offset: 20, rl: 102 }], designPopulated: true }).length,
+  canal.canalHeartingProfiles(zonedCanal, { id: 'high-ground', chainage: 0, ground: [{ offset: -20, rl: 103 }, { offset: 20, rl: 103 }], designPopulated: true }).length,
   0,
   'hearting omitted where FSL is below ground'
 )
 const asymmetricHearting = canal.canalHeartingProfiles(zonedCanal, {
   id: 'asymmetric-ground',
   chainage: 0,
-  ground: [{ offset: -20, rl: 97 }, { offset: 20, rl: 104 }],
+  ground: [{ offset: -20, rl: 97 }, { offset: 20, rl: 110 }],
   designPopulated: true
 })
 assert.deepEqual(
@@ -328,8 +361,8 @@ const lowBankZoned = {
   ]
 }
 const lowBankVolumes = canal.canalBankVolumeTotals(lowBankZoned)
-near(lowBankVolumes.hearting, 0, 1e-9, 'low banks automatically omit hearting')
-near(lowBankVolumes.casing, lowBankVolumes.totalFill, 1e-9, 'low banks automatically place the whole bank in casing/homogeneous soil')
+assert.ok(lowBankVolumes.hearting > 0, 'saved minimum height does not remove zoned hearting')
+near(lowBankVolumes.hearting + lowBankVolumes.casing, lowBankVolumes.totalFill, 0.01, 'core and casing still account for all bank filling')
 
 // Ground below the bed produces two banks around the raised canal prism.
 const fillSection = { id: 's1', chainage: 0, ground: flatGround(99) }
@@ -414,6 +447,62 @@ near(roadQuantities.carriagewayArea, 400, 1e-9, 'road surfacing area is reach le
 near(roadQuantities.shoulderArea, 100, 1e-9, 'shoulder area includes both 0.5 m shoulders')
 near(roadQuantities.platformArea, 500, 1e-9, 'platform area combines carriageway and shoulders')
 assert.ok(roadQuantities.additionalFormation > 0, 'widened road platform automatically measures incremental bank fill')
+
+// Cutting roads create full-width benches and share the main excavation profile.
+const deepRoadSection = { ...fillSection, ground: flatGround(110, 100) }
+const deepRoad = { ...leftTblRoad, design: { ...leftTblRoad.design, bedSlope: 0, cutBermConfig: { ...canal.defaultCanalCutBermConfig(), enabled: false } }, sections: [deepRoadSection, { ...deepRoadSection, id: 'deep100', chainage: 100 }] }
+const deepNoRoad = { ...deepRoad, design: { ...deepRoad.design, serviceRoadReaches: [] } }
+near(canal.canalServiceRoadSegments(deepRoad, deepRoadSection)[0].width, 5, 1e-9, 'cutting TBL bench contains carriageway and shoulders even with cut berms disabled')
+near(canal.canalDesignProfile(deepRoad, deepRoadSection).at(-1).offset, canal.canalDesignProfile(deepNoRoad, deepRoadSection).at(-1).offset, 1e-9, 'left cutting road leaves opposite slope unchanged')
+const deepQuantities = canal.canalServiceRoadQuantities(deepRoad, deepRoad.design.serviceRoadReaches[0])
+near(deepQuantities.additionalExcavation, (canal.canalSectionAreas(deepRoad, deepRoadSection).cutting - canal.canalSectionAreas(deepNoRoad, deepRoadSection).cutting) * 100, 0.001, 'extra road bench excavation integrates the shared cutting area')
+assert.ok(deepQuantities.additionalExcavation > 0, 'cutting road adds excavation')
+near(deepQuantities.additionalFormation, 0, 1e-9, 'pure cutting road adds no bank fill')
+const highRoad = { ...deepRoad, design: { ...deepRoad.design, serviceRoadReaches: [{ ...deepRoad.design.serviceRoadReaches[0], heightMode: 'manual', heightAboveBed: 6 }] } }
+near(canal.canalServiceRoadSegments(highRoad, deepRoadSection)[0].level, 106, 1e-9, 'deep cutting road may be above TBL without being clamped')
+near(canal.canalDesignAtChainage(highRoad.design, 0).leftBankCrestWidth, deepNoRoad.design.leftBankCrestWidth, 1e-9, 'higher cutting road does not widen embankment crest')
+const manualCutConfig = { ...canal.defaultCanalCutBermConfig(), enabled: true, mode: 'manual', manualBaseSlope: 1.5, manualBerms: [{ id: 'cut6', heightAboveBed: 6, width: 2, slope: 0.75 }] }
+const matchingCutRoad = { ...highRoad, design: { ...highRoad.design, cutBermConfig: manualCutConfig } }
+near(canal.canalServiceRoadSegments(matchingCutRoad, deepRoadSection)[0].width, 5, 1e-9, 'matching cutting bench widens for shoulders')
+const highProfile = canal.canalDesignProfile(matchingCutRoad, deepRoadSection)
+const leftShelf = highProfile.filter((point) => Math.abs(point.rl - 106) < 1e-6 && point.offset < 0)
+assert.equal(leftShelf.length, 2, 'matching road adds no duplicate shelf')
+near(Math.abs(leftShelf[0].offset - leftShelf[1].offset), 5, 1e-9, 'existing cutting shelf uses maximum required width')
+near(manualCutConfig.manualBerms[0].width, 2, 1e-9, 'saved cutting bench is unchanged')
+const roadAboveGround = { ...highRoad, design: { ...highRoad.design, serviceRoadReaches: [{ ...highRoad.design.serviceRoadReaches[0], heightAboveBed: 12 }] } }
+assert.equal(canal.canalServiceRoadSegments(roadAboveGround, deepRoadSection).length, 0, 'unavailable bench above ground is not drawn as a road')
+assert.equal(canal.canalServiceRoadSegments(deepRoad, { ...deepRoadSection, chainage: 101 }).length, 0, 'cutting road respects reach limits')
+
+// Road platforms must also reach tiered bank geometry and its downstream quantities.
+const roadTier = { ...canal.defaultCanalBankDesignConfig().leftTiers[0], minFillHeight: 0, maxFillHeight: 9999, crestWidth: 2, baseSlope: 2, berms: [] }
+const tieredRoad = { ...measuredRoad, design: { ...measuredRoad.design, bankConfig: { ...canal.defaultCanalBankDesignConfig(), mode: 'tiered', linkSymmetrical: true, leftTiers: [roadTier], rightTiers: [roadTier] } } }
+const tieredNoRoad = { ...tieredRoad, design: { ...tieredRoad.design, serviceRoadReaches: [] } }
+near(canal.canalDesignProfile(tieredRoad, fillSection)[0].offset - canal.canalDesignProfile(tieredNoRoad, fillSection)[0].offset, -3, 0.001, 'tiered left crest widens for road and shoulders')
+near(canal.canalDesignProfile(tieredRoad, fillSection).at(-1).offset, canal.canalDesignProfile(tieredNoRoad, fillSection).at(-1).offset, 0.001, 'linked tiers still allow a left-only road')
+assert.ok(canal.canalBankVolumeTotals(tieredRoad).totalFill > canal.canalBankVolumeTotals(tieredNoRoad).totalFill, 'Bank Design measures road formation through revised tier geometry')
+assert.ok(canal.canalFoundationWidthsAtSection(tieredRoad, fillSection).left > canal.canalFoundationWidthsAtSection(tieredNoRoad, fillSection).left, 'road widening reaches foundation footprint')
+assert.ok(canal.canalLaWidthRows(tieredRoad)[0].acquisitionWidth > canal.canalLaWidthRows(tieredNoRoad)[0].acquisitionWidth, 'road widening reaches land corridor')
+assert.equal(roadTier.crestWidth, 2, 'road overlay does not mutate saved tier width')
+const tieredManualRoad = { ...tieredRoad, design: { ...tieredRoad.design, serviceRoadReaches: [{ ...tieredRoad.design.serviceRoadReaches[0], heightMode: 'manual', heightAboveBed: 1 }] } }
+const effectiveManual = canal.canalDesignAtChainage(tieredManualRoad.design, 0)
+near(effectiveManual.bankConfig.leftTiers[0].berms[0].dropHeight, 1.1, 1e-9, 'manual road shelf is positioned relative to crest')
+near(canal.canalServiceRoadSegments(tieredManualRoad, fillSection)[0].width, 5, 1e-9, 'manual road shelf appears in tiered section')
+assert.equal(effectiveManual.bankConfig.rightTiers[0].berms.length, 0, 'manual road shelf does not affect opposite bank')
+const scheduledTier = { ...roadTier, berms: [{ id: 'existing-upper', dropHeight: 0.5, shelfWidth: 2, slopeAfterBerm: 2.5 }, { id: 'existing-lower', dropHeight: 1, shelfWidth: 2, slopeAfterBerm: 3 }] }
+const scheduledRoad = { ...tieredManualRoad.design, bankConfig: { ...tieredManualRoad.design.bankConfig, leftTiers: [scheduledTier] } }
+const effectiveSchedule = canal.canalDesignAtChainage(scheduledRoad, 0).bankConfig.leftTiers[0].berms
+near(effectiveSchedule[1].dropHeight, 0.6, 1e-9, 'road inserted between berms splits the vertical drop')
+near(effectiveSchedule[2].dropHeight, 0.4, 1e-9, 'original lower berm remains at its original level')
+near(effectiveSchedule[1].slopeAfterBerm, 2.5, 1e-9, 'inserted road retains surrounding tier slope')
+const matchedRoad = { ...scheduledRoad, serviceRoadReaches: [{ ...scheduledRoad.serviceRoadReaches[0], heightAboveBed: 1.6 }] }
+const matchedSchedule = canal.canalDesignAtChainage(matchedRoad, 0).bankConfig.leftTiers[0].berms
+assert.equal(matchedSchedule.length, 2, 'road at existing berm widens that shelf without creating another')
+near(matchedSchedule[0].shelfWidth, 5, 1e-9, 'existing berm includes road shoulders')
+near(canal.canalDesignAtChainage(tieredRoad.design, 101).bankConfig.leftTiers[0].crestWidth, 2, 1e-9, 'road changes do not extend past selected reach')
+const narrowSurvey = { ...fillSection, ground: flatGround(99, 10) }
+assert.ok(canal.canalStrippingBands(tieredRoad, narrowSurvey).flat().every((point) => point.rl > 98), 'road extending beyond survey must not insert RL zero into stripping geometry')
+const narrowSurveyFoundation = { ...tieredRoad, foundationExcavationReaches: [{ id: 'road-foundation', fromChainage: 0, toChainage: 100, foundationRl: 98, bands: canal.defaultCanalExcavationBands() }] }
+assert.ok(canal.canalFoundationExcavationBands(narrowSurveyFoundation, narrowSurvey).flat().every((point) => point.rl >= 98), 'road extending beyond survey must not insert RL zero into foundation geometry')
 
 // Cut section: the Chapter 1 side slopes rise from both bed edges to ground.
 const cutSection = { id: 's2', chainage: 0, ground: flatGround(103) }
@@ -956,7 +1045,7 @@ const rightShelfEnd = medBermPoints[medBermPoints.length - 1]
 near(rightToe.rl, 97.0, 1e-4, 'right toe lands at ground RL 97.0')
 near(rightToe.offset - rightShelfEnd.offset, 4.2, 1e-4, 'slope after berm runs at 2.0:1')
 
-// Test minimum clearance gate: if ground is at 98.5 (remaining drop after 3m berm would be 99.1 - 98.5 = 0.6m < 1.0m minClearance)
+// A tier berm remains when it fits 0.6 m above ground, without an extra minimum-clearance gate.
 const shallowClearanceSection = {
   id: 'sec-shallow-clearance',
   chainage: 0,
@@ -968,7 +1057,7 @@ const shallowClearanceSection = {
 }
 const shallowProfile = canal.canalDesignProfile(mediumFillCanal, shallowClearanceSection)
 const shallowBermPoints = shallowProfile.filter((p) => Math.abs(p.rl - 99.1) < 1e-4)
-assert.equal(shallowBermPoints.length, 0, 'berm shelf omitted when within minClearance (1.0m) of ground')
+assert.equal(shallowBermPoints.length, 4, 'tier berm shelf remains when it fits above ground')
 
 // Test Hearting in tiered mode:
 // All tiers (Low, Medium, High) are homogeneous by default -> zero hearting profiles!
@@ -1105,3 +1194,120 @@ assert.ok(itemByCode(tieredSynced, 'IRR-CAW-5-4'), 'tier-based sand blanket bill
 assert.ok(itemByCode(tieredSynced, 'IRR-CAW-5-7'), 'tier-based horizontal filter bills in estimate')
 
 console.log('canal: defaults, geometry, sections, drainage codes, flow inheritance, programmatic berms, manual berms with discard rules and sync ok')
+
+// ERM boundary-level entry is shared across geological lookup and excavation.
+const erm = require(path.join(root, 'src/renderer/src/lib/canalErm.ts'))
+const ermPaste = erm.parseErmPaste('Chainage\tTop RL\tAll Soils\tHDR\tF&F\tHard Rock\n0\t110\t108\t-\t103\t90\n100\t110\t108\t-\t103\t90')
+assert.deepEqual(ermPaste.errors, [], 'ERM Excel paste accepts headers and explicit absent layers')
+const ermData = erm.applyErmRows(deepNoRoad, ermPaste.rows)
+assert.deepEqual(ermData.sections[0].ground, deepNoRoad.sections[0].ground, 'ERM Top RL does not overwrite surveyed ground')
+assert.deepEqual(ermData.sections[0].strata.map((layer) => layer.thickness), [2, 0, 5, 13], 'ERM derives finite thicknesses, absent HDR and a finite hard-rock layer')
+assert.equal(canal.getStratumAtRl(106, ermData.sections[0]).name, 'Fissured & Fractured Rock (F&F)', 'missing HDR is skipped in material lookup')
+assert.equal(canal.getStratumAtRl(95, ermData.sections[0]).name, 'Hard Rock (HR)', 'hard rock lies within its entered bottom RL')
+const ermAreas = canal.calculateSectionStrataBands(ermData, ermData.sections[0])
+near(ermAreas.reduce((sum, band) => sum + band.area, 0), canal.canalSectionAreas(ermData, ermData.sections[0]).cutting, 0.005, 'ERM material bands cover actual cutting polygons including the entered hard-rock interval')
+const ermShares = canal.canalCalculateExcavationPercentagesFromStrata(ermData)
+near(ermShares[1].pct, 0, 1e-9, 'absent HDR receives no excavation share')
+near(ermShares.reduce((sum, band) => sum + band.pct, 0), 100, 0.005, 'fully investigated cutting is allocated once')
+const ermLimited = erm.applyErmRows(deepNoRoad, ermPaste.rows.map((row) => ({ ...row, end: 'unknown', hardRockBottomRl: null })))
+assert.equal(canal.getStratumAtRl(50, ermLimited.sections[0]).ermClass, 'ff', 'deepest entered F&F continues below its entered level')
+near(canal.canalCalculateExcavationPercentagesFromStrata(ermLimited).reduce((sum, band) => sum + band.pct, 0), 100, 0.005, 'continued F&F classifies all cutting')
+assert.equal(canal.canalCalculateExcavationPercentagesFromStrata(ermLimited)[3].pct, 0, 'absent hard rock gets no excavation')
+const ermSaved = canal.migrateCanalData(JSON.parse(JSON.stringify(ermLimited)))
+assert.equal(ermSaved.sections[0].strataTopRl, 110, 'ERM datum survives save/load')
+assert.equal(ermSaved.sections[0].strataLastEnteredId, ermLimited.sections[0].strataLastEnteredId, 'deepest entered material survives save/load')
+assert.equal(canal.getStratumAtRl(50, ermSaved.sections[0]).ermClass, 'ff')
+assert.deepEqual(erm.parseErmPaste('0\t110\t108\t\t103\t90').errors, [], 'blank material cells are accepted')
+assert.ok(erm.parseErmPaste('0\t110\t108\t109\t103\t90').errors.length > 0, 'ascending bottom levels are rejected')
+assert.ok(erm.parseErmPaste('0\t110\t108\t-\t103\t90\n0\t110\t108\t-\t103\t90').errors.length > 0, 'duplicate pasted chainages are rejected')
+assert.equal(erm.applyErmRows(ermData, [{ chainage: 2000, topRl: 110, bottoms: [108, null, 103], end: 'hard-rock' }]), ermData, 'out-of-canal ERM rows cannot be applied')
+const extraErmSection = erm.applyErmRows(ermData, [{ chainage: 50, topRl: 110, bottoms: [108, null, 103], end: 'hard-rock' }]).sections.find((section) => section.chainage === 50)
+assert.deepEqual(extraErmSection.ground, [], 'a newly pasted chainage waits for measured ground rather than inventing it')
+assert.equal(extraErmSection.designPopulated, false, 'new ERM chainages are not marked measured')
+console.log('ERM strata: Excel levels, absent layers, open-ended rock, unknown depth, geometric classification and save/load passed')
+
+const extraColumn = { id: 'erm-murrum', name: 'Murrum', excavationClass: 'all-soils' }
+const withColumn = erm.addErmColumn(ermData, extraColumn, 1)
+assert.deepEqual(erm.getErmColumns(withColumn).map((column) => column.name), ['All Soils + SDR', 'Murrum', 'Hard Disintegrated Rock (HDR)', 'Fissured & Fractured Rock (F&F)'], 'new ERM column is inserted at the selected layer position')
+assert.deepEqual(withColumn.sections[0].strata.map((layer) => layer.thickness), [2, 0, 0, 5, 13], 'adding a column preserves saved boundaries with an absent new layer')
+assert.equal(canal.getStratumAtRl(106, withColumn.sections[0]).name, 'Fissured & Fractured Rock (F&F)', 'adding columns does not shift geological material lookup')
+assert.deepEqual(canal.canalCalculateExcavationPercentagesFromStrata(withColumn), ermShares, 'adding an absent column does not change excavation classification')
+const columnPaste = erm.parseErmPaste('0\t110\t108\t106\t-\t103\t90\n100\t110\t108\t106\t-\t103\t90', erm.getErmColumns(withColumn))
+assert.deepEqual(columnPaste.errors, [], 'Excel paste follows the custom column layout')
+const customLayerData = erm.applyErmRows(withColumn, columnPaste.rows)
+const customShares = canal.canalCalculateExcavationPercentagesFromStrata(customLayerData)
+assert.ok(customShares[0].pct > ermShares[0].pct, 'separate Murrum layer is included in its selected All Soils class')
+near(customShares[1].pct, 0, 1e-9, 'inserting Murrum does not accidentally assign it to HDR')
+near(customShares.reduce((sum, band) => sum + band.pct, 0), 100, .005, 'custom layer quantities still cover the section once')
+const customLoaded = canal.migrateCanalData(JSON.parse(JSON.stringify(customLayerData)))
+assert.equal(customLoaded.ermColumns[1].name, 'Murrum', 'custom column survives save/load')
+assert.equal(customLoaded.sections[0].strata[1].ermClass, 'all-soils', 'custom excavation mapping survives save/load')
+
+// ERM workbook contract: current columns, blank inputs and plain answers.
+const ermExcel = require(path.join(root, 'src/renderer/src/lib/canalErmExcel.ts'))
+const ermTemplate = ermExcel.buildErmExcelTemplate(withColumn)
+assert.equal(ermTemplate.kind, 'page')
+assert.equal(ermTemplate.page.name, 'Soil & Rock Strata')
+const templateHeaders = ermTemplate.page.grid.cells.filter(cell => cell.r === 0).map(cell => cell.value)
+assert.deepEqual(templateHeaders, ermExcel.ermExcelHeaders(erm.getErmColumns(withColumn)))
+assert.equal(templateHeaders[3], 'Murrum bottom RL (m)')
+assert.equal(templateHeaders.at(-1), 'Hard Rock bottom RL (m)')
+assert.ok(ermTemplate.page.grid.cells.filter(cell => cell.r > 0 && cell.c > 0).every(cell => cell.value === ''), 'template never invents investigation levels')
+assert.equal(ermTemplate.page.extraSheets[0].name, 'Instructions')
+assert.ok(ermTemplate.page.extraSheets[0].grid.cells.some(cell => /volume × rate/.test(cell.value)), 'instructions connect material volume to cost')
+assert.ok(erm.parseErmPaste('0\t110\t108\t-\t103\tHard rock').errors.length, 'hard rock takes an RL, not a text choice')
+console.log('ERM Excel: dynamic template, blank inputs, instructions and numeric material levels passed')
+
+const rockBottomRows = erm.parseErmPaste('0\t110\t108\t-\t103\t102\n100\t110\t108\t-\t103\t99')
+assert.deepEqual(rockBottomRows.errors, [])
+assert.equal(rockBottomRows.rows[0].hardRockBottomRl, 102)
+const rockBottomData = erm.applyErmRows(deepNoRoad, rockBottomRows.rows)
+assert.equal(rockBottomData.sections[0].strataHardRockBottomRl, 102)
+assert.equal(rockBottomData.sections[0].strata.at(-1).thickness, 1, 'hard rock uses the difference between its top and entered bottom')
+assert.equal(rockBottomData.sections[1].strata.at(-1).thickness, 4, 'each section retains its hard-rock bottom')
+assert.equal(canal.getStratumAtRl(102.5, rockBottomData.sections[0]).ermClass, 'hr', 'entered hard-rock interval resolves correctly')
+assert.equal(canal.getStratumAtRl(50, rockBottomData.sections[0]).ermClass, 'hr', 'hard rock continues below entered bottom')
+const rockSaved = canal.migrateCanalData(JSON.parse(JSON.stringify(rockBottomData)))
+assert.equal(rockSaved.sections[0].strataHardRockBottomRl, 102, 'hard rock investigation bottom survives save/load')
+const uiResaved = erm.applyErmRows(rockBottomData, [{ chainage: 0, topRl: 110, bottoms: [108, null, 103], end: 'hard-rock', hardRockBottomRl: 101 }])
+assert.equal(uiResaved.sections[0].strataHardRockBottomRl, 101, 'manual RL entry replaces the imported hard-rock bottom')
+assert.equal(uiResaved.sections[0].strata.at(-1).thickness, 2)
+assert.ok(erm.parseErmPaste('0\t110\t108\t-\t103\t104').errors.length, 'hard rock bottom cannot be above its top')
+assert.equal(erm.parseErmPaste('0\t110\t108\t-\t103\t-').rows[0].end, 'unknown', 'absent hard rock does not become a deeper hard-rock assumption')
+console.log('ERM hard rock: ordinary RL entry, finite thickness and persistence passed')
+assert.deepEqual(canal.canalCalculateExcavationPercentagesFromStrata(customLoaded), customShares, 'saved custom columns retain quantities')
+
+// The deepest numeric entry determines continuation, including a zero-thickness entry.
+for (const [cells, material, bottom] of [
+  ['70\t\t\t', 'all-soils', 70],
+  ['108\t70\t\t', 'hdr', 70],
+  ['108\t\t70\t', 'ff', 70],
+  ['108\t\t103\t70', 'hr', 70],
+  ['108\t\t103\t103', 'hr', 103]
+]) {
+  const parsed = erm.parseErmPaste(`0\t110\t${cells}`)
+  assert.deepEqual(parsed.errors, [], 'trailing blank Excel cells are accepted')
+  const data = erm.applyErmRows(deepNoRoad, parsed.rows)
+  const section = data.sections[0]
+  assert.equal(canal.getStratumAtRl(50, section).ermClass, material)
+  assert.equal(erm.ermLastEnteredLayer(section).bottomRl, bottom)
+  const areas = canal.calculateSectionStrataBands(data, section)
+  near(areas.reduce((sum, band) => sum + band.area, 0), canal.canalSectionAreas(data, section).cutting, 0.005, 'continuation covers excavation exactly once')
+  assert.equal(canal.canalSectionStrataExtension(data, section) !== null, bottom > 100, 'warning appears only when actual cutting crosses the entered limit')
+  assert.equal(canal.canalSectionStrataExtension(data, { ...section, ground: [] }), null, 'no warning without measured ground')
+  const added = erm.addErmColumn(data, extraColumn, 1)
+  assert.equal(canal.getStratumAtRl(50, added.sections[0]).ermClass, material, 'added absent columns preserve continuation')
+}
+assert.ok(erm.parseErmPaste('0\t110\t\t\t\t').errors.length > 0, 'a profile needs at least one entered material')
+const warning = canal.canalSectionStrataExtension(rockBottomData, rockBottomData.sections[0])
+assert.equal(warning.bottomRl, 102)
+assert.equal(warning.material, 'Hard Rock (HR)')
+assert.equal(canal.canalSectionStrataExtension(rockBottomData, rockBottomData.sections[1]), null, 'nearby chainage without overrun has no warning')
+console.log('ERM continuation: all material classes, trailing blanks, zero thickness, exact excavation allocation and section warnings passed')
+
+// Berms follow the tier until they meet ground, without an extra clearance threshold.
+const closeBermTier = { ...roadTier, crestWidth: 2, berms: [{ id: 'near-ground', dropHeight: 2.6, shelfWidth: 1, slopeAfterBerm: 1.5 }] }
+const closeBermData = { ...tieredNoRoad, design: { ...tieredNoRoad.design, bankConfig: { ...tieredNoRoad.design.bankConfig, minClearanceToGround: 100, leftTiers: [closeBermTier], rightTiers: [closeBermTier] } } }
+const closeBermProfile = canal.canalDesignProfile(closeBermData, fillSection)
+assert.ok(closeBermProfile.some((p,i) => i > 0 && Math.abs(p.rl - 99.5) < 1e-6 && Math.abs(closeBermProfile[i-1].rl - p.rl) < 1e-6 && Math.abs(p.offset - closeBermProfile[i-1].offset) >= 0.99), 'tier berm remains at 0.5 m above ground')
+assert.deepEqual(closeBermProfile, canal.canalDesignProfile({ ...closeBermData, design: { ...closeBermData.design, bankConfig: { ...closeBermData.design.bankConfig, minClearanceToGround: 0 } } }, fillSection), 'old saved clearance settings do not change geometry')

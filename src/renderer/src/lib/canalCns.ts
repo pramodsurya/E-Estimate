@@ -1,5 +1,6 @@
+import { canalStrataTopRl, ermClassIndex, ermLastEnteredLayer, ERM_CLASS_CODES } from './canalErm'
 import type { CanalCnsChapter, CanalData, CanalLiningReach, CanalPoint, CanalSection, CanalBankMaterialZone } from '../types/project'
-import { canalBedLevelAt, canalDesignAtChainage, canalDesignProfile, canalGroundLevelAt, canalHeartingProfiles, canalSectionBankTier, canalStrippingBands, canalFoundationExcavationBands, orderedCanalSections, profileDifferenceBands } from './canal'
+import { canalBedLevelAt, canalDesignAtChainage, canalDesignProfile, canalGroundLevelAt, canalHeartingSection, canalSectionBankTier, canalStrippingBands, canalFoundationExcavationBands, orderedCanalSections, profileDifferenceBands } from './canal'
 import { liningBackingOffsets, measureLiningChapter } from './canalLiningChapter'
 
 const EPS = 1e-8
@@ -113,23 +114,25 @@ export function treatmentSectionAt(data:CanalData,ch:number):CanalSection|null {
   const offsets=[...new Set([...left.ground,...right.ground].map(p=>p.offset))].sort((a,b)=>a-b)
   const ground=offsets.map(offset=>({offset,rl:(canalGroundLevelAt(left.ground,offset)??0)*(1-fraction)+(canalGroundLevelAt(right.ground,offset)??0)*fraction}))
   const strata=left.strata?.map((s,i)=>({...s,thickness:s.thickness*(1-fraction)+(right.strata?.[i]?.thickness??s.thickness)*fraction}))
-  return {...left,id:`cns-${ch}`,chainage:ch,ground,strata,leftToeRl:ground[0]?.rl,rightToeRl:ground.at(-1)?.rl}
+  return {...left,id:`cns-${ch}`,chainage:ch,ground,strata,strataLastEnteredId:undefined,strataTopRl:canalStrataTopRl(left)*(1-fraction)+canalStrataTopRl(right)*fraction,strataExtent:left.strataExtent==='limited'||right.strataExtent==='limited'?'limited':left.strataExtent,leftToeRl:ground[0]?.rl,rightToeRl:ground.at(-1)?.rl}
 }
 
 function rowAt(data:CanalData,section:CanalSection,polygon:Polygon):CnsSectionRow {
   const ground=section.ground;const profile=canalDesignProfile(data,section)
   const bands=profileDifferenceBands(ground,profile)
   const strip=canalStrippingBands(data,section)
-  const cores=canalHeartingProfiles(data,section)
-  const already=[...bands.filter(b=>b.cutting).map(b=>b.points),...strip,...canalFoundationExcavationBands(data,section),...cores.map(p=>p.trench).filter(p=>p.length>2)]
+  const coreSection=canalHeartingSection(data,section)
+  const cores=coreSection.profiles
+  const already=[...bands.filter(b=>b.cutting).map(b=>b.points),...strip,...canalFoundationExcavationBands(data,section),...coreSection.trenches]
   const fills=[...bands.filter(b=>!b.cutting).map(b=>b.points),...strip]
-  const hearting=cores.map(p=>p.points)
+  const hearting=cores.flatMap(p=>p.pieces??[p.points])
   const row:CnsSectionRow={chainage:section.chainage,polygon,ground,profile,cns:0,excavation:0,replacement:0,alreadyExcavated:0,zones:emptyZones(),excavationByCode:{}}
   const min=Math.min(...polygon.map(p=>p.rl))-1
   const span=[Math.min(...polygon.map(p=>p.offset))-1,Math.max(...polygon.map(p=>p.offset))+1]
-  const strata=section.strata??[];const gl=section.groundEntryMode==='separate'&&section.leftToeRl!=null&&section.rightToeRl!=null?(section.leftToeRl+section.rightToeRl)/2:section.leftToeRl??ground[0].rl
+  const strata=section.strata??[];const gl=canalStrataTopRl(section)
   let current=gl
-  const geology=strata.map((s,i)=>{const top=current;current-=s.thickness;return {top,bottom:i===strata.length-1?min:current,code:data.excavationBands[i]?.material?.code??''}})
+  const continuingIndex=ermLastEnteredLayer(section)?.index??(section.strataExtent!=='limited'?strata.length-1:-1)
+  const geology=strata.map((s,i)=>{const top=current;current-=s.thickness;return {top,bottom:i===continuingIndex?Math.min(min,current):current,code:(s.ermClass?data.excavationBands.find(b=>b.material?.code===ERM_CLASS_CODES[ermClassIndex(s,i)])??data.excavationBands[ermClassIndex(s,i)]:data.excavationBands[i])?.material?.code??''}})
   const geologyPolys=geology.map(s=>[{offset:span[0],rl:s.top},{offset:span[1],rl:s.top},{offset:span[1],rl:s.bottom},{offset:span[0],rl:s.bottom}])
   const groundPoly=[...ground,{offset:ground.at(-1)!.offset,rl:min},{offset:ground[0].offset,rl:min}]
   integrate([polygon,groundPoly,...already,...fills,...hearting,...geologyPolys],(x,y,area)=>{
