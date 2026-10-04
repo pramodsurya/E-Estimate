@@ -23,8 +23,8 @@ const registry = require(path.join(root, 'src/renderer/src/templates/registry.ts
 
 assert.deepEqual(
   registry.COMPONENT_TEMPLATES.map((entry) => entry.id),
-  ['guide-wall', 'bund', 'canal'],
-  'component registry offers guide-wall, bund and canal'
+  ['slrb', 'guide-wall', 'bund', 'canal'],
+  'component registry offers SLRB, guide-wall, bund and canal'
 )
 assert.equal(
   registry.COMPONENT_TEMPLATES.find((entry) => entry.id === 'canal')?.comingSoon,

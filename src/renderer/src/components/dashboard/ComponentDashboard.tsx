@@ -53,6 +53,8 @@ import { collectProjectItems } from '../../lib/projectPrintInputs'
 import { findSharedOwner, findSharedPrintSource, sharedSheetScopeKey } from '../../lib/sharedSheet'
 import { itemSheetScopeKey } from '../../lib/typist-output/itemTypst'
 import { sanitizeSheetName } from '../../lib/excel-output/detailGrid'
+import { buildSlrbOutputModel, slrbDetailId } from '../../lib/slrb'
+import { slrbExcelPlan } from '../../lib/slrbReport'
 
 
 const money = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 })
@@ -312,12 +314,20 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
       await window.api.export.workbook('', guideFileName, undefined, { sourcePath: guideResult.filePath })
       return
     }
+    const slrbPlan = section.templateId === 'slrb' && section.slrb
+      ? slrbExcelPlan(buildSlrbOutputModel(current.root,section)) : null
+    const slrbOverrides = slrbPlan ? directNodes.map(item => {
+      const ref = item.templateMeasurementKey ? slrbPlan.refs.get(item.templateMeasurementKey) : undefined
+      return ref ? {sheet:slrbPlan.sheet.name,ref} : null
+    }) : []
+    const componentPayload = buildComponentExcelPayload(renderData, exportDetails, null, slrbOverrides)
+    if (slrbPlan) componentPayload.detailSheets.unshift(slrbPlan.sheet)
     const payload = {
       kind: 'component',
       preferPath: true,
       printSettings: documentPrintSettings,
       sheetPrintSettings: itemSheetPrintSettings,
-      component: buildComponentExcelPayload(renderData, exportDetails, null)
+      component: componentPayload
     }
     const result = await window.api.excel.compile(payload)
     if (!result || !result.ok || !result.filePath) {
@@ -422,6 +432,11 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
       </div>
 
       <div className="component-dashboard-body">
+        {node.templateId === 'slrb' && <section className="slrb-overview-note">
+          <strong>SLRB — known work subtotal</strong>
+          <p>Generated items cover measurable dimensions with reviewed rate mappings. Pending work and design checks remain in the nine SLRB chapters.</p>
+          <button type="button" className="btn ghost" onClick={() => select(slrbDetailId(node.id))}>Open SLRB chapters</button>
+        </section>}
         {syncError && (
           <div className="project-load-warning">Dashboard sync failed: {syncError}</div>
         )}

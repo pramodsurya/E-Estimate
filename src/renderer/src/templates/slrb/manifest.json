@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "e-estimate.slrb",
+  "extends": "slrb",
+  "name": "Single Lane Road Bridge",
+  "version": "1.0.0",
+  "hostApiVersion": 1,
+  "dataSchemaVersion": 1,
+  "creationGeometry": "point",
+  "capabilities": ["adopted-member-measurement", "reviewed-bar-schedule", "generated-estimate-items", "component-pdf", "component-excel"],
+  "optionalDependencies": ["parent.canal-context"],
+  "supportedGeometry": ["straight square crossing", "solid slab", "rectangular or stadium pier", "prismatic or tapered abutment", "spread footing"],
+  "permissions": ["host.parent.read", "host.catalogue.select", "host.items.propose", "host.outputs.compile"],
+  "entry": {"adapter": "addon.ts", "frontend": "../../components/slrb/SlrbDashboard.tsx", "layout": "../../lib/typist-output/slrb/slrb.typ"},
+  "inputs": ["ee-slrb"],
+  "chapters": ["slrb.start", "slrb.crossing", "slrb.layout", "slrb.deck", "slrb.supports", "slrb.fittings", "slrb.reinforcement", "slrb.quantities", "slrb.outputs"],
+  "validationScope": "Adopted geometry and quantities; structural sizing and safety checks are not implemented."
+}

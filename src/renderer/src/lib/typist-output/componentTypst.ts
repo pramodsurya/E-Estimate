@@ -15,6 +15,7 @@
  */
 
 import defaultComponentTemplate from './component.typ?raw'
+import { slrbAddon } from '../../templates/slrb/addon'
 import univerComponentPrelude from './univerComponent.typ?raw'
 import {
   EE_ITEM_TABLE_PRELUDE,
@@ -458,6 +459,7 @@ export function resolveComponentPrintPart(
   const savedTypstSource = storedTypstSource
   const isBund = node.templateId === 'bund' && Boolean(node.bund)
   const isGuideWall = node.templateId === 'guide-wall' && Boolean(node.guideWall)
+  const isSlrb = node.templateId === 'slrb' && Boolean(node.slrb)
   const renderData = buildComponentRenderData(project, node, recipes, rateOf, options)
   // Shared display-text boundary (same as itemSheetCompileInputs): every
   // child Univer snapshot carries installed display text into the compiler.
@@ -473,7 +475,11 @@ export function resolveComponentPrintPart(
   let defaultTypst = defaultComponentTypstSource()
   let compileInputs = { 'ee-data': JSON.stringify(renderData) }
   let prelude = componentCompilePrelude()
-  if (isBund) {
+  if (isSlrb) {
+    defaultTypst = slrbAddon.inject(defaultTypst,renderData.items.some(item=>!item.templateGenerated))
+    compileInputs = {...compileInputs,...slrbAddon.compileInputs(project,node)}
+    prelude = `${prelude}\n${slrbAddon.variablesPrelude()}`
+  } else if (isBund) {
     defaultTypst = injectBundLayout(defaultComponentTypstSource(), { ...project, printStudioDocuments: undefined }, node, renderData)
     if (!options?.deferBundInputs) {
       compileInputs = { ...compileInputs, ...bundCompileInputs(project, node) }
@@ -491,7 +497,7 @@ export function resolveComponentPrintPart(
     : null
   let source = savedTypstSource
     ?? applyDocumentSettingsToTypst(defaultTypst, projectDocumentSettings)
-  if ((isBund || isGuideWall) && savedTypstSource) {
+  if ((isBund || isGuideWall || isSlrb) && savedTypstSource) {
     source = ensureTemplateExternalItems(source, renderData)
   }
 

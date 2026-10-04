@@ -6,6 +6,7 @@ import { canMoveNode, isComponentLike } from '../../lib/tree'
 import { guideWallDetailId } from '../../lib/guideWall'
 import { bundDetailId } from '../../lib/bund'
 import { canalDetailId } from '../../lib/canal'
+import { slrbDetailId } from '../../lib/slrb'
 import { NodeIcon, isRenamable, nodeDisplayName } from '../nodeVisual'
 
 // The React Compiler memoizes this component. A React.memo wrapper here
@@ -57,7 +58,7 @@ function TreeNode({
   const isTemplate =
     node.templateId === 'guide-wall' ||
     node.templateId === 'bund' ||
-    node.templateId === 'canal'
+    node.templateId === 'canal' || node.templateId === 'slrb'
   const hasChildren = visibleChildren.length > 0 || isTemplate
   const isOpen = expandedFlag ?? (node.kind === 'title' || isTemplate)
   const renamable = isRenamable(node)
@@ -243,7 +244,7 @@ function TreeNode({
       {isOpen && isTemplate && (
         <TemplateDetailRow
           detailId={
-            node.templateId === 'bund'
+            node.templateId === 'slrb' ? slrbDetailId(node.id) : node.templateId === 'bund'
               ? bundDetailId(node.id)
               : node.templateId === 'canal'
                 ? canalDetailId(node.id)

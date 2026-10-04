@@ -358,7 +358,7 @@ export type SpreadsheetDocument = IWorkbookData | LegacySpreadsheetDocument
 // totals and the Lead / Seigniorage / Abstract prints keep working unchanged.
 // ---------------------------------------------------------------------------
 
-export type ComponentTemplateId = 'guide-wall' | 'bund' | 'canal'
+export type ComponentTemplateId = 'guide-wall' | 'bund' | 'canal' | 'slrb'
 
 export interface GuideWallPoint {
   lat: number
@@ -1703,6 +1703,8 @@ export interface ProjectNode {
   bund?: BundData
   /** Canal template state (templateId === 'canal'). */
   canal?: CanalData
+  /** General Single Lane Road Bridge addon, independent of its parent type. */
+  slrb?: import('./slrb').SlrbData
   /** Retired 'mi-sluice-new' template state: never created; old project files ignore it. */
   miSluiceNew?: unknown
 
@@ -1717,7 +1719,9 @@ export interface ProjectNode {
   /** Component id that owns and edits this generated item. */
   templateOwnerId?: string
   /** Which template role produced this item. */
-  templateItemRole?: 'wall' | 'base' | 'excavation' | BundItemRole | CanalItemRole
+  templateItemRole?: 'wall' | 'base' | 'excavation' | BundItemRole | CanalItemRole | 'slrb'
+  /** Stable member measurement identity supplied by the component addon. */
+  templateMeasurementKey?: string
 
   /**
    * Page/document item nodes: free-form document content.

@@ -92,6 +92,7 @@ export default function AddStructureModal(): JSX.Element | null {
     : 0
   const [name, setName] = useState(editNode?.name ?? (state.kind === 'component' ? 'New Component' : 'New Sub-component'))
   const [templateId, setTemplateId] = useState<ComponentTemplateId | null>(editNode?.templateId ?? null)
+  const pointTemplate = COMPONENT_TEMPLATES.find(template => template.id === templateId)?.creationGeometry === 'point'
   // Page 1 asks name + type only; page 2 locates every component type.
   const [page, setPage] = useState<1 | 2>(isEdit ? 2 : 1)
   // Once a name has been typed it is the user's, and picking a template must
@@ -99,7 +100,7 @@ export default function AddStructureModal(): JSX.Element | null {
   // name. Comparing the text could not tell those two cases apart.
   const [nameTouched, setNameTouched] = useState(isEdit)
   const [locateMode, setLocateMode] = useState<WorkingGeometryMode>(
-    editNode && (editNode.templateId || (editNode.workingLine?.length ?? 0) >= 2) ? 'line' : 'point'
+    editNode && !pointTemplate && (editNode.templateId || (editNode.workingLine?.length ?? 0) >= 2) ? 'line' : 'point'
   )
   const [point, setPoint] = useState<ProjectLocation | null>(editNode?.location ?? null)
   const [line, setLine] = useState<{ lat: number; lng: number }[]>(() =>
@@ -138,8 +139,8 @@ export default function AddStructureModal(): JSX.Element | null {
   const sorYear = project?.meta.sorYear ?? ''
   const drawnCentroid = line.length >= 2 ? workingLineCentroid(line) : null
   const lineCum = (cumulativeLengthsM(line))
-  // Templates are line-only: their allowance (when drawn) reads at the middle.
-  const lookup = templateId ? drawnCentroid : locateMode === 'point' ? point : drawnCentroid
+  // Alignment templates use their midpoint; crossing addons use their saved point.
+  const lookup = pointTemplate ? point : templateId ? drawnCentroid : locateMode === 'point' ? point : drawnCentroid
 
   const lookupKey = lookup ? `${lookup.lat.toFixed(6)},${lookup.lng.toFixed(6)},${sorYear}` : ''
   const [prevLookupKey, setPrevLookupKey] = useState(lookupKey)
@@ -191,6 +192,7 @@ export default function AddStructureModal(): JSX.Element | null {
 
   const pickTemplate = (id: ComponentTemplateId | null): void => {
     setTemplateId(id)
+    if (COMPONENT_TEMPLATES.find(template => template.id === id)?.creationGeometry === 'point') setLocateMode('point')
     if (nameTouched) return
     const fallback = isComponent ? 'New Component' : 'New Sub-component'
     setName(id ? COMPONENT_TEMPLATES.find((t) => t.id === id)?.name ?? fallback : fallback)
@@ -277,6 +279,11 @@ export default function AddStructureModal(): JSX.Element | null {
 
   const handleCreate = (): void => {
     if (!name.trim() || nameConflict || batchNameConflict) return
+    if (pointTemplate) {
+      if (!point || resolvingAllowance) return
+      createStructureNode(name,point,templateId ?? undefined,{areaAllowance:allowance})
+      return
+    }
     if (batchRows) {
       const parent = parentNode?.id ?? project?.root.id ?? ''
       const specs = batchSpecs ?? []
@@ -329,7 +336,7 @@ export default function AddStructureModal(): JSX.Element | null {
   const editRow = batchRows?.[0] ?? null
   const typedEditLength = Number(manualLengthM)
   const typedEditLengthM = Number.isFinite(typedEditLength) && typedEditLength > 0 ? typedEditLength : null
-  const canSaveEdit = editNode !== null && (editRow
+  const canSaveEdit = editNode !== null && (pointTemplate ? point !== null && !resolvingAllowance : editRow
     ? !editRow.resolving && (!templateId || editRow.vertices.length >= 2)
     : templateId
       ? line.length >= 2 || typedEditLengthM !== null
@@ -337,6 +344,11 @@ export default function AddStructureModal(): JSX.Element | null {
 
   const handleSaveEdit = (): void => {
     if (!editNode || !canSaveEdit) return
+    if (pointTemplate) {
+      setNodeWorkingLocation(editNode.id,point,null,allowance)
+      close()
+      return
+    }
     if (!templateId) {
       if (!lookup || !allowance || resolvingAllowance || allowanceError) return
       setNodeWorkingLocation(
@@ -401,7 +413,7 @@ export default function AddStructureModal(): JSX.Element | null {
     name.trim().length > 0 &&
     !nameConflict &&
     !batchNameConflict &&
-    (batchRows
+    (pointTemplate ? point !== null && !resolvingAllowance : batchRows
       ? !batchRows.some((row) => row.resolving) &&
         (!templateId || batchRows.every((row) => row.vertices.length >= 2))
       : templateId
@@ -410,7 +422,8 @@ export default function AddStructureModal(): JSX.Element | null {
   const createLabel = batchRows
     ? `Create ${batchRows.length} ${templateLabel ? templateLabel.toLowerCase() : 'component'}${batchRows.length === 1 ? '' : 's'}`
     : 'Create'
-  const isLocatePage = isComponent && page === 2
+  const needsLocatePage = isComponent || pointTemplate
+  const isLocatePage = needsLocatePage && page === 2
   const goPage2 = (): void => {
     if (nameConflict || !name.trim()) return
     setPage(2)
@@ -418,10 +431,10 @@ export default function AddStructureModal(): JSX.Element | null {
   }
   const primaryDisabled = isEdit
     ? !canSaveEdit
-    : !isComponent || isLocatePage
+    : !needsLocatePage || isLocatePage
       ? !canCreate
       : !name.trim() || Boolean(nameConflict)
-  const handlePrimary = isEdit ? handleSaveEdit : !isComponent || isLocatePage ? handleCreate : goPage2
+  const handlePrimary = isEdit ? handleSaveEdit : !needsLocatePage || isLocatePage ? handleCreate : goPage2
 
   return (
     <Modal
@@ -445,13 +458,13 @@ export default function AddStructureModal(): JSX.Element | null {
               Cancel
             </button>
             <button className="btn" disabled={primaryDisabled} onClick={handlePrimary}>
-              {isEdit ? (<><Icon size={15} /> Save</>) : isLocatePage || !isComponent ? (<><Icon size={15} /> {createLabel}</>) : (<>Next <ArrowRight size={15} /></>)}
+              {isEdit ? (<><Icon size={15} /> Save</>) : isLocatePage || !needsLocatePage ? (<><Icon size={15} /> {createLabel}</>) : (<>Next <ArrowRight size={15} /></>)}
             </button>
           </div>
         </>
       }
     >
-      {(!isComponent || page === 1) && (
+      {(!needsLocatePage || page === 1) && (
       !isEdit && (
       <>
       <div className="field">
@@ -475,7 +488,7 @@ export default function AddStructureModal(): JSX.Element | null {
           }}
           onKeyDown={(event) => {
             if (event.key !== 'Enter' || !name.trim() || nameConflict) return
-            if (!isComponent || page === 2) handleCreate()
+            if (!needsLocatePage || page === 2) handleCreate()
             else goPage2()
           }}
         />
@@ -525,7 +538,7 @@ export default function AddStructureModal(): JSX.Element | null {
       </>
       )
       )}
-      {isComponent && page === 2 && (
+      {(isComponent || pointTemplate) && page === 2 && (
         <>
         {batchNameConflict && (
           <p className="settings-note" style={{ color: 'var(--danger)', marginTop: 0 }}>
@@ -534,7 +547,7 @@ export default function AddStructureModal(): JSX.Element | null {
         )}
         <div className="field" style={{ marginTop: 14 }}>
           <label className="field-label">Working geometry</label>
-          {isCustomType ? (
+          {pointTemplate ? <p className="settings-note">Place the bridge crossing once. SLRB reuses this saved point and inherits Canal context when its parent is a Canal.</p> : isCustomType ? (
             <div className="template-choice-list" role="group" aria-label="Working geometry mode">
               <button
                 type="button"
@@ -569,7 +582,7 @@ export default function AddStructureModal(): JSX.Element | null {
         </div>
         </>
       )}
-      {isComponent && page === 2 && templateId && !batchRows && (
+      {(isComponent || pointTemplate) && page === 2 && templateId && !pointTemplate && !batchRows && (
         <div className="field" style={{ marginTop: 14 }}>
           <label className="field-label" htmlFor="manual-length">
             Length (m) — manual (no map)
@@ -588,7 +601,7 @@ export default function AddStructureModal(): JSX.Element | null {
           </small>
         </div>
       )}
-      {isComponent && page === 2 && (
+      {(isComponent || pointTemplate) && page === 2 && !pointTemplate && (
         <GeometryImportPanel
           ref={panelRef}
           baseName={name.trim() || title}
@@ -598,7 +611,7 @@ export default function AddStructureModal(): JSX.Element | null {
           onRowsChange={handleImportRows}
         />
       )}
-      {isComponent && page === 2 && extendKey && batchRows && (
+      {(isComponent || pointTemplate) && page === 2 && extendKey && batchRows && (
         <div className="latlng-display">
           Extend mode — click the map to append vertices to the selected line.
         </div>
@@ -608,9 +621,11 @@ export default function AddStructureModal(): JSX.Element | null {
           Saving applies the first line only — extra lines are ignored. Create a new component to place them separately.
         </p>
       )}
-      {isComponent && page === 2 && (
+      {(isComponent || pointTemplate) && page === 2 && (
+        <>
+        {pointTemplate && project.meta.location && <button type="button" className="btn ghost" onClick={() => setPoint(project.meta.location ?? null)}>Use the saved project location</button>}
         <WorkingPointMap
-          mode={templateId ? 'line' : locateMode}
+          mode={pointTemplate ? 'point' : templateId ? 'line' : locateMode}
           point={point}
           line={line}
           fitToken={fitToken}
@@ -622,15 +637,16 @@ export default function AddStructureModal(): JSX.Element | null {
           onPickPoint={handleMapPickPoint}
           onAddVertex={handleMapAddVertex}
         />
+        </>
       )}
-      {isComponent && page === 2 && templateId && !batchRows && line.length > 0 && (
+      {(isComponent || pointTemplate) && page === 2 && templateId && !pointTemplate && !batchRows && line.length > 0 && (
         <div className="latlng-display">
           {line.length >= 2
             ? `${line.length} vertices · ${formatLengthM(polylineLengthM(line))} measured — keep clicking to extend.`
             : 'One vertex placed — add at least one more.'}
         </div>
       )}
-      {isComponent && page === 2 && !templateId && !batchRows && (
+      {(isComponent || pointTemplate) && page === 2 && (!templateId || pointTemplate) && !batchRows && (
         <div className="latlng-display">
           {extendKey
             ? 'Extend mode — click the map to append vertices to the selected line.'
@@ -645,7 +661,7 @@ export default function AddStructureModal(): JSX.Element | null {
                   : 'Click the map to draw the work line.'}
         </div>
       )}
-      {isComponent && page === 2 && !batchRows && line.length > 0 && (
+      {(isComponent || pointTemplate) && page === 2 && !batchRows && line.length > 0 && (
         <div className="field">
           <label className="field-label">Vertices ({line.length})</label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -685,7 +701,7 @@ export default function AddStructureModal(): JSX.Element | null {
           </div>
         </div>
       )}
-      {isComponent && page === 2 && !batchRows && (
+      {(isComponent || pointTemplate) && page === 2 && !batchRows && (
         <div className="form-section area-allowance-section">
           <h2>Area Allowance</h2>
           {resolvingAllowance ? (

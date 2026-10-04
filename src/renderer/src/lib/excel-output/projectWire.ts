@@ -34,6 +34,8 @@ import { buildLeadExcelPayload } from './leadPayload'
 import { buildSeigniorageExcelPayload } from './seignioragePayload'
 import { prepareComponentExcelParts } from './componentDetailPrep'
 import { prepareBundExcelPlan, projectBundSheetNames } from './bundExcel'
+import { buildSlrbOutputModel } from '../slrb'
+import { slrbExcelPlan, slrbExcelItemKey } from '../slrbReport'
 import { guideWallTotalKey, prepareGuideWallExcelPlan, projectGuideWallSheetName } from './guideWallExcel'
 import { buildCoverExcelPayload } from './coverExcel'
 import { preparePageExcelPayload, projectPageSheetName, projectSharedSheetName } from './pageExcel'
@@ -135,10 +137,18 @@ export async function assembleProjectDashboardInput(project: EestimateProject, p
     }
     const parts = await prepareComponentExcelParts(project, comp, compRecipes, rateOf)
     const directAbstract = parts.renderData.abstract.filter((row) => !row.sl.startsWith('S'))
-    const itemKeys = parts.directNodes.map((n) => projectItemKey(n))
+    const itemKeys = parts.directNodes.map((n) => slrbExcelItemKey(n,projectItemKey(n)))
     let templateSheets: ProjectSheetPayload[] = []
     const templateQuantityRefs = new Map<string, ProjectCellRef>()
-    if (comp.templateId === 'bund' && comp.bund) {
+    if (comp.templateId === 'slrb' && comp.slrb) {
+      const name = `SLRB ${comp.id.slice(0,12)}`
+      const plan = slrbExcelPlan(buildSlrbOutputModel(project.root,comp),name)
+      templateSheets = [plan.sheet]
+      parts.directNodes.forEach((item,i) => {
+        const ref = item.templateMeasurementKey ? plan.refs.get(item.templateMeasurementKey) : undefined
+        if (ref) templateQuantityRefs.set(itemKeys[i],{sheet:name,...ref})
+      })
+    } else if (comp.templateId === 'bund' && comp.bund) {
       const bundPlan = await prepareBundExcelPlan(
         buildBundOutputModel(project, comp),
         projectBundSheetNames(comp.name, comp.id)
@@ -337,7 +347,7 @@ export async function assembleProjectDashboardInput(project: EestimateProject, p
     const description = resolveSeigniorageRowDescription(project, row)
     const terms = (row.quantityTerms ?? []).map((term) => {
       const node = term.itemNodeId ? nodeById.get(term.itemNodeId) : undefined
-      const itemKey = node ? projectItemKey(node) : undefined
+      const itemKey = node ? slrbExcelItemKey(node,projectItemKey(node)) : undefined
       const matchedApplications = term.itemNodeId
         ? applications.filter((application) => {
             if (application.itemNodeId !== term.itemNodeId) return false

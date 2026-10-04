@@ -41,6 +41,8 @@ import {
   projectItemKey
 } from '../lib/projectItems'
 import { PROJECT_DATA_CATEGORY } from '../lib/projectData'
+import type { SlrbData } from '../types/slrb'
+import { defaultSlrbData, syncAllSlrbItems } from '../lib/slrb'
 import { ensureBuiltInProjectData, nextProjectDataCode } from '../lib/projectDataDefaults'
 import { pendingProjectDataRates, projectDataUsesTimelyRates } from '../lib/projectDataRateLinks'
 import { canonicalLeadConveyanceClass } from '../lib/leadApplicability'
@@ -438,7 +440,7 @@ export function ensureTemplateComponentsSynced(root: ProjectNode): ProjectNode {
     node.children.forEach(visit)
   }
   visit(root)
-  return next
+  return syncAllSlrbItems(next)
 }
 
 function normalizeLoaded(rawData: EestimateProject): EestimateProject {
@@ -680,6 +682,7 @@ interface StoreState {
     }
   ) => void
   setGuideWall: (nodeId: string, data: GuideWallData) => void
+  setSlrb: (nodeId: string, data: SlrbData) => void
   setGuideWallMaterial: (
     nodeId: string,
     role: 'wall' | 'base' | 'excavation',
@@ -949,7 +952,7 @@ export const useStore = create<StoreState>((set, get) => {
   ): void {
     set((s) => {
       if (!s.project) return s
-      const nextRoot = fn(s.project.root, s.project)
+      const nextRoot = syncAllSlrbItems(fn(s.project.root, s.project))
       const next: EestimateProject = {
         ...s.project,
         root: nextRoot,
@@ -1297,7 +1300,7 @@ export const useStore = create<StoreState>((set, get) => {
         location: fallbackLocation,
         areaAllowance: extra?.areaAllowance ?? null,
         workingLine: hasDrawnLine ? drawnLine : (extra?.workingLine ?? null),
-        ...(templateId === 'guide-wall'
+        ...(templateId === 'slrb' ? {templateId, slrb: defaultSlrbData()} : templateId === 'guide-wall'
           ? {
               templateId,
               guideWall: hasGeometryPreset
@@ -1354,6 +1357,10 @@ export const useStore = create<StoreState>((set, get) => {
         expanded: { ...s.expanded, [parent]: true },
         addStructure: { open: false, kind: 'component', parentId: null }
       }))
+    },
+
+    setSlrb: (nodeId, data) => {
+      mutate((root) => patchNode(root,nodeId,{slrb:data}), `slrb:${nodeId}`)
     },
 
     setGuideWall: (nodeId, data) => {

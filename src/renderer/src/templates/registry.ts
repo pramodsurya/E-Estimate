@@ -9,9 +9,17 @@ export interface ComponentTemplateDef {
   name: string
   description: string
   comingSoon?: boolean
+  creationGeometry?: 'line' | 'point'
+  packageId?: string
+  packageVersion?: string
 }
 
 export const COMPONENT_TEMPLATES: ComponentTemplateDef[] = [
+  {
+    id: 'slrb', name: 'SLRB — Single Lane Road Bridge',
+    description: 'General bridge from reviewed dimensions: spans, deck, supports, walls, reinforcement and estimates in nine chapters. Canal children inherit crossing context.',
+    creationGeometry: 'point', packageId: 'e-estimate.slrb', packageVersion: '1.0.0'
+  },
   {
     id: 'guide-wall',
     name: 'Guide Wall',
