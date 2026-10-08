@@ -193,8 +193,11 @@ const componentTypst = loadTsModule(
   {
     './component.typ?raw': { __esModule: true, default: '// component template' },
     './univerComponent.typ?raw': { __esModule: true, default: '// prelude' },
+    '../../templates/slrb/addon': { slrbAddon: {} },
+    './univerDisplayText': { attachEeDisplayText: (snapshot) => snapshot },
     './itemTypst': {
       EE_ITEM_TABLE_PRELUDE: '// items',
+      columnScaleFor: () => 1,
       itemSheetShadowFiles: () => ({}),
       resolveItemDescriptionRuns: () => [],
       extractItemMedia: () => ({ images: [], gallery: [] })
