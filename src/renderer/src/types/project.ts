@@ -173,6 +173,14 @@ export interface PipeLeadQuote {
  * The annual price is retained as an audit snapshot, but dashboard Sync resolves
  * the same logical dimensions again for the project's active SOR year.
  */
+export interface SorPublishedReference {
+  tableName: string
+  serialNumber?: string
+  scheduleItemNumber?: string
+  rowLabel?: string
+  columnLabel?: string
+}
+
 export interface SorCatalogueItemSelection {
   catalogueCode: string
   catalogueName: string
@@ -186,6 +194,8 @@ export interface SorCatalogueItemSelection {
   source: string | null
   sourcePage: number | null
   sourceTitle?: string | null
+  /** Printed table/row reference; item_code remains the stable lookup identifier. */
+  publishedReference?: SorPublishedReference
   commercialTerms?: SorCatalogueCommercialTerms
   /** Automatic Public Health Table 6/7 conveyance link, when this is an RCC pipe. */
   pipeLead?: PipeLeadSource
@@ -1134,6 +1144,8 @@ export interface CanalTierFoundationConfig {
 export interface CanalBankTier {
   id: string;
   name: string;
+  /** Manual mode: this profile belongs to one user-created chainage reach. */
+  manualReachId?: string;
   /** Minimum fill height for this tier (m, inclusive). */
   minFillHeight: number;
   /** Maximum fill height for this tier (m, exclusive or 9999 for top tier). */
@@ -1152,12 +1164,53 @@ export interface CanalBankTier {
   heartingSideSlope?: number;
   /** Optional bund foundation filling, sand blanket, and filter drainage configuration for this tier. */
   foundationTreatment?: CanalTierFoundationConfig;
+  /** Legacy/default land-side slope treatment; individual reaches can override it. */
+  bankProtection?: CanalBankProtectionConfig;
 }
 
-/** Programmatic height-tiered bank & bund design configuration. */
+export interface CanalBankProtectionConfig {
+  kind: 'none' | 'stone' | 'grass';
+  stone: 'rubble' | 'khandki';
+  bedding: 'dry' | 'mortar';
+  thickness: number;
+  headers: boolean;
+  sand: boolean;
+}
+
+/** Treatments owned by one Bank Design reach, independent of its height profile. */
+export interface CanalBankReachProtection {
+  mode: 'tiered' | 'manual';
+  reachId: string;
+  tierId: string | null;
+  from: number;
+  to: number;
+  slopes: CanalBankProtectionConfig;
+  berms: CanalBankProtectionConfig;
+}
+
+/** Per-reach overrides; unspecified fields continue to follow the bank profile. */
+export interface CanalBankReachTreatment {
+  mode: 'tiered' | 'manual';
+  reachId: string;
+  tierId: string | null;
+  from: number;
+  to: number;
+  treatment: Partial<CanalTierFoundationConfig>;
+}
+
+/** A shared chainage assignment for bank geometry and its associated works. */
+export interface CanalBankReach {
+  id: string;
+  from: number;
+  to: number;
+  tierId: string | null;
+  status: 'fill' | 'cut' | 'level' | 'unassigned' | 'missing';
+}
+
+/** Programmatic or manually assigned bank & bund design configuration. */
 export interface CanalBankDesignConfig {
-  /** Mode: 'legacy' (fixed slope & manual outer berms) or 'tiered' (height-tiered rules). */
-  mode: 'legacy' | 'tiered';
+  /** Legacy fixed slopes, programmatic height brackets, or manual chainage assignments. */
+  mode: 'legacy' | 'tiered' | 'manual';
   /** Whether both left and right banks share the exact same tiers and rules. Default true. */
   linkSymmetrical: boolean;
   /** Minimum vertical ground clearance below the lowest berm to omit it and avoid ground collisions (m). Default 1.0 m. */
@@ -1166,9 +1219,43 @@ export interface CanalBankDesignConfig {
   leftTiers: CanalBankTier[];
   /** Right bank height tiers (used when linkSymmetrical is false). */
   rightTiers: CanalBankTier[];
+  /** Undefined means derive programmatic reaches from strata Top RL. */
+  leftReachOverrides?: CanalBankReach[];
+  rightReachOverrides?: CanalBankReach[];
+  /** Manual profile assignments never use height thresholds. */
+  leftManualReaches?: CanalBankReach[];
+  rightManualReaches?: CanalBankReach[];
+  leftReachProtection?: CanalBankReachProtection[];
+  rightReachProtection?: CanalBankReachProtection[];
+  leftReachTreatment?: CanalBankReachTreatment[];
+  rightReachTreatment?: CanalBankReachTreatment[];
+  /** Inactive designs retained when switching between reach and height modes. */
+  leftProgrammaticTiers?: CanalBankTier[];
+  rightProgrammaticTiers?: CanalBankTier[];
+  leftManualTiers?: CanalBankTier[];
+  rightManualTiers?: CanalBankTier[];
+}
+
+/** Drainage work ranges are independent of bank geometry assignments. */
+export interface CanalDrainageReach {
+  id: string;
+  from: number;
+  to: number;
+  treatment: Partial<CanalTierFoundationConfig>;
+}
+
+export interface CanalBankDrainageDesign {
+  mode: 'programmatic' | 'manual';
+  leftTierTreatments?: Record<string, Partial<CanalTierFoundationConfig>>;
+  rightTierTreatments?: Record<string, Partial<CanalTierFoundationConfig>>;
+  leftReaches?: CanalDrainageReach[];
+  rightReaches?: CanalDrainageReach[];
 }
 
 export interface CanalDesign {
+  bankDrainage?: CanalBankDrainageDesign;
+  /** Independent rock-toe/open-ditch tier settings or user-created work reaches. */
+  bankToeDrainage?: CanalBankDrainageDesign;
   /** Design bed RL at canal Ch 0 (m). */
   bedLevelAtStart: number;
   /** Design discharge Q (cumecs); sizes the section and drives lining thickness. */
@@ -1340,6 +1427,7 @@ export type CanalItemRole =
   | 'clearance'
   | 'excavation'
   | 'banking'
+  | 'bank-protection'
   | 'lining'
   | 'foundation'
   | 'sand-blanket'

@@ -99,5 +99,8 @@ export async function readErmExcel(file: File, columns: CanalErmColumn[]): Promi
   }).filter((row) => row.some((value) => value.trim()))
   if (!rows.length || rows[0].some((value, i) => value.trim() !== expected[i])) throw new Error('The headings do not match your current material columns. Download a new template and keep its headings unchanged.')
   if (rows.length === 1) throw new Error('The workbook has no entered rows.')
+  if (rows.slice(1).every((row) => row.slice(1).every((cell) => !cell.trim()))) {
+    throw new Error('This workbook contains chainages only. Top RL and material levels are blank. Upload the filled workbook, not the blank Excel template.')
+  }
   return rows.map((row) => row.join('\t')).join('\n')
 }

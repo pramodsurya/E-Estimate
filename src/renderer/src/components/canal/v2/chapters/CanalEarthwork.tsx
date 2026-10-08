@@ -46,7 +46,7 @@ function ExcavationBands({ title, quantity, bands, extraByCode = {}, onChange, o
   return (
     <section className="canal-earthwork-card">
       <header className="canal-earthwork-card-head">
-        <div><strong>{title}</strong><small>Add any applicable CAW excavation code. The code identifies excavation work; bank suitability is assessed separately.</small></div>
+        <div><strong>{title}</strong><small>Add any applicable CAW excavation code.</small></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {onAutoCalculate && (
             <button
@@ -64,14 +64,13 @@ function ExcavationBands({ title, quantity, bands, extraByCode = {}, onChange, o
         </div>
       </header>
       <div className="canal-earthwork-bands">
-        <div className="canal-earthwork-band is-head"><span>Material / excavation class</span><span>Class share</span><span>CAW excavation item</span><span>Quantity</span><span>Suitable for casing / homogeneous bank</span><span /></div>
+        <div className="canal-earthwork-band is-head"><span>Material / excavation class</span><span>Class share</span><span>CAW excavation item</span><span>Quantity</span><span /></div>
         {bands.map((band, index) => (
           <div className="canal-earthwork-band" key={band.id}>
             <input value={band.label} aria-label="Material or excavation class" onChange={(event) => onChange(bands.map((row) => row.id === band.id ? { ...row, label: event.target.value } : row))} />
             <label className="canal-earthwork-percent"><input type="number" min={0} max={100} step="any" value={band.pct} onChange={(event) => onChange(bands.map((row) => row.id === band.id ? { ...row, pct: Math.min(100, Math.max(0, Number(event.target.value) || 0)) } : row))} /><span>%</span></label>
             <button type="button" className="btn ghost" onClick={() => setPicker(band.id)}>{band.material.code ? <SsrCode code={band.material.code} description={band.material.description} /> : 'Select code'}</button>
             <span>{n3(quantity * band.pct / 100 + (bands.findIndex((row) => row.material.code === band.material.code) === index ? extraByCode[band.material.code] ?? 0 : 0))} cu.m</span>
-            <label className="canal-earthwork-percent"><input type="number" min={0} max={100} step="any" value={band.bankReusePct ?? 0} onChange={(event) => onChange(bands.map((row) => row.id === band.id ? { ...row, bankReusePct: Math.min(100, Math.max(0, Number(event.target.value) || 0)) } : row))} /><span>%</span></label>
             <button type="button" className="canal-earthwork-remove" aria-label="Remove excavation code" onClick={() => onChange(bands.filter((row) => row.id !== band.id))}><Trash2 size={14} /></button>
             {picker === band.id && <MaterialPicker initialCategory="IRR-CAW" initialSearch="IRR-CAW-1" onClose={() => setPicker(null)} onPick={(item) => {
               onChange(bands.map((row) => row.id === band.id ? { ...row, label: item.description || row.label, material: materialFromItem(item) } : row))
@@ -81,7 +80,6 @@ function ExcavationBands({ title, quantity, bands, extraByCode = {}, onChange, o
         ))}
       </div>
       {Object.values(extraByCode).some((value) => value > 0) && <p>Lining and CNS preparation excavation is added by its soil or rock class; class percentages apply to the original canal excavation.</p>}
-      <div className="canal-bank-recommendation"><strong>Suitability rule:</strong> enter only the tested and approved reusable percentage. Excavation code alone never makes soil suitable for casing or homogeneous embankment.</div>
       <button type="button" className="btn ghost" onClick={() => onChange([...bands, { id: newId(), label: 'Select material / excavation class', pct: 0, bankReusePct: 0, material: { code: '' } }])}><Plus size={13} /> Add any CAW excavation code</button>
     </section>
   )

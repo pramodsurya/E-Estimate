@@ -112,7 +112,7 @@ export default function AddStructureModal(): JSX.Element | null {
           ? copyVertices(migrateGuideWallData(editNode.guideWall).alignment)
           : copyVertices(editNode?.workingLine ?? [])
   )
-  // Typed length for a template with no map (step 2 of the template is fed).
+  // Typed length presets the template, overriding a map measurement when supplied.
   // Seeded only when no line is stored: a prefilled value would override every
   // redraw, so with a line the input starts empty and the measured length shows.
   const [manualLengthM, setManualLengthM] = useState(
@@ -303,16 +303,17 @@ export default function AddStructureModal(): JSX.Element | null {
       return
     }
     if (templateId) {
+      const typedLength = Number(manualLengthM)
+      const typedLengthOverride = Number.isFinite(typedLength) && typedLength > 0 ? typedLength : undefined
       if (line.length >= 2 && lookup) {
         createStructureNode(
           name,
           { lat: lookup.lat, lng: lookup.lng, label: name.trim() || title },
           templateId,
-          { areaAllowance: allowance, workingLine: line }
+          { areaAllowance: allowance, workingLine: line, manualLengthM: typedLengthOverride }
         )
         return
       }
-      const typedLength = Number(manualLengthM)
       if (Number.isFinite(typedLength) && typedLength > 0) {
         createStructureNode(name, null, templateId, { manualLengthM: typedLength })
       }
@@ -585,7 +586,7 @@ export default function AddStructureModal(): JSX.Element | null {
       {(isComponent || pointTemplate) && page === 2 && templateId && !pointTemplate && !batchRows && (
         <div className="field" style={{ marginTop: 14 }}>
           <label className="field-label" htmlFor="manual-length">
-            Length (m) — manual (no map)
+            {line.length >= 2 ? 'Length (m) — overrides measured map distance' : 'Length (m) — manual (no map)'}
           </label>
           <input
             id="manual-length"
@@ -597,7 +598,9 @@ export default function AddStructureModal(): JSX.Element | null {
             onChange={(event) => setManualLengthM(event.target.value)}
           />
           <small style={{ color: 'var(--text-dim)', marginTop: 5 }}>
-            Used when nothing is drawn or uploaded — the {templateLabel?.toLowerCase()} setup takes this length.
+            {line.length >= 2
+              ? 'Enter a design length to override the measured distance. The drawn map alignment is retained.'
+              : `The ${templateLabel?.toLowerCase()} setup takes this length when no alignment is drawn.`}
           </small>
         </div>
       )}

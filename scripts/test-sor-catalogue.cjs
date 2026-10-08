@@ -72,6 +72,8 @@ const {
   nextSorDimension,
   singletonSorDimensions,
   sorCommercialTerms,
+  sorPublishedReference,
+  sorPublishedReferenceLabel,
   visibleSorDimensions
 } = loadedModule.exports
 
@@ -142,4 +144,32 @@ assert.deepEqual(
   { basis: 'ex_factory', transportation: 'excluded', taxes: 'excluded' }
 )
 
-console.log('SOR catalogue selection tests passed')
+// Actual extracted hard-metal row: the printed serial is 230, the S.S. item is b,
+// and the matrix row r183 / generated hash must never become the serial number.
+const hardMetalReference = sorPublishedReference('Roads and Bridges work items', {
+  title: '',
+  headers: ['Sl. No', 'S.S. Item No', 'Description', 'Unit', 'Scheduled Rate', 'Remarks'],
+  raw_row: ['230', 'b', '50 mm thickness', '10 sqm', 'detailed analysis as per MoRTH Data', ''],
+  row_key: 'r183',
+  item_code: 'RB_WORK_6411571526E0'
+}, { row_label: '50 mm thickness b', column_label: 'Scheduled Rate' })
+assert.equal(hardMetalReference.serialNumber, '230')
+assert.equal(hardMetalReference.scheduleItemNumber, 'b')
+assert.equal(sorPublishedReferenceLabel(hardMetalReference), 'Roads and Bridges work items · Sl. No. 230')
+
+// Actual pipe matrix: blank Sl. No., but a published table title and row/column.
+const pipeReference = sorPublishedReference('RCC plain-ended pipes', {
+  title: '1. R.C.C. PLAIN ENDED PIPES',
+  headers: ['Sl. No.', 'Description / Size', 'Unit', 'Rate in Rs. / NP - 2 Class'],
+  raw_row: ['', '80 mm dia', 'Metre', '182'],
+  row_key: 'r2',
+  sort_order: 2
+}, { row_label: '80 mm dia', column_label: 'Rate in Rs. / NP - 2 Class' })
+assert.equal(pipeReference.serialNumber, undefined)
+assert.equal(sorPublishedReferenceLabel(pipeReference), '1. R.C.C. PLAIN ENDED PIPES · 80 mm dia · Rate in Rs. / NP - 2 Class')
+assert.equal(sorPublishedReference('Work', { headers: ['Description', 'Sl. No.'], raw_row: ['Test', '12(a)'] }).serialNumber, '12(a)')
+assert.equal(sorPublishedReference('Work', { headers: ['S.S. Item No'], raw_row: ['8a'] }).serialNumber, undefined)
+assert.equal(sorPublishedReference('Work', { table_name: 'Printed table', serial_number: '7(b)', headers: [], raw_row: [] }).serialNumber, '7(b)')
+assert.equal(sorPublishedReferenceLabel(sorPublishedReference('Work', { raw_row: ['123'], headers: [] })), 'Work')
+
+console.log('SOR catalogue selection and published-reference tests passed')

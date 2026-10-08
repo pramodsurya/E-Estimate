@@ -90,7 +90,8 @@
       repeat-header-rows: print-cfg.at("repeatHeaderRows", default: 0),
       show-gridlines: print-cfg.at("showGridlines", default: true),
       range-override: print-cfg.at("range", default: none),
-      images: item.at("images", default: none)
+      images: item.at("images", default: none),
+      column-scale: print-cfg.at("columnScale", default: 1)
     )
   ]
 ]

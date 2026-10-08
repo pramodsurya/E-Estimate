@@ -81,6 +81,18 @@ if (command === 'dev' || command === 'build') {
   console.log('')
 }
 
+// A running exe is locked on Windows (EBUSY/EPERM when opened for write).
+// Needed because a no-op cargo build does not relink, so the mtime stays old.
+function exeIsRunning() {
+  if (process.platform !== 'win32') return false
+  try {
+    fs.closeSync(fs.openSync(exePath, 'r+'))
+    return false
+  } catch (e) {
+    return e && (e.code === 'EBUSY' || e.code === 'EPERM' || e.code === 'EACCES')
+  }
+}
+
 if (command === 'dev') {
   progressTimer = setInterval(() => {
     let exeMtime = 0
@@ -90,7 +102,7 @@ if (command === 'dev') {
       exeMtime = 0
     }
     const elapsed = Date.now() - startedAt
-    if (exeMtime >= startedAt - 2000) {
+    if (exeMtime >= startedAt - 2000 || (exeMtime > 0 && exeIsRunning())) {
       console.log(
         `  [cargo] ${exeName} is ready (${formatElapsed(elapsed)}). The desktop window should open.`
       )

@@ -473,6 +473,23 @@ const roadAboveGround = { ...highRoad, design: { ...highRoad.design, serviceRoad
 assert.equal(canal.canalServiceRoadSegments(roadAboveGround, deepRoadSection).length, 0, 'unavailable bench above ground is not drawn as a road')
 assert.equal(canal.canalServiceRoadSegments(deepRoad, { ...deepRoadSection, chainage: 101 }).length, 0, 'cutting road respects reach limits')
 
+// A mandatory road shelf does not turn omitted automatic berms into strata slopes.
+const shallowRoadSection = { ...deepRoadSection, ground: flatGround(105.55, 100) }
+const shallowRoad = { ...deepRoad, design: { ...deepRoad.design, sideSlope: 1.5, cutBermConfig: { ...canal.defaultCanalCutBermConfig(), enabled: true }, strataSlopes: { ...canal.defaultCanalStrataSlopeConfig(), allSoilsSlope: 0.75 } } }
+const shallowDisabled = { ...shallowRoad, design: { ...shallowRoad.design, cutBermConfig: { ...shallowRoad.design.cutBermConfig, enabled: false } } }
+assert.deepEqual(canal.canalDesignProfile(shallowRoad, shallowRoadSection), canal.canalDesignProfile(shallowDisabled, shallowRoadSection), 'omitted automatic berms preserve design slope on both sides with a TBL road')
+near(canal.canalServiceRoadSegments(shallowRoad, shallowRoadSection)[0].width, 5, 1e-9, 'shallow automatic cut retains full road width')
+const shallowHighRoad = { ...shallowRoad, design: { ...shallowRoad.design, serviceRoadReaches: [{ ...shallowRoad.design.serviceRoadReaches[0], heightMode: 'manual', heightAboveBed: 4 }] } }
+const shallowHighDisabled = { ...shallowHighRoad, design: { ...shallowHighRoad.design, cutBermConfig: { ...shallowHighRoad.design.cutBermConfig, enabled: false } } }
+assert.deepEqual(canal.canalDesignProfile(shallowHighRoad, shallowRoadSection), canal.canalDesignProfile(shallowHighDisabled, shallowRoadSection), 'higher road preserves design slope below and above shelf when automatic berms are omitted')
+
+const automaticRoad = { ...deepRoad, design: { ...shallowRoad.design, cutBermConfig: { ...shallowRoad.design.cutBermConfig, minTopClearanceM: 1, intervalM: 2 } } }
+const automaticRoadProfile = canal.canalDesignProfile(automaticRoad, deepRoadSection)
+const tblRoadShelf = automaticRoadProfile.filter((point) => point.offset < 0 && Math.abs(point.rl - 102.1) < 1e-6)
+assert.equal(tblRoadShelf.length, 2, 'automatic TBL berm and road merge into one shelf')
+near(Math.abs(tblRoadShelf[0].offset - tblRoadShelf[1].offset), 5, 1e-9, 'automatic TBL berm widens for road shoulders')
+assert.ok(automaticRoadProfile.some((point, index) => index > 0 && Math.abs(point.rl - 104.1) < 1e-6 && Math.abs(automaticRoadProfile[index - 1].rl - point.rl) < 1e-6), 'subsequent automatic berms remain with service road present')
+
 // Road platforms must also reach tiered bank geometry and its downstream quantities.
 const roadTier = { ...canal.defaultCanalBankDesignConfig().leftTiers[0], minFillHeight: 0, maxFillHeight: 9999, crestWidth: 2, baseSlope: 2, berms: [] }
 const tieredRoad = { ...measuredRoad, design: { ...measuredRoad.design, bankConfig: { ...canal.defaultCanalBankDesignConfig(), mode: 'tiered', linkSymmetrical: true, leftTiers: [roadTier], rightTiers: [roadTier] } } }
@@ -530,13 +547,24 @@ near(suitableExcavation, canal.canalEarthworkTotals(balancedCanal).excavation, 1
 const effectiveHomogeneous = canal.canalEffectiveBankAllocations(balancedCanal, 'homogeneous')
 const reused = effectiveHomogeneous.find((row) => row.source === 'canal-excavation')
 const borrowed = effectiveHomogeneous.find((row) => row.source === 'borrow-area')
-near(reused.percentage + borrowed.percentage, 100, 1e-9, 'automatic canal reuse and borrow balance total 100 percent')
+near(reused.percentage, 0, 1e-9, 'excavation availability does not choose the saved reuse share')
+near(borrowed.percentage, 100, 1e-9, 'borrow share remains the user-saved percentage')
 const noReusableRock = {
   ...balancedCanal,
   excavationBands: balancedCanal.excavationBands.map((band) => ({ ...band, bankReusePct: 0 }))
 }
 near(canal.canalSuitableBankExcavation(noReusableRock), 0, 1e-9, 'unsuitable excavation is excluded from bank reuse')
-near(canal.canalEffectiveBankAllocations(noReusableRock, 'homogeneous').find((row) => row.source === 'borrow-area').percentage, 100, 1e-9, 'borrow area automatically fills the full shortage')
+near(canal.canalEffectiveBankAllocations(noReusableRock, 'homogeneous').find((row) => row.source === 'borrow-area').percentage, 100, 1e-9, 'suitability does not alter the saved borrow share')
+const userSourcedCanal = {
+  ...noReusableRock,
+  design: { ...noReusableRock.design, bankMaterialAllocations: noReusableRock.design.bankMaterialAllocations.map(row => ({
+    ...row, percentage: row.zone === 'homogeneous' ? (row.source === 'canal-excavation' ? 90 : 10) : row.percentage
+  })) }
+}
+for (const mode of ['fixed', 'tiered', 'manual']) {
+  const selectedMode = { ...userSourcedCanal, design: { ...userSourcedCanal.design, bankConfig: { ...userSourcedCanal.design.bankConfig, mode } } }
+  assert.deepEqual(canal.canalEffectiveBankAllocations(selectedMode, 'homogeneous').map(row => row.percentage), [90, 10], `${mode} preserves chosen sources despite zero suitable excavation`)
+}
 near(
   canal.canalStrippedOrCutLevelAt({ ...makeCanal(), strippingDepth: 0.6 }, cutSection, 0),
   100,
@@ -737,6 +765,16 @@ assert.deepEqual(cutCleared.children[0].canal.materialItems, [], 'registry empti
 // Fill canal: homogeneous bank fill goes to the borrow-area item.
 const fillSynced = canal.syncCanalItems(canalComponent(fillTwo), 'c')
 near(itemByCode(fillSynced, 'IRR-CAW-2-7').computedQuantity, 6115.5, 1, 'bank fill including the stripped depth reaches the estimate')
+// Choosing reused material is an estimator decision, even with no canal cutting.
+const fillUsingExcavation = { ...fillTwo, design: { ...fillTwo.design, bankMaterialAllocations: fillTwo.design.bankMaterialAllocations.map(row => ({
+  ...row, percentage: row.zone === 'homogeneous' ? (row.source === 'canal-excavation' ? 100 : 0) : row.percentage
+})) } }
+near(canal.canalEarthworkTotals(fillUsingExcavation).excavation, 0, 1e-9, 'fill-only fixture has no canal excavation supply')
+const userSourceSynced = canal.syncCanalItems(canalComponent(fillUsingExcavation), 'c')
+near(itemByCode(userSourceSynced, 'IRR-CAW-4-4').computedQuantity, 6115.5, 1, 'full chosen reuse quantity reaches the estimate without an excavation cap')
+assert.equal(itemByCode(userSourceSynced, 'IRR-CAW-2-7'), undefined, 'zero borrow share does not silently fill a shortage')
+const roundTripSource = canal.migrateCanalData(JSON.parse(JSON.stringify(fillUsingExcavation)))
+near(canal.canalEffectiveBankAllocations(roundTripSource, 'homogeneous').find(row => row.source === 'canal-excavation').percentage, 100, 1e-9, 'chosen excess reuse share survives save/load')
 
 // Repair canal: stripping is classified with the cut bands.
 const repairFill = { ...levelMake(), mode: 'repair', sections: fillTwo.sections }
@@ -1311,3 +1349,59 @@ const closeBermData = { ...tieredNoRoad, design: { ...tieredNoRoad.design, bankC
 const closeBermProfile = canal.canalDesignProfile(closeBermData, fillSection)
 assert.ok(closeBermProfile.some((p,i) => i > 0 && Math.abs(p.rl - 99.5) < 1e-6 && Math.abs(closeBermProfile[i-1].rl - p.rl) < 1e-6 && Math.abs(p.offset - closeBermProfile[i-1].offset) >= 0.99), 'tier berm remains at 0.5 m above ground')
 assert.deepEqual(closeBermProfile, canal.canalDesignProfile({ ...closeBermData, design: { ...closeBermData.design, bankConfig: { ...closeBermData.design.bankConfig, minClearanceToGround: 0 } } }, fillSection), 'old saved clearance settings do not change geometry')
+
+// Strata saving and section population are distinct user actions.
+const { saveCanalStrataRows, populateCanalSelectedSections, canalSectionEntryGround } = require('../src/renderer/src/lib/canalErmSections.ts')
+const ermSaveBase = canal.defaultCanalData()
+ermSaveBase.lengthM = 100
+ermSaveBase.design.bedLevelAtStart = 100
+const ermSaveRows = [
+  { chainage: 0, topRl: 111, bottoms: [108, 105, 101], end: 'hard-rock', hardRockBottomRl: 81 },
+  { chainage: 100, topRl: 90, bottoms: [87, null, 83], end: 'hard-rock', hardRockBottomRl: 60 }
+]
+const ermSavedSections = saveCanalStrataRows(ermSaveBase, ermSaveRows)
+assert.equal(ermSavedSections.sections.length, 2)
+assert.ok(ermSavedSections.sections.every(s => s.designPopulated === false && s.ground.length === 0 && s.leftToeRl == null))
+assert.deepEqual(ermSavedSections.sections.map(s => canalSectionEntryGround(s).left), [111, 90], 'Saved Top RL supplies each section ground entry')
+assert.ok(ermSavedSections.sections[0].strata.length > 0)
+assert.equal(saveCanalStrataRows(ermSavedSections, ermSaveRows).sections.length, 2, 'Save all updates matching chainages without duplicates')
+const populatedErm = populateCanalSelectedSections(ermSavedSections, new Set(ermSavedSections.sections.map(s => s.id)))
+assert.equal(populatedErm.populated, 2)
+assert.equal(populatedErm.skipped, 0)
+assert.ok(populatedErm.data.sections.every(s => s.designPopulated && s.ground.length >= 2 && s.designPointOffsets.length > 1))
+assert.deepEqual(populatedErm.data.sections.map(s => s.leftToeRl), [111, 90], 'Bulk population uses per-chainage Top RL')
+const oneErm = populateCanalSelectedSections(ermSavedSections, new Set([ermSavedSections.sections[0].id]))
+assert.equal(oneErm.populated, 1)
+assert.equal(oneErm.data.sections[1], ermSavedSections.sections[1], 'Unselected sections remain untouched')
+const surveyedErm = { ...ermSaveBase, sections: [{ id: 'survey', chainage: 0, ground: [{offset:-50,rl:101},{offset:0,rl:102},{offset:50,rl:103}], designPopulated: false }] }
+const savedSurvey = saveCanalStrataRows(surveyedErm, ermSaveRows)
+assert.deepEqual(savedSurvey.sections[0].ground, surveyedErm.sections[0].ground, 'surveyed ground is retained')
+assert.equal(savedSurvey.sections[0].id, 'survey')
+assert.equal(savedSurvey.sections[0].designPopulated, false, 'Strata save does not populate surveyed sections')
+const populatedSurvey = populateCanalSelectedSections(savedSurvey, new Set(['survey'])).data
+assert.deepEqual(populatedSurvey.sections[0].ground, surveyedErm.sections[0].ground, 'Bulk population preserves detailed surveyed ground')
+assert.equal(populatedSurvey.sections[0].designPopulated, true)
+assert.equal(saveCanalStrataRows(ermSaveBase, [{ ...ermSaveRows[0], bottoms: [112,105,101] }]), ermSaveBase, 'invalid rows do not save partial strata')
+assert.equal(saveCanalStrataRows(ermSaveBase, [{ ...ermSaveRows[0], chainage: 101 }]), ermSaveBase, 'out-of-canal rows are rejected')
+const missingLevels = { ...ermSaveBase, sections: [{id:'missing',chainage:0,ground:[],designPopulated:false}, {id:'zero',chainage:100,ground:[],designPopulated:false,strataTopRl:0}] }
+const populatedMissing = populateCanalSelectedSections(missingLevels, new Set(['missing','zero']))
+assert.equal(populatedMissing.populated, 1)
+assert.equal(populatedMissing.skipped, 1)
+assert.equal(populatedMissing.data.sections[0], missingLevels.sections[0])
+assert.equal(populatedMissing.data.sections[1].leftToeRl, 0, 'Top RL zero is valid, not blank')
+const existingGeometry = { ...ermSaveBase, sections: [{ ...populatedErm.data.sections[0], designPointOffsets:[-10,0,10] }] }
+const savedOnly = saveCanalStrataRows(existingGeometry, [ermSaveRows[0]])
+assert.deepEqual(savedOnly.sections[0].ground, existingGeometry.sections[0].ground)
+assert.deepEqual(savedOnly.sections[0].designPointOffsets, [-10,0,10], 'Save does not regenerate existing profiles')
+assert.equal(savedOnly.sections[0].designPopulated, true)
+const bulkBase = {...ermSaveBase,lengthM:60964,intervalM:25}
+bulkBase.sections = canal.materializeCanalSections(bulkBase, [])
+const bulkRows = bulkBase.sections.map(s => ({chainage:s.chainage,topRl:100-60*Math.sin(Math.PI*s.chainage/60964)**2,bottoms:[null,null,null],end:'hard-rock',hardRockBottomRl:0}))
+const bulkSaved = saveCanalStrataRows(bulkBase, bulkRows)
+assert.ok(bulkSaved.sections.every(s => !s.designPopulated && s.ground.length===0))
+const bulkPopulated = populateCanalSelectedSections(bulkSaved, new Set(bulkSaved.sections.map(s=>s.id)))
+assert.equal(bulkPopulated.populated, 2440)
+assert.equal(bulkPopulated.skipped, 0)
+assert.equal(bulkPopulated.data.sections.at(-1).chainage, 60964)
+assert.ok(bulkPopulated.data.sections.every(s=>s.designPopulated && s.ground.length>=2 && s.designPointOffsets.length>1 && s.leftToeRl===s.strataTopRl))
+console.log('ERM Save all: levels only; selected section population, per-chainage Top RL, survey retention, missing levels and 2,440-chainage bulk population passed')

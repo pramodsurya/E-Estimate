@@ -26,6 +26,8 @@ import {
   searchSorCatalogueItems,
   singletonSorDimensions,
   sorCommercialTerms,
+  sorPublishedReference,
+  sorPublishedReferenceLabel,
   sourceContextTitle,
   visibleSorDimensions,
   type SorCatalogue,
@@ -407,6 +409,7 @@ export default function SorCatalogueColumn({
       source: match.source,
       sourcePage: match.source_page,
       sourceTitle: sourceContextTitle(match.source_context),
+      publishedReference: sorPublishedReference(catalogue.name, match.source_context, match.dimensions),
       commercialTerms,
       ...(pipeLead ? { pipeLead } : {})
     }
@@ -707,7 +710,7 @@ function CatalogueResult({
       </div>
       <div className="sor-result-heading">
         <div>
-          <small>{catalogue.name}</small>
+          <small>{sorPublishedReferenceLabel(sorPublishedReference(catalogue.name, match.source_context, match.dimensions))}</small>
           <strong>{match.item_name}</strong>
         </div>
         <div className={match.rate === null ? 'reference' : ''}>

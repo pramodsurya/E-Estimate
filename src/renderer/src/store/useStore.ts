@@ -1289,10 +1289,13 @@ export const useStore = create<StoreState>((set, get) => {
         lng: vertex.lng
       }))
       const hasDrawnLine = drawnLine.length >= 2
-      const manualLengthM = Math.max(0, Math.round(extra?.manualLengthM ?? 0))
-      const presetLengthM = hasDrawnLine
-        ? Math.round(polylineLengthM(drawnLine))
-        : manualLengthM
+      const manualLengthM = Number.isFinite(extra?.manualLengthM)
+        ? Math.max(0, Math.round(extra?.manualLengthM ?? 0))
+        : 0
+      // Creation follows edit precedence: typed design length wins over map length.
+      const presetLengthM = manualLengthM > 0
+        ? manualLengthM
+        : hasDrawnLine ? Math.round(polylineLengthM(drawnLine)) : 0
       const hasGeometryPreset = hasDrawnLine || manualLengthM > 0
       const presetSource = hasDrawnLine ? ('map' as const) : ('manual' as const)
 

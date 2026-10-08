@@ -774,7 +774,7 @@ function ComponentAllowanceCard({
         <div className="component-location-text">
           <span className="component-section-label">Work location</span>
           <strong title={placeText}>{placeText}</strong>
-          <small>{effective.label} · {effective.percent.toFixed(2)}%{storedLengthText}</small>
+          <small>{effective.label} · {(Number(effective.percent) || 0).toFixed(2)}%{storedLengthText}</small>
         </div>
         <div className="component-location-actions">
           <button className="btn component-location-change" onClick={() => openEditGeometry(node.id)}>

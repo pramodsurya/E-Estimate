@@ -1,7 +1,8 @@
 import { supabase } from './supabase'
 import type {
   SorCatalogueCommercialTerms,
-  SorCatalogueDimensionValue
+  SorCatalogueDimensionValue,
+  SorPublishedReference
 } from '../types/project'
 
 export const SOR_CATALOGUE_CATEGORY = 'sor_catalogue'
@@ -320,4 +321,78 @@ export function sorCommercialTerms(
 
 export function sourceContextTitle(sourceContext: Record<string, unknown>): string | null {
   return typeof sourceContext.title === 'string' ? sourceContext.title : null
+}
+
+function printedText(value: unknown): string | undefined {
+  return typeof value === 'string' || typeof value === 'number'
+    ? String(value).trim() || undefined
+    : undefined
+}
+
+/** Read printed cells by their header, never from a hash, sort order or matrix row index. */
+export function sorPublishedReference(
+  catalogueName: string,
+  sourceContext: Record<string, unknown>,
+  dimensions: Record<string, SorCatalogueDimensionValue> = {}
+): SorPublishedReference {
+  const headers = Array.isArray(sourceContext.headers) ? sourceContext.headers : []
+  const row = Array.isArray(sourceContext.raw_row) ? sourceContext.raw_row : []
+  const cell = (names: string[]): string | undefined => {
+    const index = headers.findIndex((header) =>
+      names.includes(String(header).toLowerCase().replace(/[^a-z0-9]/g, ''))
+    )
+    return index >= 0 ? printedText(row[index]) : undefined
+  }
+  return {
+    tableName: printedText(sourceContext.table_name) || printedText(sourceContext.title) || catalogueName,
+    serialNumber: printedText(sourceContext.serial_number) || cell(['slno', 'sno', 'serialno', 'serialnumber']),
+    scheduleItemNumber: printedText(sourceContext.schedule_item_number) || cell(['ssitemno', 'ssitemnumber', 'itemno', 'itemnumber']),
+    rowLabel: printedText(dimensions.row_label),
+    columnLabel: printedText(dimensions.column_label)
+  }
+}
+
+export function sorPublishedReferenceLabel(reference: SorPublishedReference): string {
+  return [
+    reference.tableName,
+    reference.serialNumber ? `Sl. No. ${reference.serialNumber}` : reference.rowLabel,
+    !reference.serialNumber ? reference.columnLabel : undefined
+  ].filter(Boolean).join(' · ')
+}
+
+const referenceRequests = new Map<string, Promise<{ reference: SorPublishedReference; description: string; page: number | null } | null>>()
+
+/** Compatibility lookup for saved projects which predate printed-reference metadata. */
+export function fetchSorPublishedReference(itemCode: string, sorYear: string): Promise<{
+  reference: SorPublishedReference
+  description: string
+  page: number | null
+} | null> {
+  const key = JSON.stringify([itemCode, sorYear])
+  let request = referenceRequests.get(key)
+  if (!request) {
+    request = (async () => {
+      const [itemResult, rateResult, catalogues] = await Promise.all([
+        supabase.from('sor_catalogue_item').select('catalogue_code,name,dimensions,source_context').eq('item_code', itemCode).maybeSingle(),
+        supabase.from('sor_catalogue_rate').select('source_page').eq('item_code', itemCode).eq('sor_year', sorYear).maybeSingle(),
+        fetchSorCatalogues()
+      ])
+      if (itemResult.error) throw itemResult.error
+      if (rateResult.error) throw rateResult.error
+      if (!itemResult.data || !rateResult.data) return null
+      const item = itemResult.data
+      const catalogue = catalogues.find((candidate) => candidate.catalogue_code === item.catalogue_code)
+      if (!catalogue) return null
+      return {
+        reference: sorPublishedReference(catalogue.name, record(item.source_context), record(item.dimensions) as Record<string, SorCatalogueDimensionValue>),
+        description: String(item.name ?? ''),
+        page: finiteNumber(rateResult.data.source_page)
+      }
+    })().catch((error) => {
+      referenceRequests.delete(key)
+      throw error
+    })
+    referenceRequests.set(key, request)
+  }
+  return request
 }

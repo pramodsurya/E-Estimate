@@ -17,7 +17,8 @@
   repeat-header-rows: EE_PRINT.at("repeatHeaderRows", default: 0),
   show-gridlines: EE_PRINT.at("showGridlines", default: true),
   range-override: EE_PRINT.at("range", default: none),
-  images: EE.at("images", default: none)
+  images: EE.at("images", default: none),
+  column-scale: EE_PRINT.at("columnScale", default: 1)
 )
 
 #if EE.signature.len() > 0 [

@@ -1,23 +1,26 @@
-import { useState } from 'react'
-import { Layers, Shield, Sparkles, Check, ChevronRight, Droplets } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Droplets } from 'lucide-react'
 import type {
   CanalData,
-  CanalBankTier,
-  CanalBankDesignConfig,
-  CanalTierFoundationConfig
+  CanalTierFoundationConfig,
+  CanalDrainageReach
 } from '../../../../types/project'
 import {
-  defaultCanalBankDesignConfig,
   defaultCanalTierFoundationConfig,
-  canalSectionBankTier,
-  canalSectionBankFillHeight,
+  canalTierFoundationItems,
   canalTierFoundationQuantities,
   canalTierToeProtectionQuantities,
+  canalDesignProfile,
+  canalGroundLevelAt,
   orderedCanalSections
 } from '../../../../lib/canal'
 import CanalSectionDiagram from '../../CanalSectionDiagram'
 import SsrCode from '../../../templates/SsrCode'
 import { Details as ToeFilterDetails, ToeFilterSketch } from './CanalFiltersDrains'
+import { formatCanalReachChainage } from '../../../../lib/canalTierReaches'
+import { canalDrainageTiers, canalDrainageTierTreatment, canalDrainageWorkRanges, canalManualDrainageReaches, saveCanalDrainageTier, saveCanalManualDrainageReach, removeCanalManualDrainageReach } from '../../../../lib/canalDrainageDesign'
+import { bankProtectionSectionAt } from '../../../../lib/canalBankProtection'
+import { bankReachLabel } from './CanalBankReachPicker'
 
 const BLANKET_OPTIONS = [
   { value: 'none', label: 'None' },
@@ -28,9 +31,7 @@ const BLANKET_OPTIONS = [
 const n3 = (v: number | undefined | null): string =>
   (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 })
 
-function getTierBadgeText(tier: CanalBankTier): string {
-  const f = tier.foundationTreatment
-  if (!f) return 'No works'
+function getReachBadgeText(f: CanalTierFoundationConfig): string {
   const parts: string[] = []
   if (f.blanket !== 'none') parts.push(f.blanket === '5-4' ? '25cm Blanket' : 'Var Blanket')
   if (f.horizontalFilter) parts.push('Filter')
@@ -39,167 +40,38 @@ function getTierBadgeText(tier: CanalBankTier): string {
   return parts.length ? parts.join(' · ') : 'No works'
 }
 
-export default function CanalFoundationFilling({
-  data,
-  onCommit
-}: {
-  data: CanalData
-  onCommit: (update: (current: CanalData) => CanalData) => void
-}): JSX.Element {
-  const [activeSide, setActiveSide] = useState<'left' | 'right'>('left')
-  const [selectedTierId, setSelectedTierId] = useState<string>('')
-  const [selectedSectionId, setSelectedSectionId] = useState<string>('')
-
-  const bankConfig: CanalBankDesignConfig = data.design.bankConfig ?? defaultCanalBankDesignConfig(data.mode)
-  const isSymmetrical = bankConfig.linkSymmetrical
-  const activeTiers: CanalBankTier[] = isSymmetrical
-    ? (bankConfig.leftTiers ?? [])
-    : (activeSide === 'left' ? (bankConfig.leftTiers ?? []) : (bankConfig.rightTiers ?? []))
-
-  const sortedTiers = [...activeTiers].sort((a, b) => a.minFillHeight - b.minFillHeight)
-  const currentTier = sortedTiers.find((t) => t.id === selectedTierId) ?? sortedTiers[0]
-  const currentTierId = currentTier ? currentTier.id : ''
-  const treatment: CanalTierFoundationConfig = {
-    ...defaultCanalTierFoundationConfig(),
-    ...(currentTier?.foundationTreatment ?? {})
-  }
-
-  const patchTreatment = (patch: Partial<CanalTierFoundationConfig>): void => {
-    if (!currentTier) return
-    const updated: CanalTierFoundationConfig = { ...treatment, ...patch }
-    onCommit((current) => {
-      const cfg = current.design.bankConfig ?? defaultCanalBankDesignConfig(current.mode)
-      const updateList = (tiers: CanalBankTier[]): CanalBankTier[] =>
-        tiers.map((t) => (t.id === currentTier.id ? { ...t, foundationTreatment: updated } : t))
-      const isSym = cfg.linkSymmetrical
-      const newLeftTiers = (isSym || activeSide === 'left') ? updateList(cfg.leftTiers ?? []) : (cfg.leftTiers ?? [])
-      const newRightTiers = (isSym || activeSide === 'right') ? updateList(cfg.rightTiers ?? []) : (cfg.rightTiers ?? [])
-
-      return {
-        ...current,
-        design: {
-          ...current.design,
-          bankConfig: {
-            ...cfg,
-            leftTiers: newLeftTiers,
-            rightTiers: newRightTiers
-          }
-        }
-      }
-    })
-  }
-
-  const sections = orderedCanalSections(data)
-  const sectionsInTier = sections.filter((s) => {
-    if (s.designPopulated === false) return false
-    const leftT = canalSectionBankTier(data, s, 'left')
-    const rightT = canalSectionBankTier(data, s, 'right')
-    const leftMatches = leftT != null && leftT.id === currentTierId
-    const rightMatches = rightT != null && rightT.id === currentTierId
-    return isSymmetrical
-      ? leftMatches || rightMatches
-      : activeSide === 'left' ? leftMatches : rightMatches
-  })
-  const requestedPreviewSection = sections.find((s) => s.id === selectedSectionId)
-  const previewSection = requestedPreviewSection && sectionsInTier.some((section) => section.id === requestedPreviewSection.id)
-    ? requestedPreviewSection
-    : sectionsInTier[0]
-
-  const tierSummary = canalTierFoundationQuantities(data, currentTier?.id)
-  const grandSummary = canalTierFoundationQuantities(data)
-  const tierToeSummary = canalTierToeProtectionQuantities(data, currentTier?.id)
-  const grandToeSummary = canalTierToeProtectionQuantities(data)
-  const selectedToeFilterQuantity = treatment.toeFilterKind === '5-7'
-    ? tierToeSummary.toeFilterGradedVolume
-    : treatment.toeFilterKind === '5-12'
-      ? tierToeSummary.toeFilterFabric200Area
-      : tierToeSummary.toeFilterFabric250Area
-
-  return (
-    <section className="canal-chapter">
-      <header className="canal-v2-section-header">
-        <div>
-          <span className="canal-v2-section-kicker">Bund Drainage &amp; Filters</span>
-          <h2>Bund Drainage &amp; Filters</h2>
-          <p>
-            Configure sand blankets and internal drainage filters by bank height tier.
-            Works apply automatically to cross-sections matching each tier bracket.
-          </p>
-        </div>
-      </header>
-
-      {/* Symmetrical vs Left/Right Selector (if asymmetrical) */}
-      {!isSymmetrical && (
-        <div className="canal-bank-side-pills" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <button
-            type="button"
-            className={`canal-tier-zoning-pill ${activeSide === 'left' ? 'active-zoned' : ''}`}
-            onClick={() => setActiveSide('left')}
-          >
-            Left Bund Tiers
-          </button>
-          <button
-            type="button"
-            className={`canal-tier-zoning-pill ${activeSide === 'right' ? 'active-zoned' : ''}`}
-            onClick={() => setActiveSide('right')}
-          >
-            Right Bund Tiers
-          </button>
-        </div>
-      )}
-
-      {/* Height Tier Continuum / Selector */}
-      <div className="canal-tier-continuum" style={{ marginBottom: 16 }}>
-        <div className="canal-tier-continuum-header">
-          <strong>Bank Height Tiers</strong>
-          <span>Click a tier to configure its blanket and internal filters</span>
-        </div>
-        <div className="canal-tier-bracket-track">
-          {sortedTiers.map((tier) => {
-            const isSelected = tier.id === (currentTier?.id ?? '')
-            const badge = getTierBadgeText(tier)
-            const hasWorks = badge !== 'No works'
-            return (
-              <button
-                key={tier.id}
-                type="button"
-                className={`canal-tier-bracket-chip ${tier.sectionType === 'zoned' ? 'is-zoned' : 'is-homogeneous'} ${isSelected ? 'selected' : ''}`}
-                onClick={() => setSelectedTierId(tier.id)}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <strong>{tier.name}</strong>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      padding: '2px 6px',
-                      borderRadius: 4,
-                      background: hasWorks ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                      color: hasWorks ? '#4ade80' : 'var(--text-dim)'
-                    }}
-                  >
-                    {badge}
-                  </span>
-                </div>
-                <small>
-                  {tier.minFillHeight} m → {tier.maxFillHeight < 9000 ? `${tier.maxFillHeight} m` : 'above'}
-                </small>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {currentTier && (
-        <div className="canal-earthwork-card" style={{ display: 'grid', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
-            <div>
-              <strong style={{ fontSize: 16 }}>{currentTier.name} Drainage &amp; Filter Settings</strong>
-              <div style={{ color: 'var(--text-dim)', fontSize: 12 }}>
-                Height range: {currentTier.minFillHeight} m to {currentTier.maxFillHeight < 9000 ? `${currentTier.maxFillHeight} m` : 'top'} · {sectionsInTier.length} sections in this tier
-              </div>
-            </div>
-          </div>
-
+function ReachDrainageEditor({ data, activeSide, ranges, title, saved, startEditing = false, onSave, onCancel, projectItems, grandToeSummary }: { data: CanalData; activeSide: 'left' | 'right'; ranges: Array<{ from: number; to: number }>; title: string; saved: CanalTierFoundationConfig; startEditing?: boolean; onSave: (patch: Partial<CanalTierFoundationConfig>) => boolean; onCancel?: () => void; projectItems: ReturnType<typeof canalTierFoundationItems>; grandToeSummary: ReturnType<typeof canalTierToeProtectionQuantities> }): JSX.Element {
+  const [draft, setDraft] = useState<Partial<CanalTierFoundationConfig> | null>(startEditing ? {} : null)
+  const [previewChainage, setPreviewChainage] = useState(ranges[0]?.from ?? 0)
+  const isSymmetrical = data.design.bankConfig?.linkSymmetrical
+  const treatment = { ...saved, ...draft }
+  const patchTreatment = (patch: Partial<CanalTierFoundationConfig>): void => setDraft(current => current ? { ...current, ...patch } : current)
+  const stations = useMemo(() => [...new Set(ranges.flatMap(r => [r.from, ...orderedCanalSections(data).filter(s => s.chainage >= r.from && s.chainage < r.to && s.designPopulated !== false && s.ground.length >= 2).map(s => s.chainage), r.to]))].sort((a,b) => a-b), [data, ranges])
+  const previewSection = useMemo(() => {
+    const section = bankProtectionSectionAt(data, previewChainage)
+    if (!section || !ranges.length) return undefined
+    const ending = ranges.find(r => r.to === previewChainage)
+    const lookup = ending ? Math.max(ending.from, previewChainage - 1e-6) : previewChainage
+    const preview = { ...section, bankReachLookupChainageBySide: isSymmetrical ? { left: lookup, right: lookup } : { [activeSide]: lookup } }
+    const profile = canalDesignProfile(data, preview)
+    if (profile.length < 2) return preview
+    const from = Math.min(...profile.map(p => p.offset)), to = Math.max(...profile.map(p => p.offset))
+    const margin = Math.max(2, (to - from) * .12)
+    const ground = [from - margin, ...preview.ground.map(p => p.offset).filter(x => x > from - margin && x < to + margin), to + margin].flatMap(offset => {
+      const rl = canalGroundLevelAt(preview.ground, offset)
+      return rl == null ? [] : [{ offset, rl }]
+    }).sort((a,b) => a.offset-b.offset)
+    return ground.length >= 2 ? { ...preview, ground } : preview
+  }, [data, previewChainage, ranges, isSymmetrical, activeSide])
+  const { tierSummary, tierToeSummary } = useMemo(() => {
+    const scope = { from: 0, to: data.lengthM, ranges, side: isSymmetrical ? undefined : activeSide }
+    return { tierSummary: canalTierFoundationQuantities(data, undefined, scope), tierToeSummary: canalTierToeProtectionQuantities(data, undefined, scope) }
+  }, [data, ranges, isSymmetrical, activeSide])
+  const selectedToeFilterQuantity = saved.toeFilterKind === '5-7' ? tierToeSummary.toeFilterGradedVolume : saved.toeFilterKind === '5-12' ? tierToeSummary.toeFilterFabric200Area : tierToeSummary.toeFilterFabric250Area
+  return <div className="canal-earthwork-card" style={{ display: 'grid', gap: 16 }}>
+    <header><h3>{title} · {isSymmetrical ? 'Both banks' : activeSide === 'left' ? 'Left bank' : 'Right bank'}</h3><p>Edit the settings, then save to recalculate. Quantities and the diagram show saved settings.</p></header>
+    <div className="canal-protection-choices">{draft ? <><button key="save" type="button" onClick={() => { if (onSave(draft)) setDraft(null) }}>Save drainage &amp; filters</button><button key="cancel" type="button" onClick={() => { setDraft(null); onCancel?.() }}>Cancel</button></> : <button key="edit" type="button" onClick={() => setDraft({})}>Edit drainage &amp; filters</button>}</div>
+    <fieldset className="canal-reach-work-fields" disabled={!draft}>
           <div className="canal-foundation-work-groups">
             {/* 1. Sand Blanket Card */}
             <section className="canal-foundation-work-group group-blanket">
@@ -408,11 +280,11 @@ export default function CanalFoundationFilling({
                   <div className="canal-preview-stack">
                     <ToeFilterSketch kind={treatment.toeFilterKind} width={treatment.toeFilterWidth} depth={treatment.toeFilterDepth} />
                     <div className="canal-live-quantity">
-                      <span>Selected tier toe-filter quantity</span>
-                      <SsrCode code={`IRR-CAW-${treatment.toeFilterKind}`} />
-                      <strong>{n3(selectedToeFilterQuantity)} {treatment.toeFilterKind === '5-7' ? 'CUM' : 'SQM'}</strong>
+                      <span>Saved reach toe-filter quantity</span>
+                      <SsrCode code={`IRR-CAW-${saved.toeFilterKind}`} />
+                      <strong>{n3(selectedToeFilterQuantity)} {saved.toeFilterKind === '5-7' ? 'CUM' : 'SQM'}</strong>
                     </div>
-                    <ToeFilterDetails kind={treatment.toeFilterKind} quantity={selectedToeFilterQuantity} />
+                    <ToeFilterDetails kind={saved.toeFilterKind} quantity={selectedToeFilterQuantity} />
                   </div>
                   <div className="canal-control-stack">
                     <label className="canal-bank-field">
@@ -447,41 +319,20 @@ export default function CanalFoundationFilling({
             </section>
           </div>
 
-          {/* Cross-Section Live Preview */}
+    </fieldset>
+          {/* Actual selected-reach cross-section using saved settings. */}
           <div className="canal-foundation-section-preview" style={{ marginTop: 12 }}>
+            <p className="canal-protection-help">{data.sections.some(s => s.chainage === previewChainage && s.designPopulated !== false && s.ground.length >= 2) ? 'Uses saved section ground levels.' : 'Ground at this reach boundary is interpolated between adjoining populated sections.'} The cross-section shows saved drainage and filters.</p>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <label className="canal-bank-field" style={{ minWidth: 320, maxWidth: 500 }}>
                 <span>Cross-section preview</span>
-                <select
-                  value={previewSection?.id ?? ''}
-                  onChange={(e) => setSelectedSectionId(e.target.value)}
-                >
-                  {sectionsInTier.map((s, idx) => {
-                    const lTier = canalSectionBankTier(data, s, 'left')
-                    const rTier = canalSectionBankTier(data, s, 'right')
-                    const leftMatches = lTier?.id === currentTierId
-                    const rightMatches = rTier?.id === currentTierId
-                    const matchingBanks = isSymmetrical
-                      ? [leftMatches ? 'L' : '', rightMatches ? 'R' : ''].filter(Boolean).join('+')
-                      : activeSide === 'left' ? 'L' : 'R'
-                    const matchingFillHeights = isSymmetrical
-                      ? [
-                          leftMatches ? canalSectionBankFillHeight(data, s, 'left') : null,
-                          rightMatches ? canalSectionBankFillHeight(data, s, 'right') : null
-                        ].filter((height): height is number => height != null)
-                      : [canalSectionBankFillHeight(data, s, activeSide)]
-                    const fillLabel = matchingFillHeights.map((height) => n3(height)).join(' / ')
-                    return (
-                      <option key={s.id} value={s.id}>
-                        {idx + 1} · Ch {n3(s.chainage)} m ({matchingBanks} Fill {fillLabel} m · {currentTier.name})
-                      </option>
-                    )
-                  })}
+                <select value={previewChainage} onChange={(e) => setPreviewChainage(Number(e.target.value))}>
+                  {stations.map(ch => <option key={ch} value={ch}>{formatCanalReachChainage(ch)}</option>)}
                 </select>
               </label>
               {previewSection && (
                 <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-                  Active section: Ch {n3(previewSection.chainage)} m · {currentTier.name} · Blanket {treatment.blanket === 'none' ? 'not enabled' : `${treatment.blanket === '5-4' ? '0.25' : n3(treatment.blanketThickness)} m`}
+                  Active section: {formatCanalReachChainage(previewChainage)}
                 </div>
               )}
             </div>
@@ -493,36 +344,88 @@ export default function CanalFoundationFilling({
                 showFoundationExcavation={false}
               />
             ) : (
-              <div className="canal-diagram-empty">No populated cross-section currently matches {currentTier.name}.</div>
+              <div className="canal-diagram-empty">No populated cross-section is available at this chainage.</div>
             )}
           </div>
 
           {/* Quantities Summary */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 8 }}>
             <div className="canal-earthwork-summary" style={{ display: 'grid', gap: 6, padding: 14, borderRadius: 8, background: 'var(--surface-2)' }}>
-              <strong style={{ fontSize: 13, color: 'var(--accent)' }}>{currentTier.name} Quantities</strong>
+              <strong style={{ fontSize: 13, color: 'var(--accent)' }}>Selected drainage quantities</strong>
               <div style={{ display: 'grid', gap: 4, fontSize: 12 }}>
                 <span>Sand blanket: <strong>{n3(tierSummary.blanketQuantity)} {tierSummary.blanketUnit}</strong></span>
                 <span>Horizontal filter drain: <strong>{n3(tierSummary.filterVolume)} cu.m</strong></span>
                 <span>Chimney filter: <strong>{n3(tierSummary.chimneyVolume)} cu.m</strong></span>
-                <span>Subsurface toe filter: <strong>{n3(selectedToeFilterQuantity)} {treatment.toeFilterKind === '5-7' ? 'cu.m' : 'sq.m'}</strong></span>
+                <span>Subsurface toe filter: <strong>{n3(selectedToeFilterQuantity)} {saved.toeFilterKind === '5-7' ? 'cu.m' : 'sq.m'}</strong></span>
               </div>
             </div>
 
             <div className="canal-earthwork-summary" style={{ display: 'grid', gap: 6, padding: 14, borderRadius: 8, background: 'var(--surface-2)' }}>
               <strong style={{ fontSize: 13, color: 'var(--text)' }}>Total Project Bund Drainage Quantities</strong>
               <div style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-                <span>Sand blanket ({grandSummary.blanketCode}): <strong>{n3(grandSummary.blanketQuantity)} {grandSummary.blanketUnit}</strong></span>
-                <span>Horizontal filter drain (IRR-CAW-5-7): <strong>{n3(grandSummary.filterVolume)} cu.m</strong></span>
-                <span>Chimney filter (IRR-CAW-5-10): <strong>{n3(grandSummary.chimneyVolume)} cu.m</strong></span>
+                {projectItems.map(item => <span key={`${item.role}:${item.code}`}>{item.label} ({item.code}): <strong>{n3(item.quantity)} {item.unit}</strong></span>)}
                 <span>Toe filter (IRR-CAW-5-7): <strong>{n3(grandToeSummary.toeFilterGradedVolume)} cu.m</strong></span>
                 <span>Toe filter (IRR-CAW-5-12): <strong>{n3(grandToeSummary.toeFilterFabric200Area)} sq.m</strong></span>
                 <span>Toe filter (IRR-CAW-5-13): <strong>{n3(grandToeSummary.toeFilterFabric250Area)} sq.m</strong></span>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </section>
-  )
+  </div>
+}
+
+export default function CanalFoundationFilling({ data, onCommit }: { data: CanalData; onCommit: (update: (current: CanalData) => CanalData) => void }): JSX.Element {
+  const [side, setSide] = useState<'left' | 'right'>('left')
+  const [selectedId, setSelectedId] = useState('')
+  const [editing, setEditing] = useState<{ id: string; from: string; to: string; original?: CanalDrainageReach } | null>(null)
+  const [error, setError] = useState('')
+  const config = data.design.bankConfig
+  const mode = data.design.bankDrainage?.mode ?? 'programmatic'
+  const tiers = useMemo(() => canalDrainageTiers(data, side), [data, side])
+  const ranges = useMemo(() => canalDrainageWorkRanges(data.design.bankDrainage ? data : { ...data, design: { ...data.design, bankDrainage: { mode: 'programmatic' } } }, side), [data, side])
+  const manual = useMemo(() => canalManualDrainageReaches(data, side), [data, side])
+  const selectedTier = tiers.find(t => t.id === selectedId) ?? tiers[0]
+  const selectedManual = manual.find(r => r.id === selectedId) ?? manual[0]
+  const editorRange = editing ? editing.original : selectedManual
+  const editorRanges = useMemo(() => mode === 'programmatic'
+    ? ranges.filter(r => r.tierId === selectedTier?.id)
+    : editorRange ? [editorRange] : [], [mode, ranges, selectedTier?.id, editorRange])
+  const projectItems = useMemo(() => canalTierFoundationItems(data), [data])
+  const grandToeSummary = useMemo(() => canalTierToeProtectionQuantities(data), [data])
+  const chooseMode = (next: 'programmatic' | 'manual'): void => {
+    if (mode === next) return
+    setSelectedId(''); setEditing(null); setError('')
+    onCommit(current => ({ ...current, design: { ...current.design, bankDrainage: { ...current.design.bankDrainage, mode: next } } }))
+  }
+  const saveManual = (patch: Partial<CanalTierFoundationConfig>): boolean => {
+    const row = editing ? { id: editing.id, from: Number(editing.from), to: Number(editing.to), treatment: { ...editing.original?.treatment, ...patch } }
+      : selectedManual ? { ...selectedManual, treatment: { ...selectedManual.treatment, ...patch } } : undefined
+    if (!row) return false
+    const result = editing && (!editing.from.trim() || !editing.to.trim())
+      ? { error: 'Enter both From and To chainages.' } : saveCanalManualDrainageReach(data, side, row)
+    if (result.error) { setError(result.error); return false }
+    onCommit(current => saveCanalManualDrainageReach(current, side, row).data)
+    setSelectedId(row.id); setEditing(null); setError(''); return true
+  }
+  return <section className="canal-chapter canal-bank-protection">
+    <header className="canal-v2-section-header"><div><span className="canal-v2-section-kicker">Bund Drainage &amp; Filters</span><h2>Bund Drainage &amp; Filters</h2><p>Choose height tier design or create your own drainage reaches.</p></div></header>
+    <div className="canal-drainage-modes" aria-label="Drainage design mode">
+      <button type="button" className={`canal-tier-bracket-chip ${mode === 'programmatic' ? 'selected' : ''}`} aria-pressed={mode === 'programmatic'} onClick={() => chooseMode('programmatic')}><strong>Programmatic height tier design</strong><span>Configure Low, Medium and High Bund tiers. Height brackets follow Bank Design.</span></button>
+      <button type="button" className={`canal-tier-bracket-chip ${mode === 'manual' ? 'selected' : ''}`} aria-pressed={mode === 'manual'} onClick={() => chooseMode('manual')}><strong>Manual reach design</strong><span>Create From–To reaches and choose the drainage works for each reach.</span></button>
+    </div>
+    <div className="canal-protection-context">{config?.linkSymmetrical ? 'Linked banks · the same choices apply to both banks.' : 'Independent banks · configure each bank separately.'}</div>
+    {!config?.linkSymmetrical && <div className="canal-bank-side-pills"><button type="button" aria-pressed={side === 'left'} onClick={() => { setSide('left'); setSelectedId(''); setEditing(null); setError('') }}>Left bank</button><button type="button" aria-pressed={side === 'right'} onClick={() => { setSide('right'); setSelectedId(''); setEditing(null); setError('') }}>Right bank</button></div>}
+    {mode === 'programmatic' ? <>
+      <div className="canal-protection-reach-cards" aria-label="Drainage height tiers">{tiers.map(tier => {
+        const assigned = ranges.filter(r => r.tierId === tier.id)
+        return <button key={tier.id} type="button" className={`canal-tier-bracket-chip ${selectedTier?.id === tier.id ? 'selected' : ''}`} aria-pressed={selectedTier?.id === tier.id} onClick={() => setSelectedId(tier.id)}><strong>{tier.name}</strong><span>{n3(tier.minFillHeight)} m – {tier.maxFillHeight >= 9999 ? 'Max (∞)' : `${n3(tier.maxFillHeight)} m`}</span><small>{getReachBadgeText(canalDrainageTierTreatment(data, side, tier.id))}</small>{assigned.map(r => <small key={r.id}>{bankReachLabel(r)}</small>)}{!assigned.length && <small>No reaches in this tier.</small>}</button>
+      })}</div>
+      {selectedTier && <ReachDrainageEditor key={`tier:${side}:${selectedTier.id}`} data={data} activeSide={side} title={selectedTier.name} ranges={editorRanges} saved={canalDrainageTierTreatment(data, side, selectedTier.id)} projectItems={projectItems} grandToeSummary={grandToeSummary} onSave={patch => { onCommit(current => saveCanalDrainageTier(current, side, selectedTier.id, patch)); return true }}/>}
+    </> : <>
+      <div className="canal-drainage-reach-toolbar"><strong>Total canal length: {n3(data.lengthM)} m · {manual.length} {manual.length === 1 ? 'reach' : 'reaches'} created</strong><button type="button" onClick={() => { setEditing({ id: crypto.randomUUID(), from: String(manual.at(-1)?.to ?? 0), to: '' }); setError('') }}>Add drainage reach</button></div>
+      <div className="canal-protection-reach-cards" aria-label="Manual drainage reaches">{manual.map((reach, index) => <div key={reach.id} className="canal-earthwork-card"><button type="button" className={`canal-tier-bracket-chip ${selectedManual?.id === reach.id ? 'selected' : ''}`} aria-pressed={selectedManual?.id === reach.id} onClick={() => { setSelectedId(reach.id); setEditing(null); setError('') }}><strong>Reach {index + 1}</strong><span>{bankReachLabel(reach)}</span><small>Length {n3(reach.to - reach.from)} m</small><small>{getReachBadgeText({ ...defaultCanalTierFoundationConfig(), ...reach.treatment })}</small></button><div className="canal-protection-choices"><button type="button" onClick={() => { setSelectedId(reach.id); setEditing({ id: reach.id, from: String(reach.from), to: String(reach.to), original: reach }); setError('') }}>Edit reach</button><button type="button" onClick={() => { onCommit(current => removeCanalManualDrainageReach(current, side, reach.id)); setEditing(null); setError('') }}>Remove reach</button></div></div>)}</div>
+      {editing && <div className="canal-earthwork-card"><h3>{editing.original ? 'Edit drainage reach' : 'Create drainage reach'}</h3><div className="canal-bank-grid"><label className="canal-bank-field"><span>From Ch (m)</span><input type="number" min="0" max={data.lengthM} step="1" value={editing.from} onChange={e => setEditing({ ...editing, from: e.target.value })}/></label><label className="canal-bank-field"><span>To Ch (m)</span><input type="number" min="0" max={data.lengthM} step="1" value={editing.to} onChange={e => setEditing({ ...editing, to: e.target.value })}/></label></div><p>Choose the works below, then save this reach.</p></div>}
+      {error && <p role="alert" className="canal-protection-pending">{error}</p>}
+      {(editing || selectedManual) ? <ReachDrainageEditor key={`manual:${side}:${editing ? `edit-${editing.id}` : selectedManual?.id}`} data={data} activeSide={side} title={editing ? editing.original ? 'Edit reach drainage & filters' : 'New reach drainage & filters' : bankReachLabel(selectedManual!)} ranges={editorRanges} saved={{ ...defaultCanalTierFoundationConfig(), ...(editing ? editing.original?.treatment : selectedManual?.treatment) }} startEditing={!!editing} onSave={saveManual} onCancel={() => { setEditing(null); setError('') }} projectItems={projectItems} grandToeSummary={grandToeSummary}/> : <p className="canal-protection-pending">Create a drainage reach to configure its sand blanket and filters.</p>}
+    </>}
+  </section>
 }

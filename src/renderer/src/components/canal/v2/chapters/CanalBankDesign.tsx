@@ -1,30 +1,32 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Plus, Trash2, Sparkles, Layers, Link2, Unlink, ChevronLeft, ChevronRight, Check, AlertCircle } from 'lucide-react'
 import type {
-  CanalBankMaterialAllocation,
-  CanalBankMaterialSource,
   CanalBankMaterialZone,
   CanalBerm,
   CanalData,
   CanalDesign,
   CanalSection,
   CanalBankTier,
+  CanalBankReach,
   CanalBankBermStep,
   CanalBankDesignConfig
 } from '../../../../types/project'
 import CanalSectionDiagram from '../../CanalSectionDiagram'
 import { newId } from '../../../../lib/tree'
+import CanalBankReachEditor from './CanalBankReachEditor'
+import CanalManualReachDesigner, { type CanalManualReachDraft } from './CanalManualReachDesigner'
+import CanalTierHeightEditor from './CanalTierHeightEditor'
+import CanalBankMaterialEditor from './CanalBankMaterialEditor'
+import { saveCanalBankTierHeightRange } from '../../../../lib/canalBankTiers'
+import { switchCanalBankDesignMode } from '../../../../lib/canalManualBankReaches'
+import { formatCanalReachChainage } from '../../../../lib/canalTierReaches'
 import {
-  CANAL_BANK_ITEM_OPTIONS,
-  canalBankItemForAllocation,
-  canalEffectiveBankAllocations,
   canalBankRepairItems,
   canalBankVolumeTotals,
   canalEarthworkTotals,
-  canalSuitableBankExcavation,
   recommendedCanalCrestWidth,
   defaultCanalBankDesignConfig,
-  selectCanalBankTier,
+  canalSectionBankTier,
   canalBedLevelAt,
   canalSectionDepth,
   canalGroundProfileBetweenToes
@@ -59,12 +61,6 @@ function NumberField({
   )
 }
 
-const SOURCE_LABELS: Record<CanalBankMaterialSource, string> = {
-  'canal-excavation': 'Suitable canal-excavation material',
-  'dump-area': 'Approved dump area',
-  'borrow-area': 'Approved borrow area'
-}
-
 const REPAIR_ITEM_LABELS: Record<string, string> = {
   'IRR-PMW-3-17': 'Homogeneous formation, placed without compaction',
   'IRR-PMW-3-18': 'Compaction of homogeneous formation to 95%',
@@ -76,17 +72,6 @@ const ZONE_LABELS: Record<CanalBankMaterialZone, string> = {
   homogeneous: 'Homogeneous bank fill',
   hearting: 'Impervious hearting',
   casing: 'Casing / homogeneous bank soil'
-}
-
-function availableSources(zone: CanalBankMaterialZone): CanalBankMaterialSource[] {
-  return [...new Set(CANAL_BANK_ITEM_OPTIONS.filter((option) => option.zone === zone).map((option) => option.source))]
-}
-
-function compatibleAllocation(allocation: CanalBankMaterialAllocation): CanalBankMaterialAllocation {
-  if (canalBankItemForAllocation(allocation)) return allocation
-  const fallback = CANAL_BANK_ITEM_OPTIONS.find((option) => option.zone === allocation.zone && option.source === allocation.source)
-    ?? CANAL_BANK_ITEM_OPTIONS.find((option) => option.zone === allocation.zone)
-  return fallback ? { ...allocation, source: fallback.source, compaction: fallback.compaction, watering: fallback.watering } : allocation
 }
 
 function CoreConnection({ design, name, onCommit }: { design: CanalDesign; name: string; onCommit: (patch: Partial<CanalDesign>) => void }): JSX.Element {
@@ -133,17 +118,24 @@ export default function CanalBankDesign({
   const [activeSide, setActiveSide] = useState<'left' | 'right'>('left')
   const [selectedSectionId, setSelectedSectionId] = useState<string>('')
   const [selectedTierId, setSelectedTierId] = useState<string>('')
+  const [manualDraft, setManualDraft] = useState<CanalManualReachDraft | null>(null)
 
   const bankConfig: CanalBankDesignConfig = design.bankConfig ?? defaultCanalBankDesignConfig(data.mode)
   const mode = bankConfig.mode
-  const isTiered = mode === 'tiered'
+  const isProgrammatic = mode === 'tiered'
+  const isManual = mode === 'manual'
+  const isTiered = isProgrammatic || isManual
   const linkSymmetrical = bankConfig.linkSymmetrical
   const activeTiers = linkSymmetrical
     ? (bankConfig.leftTiers ?? [])
     : (activeSide === 'left' ? (bankConfig.leftTiers ?? []) : (bankConfig.rightTiers ?? []))
 
-  const sortedTiers = [...activeTiers].sort((a, b) => a.minFillHeight - b.minFillHeight)
-  const currentTier = sortedTiers.find((t) => t.id === selectedTierId) ?? sortedTiers[0]
+  const manualRows = linkSymmetrical || activeSide === 'left' ? bankConfig.leftManualReaches ?? [] : bankConfig.rightManualReaches ?? []
+  const sortedTiers = isManual ? [...manualRows].sort((a, b) => a.from - b.from).flatMap(r => {
+    const profile = activeTiers.find(t => t.id === r.tierId)
+    return r.status === 'fill' && profile ? [profile] : []
+  }) : [...activeTiers].sort((a, b) => a.minFillHeight - b.minFillHeight)
+  const currentTier = isManual && manualDraft ? manualDraft.profile : sortedTiers.find((t) => t.id === selectedTierId) ?? sortedTiers[0]
   const currentTierIdx = sortedTiers.findIndex((t) => t.id === currentTier?.id)
 
   const patchBankConfig = (patch: Partial<CanalBankDesignConfig>): void => {
@@ -151,37 +143,51 @@ export default function CanalBankDesign({
       bankConfig: { ...bankConfig, ...patch }
     })
   }
+  const changeMode = (next: CanalBankDesignConfig['mode']): void => {
+    onCommit({ bankConfig: switchCanalBankDesignMode(bankConfig, next, defaultCanalBankDesignConfig(data.mode)) })
+    setSelectedTierId(''); setManualDraft(null)
+  }
+
+  const saveReaches = (rows: CanalBankReach[]): void => {
+    const leftKey = isManual ? 'leftManualReaches' : 'leftReachOverrides'
+    const rightKey = isManual ? 'rightManualReaches' : 'rightReachOverrides'
+    patchBankConfig(linkSymmetrical ? { [leftKey]: rows, [rightKey]: rows } : { [activeSide === 'left' ? leftKey : rightKey]: rows })
+  }
+  const regenerateReaches = (): void => {
+    patchBankConfig(linkSymmetrical ? { leftReachOverrides: undefined, rightReachOverrides: undefined }
+      : activeSide === 'left' ? { leftReachOverrides: undefined } : { rightReachOverrides: undefined })
+  }
 
   // Tier operations
-  const updateTiers = (newTiers: CanalBankTier[]): void => {
+  const updateTiers = (newTiers: CanalBankTier[], recalculate = false): void => {
+    const reset = recalculate && isProgrammatic
+      ? linkSymmetrical ? { leftReachOverrides: undefined, rightReachOverrides: undefined }
+        : activeSide === 'left' ? { leftReachOverrides: undefined } : { rightReachOverrides: undefined }
+      : {}
     if (linkSymmetrical) {
-      patchBankConfig({ leftTiers: newTiers, rightTiers: newTiers })
+      patchBankConfig({ leftTiers: newTiers, rightTiers: newTiers, ...(isManual ? { leftManualTiers: newTiers, rightManualTiers: newTiers } : {}), ...reset })
     } else if (activeSide === 'left') {
-      patchBankConfig({ leftTiers: newTiers })
+      patchBankConfig({ leftTiers: newTiers, ...(isManual ? { leftManualTiers: newTiers } : {}), ...reset })
     } else {
-      patchBankConfig({ rightTiers: newTiers })
+      patchBankConfig({ rightTiers: newTiers, ...(isManual ? { rightManualTiers: newTiers } : {}), ...reset })
     }
   }
 
   const patchTier = (id: string, patch: Partial<CanalBankTier>): void => {
+    if (isManual && manualDraft?.profile.id === id) { setManualDraft({ ...manualDraft, profile: { ...manualDraft.profile, ...patch } }); return }
     const updated = activeTiers.map((t) => (t.id === id ? { ...t, ...patch } : t))
     updateTiers(updated)
   }
 
-  const patchTierMaxHeight = (index: number, newMax: number): void => {
-    const sorted = [...activeTiers].sort((a, b) => a.minFillHeight - b.minFillHeight)
-    if (index < 0 || index >= sorted.length) return
-    const current = sorted[index]
-    const val = Math.max(current.minFillHeight + 0.5, Number(newMax) || current.minFillHeight + 1.0)
-    current.maxFillHeight = val
-    if (index + 1 < sorted.length) {
-      sorted[index + 1].minFillHeight = val
-    }
-    updateTiers(sorted)
+  const saveTierHeights = (id: string, min: number, max: number): string | null => {
+    const result = saveCanalBankTierHeightRange(activeTiers, id, min, max)
+    if (result.error) return result.error
+    if (result.tiers !== activeTiers) updateTiers(result.tiers, true)
+    return null
   }
 
   const addTier = (): void => {
-    const sorted = [...activeTiers].sort((a, b) => a.minFillHeight - b.minFillHeight)
+    const sorted = activeTiers.map(t => ({ ...t })).sort((a, b) => a.minFillHeight - b.minFillHeight)
     const last = sorted[sorted.length - 1]
     const nextMin = last ? (last.maxFillHeight === 9999 ? last.minFillHeight + 3.0 : last.maxFillHeight) : 0
     if (last && last.maxFillHeight === 9999) {
@@ -207,13 +213,13 @@ export default function CanalBankDesign({
       heartingTopWidth: 1.5,
       heartingSideSlope: 1.0
     }
-    updateTiers([...sorted, newTier])
+    updateTiers([...sorted, newTier], true)
     setSelectedTierId(newTierId)
   }
 
   const removeTier = (id: string): void => {
     if (activeTiers.length <= 1) return
-    const sorted = [...activeTiers].sort((a, b) => a.minFillHeight - b.minFillHeight)
+    const sorted = activeTiers.map(t => ({ ...t })).sort((a, b) => a.minFillHeight - b.minFillHeight)
     const idx = sorted.findIndex((t) => t.id === id)
     if (idx < 0) return
     let nextSelectedId = ''
@@ -230,11 +236,11 @@ export default function CanalBankDesign({
     if (nextSelectedId) {
       setSelectedTierId(nextSelectedId)
     }
-    updateTiers(sorted.filter((t) => t.id !== id))
+    updateTiers(sorted.filter((t) => t.id !== id), true)
   }
 
   const addBermToTier = (tierId: string): void => {
-    const tier = activeTiers.find((t) => t.id === tierId)
+    const tier = manualDraft?.profile.id === tierId ? manualDraft.profile : activeTiers.find((t) => t.id === tierId)
     if (!tier) return
     const berms = tier.berms ?? []
     const lastBerm = berms[berms.length - 1]
@@ -248,14 +254,14 @@ export default function CanalBankDesign({
   }
 
   const patchBermInTier = (tierId: string, bermId: string, patch: Partial<CanalBankBermStep>): void => {
-    const tier = activeTiers.find((t) => t.id === tierId)
+    const tier = manualDraft?.profile.id === tierId ? manualDraft.profile : activeTiers.find((t) => t.id === tierId)
     if (!tier) return
     const berms = (tier.berms ?? []).map((b) => (b.id === bermId ? { ...b, ...patch } : b))
     patchTier(tierId, { berms })
   }
 
   const removeBermFromTier = (tierId: string, bermId: string): void => {
-    const tier = activeTiers.find((t) => t.id === tierId)
+    const tier = manualDraft?.profile.id === tierId ? manualDraft.profile : activeTiers.find((t) => t.id === tierId)
     if (!tier) return
     const berms = (tier.berms ?? []).filter((b) => b.id !== bermId)
     patchTier(tierId, { berms })
@@ -264,48 +270,21 @@ export default function CanalBankDesign({
   // Legacy variables
   const zoned = design.bankSectionType === 'zoned'
   const recommended = recommendedCanalCrestWidth(design.discharge)
-  const earthwork = canalEarthworkTotals(data)
-  const bankVolumes = canalBankVolumeTotals(data)
-  const suitableExcavation = canalSuitableBankExcavation(data)
+  const earthwork = useMemo(() => canalEarthworkTotals(data), [data])
+  const bankVolumes = useMemo(() => canalBankVolumeTotals(data), [data])
 
   // Material allocation zones
-  const activeZones: CanalBankMaterialZone[] = isTiered
-    ? (() => {
-        const anyZoned = (bankConfig.leftTiers ?? []).some((t) => t.sectionType === 'zoned') ||
-          (!linkSymmetrical && (bankConfig.rightTiers ?? []).some((t) => t.sectionType === 'zoned'))
-        const anyHomo = (bankConfig.leftTiers ?? []).some((t) => t.sectionType === 'homogeneous') ||
-          (!linkSymmetrical && (bankConfig.rightTiers ?? []).some((t) => t.sectionType === 'homogeneous'))
-        const zones: CanalBankMaterialZone[] = []
-        if (anyHomo || bankVolumes.homogeneous > 0) zones.push('homogeneous')
-        if (anyZoned || bankVolumes.hearting > 0 || bankVolumes.casing > 0) zones.push('hearting', 'casing')
-        return zones.length > 0 ? zones : ['homogeneous']
-      })()
-    : zoned ? ['hearting', 'casing'] : ['homogeneous']
-
-  const allocations = design.bankMaterialAllocations ?? []
-  const zoneVolume = (zone: CanalBankMaterialZone): number => bankVolumes[zone]
-  const effectiveRows = activeZones.flatMap((zone) => canalEffectiveBankAllocations(data, zone))
-  const excavationAssignedTotal = effectiveRows
-    .filter((row) => row.source === 'canal-excavation')
-    .reduce((sum, row) => sum + (zoneVolume(row.zone) * row.percentage) / 100, 0)
-
-  const patchAllocation = (id: string, patch: Partial<CanalBankMaterialAllocation>): void =>
-    onCommit({
-      bankMaterialAllocations: allocations.map((row) => (row.id === id ? compatibleAllocation({ ...row, ...patch }) : row))
-    })
-
-  const addAllocation = (zone: CanalBankMaterialZone): void => {
-    const source = availableSources(zone)[0] ?? 'borrow-area'
-    onCommit({
-      bankMaterialAllocations: [
-        ...allocations,
-        compatibleAllocation({ id: `bank-source-${newId()}`, zone, source, percentage: 0, compaction: 95, watering: true })
-      ]
-    })
-  }
-
-  const removeAllocation = (id: string): void =>
-    onCommit({ bankMaterialAllocations: allocations.filter((row) => row.id !== id) })
+  const activeZones: CanalBankMaterialZone[] = useMemo(() => {
+    if (!isTiered) return zoned ? ['hearting', 'casing'] : ['homogeneous']
+    const anyZoned = (bankConfig.leftTiers ?? []).some((t) => t.sectionType === 'zoned') ||
+      (!linkSymmetrical && (bankConfig.rightTiers ?? []).some((t) => t.sectionType === 'zoned'))
+    const anyHomo = (bankConfig.leftTiers ?? []).some((t) => t.sectionType === 'homogeneous') ||
+      (!linkSymmetrical && (bankConfig.rightTiers ?? []).some((t) => t.sectionType === 'homogeneous'))
+    const zones: CanalBankMaterialZone[] = []
+    if (anyHomo || bankVolumes.homogeneous > 0) zones.push('homogeneous')
+    if (anyZoned || bankVolumes.hearting > 0 || bankVolumes.casing > 0) zones.push('hearting', 'casing')
+    return zones.length > 0 ? zones : ['homogeneous']
+  }, [isTiered, zoned, bankConfig.leftTiers, bankConfig.rightTiers, linkSymmetrical, bankVolumes])
 
   // Legacy reaches & berms
   const reaches = design.zonedReaches ?? []
@@ -339,27 +318,28 @@ export default function CanalBankDesign({
   }
 
   // Cross-section diagram preview (filtered to filling sections)
-  const fillingSections = sections.filter((s) => {
+  const populatedSections = sections.filter(s => s.designPopulated !== false && s.ground.length >= 2)
+  const fillingSections = populatedSections.filter((s) => {
     const bed = canalBedLevelAt(data, s.chainage) ?? design.bedLevelAtStart
     const tbl = bed + canalSectionDepth(design)
     const groundRls = (s.ground ?? []).map((p) => p.rl)
     const minGround = groundRls.length > 0 ? Math.min(...groundRls) : bed
     return tbl - minGround > 0.05
   })
-  const availablePreviewSections = fillingSections.length > 0 ? fillingSections : sections
+  const availablePreviewSections = fillingSections.length > 0 ? fillingSections : populatedSections
   const selectedSection = availablePreviewSections.find((s) => s.id === selectedSectionId) ?? availablePreviewSections[0]
 
   const previewSection = (() => {
     if (!selectedSection) return null
     const points = selectedSection.ground ?? []
-    if (points.length < 2) return selectedSection
+    if (points.length < 2) return { ...selectedSection, ground: points.map(p => ({ ...p })) }
     const leftRl = selectedSection.leftToeRl ?? points[0].rl
     const rightRl = selectedSection.rightToeRl ?? points[points.length - 1].rl
     if (points.length === 2 || selectedSection.groundEntryMode) {
       const expandedGround = canalGroundProfileBetweenToes(data, selectedSection, leftRl, rightRl)
       return { ...selectedSection, ground: expandedGround }
     }
-    return selectedSection
+    return { ...selectedSection, ground: points.map(p => ({ ...p })) }
   })()
 
   const previewBed = previewSection ? (canalBedLevelAt(data, previewSection.chainage) ?? design.bedLevelAtStart) : 0
@@ -369,8 +349,8 @@ export default function CanalBankDesign({
   const previewRightGround = previewGroundPoints[previewGroundPoints.length - 1]?.rl ?? previewBed
   const leftFillH = Math.max(0, previewTbl - previewLeftGround)
   const rightFillH = Math.max(0, previewTbl - previewRightGround)
-  const matchedLeftTier = selectCanalBankTier(bankConfig, 'left', leftFillH)
-  const matchedRightTier = selectCanalBankTier(bankConfig, 'right', rightFillH)
+  const matchedLeftTier = previewSection ? canalSectionBankTier(data, previewSection, 'left') : null
+  const matchedRightTier = previewSection ? canalSectionBankTier(data, previewSection, 'right') : null
 
   return (
     <section className="canal-chapter canal-bank-chapter">
@@ -390,8 +370,8 @@ export default function CanalBankDesign({
       <div className="canal-bank-mode-tabs">
         <button
           type="button"
-          className={`canal-bank-mode-tab ${isTiered ? 'active' : ''}`}
-          onClick={() => patchBankConfig({ mode: 'tiered' })}
+          className={`canal-bank-mode-tab ${isProgrammatic ? 'active' : ''}`}
+          onClick={() => changeMode('tiered')}
         >
           <Sparkles size={16} />
           <div className="canal-bank-tab-text">
@@ -407,16 +387,18 @@ export default function CanalBankDesign({
 
         <button
           type="button"
-          className={`canal-bank-mode-tab ${!isTiered ? 'active' : ''}`}
-          onClick={() => patchBankConfig({ mode: 'legacy' })}
+          className={`canal-bank-mode-tab ${isManual ? 'active' : ''}`}
+          onClick={() => changeMode('manual')}
         >
           <Layers size={16} />
           <div className="canal-bank-tab-text">
-            <strong>Fixed Slope &amp; Manual Berms (Standard)</strong>
-            <small>Constant outer slope with manual berm elevations referenced to canal bed level.</small>
+            <strong>Manual Reach Design</strong>
+            <small>Create chainage reaches and configure a separate bund design for each reach.</small>
           </div>
         </button>
       </div>
+
+      <button type="button" className="btn ghost" onClick={() => changeMode('legacy')}>Fixed slope &amp; manual berms (existing standard design)</button>
 
       {/* ========================================================================= */}
       {/* OPTION A: PROGRAMMATIC HEIGHT-TIERED BUND DESIGN                          */}
@@ -424,9 +406,9 @@ export default function CanalBankDesign({
       {isTiered && (
         <section className="canal-earthwork-card">
           <div className="canal-cross-panel-title">
-            Height-Tiered Bund Configuration
+            {isManual ? 'Manual Reach Design' : 'Height-Tiered Bund Configuration'}
             <small>
-              Rules descend from Bank Top to natural ground. Each tier defines crest width, upper slope, berm shelves, and zoning.
+              {isManual ? 'Create chainage ranges and configure each reach’s bund design below.' : 'Reaches are derived from bank-top RL minus Soil & Rock Strata Top RL. Edit them here; all bank works use these same assignments.'}
             </small>
           </div>
 
@@ -442,7 +424,7 @@ export default function CanalBankDesign({
                 <span>{linkSymmetrical ? 'Linked Symmetrical Banks' : 'Independent Left / Right Banks'}</span>
               </button>
               <small style={{ color: 'var(--text-dim)' }}>
-                {linkSymmetrical ? 'Left and right banks use identical tiers' : 'Configure different rules for left & right banks'}
+                {linkSymmetrical ? `Left and right banks use identical ${isManual ? 'reaches and designs' : 'tiers'}` : 'Configure different rules for left & right banks'}
               </small>
             </div>
 
@@ -455,51 +437,53 @@ export default function CanalBankDesign({
               <button
                 type="button"
                 className={`canal-bank-side-tab ${activeSide === 'left' ? 'active' : ''}`}
-                onClick={() => { setActiveSide('left'); setSelectedTierId('') }}
+                onClick={() => { setActiveSide('left'); setSelectedTierId(''); setManualDraft(null) }}
               >
-                Left Bank Tiers ({(bankConfig.leftTiers ?? []).length})
+                Left Bank {isManual ? 'Reaches' : 'Tiers'} ({(bankConfig.leftTiers ?? []).length})
               </button>
               <button
                 type="button"
                 className={`canal-bank-side-tab ${activeSide === 'right' ? 'active' : ''}`}
-                onClick={() => { setActiveSide('right'); setSelectedTierId('') }}
+                onClick={() => { setActiveSide('right'); setSelectedTierId(''); setManualDraft(null) }}
               >
-                Right Bank Tiers ({(bankConfig.rightTiers ?? []).length})
+                Right Bank {isManual ? 'Reaches' : 'Tiers'} ({(bankConfig.rightTiers ?? []).length})
               </button>
             </div>
           )}
 
           {/* Continuous Height Bracket Continuum Bar */}
-          <div className="canal-tier-continuum">
+          {isManual && <CanalManualReachDesigner data={data} side={activeSide} selectedProfileId={currentTier?.id} draft={manualDraft} onDraftChange={setManualDraft} onSelect={setSelectedTierId} onChange={config => onCommit({ bankConfig: config })} />}
+          {isProgrammatic && <div className="canal-tier-continuum">
+            {isProgrammatic && <p className="settings-note">Reach boundaries use entered Soil Strata and Sections chainages. Each interval uses its starting chainage’s height tier. Soil Strata Top RL takes priority; populated sections supply bank ground where Top RL is absent.</p>}
             <div className="canal-tier-continuum-header">
-              <span>Continuous Fill-Height Bracket Scale</span>
+              <span>{isManual ? 'Bank Profiles & Chainage Reaches' : 'Continuous Fill-Height Bracket Scale'}</span>
+              {isProgrammatic && <button type="button" className="btn ghost" onClick={regenerateReaches}>Regenerate from Top RL</button>}
               <button type="button" className="btn ghost" onClick={addTier}>
-                <Plus size={13} /> Add Height Tier
+                <Plus size={13} /> {isManual ? 'Add Bank Profile' : 'Add Height Tier'}
               </button>
             </div>
 
-            <div className="canal-tier-bracket-track">
-              {sortedTiers.map((tier) => (
-                <button
-                  key={tier.id}
-                  type="button"
-                  className={`canal-tier-bracket-chip ${tier.sectionType === 'zoned' ? 'is-zoned' : 'is-homogeneous'} ${tier.id === currentTier?.id ? 'selected' : ''}`}
-                  title={`${tier.name}: ${tier.minFillHeight.toFixed(1)} m to ${tier.maxFillHeight === 9999 ? '∞' : `${tier.maxFillHeight.toFixed(1)} m`} fill height — click to edit`}
-                  onClick={() => setSelectedTierId(tier.id)}
-                >
-                  <strong>{tier.name}</strong>
-                  <small>
-                    {tier.minFillHeight.toFixed(1)} m – {tier.maxFillHeight === 9999 ? 'Max (∞)' : `${tier.maxFillHeight.toFixed(1)} m`}
-                    {' · '}
-                    {tier.sectionType === 'zoned' ? '🛡️ Zoned' : '🌱 Homogeneous'}
-                  </small>
+            <div className="canal-tier-bracket-track canal-bank-reach-track">
+              {sortedTiers.map(tier => <article key={tier.id}
+                className={`canal-tier-bracket-chip canal-bank-reach-box ${tier.sectionType === 'zoned' ? 'is-zoned' : 'is-homogeneous'} ${tier.id === currentTier?.id ? 'selected' : ''}`}>
+                <button type="button" className="canal-reach-box-heading" onClick={() => setSelectedTierId(tier.id)} aria-pressed={tier.id === currentTier?.id}>
+                  <strong>{tier.name}</strong><small>{isProgrammatic && <>{tier.minFillHeight.toFixed(1)} m – {tier.maxFillHeight === 9999 ? 'Max (∞)' : tier.maxFillHeight.toFixed(1) + ' m'} · </>}{tier.sectionType === 'zoned' ? 'Zoned' : 'Homogeneous'}</small>
                 </button>
-              ))}
+                <CanalTierHeightEditor key={`${activeSide}:${tier.id}:${tier.minFillHeight}:${tier.maxFillHeight}`} tier={tier} first={tier.id === sortedTiers[0]?.id} last={tier.id === sortedTiers[sortedTiers.length - 1]?.id} onSave={saveTierHeights} />
+                <CanalBankReachEditor data={data} side={activeSide} tier={tier} onChange={saveReaches} />
+              </article>)}
             </div>
-          </div>
+            <div className="canal-bank-other-reaches">
+              {(['level', 'unassigned', 'missing'] as const).map(status => <article className="canal-bank-reach-box" key={status}>
+                <strong>{status === 'level' ? 'At bank-top level' : status === 'missing' ? 'Missing Top RL' : 'Unassigned reaches'}</strong>
+                <CanalBankReachEditor data={data} side={activeSide} status={status} onChange={saveReaches} />
+              </article>)}
+            </div>
+            <p className="settings-note">Height limits share boundaries: the upper limit belongs to the next tier. Click Edit heights, then Save heights to adjust neighbouring tiers and recalculate reaches. Saving height changes replaces reach edits. Reach edits adjust adjoining bund ranges. Mixed filling and cutting is allowed; pure cutting cannot be assigned to a bund. Each reach shows From Ch, To Ch and every underlying chainage interval.</p>
+          </div>}
 
           {/* Tier pager: one card at a time */}
-          {sortedTiers.length > 1 && (
+          {isProgrammatic && sortedTiers.length > 1 && (
             <div className="canal-tier-pager">
               <button
                 type="button"
@@ -534,47 +518,31 @@ export default function CanalBankDesign({
           <div className="canal-tier-cards-container">
             {(() => {
               const tier = currentTier
-              if (!tier) return <div className="canal-zoned-empty">No tiers configured.</div>
+              if (!tier) return <div className="canal-zoned-empty">{isManual ? 'Create or select a reach to show its Bund Design card.' : 'No tiers configured.'}</div>
               const tierIdx = Math.max(0, currentTierIdx)
               const isZonedTier = tier.sectionType === 'zoned'
-              const isTopTier = tier.maxFillHeight === 9999 || tierIdx === sortedTiers.length - 1
               const bermsList = tier.berms ?? []
+              const manualReach = manualDraft?.reach ?? manualRows.find(r => r.tierId === tier.id)
 
               return (
                 <div className="canal-tier-card" key={tier.id}>
                   {/* Card Header */}
                   <div className="canal-tier-card-header">
                     <div className="canal-tier-title-group">
-                      <span className="canal-tier-badge">Tier {tierIdx + 1}</span>
+                      <span className="canal-tier-badge">{isManual ? manualDraft ? 'Reach design' : `Reach ${tierIdx + 1}` : `Tier ${tierIdx + 1}`}</span>
                       <input
                         type="text"
                         className="canal-tier-name-input"
                         value={tier.name}
-                        placeholder="Tier Name (e.g. Medium Bund)"
+                        aria-label={isManual ? 'Reach name' : 'Tier name'}
+                        placeholder={isManual ? 'Reach name' : 'Tier Name (e.g. Medium Bund)'}
                         onChange={(e) => patchTier(tier.id, { name: e.target.value })}
                       />
-                      <div className="canal-tier-range-controls">
-                        <span>Fill Height:</span>
-                        <b>{tier.minFillHeight.toFixed(1)} m</b>
-                        <span>to</span>
-                        {isTopTier ? (
-                          <b>Max Fill (Top Tier)</b>
-                        ) : (
-                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <input
-                              type="number"
-                              min={tier.minFillHeight + 0.5}
-                              step={0.5}
-                              value={tier.maxFillHeight}
-                              onChange={(e) => patchTierMaxHeight(tierIdx, Number(e.target.value) || tier.minFillHeight + 1.0)}
-                            />
-                            <b>m</b>
-                          </label>
-                        )}
-                      </div>
+                      {isManual && manualReach && <span>From Ch {formatCanalReachChainage(manualReach.from)} → To Ch {formatCanalReachChainage(manualReach.to)}</span>}
+                      {isProgrammatic && <CanalTierHeightEditor key={`${activeSide}:${tier.id}:${tier.minFillHeight}:${tier.maxFillHeight}`} tier={tier} first={tierIdx === 0} last={tierIdx === sortedTiers.length - 1} onSave={saveTierHeights} />}
                     </div>
 
-                    <div className="canal-tier-actions">
+                    {!isManual && <div className="canal-tier-actions">
                       <button
                         type="button"
                         className="canal-earthwork-remove"
@@ -584,7 +552,7 @@ export default function CanalBankDesign({
                       >
                         <Trash2 size={14} />
                       </button>
-                    </div>
+                    </div>}
                   </div>
 
                   {/* Card Body */}
@@ -964,12 +932,8 @@ export default function CanalBankDesign({
         </div>
 
         <div className="canal-bank-source-summary">
-          <span>Bank Fill Measured <strong>{bankVolumes.totalFill.toLocaleString('en-IN')} cu.m</strong></span>
-          {bankVolumes.homogeneous > 0 && <span>Homogeneous <strong>{bankVolumes.homogeneous.toLocaleString('en-IN')} cu.m</strong></span>}
-          {bankVolumes.hearting > 0 && <span>Hearting Core <strong>{bankVolumes.hearting.toLocaleString('en-IN')} cu.m</strong></span>}
-          {bankVolumes.casing > 0 && <span>Casing Shell <strong>{bankVolumes.casing.toLocaleString('en-IN')} cu.m</strong></span>}
-          <span>Suitable Cut Reuse <strong>{suitableExcavation.toLocaleString('en-IN')} cu.m</strong></span>
-          <span>Stripping Excluded <strong>{earthwork.stripping.toLocaleString('en-IN')} cu.m</strong></span>
+          <span>Canal Excavation Quantity <strong>{earthwork.excavation.toLocaleString('en-IN')} cu.m</strong></span>
+          <span>Material Quantity Needed <strong>{bankVolumes.totalFill.toLocaleString('en-IN')} cu.m</strong></span>
         </div>
 
         {data.mode === 'repair' &&
@@ -985,122 +949,7 @@ export default function CanalBankDesign({
               </div>
             ))}
 
-        {data.mode !== 'repair' &&
-          activeZones.map((zone) => {
-            const rawRows = canalEffectiveBankAllocations(data, zone)
-            const rows = isTiered && zone === 'homogeneous' && rawRows.some((r) => r.source === 'borrow-area' && r.percentage === 100) && rawRows.some((r) => r.source === 'canal-excavation' && r.percentage === 0)
-              ? rawRows.filter((r) => r.source !== 'canal-excavation')
-              : rawRows
-            const assignedPct = rows.reduce((sum, row) => sum + row.percentage, 0)
-            return (
-              <div className="canal-bank-source-zone" key={zone}>
-                <div className="canal-bank-source-zone-head">
-                  <div>
-                    <strong>{ZONE_LABELS[zone]}</strong>
-                    <small>
-                      {zoneVolume(zone).toLocaleString('en-IN')} cu.m required · {assignedPct}% assigned
-                    </small>
-                  </div>
-                  <button type="button" className="btn ghost" onClick={() => addAllocation(zone)}>
-                    <Plus size={14} /> Add source
-                  </button>
-                </div>
-                {rows.length === 0 && <div className="canal-zoned-empty">No source assigned.</div>}
-                {rows.map((row) => {
-                  const item = canalBankItemForAllocation(row)
-                  const sourceOptions = availableSources(zone)
-                  return (
-                    <div className="canal-bank-source-row" key={row.id}>
-                      <label>
-                        <span>Material source</span>
-                        <select
-                          value={row.source}
-                          onChange={(event) => patchAllocation(row.id, { source: event.target.value as CanalBankMaterialSource })}
-                        >
-                          {sourceOptions.map((source) => (
-                            <option value={source} key={source}>{SOURCE_LABELS[source]}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label>
-                        <span>Share of {ZONE_LABELS[zone].toLowerCase()}</span>
-                        <div className="canal-bank-source-percent">
-                          <input
-                            type="number"
-                            min={0}
-                            max={100}
-                            step="any"
-                            value={Number(row.percentage.toFixed(3)) || ''}
-                            onChange={(event) =>
-                              patchAllocation(row.id, {
-                                percentage: Math.min(100, Math.max(0, Number(event.target.value) || 0))
-                              })
-                            }
-                          />
-                          <b>%</b>
-                        </div>
-                        <small>
-                          {((zoneVolume(zone) * row.percentage) / 100).toLocaleString('en-IN')} cu.m
-                        </small>
-                      </label>
-                      <label>
-                        <span>Compaction</span>
-                        <select
-                          value={row.compaction}
-                          onChange={(event) =>
-                            patchAllocation(row.id, { compaction: Number(event.target.value) === 98 ? 98 : 95 })
-                          }
-                        >
-                          <option value={95}>Not less than 95%</option>
-                          <option value={98}>Not less than 98%</option>
-                        </select>
-                      </label>
-                      <label className="canal-bank-source-water">
-                        <input
-                          type="checkbox"
-                          checked={row.watering}
-                          disabled={
-                            !CANAL_BANK_ITEM_OPTIONS.some(
-                              (option) =>
-                                option.zone === zone &&
-                                option.source === row.source &&
-                                option.compaction === row.compaction &&
-                                option.watering === false
-                            )
-                          }
-                          onChange={(event) => patchAllocation(row.id, { watering: event.target.checked })}
-                        />
-                        <span>Watering included</span>
-                      </label>
-                      <div className="canal-bank-source-result">
-                        <span>Resolved operation</span>
-                        <strong>{item?.label ?? 'Choose a compatible combination'}</strong>
-                        {item && <span className="canal-bank-source-code">{item.code}</span>}
-                      </div>
-                      <button
-                        type="button"
-                        className="btn ghost icon"
-                        aria-label="Remove material source"
-                        onClick={() => removeAllocation(row.id)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  )
-                })}
-                {Math.abs(assignedPct - 100) > 0.001 && (
-                  <div className="canal-road-warning">
-                    Source shares must total 100%. {assignedPct < 100 ? `${100 - assignedPct}% remains unassigned.` : `Allocation exceeds the zone by ${assignedPct - 100}%.`}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        {data.mode !== 'repair' && excavationAssignedTotal > suitableExcavation + 0.001 && (
-          <div className="canal-road-warning">
-            Assigned canal-excavation material totals {excavationAssignedTotal.toLocaleString('en-IN')} cu.m, exceeding the {suitableExcavation.toLocaleString('en-IN')} cu.m marked suitable in Earthwork.
-          </div>
-        )}
+        {data.mode !== 'repair' && <CanalBankMaterialEditor allocations={design.bankMaterialAllocations ?? []} zones={activeZones} volumes={bankVolumes} onSave={bankMaterialAllocations => onCommit({ bankMaterialAllocations })} />}
       </section>
 
       {/* ========================================================================= */}
@@ -1112,7 +961,7 @@ export default function CanalBankDesign({
             Embankment Cross-Section Diagram Preview
             <small>
               {previewSection
-                ? `Showing Ch ${previewSection.chainage} m in embankment (${isTiered ? 'Programmatic Height Tiers' : 'Fixed outer bank design'})`
+                ? `Showing Ch ${previewSection.chainage} m in embankment (${isManual ? 'Manual Reach Design' : isProgrammatic ? 'Programmatic Height Tiers' : 'Fixed outer bank design'})`
                 : 'Filling sections preview'}
             </small>
           </div>
@@ -1152,9 +1001,9 @@ export default function CanalBankDesign({
               <strong>{leftFillH.toFixed(2)} m</strong>
             </div>
             <div className="canal-tier-metric-item">
-              <span>Left Matched Tier</span>
+              <span>{isManual ? 'Left Reach' : 'Left Matched Tier'}</span>
               <strong>
-                {matchedLeftTier ? `${matchedLeftTier.name} (${matchedLeftTier.sectionType === 'zoned' ? 'Zoned' : 'Homogeneous'})` : 'Standard'}
+                {matchedLeftTier ? `${matchedLeftTier.name} (${matchedLeftTier.sectionType === 'zoned' ? 'Zoned' : 'Homogeneous'})` : isManual ? 'No reach assigned' : 'Standard'}
               </strong>
             </div>
             <div className="canal-tier-metric-item">
@@ -1162,9 +1011,9 @@ export default function CanalBankDesign({
               <strong>{rightFillH.toFixed(2)} m</strong>
             </div>
             <div className="canal-tier-metric-item">
-              <span>Right Matched Tier</span>
+              <span>{isManual ? 'Right Reach' : 'Right Matched Tier'}</span>
               <strong>
-                {matchedRightTier ? `${matchedRightTier.name} (${matchedRightTier.sectionType === 'zoned' ? 'Zoned' : 'Homogeneous'})` : 'Standard'}
+                {matchedRightTier ? `${matchedRightTier.name} (${matchedRightTier.sectionType === 'zoned' ? 'Zoned' : 'Homogeneous'})` : isManual ? 'No reach assigned' : 'Standard'}
               </strong>
             </div>
             <div className="canal-tier-metric-item">

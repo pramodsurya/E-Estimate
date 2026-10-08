@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
 import type { CanalData, CanalErmColumn, CanalSection } from '../../../../types/project'
-import { canalCalculateExcavationPercentagesFromStrata, repopulateCanalQuickSections } from '../../../../lib/canal'
-import { ERM_CLASSES, ERM_LAYERS, addErmColumn, applyErmRows, canalStrataTopRl, getErmColumns, parseErmPaste, validateErmRow, type ErmRow } from '../../../../lib/canalErm'
+import { canalCalculateExcavationPercentagesFromStrata } from '../../../../lib/canal'
+import { ERM_CLASSES, ERM_LAYERS, addErmColumn, canalStrataTopRl, getErmColumns, parseErmPaste, validateErmRow, type ErmRow } from '../../../../lib/canalErm'
 import { downloadErmExcelTemplate, ERM_ROCK_BOTTOM_LABEL, readErmExcel } from '../../../../lib/canalErmExcel'
+import { saveCanalStrataRows } from '../../../../lib/canalErmSections'
 import { newId } from '../../../../lib/tree'
 
 function SectionRow({ section, columns, onSave }: { section: CanalSection; columns: CanalErmColumn[]; onSave: (row: ErmRow) => void }): JSX.Element {
@@ -36,7 +37,7 @@ function SectionRow({ section, columns, onSave }: { section: CanalSection; colum
   }
 
   const number = (cell: string): number => !cell.trim() ? NaN : Number(cell.replace(/,/g, ''))
-  return <tr><th scope="row">{section.chainage}</th>{cells.map((cell, i) => <td key={i}><input type="text" inputMode="decimal" aria-label={`Ch ${section.chainage}: ${i === 0 ? 'Top RL' : columns[i - 1].name + ' bottom RL'}`} value={cell} placeholder={i === 0 ? 'RL' : 'RL or -'} onChange={(event) => { setMessage(''); setCells((values) => values.map((value, index) => index === i ? event.target.value : value)) }} /></td>)}
+  return <tr data-chainage={section.chainage}><th scope="row">{section.chainage}</th>{cells.map((cell, i) => <td key={i}><input type="text" inputMode="decimal" aria-label={`Ch ${section.chainage}: ${i === 0 ? 'Top RL' : columns[i - 1].name + ' bottom RL'}`} value={cell} placeholder={i === 0 ? 'RL' : 'RL or -'} onChange={(event) => { setMessage(''); setCells((values) => values.map((value, index) => index === i ? event.target.value : value)) }} /></td>)}
     <td><input type="text" inputMode="decimal" aria-label={`Ch ${section.chainage}: Hard Rock bottom RL`} value={rockRl} placeholder="RL or -" onChange={(event) => { setRockRl(event.target.value); setMessage('') }} /></td>
     <td className="canal-erm-row-actions"><button type="button" className="btn primary" onClick={() => {
       const row: ErmRow = { chainage: section.chainage, topRl: number(cells[0]), bottoms: cells.slice(1).map((cell) => cell.trim() === '-' || cell.trim() === '' ? null : number(cell)), end: rockRl.trim() === '-' || rockRl.trim() === '' ? 'unknown' : 'hard-rock', hardRockBottomRl: rockRl.trim() === '-' || rockRl.trim() === '' ? null : number(rockRl) }
@@ -51,6 +52,7 @@ export default function CanalErmStrata({ data, onCommit }: { data: CanalData; on
   const [importOpen, setImportOpen] = useState(false)
   const [excelBusy, setExcelBusy] = useState(false)
   const uploadRef = useRef<HTMLInputElement>(null)
+  const entryTableRef = useRef<HTMLTableElement>(null)
   const [message, setMessage] = useState('')
   const [newChainage, setNewChainage] = useState('')
   const [addingColumn, setAddingColumn] = useState(false)
@@ -62,14 +64,32 @@ export default function CanalErmStrata({ data, onCommit }: { data: CanalData; on
   const errors = [...parsed.errors, ...parsed.rows.filter((row) => data.lengthM > 0 && row.chainage > data.lengthM).map((row) => `Ch ${row.chainage}: exceeds canal length ${data.lengthM} m.`)]
   const save = (rows: ErmRow[]): void => {
     onCommit((current) => {
-      const next = repopulateCanalQuickSections(applyErmRows(current, rows))
+      const next = saveCanalStrataRows(current, rows)
       const shares = canalCalculateExcavationPercentagesFromStrata(next)
       return { ...next, excavationBands: next.excavationBands.map((band, i) => {
         const share = shares.find((item) => item.code === band.material.code) ?? shares[i]
         return share ? { ...band, pct: share.pct } : band
       }) }
     })
-    setMessage(`Saved soil and rock levels for ${rows.length} chainage${rows.length === 1 ? '' : 's'}.`)
+    setMessage(`Saved soil and rock levels for ${rows.length} chainage${rows.length === 1 ? '' : 's'}. Open Sections to select and populate the required chainages.`)
+  }
+  const saveAll = (): void => {
+    let batch = parsed
+    if (!paste.trim()) {
+      const lines = Array.from(entryTableRef.current?.querySelectorAll<HTMLTableRowElement>('tbody tr') ?? []).flatMap((row) => {
+        const cells = Array.from(row.querySelectorAll<HTMLInputElement>('input')).map((input) => input.value)
+        return cells.every((cell) => !cell.trim()) ? [] : [[row.dataset.chainage, ...cells].join('\t')]
+      })
+      batch = parseErmPaste(lines.join('\n'), columns)
+    }
+    const problem = batch.errors.length ? batch.errors[0] : batch.rows.find((row) => data.lengthM > 0 && row.chainage > data.lengthM)
+    if (problem) {
+      setMessage(typeof problem === 'string' ? problem : `Ch ${problem.chainage}: exceeds canal length ${data.lengthM} m.`)
+      return
+    }
+    if (!batch.rows.length) { setMessage('Enter soil and rock levels or upload a filled Excel workbook before saving all.'); return }
+    save(batch.rows)
+    setPaste('')
   }
   return <section className="canal-v2-section canal-erm-chapter">
     <header className="canal-v2-section-header"><div><span className="canal-v2-section-kicker">Chapter 2</span><h2>Soil & Rock Strata</h2><p>Enter the soil and rock levels found by the investigation.</p></div></header>
@@ -87,6 +107,7 @@ export default function CanalErmStrata({ data, onCommit }: { data: CanalData; on
         finally { setExcelBusy(false) }
       }}>Download Excel template</button>
       <button type="button" className="btn ghost" disabled={excelBusy} onClick={() => uploadRef.current?.click()}>Upload filled Excel</button>
+      <button type="button" className="btn primary" disabled={excelBusy} onClick={saveAll}>Save all</button>
       <input ref={uploadRef} type="file" accept=".xlsx" hidden aria-label="Upload soil and rock Excel workbook" onChange={async (event) => {
         const file = event.target.files?.[0]
         event.target.value = ''
@@ -101,8 +122,8 @@ export default function CanalErmStrata({ data, onCommit }: { data: CanalData; on
     </div>
     <details className="canal-ssr-details" open={importOpen} onToggle={(event) => setImportOpen(event.currentTarget.open)}><summary>Upload preview / paste rows from Excel</summary><p>Copy {columns.length + 3} columns in the current table order. A header row is optional for pasted cells.</p><p><strong>{['Chainage', 'Top RL', ...columns.map((column) => column.name + ' bottom RL'), ERM_ROCK_BOTTOM_LABEL].join(' | ')}</strong></p><p>Enter bottom RLs for the materials, or <strong>-</strong> for an absent layer.</p>
       <textarea aria-label="Paste soil and rock rows from Excel" rows={4} value={paste} onChange={(event) => setPaste(event.target.value)} placeholder="Paste tab-separated Excel cells here" />
-      {paste.trim() && <><p>{parsed.rows.length} valid rows ready.</p>{errors.map((error, i) => <p role="alert" key={i}>{error}</p>)}{parsed.rows.length > 0 && <div className="canal-soil-table-container"><table className="canal-soil-table"><thead><tr><th>Chainage</th><th>Top RL</th>{columns.map((column) => <th key={column.id}>{column.name}</th>)}<th>{ERM_ROCK_BOTTOM_LABEL}</th></tr></thead><tbody>{parsed.rows.map((row) => <tr key={row.chainage}><td>{row.chainage}</td><td>{row.topRl}</td>{row.bottoms.map((rl, i) => <td key={i}>{rl ?? 'Absent'}</td>)}<td>{row.hardRockBottomRl ?? 'Absent'}</td></tr>)}</tbody></table></div>}<button type="button" className="btn primary" disabled={!parsed.rows.length || errors.length > 0} onClick={() => { save(parsed.rows); setPaste('') }}>Apply rows</button></>}
-      <p>Matching chainages are updated. New chainages are added as sections ready for ground entry.</p>
+      {paste.trim() && <><p>{parsed.rows.length} valid rows ready.</p>{errors.map((error, i) => <p role="alert" key={i}>{error}</p>)}{parsed.rows.length > 0 && <div className="canal-soil-table-container"><table className="canal-soil-table"><thead><tr><th>Chainage</th><th>Top RL</th>{columns.map((column) => <th key={column.id}>{column.name}</th>)}<th>{ERM_ROCK_BOTTOM_LABEL}</th></tr></thead><tbody>{parsed.rows.map((row) => <tr key={row.chainage}><td>{row.chainage}</td><td>{row.topRl}</td>{row.bottoms.map((rl, i) => <td key={i}>{rl ?? 'Absent'}</td>)}<td>{row.hardRockBottomRl ?? 'Absent'}</td></tr>)}</tbody></table></div>}<button type="button" className="btn primary" disabled={!parsed.rows.length || errors.length > 0} onClick={saveAll}>Save all</button></>}
+      <p>Save the levels here. In Sections, select the required chainages and populate them using their saved Top RL.</p>
     </details>
     {message && <p className="canal-erm-status" role="status">{message}</p>}
     <div className="canal-erm-toolbar"><button type="button" className="btn primary" onClick={() => setAddingColumn((value) => !value)}><Plus size={16} /> Add material column</button><div className="canal-erm-add-chainage"><label className="canal-bank-field"><span>New chainage (m)</span><input type="number" min="0" max={data.lengthM || undefined} step="any" value={newChainage} onChange={(event) => setNewChainage(event.target.value)} placeholder="e.g. 37.5" /></label><button type="button" className="btn ghost" onClick={() => {
@@ -122,7 +143,8 @@ export default function CanalErmStrata({ data, onCommit }: { data: CanalData; on
       setColumnName(''); setColumnClass(''); setAddingColumn(false)
       setMessage(`Added ${column.name}. Existing saved rows mark it absent until you enter its levels.`)
     }}>Add column</button><button type="button" className="btn ghost" onClick={() => setAddingColumn(false)}>Cancel</button></div><p>The selected excavation class determines which cutting slope and SSR excavation rate apply to this material.</p></div>}
-    <div className="canal-soil-table-container canal-erm-table-wrap"><table className="canal-soil-table canal-erm-entry-table" style={{ minWidth: 590 + columns.length * 145 }}><colgroup><col style={{ width: 110 }} /><col style={{ width: 125 }} />{columns.map((column) => <col key={column.id} style={{ width: 145 }} />)}<col style={{ width: 145 }} /><col style={{ width: 95 }} /></colgroup><thead><tr><th>Chainage<small>m</small></th><th>Top RL<small>m</small></th>{columns.map((column) => <th key={column.id} title={column.name}>{column.name}<small>Bottom RL / - absent</small></th>)}<th>Hard Rock<small>Bottom RL / - absent</small></th><th>Save</th></tr></thead><tbody>{[...data.sections].sort((a, b) => a.chainage - b.chainage).map((section) => <SectionRow key={`${section.id}-${section.strataTopRl}-${section.strataExtent}-${section.strataHardRockBottomRl}-${section.strata?.filter((layer) => layer.thickness > 0).map((layer) => layer.name + ':' + layer.thickness).join(',')}`} section={section} columns={columns} onSave={(row) => save([row])} />)}</tbody></table></div>
+    <div className="canal-soil-table-container canal-erm-table-wrap"><table ref={entryTableRef} className="canal-soil-table canal-erm-entry-table" style={{ minWidth: 590 + columns.length * 145 }}><colgroup><col style={{ width: 110 }} /><col style={{ width: 125 }} />{columns.map((column) => <col key={column.id} style={{ width: 145 }} />)}<col style={{ width: 145 }} /><col style={{ width: 95 }} /></colgroup><thead><tr><th>Chainage<small>m</small></th><th>Top RL<small>m</small></th>{columns.map((column) => <th key={column.id} title={column.name}>{column.name}<small>Bottom RL / - absent</small></th>)}<th>Hard Rock<small>Bottom RL / - absent</small></th><th>Save</th></tr></thead><tbody>{[...data.sections].sort((a, b) => a.chainage - b.chainage).map((section) => <SectionRow key={`${section.id}-${section.strataTopRl}-${section.strataExtent}-${section.strataHardRockBottomRl}-${section.strata?.filter((layer) => layer.thickness > 0).map((layer) => layer.name + ':' + layer.thickness).join(',')}`} section={section} columns={columns} onSave={(row) => save([row])} />)}</tbody></table></div>
+    <div className="canal-erm-excel-actions"><button type="button" className="btn primary" disabled={excelBusy} onClick={saveAll}>Save all</button><p>Populate sections on the Sections page. Saved Top RL is available there for each chainage.</p></div>
     {!data.sections.length && <p>Paste Excel rows to add chainages, or create sections in setup.</p>}
     <p>Sections use these levels to show the material layers. Earthwork calculates quantities and costs by excavation class. </p>
   </section>

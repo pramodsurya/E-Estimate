@@ -10,22 +10,24 @@ import { parseSlrbDetailId } from '../lib/slrb'
 const SlrbDashboard = lazy(() => import('./slrb/SlrbDashboard'))
 import HomeScreen from './home/HomeScreen'
 import ClusterBreadcrumb from './cluster/ClusterBreadcrumb'
-import NewProjectForm from './newproject/NewProjectForm'
-import TitleDashboard from './dashboard/TitleDashboard'
-import ComponentDashboard from './dashboard/ComponentDashboard'
-import GuideWallDetail from './guidewall/GuideWallDetail'
-import BundDetail from './bund/BundDetail'
-import CanalDetail from './canal/CanalDetail'
-import PageEditor from './editors/PageEditor'
+import FormulaLinkBanner from './editors/FormulaLinkBanner'
+// Heavy views load on demand so startup only transforms/downloads the screen
+// actually shown. The <Suspense> below covers all of them.
+const NewProjectForm = lazy(() => import('./newproject/NewProjectForm'))
+const TitleDashboard = lazy(() => import('./dashboard/TitleDashboard'))
+const ComponentDashboard = lazy(() => import('./dashboard/ComponentDashboard'))
+const GuideWallDetail = lazy(() => import('./guidewall/GuideWallDetail'))
+const BundDetail = lazy(() => import('./bund/BundDetail'))
+const CanalDetail = lazy(() => import('./canal/CanalDetail'))
+const PageEditor = lazy(() => import('./editors/PageEditor'))
 const loadItemSpreadsheet = () => import('./editors/ItemSpreadsheet')
 const ItemSpreadsheet = lazy(loadItemSpreadsheet)
-import FormulaLinkBanner from './editors/FormulaLinkBanner'
-import RateAnalysisDashboard from './rateanalysis/RateAnalysisDashboard'
-import DataDashboard from './data/DataDashboard'
-import LeadDashboard from './lead/LeadDashboard'
-import LeadDetailDashboard from './lead/LeadDetailDashboard'
-import SeigniorageDashboard from './seigniorage/SeigniorageDashboard'
-import ClusterDashboard from './cluster/ClusterDashboard'
+const RateAnalysisDashboard = lazy(() => import('./rateanalysis/RateAnalysisDashboard'))
+const DataDashboard = lazy(() => import('./data/DataDashboard'))
+const LeadDashboard = lazy(() => import('./lead/LeadDashboard'))
+const LeadDetailDashboard = lazy(() => import('./lead/LeadDetailDashboard'))
+const SeigniorageDashboard = lazy(() => import('./seigniorage/SeigniorageDashboard'))
+const ClusterDashboard = lazy(() => import('./cluster/ClusterDashboard'))
 
 export default function WorkArea(): JSX.Element {
   const view = useStore((s) => s.view)

@@ -11,6 +11,7 @@ import CanalCutDesign from './chapters/CanalCutDesign'
 import CanalCrossSections from './chapters/CanalCrossSections'
 import CanalEarthwork from './chapters/CanalEarthwork'
 import CanalJungleLa from './chapters/CanalJungleLa'
+import CanalBankProtection from './chapters/CanalBankProtection'
 import CanalFoundationFilling from './chapters/CanalFoundationFilling'
 import CanalFiltersDrains from './chapters/CanalFiltersDrains'
 import CanalLining from './chapters/CanalLining'
@@ -39,6 +40,7 @@ function getCanalChapters(mode: CanalData['mode']): CanalChapterDefinition[] {
     title: mode === 'new' ? 'Jungle Cutting & LA' : 'Jungle Cutting',
     shortTitle: mode === 'new' ? 'Jungle & LA' : 'Jungle'
   })
+  chapters.push({ id: 'bank-protection', number: chapters.length + 1, title: 'Bank Protection', shortTitle: 'Bank Protection' })
   chapters.push({ id: 'foundation-filling', number: chapters.length + 1, title: 'Bund Drainage & Filters', shortTitle: 'Bund Drainage & Filters' })
   chapters.push(
     { id: 'filters-drains', number: chapters.length + 1, title: 'Rock Toe & Open Toe Ditch', shortTitle: 'Rock Toe & Toe Ditch' },
@@ -153,6 +155,7 @@ export default function CanalDashboardV2({
         )}
         {visibleChapter === 'earthwork' && <CanalEarthwork data={data} onCommit={commitCanal} />}
         {visibleChapter === 'jungle-la' && <CanalJungleLa data={data} onCommit={commitCanal} />}
+        {visibleChapter === 'bank-protection' && <CanalBankProtection data={data} onCommit={commitCanal} />}
         {visibleChapter === 'foundation-filling' && <CanalFoundationFilling data={data} onCommit={commitCanal} />}
         {visibleChapter === 'filters-drains' && <CanalFiltersDrains data={data} onCommit={commitCanal} />}
         {visibleChapter === 'lining' && <CanalLining data={data} onCommit={commitCanal} />}

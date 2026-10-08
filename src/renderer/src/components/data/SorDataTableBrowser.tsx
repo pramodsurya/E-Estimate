@@ -11,6 +11,7 @@ import {
   fetchSorCataloguePrice,
   fetchSorCatalogues,
   sorCommercialTerms,
+  sorPublishedReference,
   sourceContextTitle,
   visibleSorDimensions,
   type SorCatalogue,
@@ -580,6 +581,7 @@ function catalogueMasterItem(
     source: match.source,
     sourcePage: match.source_page,
     sourceTitle: sourceContextTitle(match.source_context),
+    publishedReference: sorPublishedReference(catalogue.name, match.source_context, match.dimensions),
     commercialTerms: sorCommercialTerms(match.source_context),
     ...(pipeLead ? { pipeLead } : {})
   }

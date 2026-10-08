@@ -1,6 +1,7 @@
+import { canalBankReaches } from './canalTierReaches'
 import { canalStrataTopRl, ermClassIndex, ermLastEnteredLayer, ERM_CLASS_CODES } from './canalErm'
 import type { CanalCnsChapter, CanalData, CanalLiningReach, CanalPoint, CanalSection, CanalBankMaterialZone } from '../types/project'
-import { canalBedLevelAt, canalDesignAtChainage, canalDesignProfile, canalGroundLevelAt, canalHeartingSection, canalSectionBankTier, canalStrippingBands, canalFoundationExcavationBands, orderedCanalSections, profileDifferenceBands } from './canal'
+import { canalUsesLegacyZonedReaches, canalBedLevelAt, canalDesignAtChainage, canalDesignProfile, canalGroundLevelAt, canalHeartingSection, canalSectionBankTier, canalStrippingBands, canalFoundationExcavationBands, orderedCanalSections, profileDifferenceBands } from './canal'
 import { liningBackingOffsets, measureLiningChapter } from './canalLiningChapter'
 
 const EPS = 1e-8
@@ -141,8 +142,9 @@ function rowAt(data:CanalData,section:CanalSection,polygon:Polygon):CnsSectionRo
     if(contains(fills,x,y)) {
       row.replacement+=area
       const side=x<0?'left':'right';const tier=canalSectionBankTier(data,section,side)
-      const legacyZoned=data.design.bankSectionType==='zoned'&&(data.design.zonedReaches??[]).length>0
-      const zoned=legacyZoned?true:tier?tier.sectionType==='zoned':data.design.bankSectionType==='zoned'
+      const legacyZoned=canalUsesLegacyZonedReaches(data)
+      const profiled=data.design.bankConfig?.mode==='tiered'||data.design.bankConfig?.mode==='manual'
+      const zoned=legacyZoned?true:tier?tier.sectionType==='zoned':!profiled&&data.design.bankSectionType==='zoned'
       const zone:CanalBankMaterialZone=zoned?(contains(hearting,x,y)?'hearting':'casing'):'homogeneous'
       row.zones[zone]+=area
     } else if(contains([groundPoly],x,y)&&!contains(already,x,y)) {
@@ -183,9 +185,15 @@ export function measureTreatmentReach(data:CanalData,reach:CanalLiningReach,poly
   if (!(reach.toChainage>reach.fromChainage)||reach.fromChainage<0||reach.toChainage>data.lengthM) { error('Enter a valid reach within the canal length.'); return result }
   if (data.mode!=='new') { error('Lining earthwork adjustments require a new canal design.'); return result }
   if (!(data.design.bedWidth>0 && data.design.fullSupplyDepth>0 && data.design.sideSlope>=0)) { error('Complete the canal dimensions before measuring treatment.'); return result }
-  const chainages=[...new Set([reach.fromChainage,reach.toChainage,...data.sections.map(s=>s.chainage).filter(ch=>ch>reach.fromChainage&&ch<reach.toChainage)])].sort((a,b)=>a-b)
-  for(const ch of chainages) {
-    const section=treatmentSectionAt(data,ch)
+  const bankBoundaries = new Set((['left','right'] as const).flatMap(side => canalBankReaches(data,side).flatMap(r => [r.from,r.to])))
+  const chainages=[...new Set([reach.fromChainage,reach.toChainage,...data.sections.map(s=>s.chainage),...bankBoundaries])].filter(ch=>ch>=reach.fromChainage&&ch<=reach.toChainage).sort((a,b)=>a-b)
+  const samples=chainages.flatMap((ch,i)=> {
+    if (!bankBoundaries.has(ch)) return [{ch,lookup:ch}]
+    return [i>0?{ch,lookup:(chainages[i-1]+ch)/2}:null,i<chainages.length-1?{ch,lookup:(ch+chainages[i+1])/2}:null].filter((s):s is {ch:number;lookup:number}=>s!==null)
+  })
+  for(const {ch,lookup} of samples) {
+    const source=treatmentSectionAt(data,ch)
+    const section=source?{...source,bankReachLookupChainage:lookup}:null
     if(!section||section.ground.length<2||section.designPopulated===false||canalDesignProfile(data,section).length<2){error(`Complete ground and design at Ch ${ch} m.`);continue}
     const polygon = polygonAt(ch)
     if (!polygon.length || polygon.some(p=>!Number.isFinite(p.offset)||!Number.isFinite(p.rl))) {error(`Complete lining geometry at Ch ${ch} m.`);continue}
@@ -202,7 +210,7 @@ export function measureTreatmentReach(data:CanalData,reach:CanalLiningReach,poly
     if(row.cns-row.replacement-row.excavation-row.alreadyExcavated>1e-5)error(`Treatment extends beyond the supporting earthwork at Ch ${ch} m. Review the section.`)
     const classified=Object.values(row.excavationByCode).reduce((a,b)=>a+b,0)
     if(row.excavation>EPS&&Math.abs(classified-row.excavation)>1e-5)error(`Complete excavation material classification at Ch ${ch} m.`)
-    if(row.replacement>EPS&&data.design.bankConfig?.mode==='tiered')for(const side of ['left','right'] as const){
+    if(row.replacement>EPS&&(data.design.bankConfig?.mode==='tiered'||data.design.bankConfig?.mode==='manual'))for(const side of ['left','right'] as const){
       const f=canalSectionBankTier(data,section,side)?.foundationTreatment
       if(f&&(f.blanket!=='none'||f.horizontalFilter))error('Resolve CNS placement against existing embedded blanket/filter layers before billing fill replacement.')
     }

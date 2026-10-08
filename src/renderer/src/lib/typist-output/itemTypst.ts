@@ -180,11 +180,21 @@ function resolveItemConfig(project: EestimateProject, item: ProjectNode): PrintC
 }
 
 /** The column fit-scale: widths shrink to the printable area, never stretch. */
-function columnScaleFor(
+export function columnScaleFor(
   snapshot: WorksheetSnapshotLike,
   config: PrintConfig,
   settings: DocumentSettings
 ): number {
+  if (!snapshot) return 1
+  if ((config as unknown as { columnScale?: number }).columnScale != null) {
+    return (config as unknown as { columnScale?: number }).columnScale!
+  }
+  if (config.scaleMode === 'percent' && typeof config.scalePercent === 'number' && config.scalePercent > 0) {
+    return config.scalePercent / 100
+  }
+  if (config.scaleMode !== 'fit-page' && !config.fitToWidthPages) {
+    return 1
+  }
   const sheet = (snapshot.sheets?.[snapshot.sheetOrder?.[0] ?? ''] ??
     Object.values(snapshot.sheets ?? {})[0]) as
     | { columnData?: Record<number, { w?: number; hd?: number }>; defaultColumnWidth?: number }
@@ -196,6 +206,7 @@ function columnScaleFor(
   const defColW = sheet.defaultColumnWidth ?? 88
   let contentMm = 0
   for (let c = range.startColumn; c <= range.endColumn; c += 1) {
+    if (sheet.columnData?.[c]?.hd === 1) continue
     contentMm += (sheet.columnData?.[c]?.w ?? defColW) / PX_PER_MM
   }
   const paper = PAPER_MM[settings.pageSize]
@@ -528,7 +539,8 @@ export function buildItemSheetRenderData(
       showGridlines: isDocument ? false : (config.showGridlines ?? true),
       repeatHeaderRows: isDocument ? 0 : (config.repeatHeaderRows ?? 0),
       showRowColHeaders: isDocument ? false : (config.showRowColHeaders ?? false),
-      range: isDocument ? null : (config.range ?? null)
+      range: isDocument ? null : (config.range ?? null),
+      columnScale: isDocument ? 1 : columnScaleFor(snapshot as WorksheetSnapshotLike, config, settings)
     }
   }
 }

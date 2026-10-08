@@ -208,10 +208,17 @@ function numberLiterals(section: string): { prefix: string; suffix: string } {
   }
 }
 
+function formatGeneralNumber(value: number): string {
+  if (Number.isInteger(value)) return String(value)
+  const rounded = Number(value.toFixed(8))
+  return String(rounded)
+}
+
 /** The value to print in a cell, honouring its number-format pattern. */
 function cellDisplayText(cell: CellData, style: StyleData | null): string {
-  if (typeof cell.v === 'number' && Number.isFinite(cell.v) && style?.n?.pattern) {
-    return formatNumberPattern(cell.v, style.n.pattern)
+  if (typeof cell.v === 'number' && Number.isFinite(cell.v)) {
+    if (style?.n?.pattern) return formatNumberPattern(cell.v, style.n.pattern)
+    return formatGeneralNumber(cell.v)
   }
   return cellText(cell)
 }

@@ -831,14 +831,21 @@ function publishedAbstractRows(
 ): RateAnalysisStoredRow[] {
   const published = recipe.recalculation?.abstract ?? recipe.storedValues?.abstract
   if (published?.length) return published
+  const mat = Number(summary?.sectionTotals?.materials) || 0
+  const mach = Number(summary?.sectionTotals?.machinery) || 0
+  const lab = Number(summary?.sectionTotals?.labour) || 0
+  const base = Number(summary?.baseCost) || (mat + mach + lab)
+  const oh = Number(summary?.overheadAmount) || 0
+  const total = Number(summary?.totalCost) || (base + oh)
+  const rate = Number(summary?.ratePerUnit) || 0
   return [
-    { label: 'A. Cost of Materials', value: '', unit: '', basis: '', percent: '', amount: summary.sectionTotals.materials.toFixed(2) },
-    { label: 'B. Hire charges of Machinery', value: '', unit: '', basis: '', percent: '', amount: summary.sectionTotals.machinery.toFixed(2) },
-    { label: 'C. Cost of Labour', value: '', unit: '', basis: '', percent: '', amount: summary.sectionTotals.labour.toFixed(2) },
-    { label: 'Total (A+B+C)', value: '', unit: '', basis: '', percent: '', amount: summary.baseCost.toFixed(2) },
-    { label: `Add contractor profit / overhead`, value: '', unit: '', basis: '', percent: `${recipe.overheadPercent}%`, amount: summary.overheadAmount.toFixed(2) },
-    { label: 'Total cost', value: '', unit: '', basis: '', percent: '', amount: summary.totalCost.toFixed(2) },
-    { label: `Rate per ${recipe.unit || 'unit'}`, value: '', unit: '', basis: `${formatQuantity(recipe.outputQuantity)} ${recipe.unit || 'unit'}`, percent: '', amount: summary.ratePerUnit.toFixed(2) }
+    { label: 'A. Cost of Materials', value: '', unit: '', basis: '', percent: '', amount: mat.toFixed(2) },
+    { label: 'B. Hire charges of Machinery', value: '', unit: '', basis: '', percent: '', amount: mach.toFixed(2) },
+    { label: 'C. Cost of Labour', value: '', unit: '', basis: '', percent: '', amount: lab.toFixed(2) },
+    { label: 'Total (A+B+C)', value: '', unit: '', basis: '', percent: '', amount: base.toFixed(2) },
+    { label: `Add contractor profit / overhead`, value: '', unit: '', basis: '', percent: `${recipe.overheadPercent}%`, amount: oh.toFixed(2) },
+    { label: 'Total cost', value: '', unit: '', basis: '', percent: '', amount: total.toFixed(2) },
+    { label: `Rate per ${recipe.unit || 'unit'}`, value: '', unit: '', basis: `${formatQuantity(recipe.outputQuantity)} ${recipe.unit || 'unit'}`, percent: '', amount: rate.toFixed(2) }
   ]
 }
 

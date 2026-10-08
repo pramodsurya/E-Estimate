@@ -12,12 +12,14 @@ import {
   canalServiceRoadSegments,
   canalSectionAreas,
   canalSectionBankTier,
+  canalSectionBankTreatment,
   canalStrippingBands,
   canalStrippingDepthAt,
   orderCanalPoints,
   profileDifferenceBands
 } from '../../lib/canal'
 import { formatChainage } from '../../lib/guideWall'
+import { bankProtectionSegments, bankProtectionItem, bankProtectionAt } from '../../lib/canalBankProtection'
 
 const WIDTH = 640
 const HEIGHT = 360
@@ -95,11 +97,11 @@ export default function CanalSectionDiagram({
   /** Explicit rock-toe/drain works for a live preview. Saved works are used when omitted. */
   filterDrainWorks?: CanalFilterDrainReach[]
 }): JSX.Element {
-  const isTiered = data.design.bankConfig?.mode === 'tiered'
+  const isTiered = data.design.bankConfig?.mode === 'tiered' || data.design.bankConfig?.mode === 'manual'
   const leftTier = isTiered ? canalSectionBankTier(data, section, 'left') : null
   const rightTier = isTiered ? canalSectionBankTier(data, section, 'right') : null
-  const leftTreatment = leftTier?.foundationTreatment
-  const rightTreatment = rightTier?.foundationTreatment
+  const leftTreatment = leftTier ? canalSectionBankTreatment(data, section, 'left') : undefined
+  const rightTreatment = rightTier ? canalSectionBankTreatment(data, section, 'right') : undefined
   const resolvedFilterDrainWorks = filterDrainWorks ?? data.filterDrainReaches.filter((row) => section.chainage >= row.fromChainage && section.chainage <= row.toChainage)
   const view = (() => {
     const design = canalDesignProfile(data, section)
@@ -536,6 +538,16 @@ export default function CanalSectionDiagram({
         <text x={view.toX(work.points.reduce((sum, point) => sum + point.offset, 0) / work.points.length)} y={view.toY(Math.max(...work.points.map((point) => point.rl))) - 6} textAnchor="middle" className={work.rockToe || work.rockToeFilter ? 'canal-diagram-rocktoe-label' : 'canal-diagram-drainage-label'}>{work.rockToe ? 'Rock toe' : work.rockToeFilter ? 'Filter bed · 1.00 m' : work.kind === '5-9' ? 'Local filter + Ø100 plug' : work.kind === '5-8' ? 'Bed drain' : work.kind === '5-12' || work.kind === '5-13' ? 'Fabric + aggregate toe drain' : 'Graded toe drain'}</text>
         {work.secondaryPoints && <text x={view.toX(work.secondaryPoints.reduce((sum, point) => sum + point.offset, 0) / work.secondaryPoints.length)} y={view.toY(work.secondaryPoints.reduce((sum, point) => sum + point.rl, 0) / work.secondaryPoints.length)} textAnchor="middle" className="canal-diagram-rocktoe-label">Back filter · 0.50 m</text>}
       </g>)}
+
+      {(['left', 'right'] as const).flatMap((side) => (['slopes', 'berms'] as const).map((surface) => {
+        const spec = bankProtectionAt(data, section, side)[surface]
+        const item = bankProtectionItem(spec)
+        if (!item || (data.mode === 'new' && spec.kind === 'stone' && spec.thickness === 0.225)) return null
+        return <g key={`bank-protection-${side}-${surface}`} aria-label={`${side} bank ${surface} ${spec.kind === 'grass' ? 'grass turfing' : 'stone pitching'}`}>
+          <title>{side === 'left' ? 'Left' : 'Right'} bank · {spec.kind === 'grass' ? 'Grass turfing' : 'Stone pitching'} · {item.code}</title>
+          {bankProtectionSegments(data, section, side, surface).map(([a, b], index) => <line key={index} x1={view.toX(a.offset)} y1={view.toY(a.rl)} x2={view.toX(b.offset)} y2={view.toY(b.rl)} stroke={spec.kind === 'grass' ? '#74d68a' : '#f1bc75'} strokeWidth="5" strokeDasharray={spec.kind === 'grass' ? '2 2' : '7 2'}/>)}
+        </g>
+      }))}
 
       {view.roads.map((road) => (
         <g key={road.id} className="canal-diagram-road">

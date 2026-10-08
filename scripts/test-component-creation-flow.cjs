@@ -38,8 +38,8 @@ assert.ok(
   'typed length must create a manual template node'
 )
 assert.ok(
-  modal.includes('{ areaAllowance: allowance, workingLine: line }'),
-  'drawn template line must create with location, allowance and working line'
+  modal.includes('{ areaAllowance: allowance, workingLine: line, manualLengthM: typedLengthOverride }'),
+  'drawn template line must create with location, allowance, working line and typed length override'
 )
 
 // Template multi-create stays same-type and needs lines, not points.

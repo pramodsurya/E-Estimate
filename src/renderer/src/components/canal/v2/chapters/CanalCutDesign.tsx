@@ -20,7 +20,9 @@ import {
   canalBedLevelAt,
   orderCanalPoints,
   canalGroundProfileBetweenToes,
-  canalSectionAreas
+  canalSectionAreas,
+  canalSectionBankSignedHeight,
+  computeProgrammaticBerms
 } from '../../../../lib/canal'
 import CanalSectionDiagram from '../../CanalSectionDiagram'
 
@@ -106,6 +108,15 @@ export default function CanalCutDesign({
     }
     return selectedSection
   })()
+
+  const bermPlacement = previewSection && bermConfig.enabled && mode === 'programmatic'
+    ? (['left', 'right'] as const).map((side) => {
+      const cutHeight = tblHeight - canalSectionBankSignedHeight(data, previewSection, side)
+      const steps = computeProgrammaticBerms(cutHeight, tblHeight, bermConfig)
+      const placed = steps.filter((step) => step.status === 'placed')
+      return { side, cutHeight, placed, omitted: steps.find((step) => step.status === 'omitted') }
+    })
+    : []
 
   const patchBermConfig = (patch: Partial<CanalCutBermConfig>): void => {
     onCommit({
@@ -557,6 +568,16 @@ export default function CanalCutDesign({
 
         {previewSection ? (
           <div className="canal-earthwork-section-view">
+            {bermPlacement.length > 0 && <div className="canal-cut-rule-box" role="status">
+              {bermPlacement.map(({ side, cutHeight, placed, omitted }) => <p key={side}>
+                <strong>{side === 'left' ? 'Left' : 'Right'} cut berms:</strong>{' '}
+                {placed.length > 0
+                  ? `${placed.length} berm${placed.length === 1 ? '' : 's'} at ${placed.map((step) => (bedRl + step.heightAboveBed).toFixed(2)).join(', ')} m RL.`
+                  : `No automatic berms at this section (cut height ${Math.max(0, cutHeight).toFixed(2)} m).`}
+                {omitted && <> {omitted.reason}</>}
+              </p>)}
+              {(design.serviceRoadReaches?.length ?? 0) > 0 && <p>Service-road platforms are retained separately. A road at a berm level shares that shelf, widened to fit the road and both shoulders.</p>}
+            </div>}
             <CanalSectionDiagram data={data} section={previewSection} />
           </div>
         ) : (

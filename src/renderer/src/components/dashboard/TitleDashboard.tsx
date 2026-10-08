@@ -645,10 +645,13 @@ export default function TitleDashboard(): JSX.Element | null {
             <strong>{meta.areaAllowancePercent ?? 0}%</strong>
           </div>
           <div className="location-copy">
-            {meta.location?.label ||
-              (meta.location
-                ? `${meta.location.lat.toFixed(6)}, ${meta.location.lng.toFixed(6)}`
-                : 'Location not set')}
+            {typeof meta.location === 'string'
+              ? meta.location
+              : meta.location?.label
+                ? meta.location.label
+                : typeof meta.location?.lat === 'number' && typeof meta.location?.lng === 'number'
+                  ? `${meta.location.lat.toFixed(6)}, ${meta.location.lng.toFixed(6)}`
+                  : 'Location not set'}
           </div>
           <ChargeRow label="Area classification" text={meta.areaAllowanceLabel ?? 'None'} />
           <ChargeRow label="Mapped village" text={meta.areaAllowance?.village ?? '—'} />

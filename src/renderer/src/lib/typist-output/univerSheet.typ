@@ -710,8 +710,16 @@
   let core = prefix + mant + mid + "E" + exp + suffix
   numfmt-signed(core, section.replace(regex("\\[[^\\]]*\\]"), "").trim(), show-minus)
 }
+#let format-general-num(v) = {
+  if type(v) == int { return str(v) }
+  if type(v) != float { return str(v) }
+  let r = calc.round(v, digits: 8)
+  if r == int(r) { return str(int(r)) }
+  str(r)
+}
+
 #let format-number-pattern(value, pattern) = {
-  if type(pattern) != str or pattern == "" { return str(value) }
+  if type(pattern) != str or pattern == "" or pattern == "General" { return format-general-num(value) }
   if type(value) != int and type(value) != float { return str(value) }
   let parts = numfmt-split-sections(pattern)
   let pick = numfmt-pick-index(parts, value)
@@ -882,11 +890,27 @@
     if v == 1 { return "TRUE" }
     if v == 0 { return "FALSE" }
   }
-  return str(v)
+  return format-general-num(v)
 }
 
 #let extract-cell-text(cell) = {
   cell-display-text(cell, none)
+}
+
+#let cell-has-content(r, c, cell-data) = {
+  let r-key = str(r)
+  if not (r-key in cell-data) or type(cell-data.at(r-key)) != dictionary { return false }
+  let c-key = str(c)
+  if not (c-key in cell-data.at(r-key)) { return false }
+  let cell = cell-data.at(r-key).at(c-key)
+  if cell == none or type(cell) != dictionary { return false }
+  let v = cell.at("v", default: none)
+  if v != none and v != "" { return true }
+  let f = cell.at("f", default: none)
+  if f != none and type(f) == str and f.trim() != "" { return true }
+  let txt = extract-cell-text(cell)
+  if txt != none and txt.trim() != "" { return true }
+  return false
 }
 
 // Long-token breaking for WRAP cells (column-constrained layout). Non-WRAP
@@ -1356,7 +1380,8 @@
   show-gridlines: true,
   repeat-header-rows: 0,
   range-override: none,
-  images: none
+  images: none,
+  column-scale: 1
 ) = {
   if data-source == none {
     return align(center)[#text(fill: luma(120))[No Spreadsheet Data]]
@@ -1480,7 +1505,12 @@
     (type(rd) == dictionary and ee-is-on(rd.at("hd", default: 0))) or row-resolved-px(r, row-data, default-h) <= 0
   }
 
-  // Column widths
+  // Effective column scale (from argument or range-override dict)
+  let eff-scale = if column-scale != none and ee-as-num(column-scale, fallback: 0) > 0 { ee-as-num(column-scale, fallback: 1) }
+    else if type(range-override) == dictionary and "columnScale" in range-override { ee-as-num(range-override.at("columnScale", default: 1), fallback: 1) }
+    else { 1 }
+
+  // Column widths scaled to fit
   let col-widths = vis-cols.map(c => {
     let w = default-w
     let cd = col-data.at(str(c), default: none)
@@ -1488,7 +1518,7 @@
       let cw = ee-as-num(cd.at("w", default: default-w), fallback: default-w)
       w = cw
     }
-    w * 0.75pt
+    w * 0.75pt * eff-scale
   })
 
   // Merges mapping (validated, clipped; spans count visible rows/cols only)
@@ -1603,10 +1633,24 @@
         let td = if st != none { st.at("td", default: 0) } else { 0 }
         let dir = if td == 2 or (td != 1 and sheet-rtl) { rtl } else if td == 1 { ltr } else { auto }
 
-        // Wrap strategy (tb: 0 Unspecified, 1 Overflow, 2 Clip, 3 Wrap):
-        // only WRAP lays a width-wrapped paragraph here.
-        let is-wrapped = st != none and st.at("tb", default: 0) == 3
+        // Cell values & types
+        let cv = if cell != none { cell.at("v", default: none) } else { none }
+        let ct = if cell != none { cell.at("t", default: none) } else { none }
+        let is-numeric = ct != 4 and ct != 3 and (type(cv) == int or type(cv) == float or ct == 2)
+        let is-bool = ct == 3 or type(cv) == bool
+
+        // Adjacent cell content detection (for safe, non-colliding overflow)
+        let last-c = if span-m != none { span-m.at("c2", default: c) } else { c }
+        let first-c = if span-m != none { span-m.at("c1", default: c) } else { c }
+        let right-has-content = (last-c < max-c and cell-has-content(r, last-c + 1, cell-data))
+        let left-has-content = (first-c > min-c and cell-has-content(r, first-c - 1, cell-data))
+
+        // Wrap strategy (tb: 0 Unspecified, 1 Overflow, 2 Clip, 3 Wrap)
         let tb-mode = if st != none { st.at("tb", default: 0) } else { 0 }
+        let is-explicit-wrap = st != none and st.at("tb", default: 0) == 3
+        let is-header-row = (r - min-r) < repeat-rows
+        let auto-wrap-text = not is-numeric and not is-bool and tb-mode != 2 and (is-header-row or right-has-content)
+        let is-wrapped = is-explicit-wrap or auto-wrap-text
 
         // Formula cells show the cached value; otherwise rich runs style the stream.
         let stream = rich-stream(cell)
@@ -1614,49 +1658,23 @@
         let use-runs = stream != none and runs.len() > 0
         let body-text = if use-runs { stream } else { cell-display-text(cell, st) }
         let body-runs = if use-runs { runs } else { () }
-        // Wrap-then-rotate for every rotation: tb drives wrapping (vertical
-        // text included — tr.v only selects the 90-degree angle). Rotated
-        // WRAP pre-lays at the installed cell-height budget (wrap-width
-        // above); other strategies freeze unwrapped natural lines. The
-        // laid-out block then rotates inside a frozen box (no second wrap).
+
         let sec-fill = section-fill-for(cell, st)
         let rot-now = rotation-angle(st)
         let body = if is-wrapped and rot-now != 0 {
-          // Installed rotated-WRAP budget (engine-render
-          // _calculateOverflowCell): the document page width becomes the
-          // cell/span height (rh, padding included); text wraps inside the
-          // installed document margins (padding l/r, default 2px).
           let wrap-w = calc.max(rh - ee-doc-margin(st, "l", 2) - ee-doc-margin(st, "r", 2), 1pt)
           render-cell-body(body-text, body-runs, st, dir: dir, is-wrapped: true, sec-fill: sec-fill, wrap-width: wrap-w)
         } else {
           render-cell-body(body-text, body-runs, st, dir: dir, is-wrapped: is-wrapped, sec-fill: sec-fill)
         }
-        // Non-WRAP bodies are fixed-size natural boxes (one measured line per
-        // logical line), so rotation measurement sees exact bounds and the
-        // frozen rotation box cannot trigger a second wrap pass.
         body = apply-rotation(body, st, rh - v-pad)
 
-        // Alignments mirror the installed renderer (_horizontalHandler): explicit
-        // ht 1 left / 2 center / 3 right always wins; ht 4 JUSTIFIED / 5 BOTH /
-        // 6 DISTRIBUTED render justified via par(justify: true) — Typst has no
-        // `justify` alignment value (same idiom as univerDoc.typ). Unspecified
-        // ht resolves like Excel/General: vertical text mode (tr.v) centers,
-        // text rotated downwards (a > 0 except 90, or a == -90) rights,
-        // numbers right, booleans center, everything else left.
+        // Alignment resolution (explicit ht wins; General infers from type/rotation)
         let ht-raw = if st != none { st.at("ht", default: 0) } else { 0 }
-        let cv = if cell != none { cell.at("v", default: none) } else { none }
-        let ct = if cell != none { cell.at("t", default: none) } else { none }
-        // Forced strings (t: 4) are text even when the value looks numeric;
-        // booleans (t: 3) center under General, like Excel, instead of
-        // right-aligning as numbers.
-        let is-numeric = ct != 4 and ct != 3 and (type(cv) == int or type(cv) == float or ct == 2)
-        let is-bool = ct == 3 or type(cv) == bool
         let is-justified = ht-raw == 4 or ht-raw == 5 or ht-raw == 6
         let tr-d = if st != none { st.at("tr", default: none) } else { none }
         let tr-a = if type(tr-d) == dictionary { ee-as-num(tr-d.at("a", default: 0), fallback: 0) } else { 0 }
         let tr-v = is-vertical-text(st)
-        // Explicit alignment always wins, in ht order. A number with ht: 1
-        // stays left. Forced strings (t: 4) are text, never numeric.
         let h-align = if ht-raw == 1 or ht-raw == "l" { left }
           else if ht-raw == 2 or ht-raw == "c" { center }
           else if ht-raw == 3 or ht-raw == "r" { right }
@@ -1667,42 +1685,52 @@
           else if is-bool { center }
           else { left }
         if is-justified { body = par(justify: true, body) }
-        // vt 0 (or missing) is bottom, matching Excel's default vertical
-        // alignment; 1 top / 2 middle / 3 bottom.
         let v-align = if st != none {
           let vt = st.at("vt", default: 0)
           if vt == 1 { top } else if vt == 2 { horizon } else { bottom }
         } else { bottom }
 
-        // Non-WRAP strategies lay one measured natural box per logical line,
-        // so CJK, hyphens, emoji and mixed-direction runs cannot split it;
-        // explicit newlines still break at the call site and rich-run styling
-        // stays inline within each measured line.
-        // Alignment operates across the COMPLETE cell content width: the
-        // container is explicitly full-width (100% of the inset content box).
-        // Selecting right/center cannot move text when the enclosing layout
-        // shrinks to the text width, so the width is pinned and only the
-        // height varies (plain cells enforce the resolved content height;
-        // rotated cells in auto rows size via the frozen rotation box,
-        // while explicit rows pin rh and spill/cut per strategy).
-        // OVERFLOW/unspecified extends past the cell edge like Univer/Excel;
-        // CLIP cuts at the edge inside a clipped box (rotated CLIP cuts at
-        // the cell rectangle). Installed overflow spans columns only, so
-        // rotated explicit rows spill horizontally and cut vertically.
-        // Neighbor-dependent overflow cutoff is not modeled for unrotated
-        // cells (documented limitation).
+        // Neighbor-aware overflow: numbers NEVER overflow; text only overflows if neighbor is truly empty.
+        let can-overflow = if is-wrapped or tb-mode == 2 or is-numeric or is-bool {
+          false
+        } else if h-align == right {
+          first-c > min-c and not left-has-content
+        } else if h-align == center {
+          (first-c > min-c and not left-has-content) and (last-c < max-c and not right-has-content)
+        } else {
+          last-c < max-c and not right-has-content
+        }
+
+        let overflow-extra-w = 0pt
+        if can-overflow and h-align != right {
+          let check-c = last-c + 1
+          while check-c <= max-c {
+            if not (str(check-c) in col-visible) { check-c += 1; continue }
+            if cell-has-content(r, check-c, cell-data) { break }
+            let cd-check = col-data.at(str(check-c), default: none)
+            let check-w = if type(cd-check) == dictionary { ee-as-num(cd-check.at("w", default: default-w), fallback: default-w) } else { default-w }
+            overflow-extra-w += check-w * 0.75pt * eff-scale
+            check-c += 1
+          }
+        }
+
         let cell-inner = [#if cell != none { metadata(cell.at("_ee_print_id", default: "")) }#body]
         let fixed-h = calc.max(rh - v-pad, 1pt)
         let cell-content = if not is-rotated {
-          if not is-wrapped and tb-mode == 2 {
-            box(width: 100%, height: fixed-h, clip: true, align(h-align + v-align, cell-inner))
-          } else {
+          if is-wrapped {
+            if span-is-explicit {
+              box(width: 100%, height: fixed-h, clip: true, align(h-align + v-align, cell-inner))
+            } else {
+              block(width: 100%, breakable: false, align(h-align + v-align, cell-inner))
+            }
+          } else if can-overflow and overflow-extra-w > 0pt {
+            box(width: 100% + overflow-extra-w, height: fixed-h, clip: true, align(h-align + v-align, cell-inner))
+          } else if can-overflow {
             block(width: 100%, height: fixed-h, breakable: false, align(h-align + v-align, cell-inner))
+          } else {
+            box(width: 100%, height: fixed-h, clip: true, align(h-align + v-align, cell-inner))
           }
         } else if span-is-explicit {
-          // Explicit rows keep rh: rotated paint spills horizontally
-          // (installed overflow spans columns, never rows) and cuts
-          // vertically at the row span; CLIP cuts both axes at the cell.
           ee-rotated-frame(cell-inner, h-align, v-align, fixed-h, tb-mode == 2)
         } else {
           block(width: 100%, align(h-align + v-align, cell-inner))

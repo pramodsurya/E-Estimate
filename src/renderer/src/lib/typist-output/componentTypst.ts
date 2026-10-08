@@ -19,12 +19,14 @@ import { slrbAddon } from '../../templates/slrb/addon'
 import univerComponentPrelude from './univerComponent.typ?raw'
 import {
   EE_ITEM_TABLE_PRELUDE,
+  columnScaleFor,
   itemSheetShadowFiles,
   resolveItemDescriptionRuns,
   type ExtractedMedia,
   type ItemMediaItem,
   extractItemMedia
 } from './itemTypst'
+import type { WorksheetSnapshotLike } from './worksheetTypst'
 import { extractDocumentMedia, parseDocumentToTypstData } from './documentTypst'
 import { createUniverWorkbookData, usedCellRange } from '../univerSpreadsheet'
 import { attachEeDisplayText, type EeWorkbookLike } from './univerDisplayText'
@@ -45,6 +47,10 @@ import {
 } from './documentSettings'
 import type {
   EestimateProject,
+  Margins,
+  Orientation,
+  PaperSize,
+  PrintConfig,
   ProjectNode
 } from '../../types/project'
 import type { RateAnalysisRecipe, RateAnalysisTextRun } from '../../types/rateAnalysis'
@@ -319,7 +325,20 @@ export function buildComponentRenderData(
             }
           : null,
         repeatHeaderRows: Number(printConfig.repeatHeaderRows) || 0,
-        showGridlines: printConfig.showGridlines ?? true
+        showGridlines: printConfig.showGridlines ?? true,
+        columnScale: isDoc
+          ? 1
+          : columnScaleFor(
+              univerData as WorksheetSnapshotLike,
+              { ...printConfig, fitToWidthPages: printConfig.fitToWidthPages ?? 1 } as PrintConfig,
+              {
+                pageSize: (printConfig.pageSize ?? settings.pageSize ?? 'A4') as PaperSize,
+                orientation: (printConfig.orientation ?? settings.orientation ?? 'portrait') as Orientation,
+                margins: (printConfig.margins ?? settings.margins ?? { top: 20, right: 15, bottom: 20, left: 25 }) as Margins,
+                fontFamily: 'times',
+                fontSizePt: 11
+              }
+            )
       },
       images: verifiedImages
     }
