@@ -40,7 +40,7 @@ const componentTypstSource = fs.readFileSync(
 )
 assert.match(
   componentTypstSource,
-  /\(isBund \|\| isGuideWall\) && savedTypstSource[\s\S]*?ensureTemplateExternalItems\(source, renderData\)/,
+  /\(isBund \|\| isGuideWall \|\| isSlrb\) && savedTypstSource[\s\S]*?ensureTemplateExternalItems\(source, renderData\)/,
   'saved component templates must dynamically include external items added later'
 )
 assert.match(
@@ -83,7 +83,7 @@ const prelude = `
 }
 #let render-markup(t) = if t == none or t == "" { [] } else { [#t] }
 #let render-description(item) = [#item.at("description", default: "")]
-#let render-univer-sheet(data, repeat-header-rows: 0, show-gridlines: true, range-override: none, images: none) = []
+#let render-univer-sheet(data, repeat-header-rows: 0, show-gridlines: true, range-override: none, images: none, column-scale: 1) = []
 #let render-univer-doc(data) = []
 ${univerComponent}
 `
