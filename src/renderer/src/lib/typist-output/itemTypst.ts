@@ -133,6 +133,7 @@ export interface ItemSheetRenderData {
     repeatHeaderRows: number
     showRowColHeaders: boolean
     range: CellRange | null
+    columnScale: number
   }
 }
 
