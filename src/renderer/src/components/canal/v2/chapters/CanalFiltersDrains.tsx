@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from 'react'
 import { Droplets, LockKeyhole, Pickaxe, Plus } from 'lucide-react'
 import type { CanalData, CanalDrainageReach, CanalTierFoundationConfig } from '../../../../types/project'
-import { canalSectionBankTier, canalTierToeProtectionQuantities, defaultCanalTierFoundationConfig, orderedCanalSections } from '../../../../lib/canal'
+import { canalSectionBankTier, canalTierToeProtectionQuantities, defaultCanalTierFoundationConfig, orderedCanalSections, tierOuterToeSlope } from '../../../../lib/canal'
 import { canalDrainageTiers, canalDrainageTierTreatment, canalDrainageWorkRanges, canalManualDrainageReaches, saveCanalDrainageTier, saveCanalManualDrainageReach, removeCanalManualDrainageReach } from '../../../../lib/canalDrainageDesign'
 import { bankReachLabel } from './CanalBankReachPicker'
 import { bankProtectionSectionAt } from '../../../../lib/canalBankProtection'
@@ -127,7 +127,7 @@ function CanalToeWorkEditor({ data, activeSide, ranges, title, saved, startEditi
     const tier = section ? canalSectionBankTier(data, section, activeSide) : null
     return {
       tierSummary: canalTierToeProtectionQuantities(data, undefined, { from: 0, to: data.lengthM, ranges, side: data.design.bankConfig?.linkSymmetrical ? undefined : activeSide }),
-      outerToeSlope: Math.max(0, tier?.berms.at(-1)?.slopeAfterBerm ?? tier?.baseSlope ?? 0),
+      outerToeSlope: tierOuterToeSlope(tier),
       representativeChainage: section?.chainage
     }
   }, [data, activeSide, ranges])

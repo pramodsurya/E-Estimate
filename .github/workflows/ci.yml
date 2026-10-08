@@ -30,6 +30,8 @@ jobs:
       - run: npm ci
       - name: Typecheck
         run: npm run typecheck
+      - name: Build renderer with React Compiler
+        run: npm run build:renderer
       - name: Tests
         run: npm test
       - name: Automatic updater tests

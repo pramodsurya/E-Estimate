@@ -3344,7 +3344,7 @@ export interface CanalTierToeProtectionSummary {
   toeDrainConcreteVolume: number
 }
 
-const tierOuterToeSlope = (tier: CanalBankTier | null): number => {
+export const tierOuterToeSlope = (tier: CanalBankTier | null): number => {
   if (!tier) return 0
   return Math.max(0, tier.berms.at(-1)?.slopeAfterBerm ?? tier.baseSlope)
 }
