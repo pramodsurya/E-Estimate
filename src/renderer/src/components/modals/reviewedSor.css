@@ -1,7 +1,7 @@
 .reviewed-sor-col { min-width: 0; }
 .reviewed-sor-header { gap: 12px; align-items: center; justify-content: space-between; }
 .reviewed-sor-header .btn-mini { max-width: 150px; white-space: normal; }
-.reviewed-sor-filters { display: grid; grid-template-columns: 145px minmax(0, 1fr); gap: 10px; padding: 14px; border-bottom: 1px solid var(--border); }
+.reviewed-sor-filters { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 14px; border-bottom: 1px solid var(--border); }
 .reviewed-sor-filters label, .reviewed-sor-costing > label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; }
 .reviewed-sor-filters select { min-width: 0; width: 100%; padding: 8px; background: var(--bg-input, var(--bg)); color: var(--text); border: 1px solid var(--border); border-radius: 6px; }
 .reviewed-sor-filters .reviewed-sor-search { grid-column: 1 / -1; position: relative; }

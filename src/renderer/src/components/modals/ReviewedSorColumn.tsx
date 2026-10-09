@@ -9,7 +9,6 @@ import type { ReviewedSorObservation } from '../../types/sorReviewed'
 import ReviewedSorDetailPanel from './ReviewedSorDetailPanel'
 import './reviewedSor.css'
 
-const EDITIONS = ['2026-27', '2025-26', '2024-25', '2023-24']
 const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error)
 type SearchPage = Awaited<ReturnType<typeof searchReviewedSorWithLocations>>
 const nodeTitle = (node: SorNavigationNode): string => node.node_type === 'table' ? tableLabel(node.display_title) : node.display_title
@@ -18,7 +17,7 @@ const nodeKind = (node: SorNavigationNode): string => ({ table: 'Schedule', sect
 export default function ReviewedSorColumn({ sorYear, selected, onAdd, onShowBasicRates, initialCatalogue = null }: {
   sorYear: string; selected: Map<string, MasterItem>; onAdd: (item: MasterItem) => void; onShowBasicRates: () => void; initialCatalogue?: string | null
 }): JSX.Element {
-  const [year, setYear] = useState(sorYear)
+  const year = sorYear
   const [projectYear, setProjectYear] = useState(sorYear)
   const [query, setQuery] = useState('')
   const [catalogue, setCatalogue] = useState<string | null>(initialCatalogue)
@@ -43,7 +42,7 @@ export default function ReviewedSorColumn({ sorYear, selected, onAdd, onShowBasi
   const searching = query.trim().length > 0
 
   if (projectYear !== sorYear) {
-    setProjectYear(sorYear); setYear(sorYear); setPendingRecipe(choice?.item_id ?? null)
+    setProjectYear(sorYear); setPendingRecipe(choice?.item_id ?? null)
     setChoice(null); setChoicePath([]); setPath([]); setOffset(0); setAnchor(null); setCatalogue(null); setSearchOffset(0)
     setNotice('Project SOR year changed. Checking the selected variant in this edition.')
   }
@@ -105,10 +104,6 @@ export default function ReviewedSorColumn({ sorYear, selected, onAdd, onShowBasi
   const navigate = (next: SorNavigationNode[]): void => {
     setPath(next); setCatalogue(next[0]?.catalogue_code ?? null); setOffset(0); setAnchor(null); setQuery(''); setShowDetail(false); setNotice('')
   }
-  const changeYear = (next: string): void => {
-    setPendingRecipe(choice?.item_id ?? null); setChoice(null); setChoicePath([]); setYear(next)
-    navigate([]); setSearchOffset(0)
-  }
   const choose = (row: ReviewedSorObservation, locationPath: SorNavigationNode[]): void => {
     setPendingRecipe(null); setChoice(row); setChoicePath(locationPath); setShowDetail(true); setNotice('')
   }
@@ -134,9 +129,6 @@ export default function ReviewedSorColumn({ sorYear, selected, onAdd, onShowBasi
       <button type="button" className="btn-mini" onClick={onShowBasicRates}>Basic resource rates</button>
     </div>
     <div className="reviewed-sor-filters">
-      <label>SOR year<select aria-label="SOR year" value={year} onChange={event => changeYear(event.target.value)}>
-        {Array.from(new Set([sorYear, ...EDITIONS])).filter(Boolean).map(edition => <option key={edition} value={edition}>{edition}{edition === sorYear ? ' · Project' : ''}</option>)}
-      </select></label>
       <label>Schedule<select aria-label="SOR schedule" value={catalogue ?? ''} onChange={event => {
         setCatalogue(event.target.value || null); setPath([]); setOffset(0); setAnchor(null); setSearchOffset(0); setShowDetail(false)
       }}><option value="">All available schedules</option>
@@ -146,7 +138,6 @@ export default function ReviewedSorColumn({ sorYear, selected, onAdd, onShowBasi
         value={query} onChange={event => { setQuery(event.target.value); setSearchOffset(0); setShowDetail(false) }} /></label>
     </div>
     {notice && <p className="reviewed-sor-notice" role="status">{notice}</p>}
-    {year !== sorYear && <p className="reviewed-sor-notice">Comparing {year}. Return to the project year {sorYear} to add an item.</p>}
     {parsed.serial && !catalogue && <p className="reviewed-sor-notice">Sl. No. {parsed.serial} belongs to a schedule and year. Choose its schedule above or check the references below.</p>}
     {currentCatalogues?.error && <ErrorMessage error={currentCatalogues.error} retry={() => setReload(value => value + 1)} />}
     <nav className="sor-book-breadcrumbs" aria-label="SOR book location">

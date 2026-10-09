@@ -16,7 +16,7 @@ Search interprets `R&B Sl. No. 230` as a table-scoped annual serial reference. B
 
 Only calculation-ready percentage rules with an explicit published-rate base, matching year and annual observation are interactive. The current endpoint supports one selected rule; selecting another replaces it. Notes without verified rules remain informational. Missing, deleted, conflicting and analysis-dependent observations cannot be added through direct costing.
 
-Edition changes follow the stable Recipe ID through history, fetch the actual annual observation and clear extras. Missing or ambiguous observations clear the selection. Other editions can be compared; insertion uses the project edition.
+The selector uses the project SOR year automatically; there is no separate year dropdown. Changing the project year follows the stable Recipe ID through history, fetches the actual annual observation and clears extras. Missing or ambiguous observations clear the selection. Other editions can be compared in the expandable rate-history table; insertion always uses the project edition.
 
 Insertion stores the Recipe, observation, release, edition, quantity, tariff basis, rule IDs, specification evidence and server calculation under `sorCatalogue.reviewed`. A matching DATA recipe is saved immediately, and the quantity is written to an editable final cell. Shared sheets append separate quantity rows without replacing existing measurements. Base and extra-bearing selections have distinct DATA keys.
 
