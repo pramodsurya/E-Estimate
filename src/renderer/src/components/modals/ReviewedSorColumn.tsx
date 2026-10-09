@@ -185,7 +185,7 @@ export default function ReviewedSorColumn({ sorYear, selected, onAdd, onShowBasi
               highlighted={entry.observation.occurrence_id === anchor} onSelect={() => choose(entry.observation, path)} />
               : <button key={entry.node_id} className="sor-book-node" data-kind={entry.node_type} onClick={() => navigate([...path, entry])}>
                 <FolderOpen size={17} /><span><small>{nodeKind(entry)}{entry.printed_reference ? ` · ${entry.printed_reference}` : ''}</small><strong title={entry.display_title}>{nodeTitle(entry)}</strong>
-                  <small>{entry.available_variant_count.toLocaleString('en-IN')} variant{entry.available_variant_count === 1 ? '' : 's'}{entry.source_evidence.pdf_page ? ` · PDF p. ${entry.source_evidence.pdf_page}` : ''}</small></span><ChevronRight size={17} />
+                  <small>{entry.available_variant_count.toLocaleString('en-IN')} variant{entry.available_variant_count === 1 ? '' : 's'}</small></span><ChevronRight size={17} />
               </button>)}
             {activePage && activePage.total_count > 50 && <div className="sor-book-paging">
               <button className="btn-mini" disabled={activePage.offset === 0} onClick={() => { setAnchor(null); setOffset(Math.max(0, activePage.offset - 50)) }}>Previous</button>
