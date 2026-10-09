@@ -5,6 +5,7 @@ import {
   GUIDE_WALL_DEFAULT_WALL_CODE
 } from './guideWall'
 import { unresolvedBundMaterialCodes } from './bund'
+import { unresolvedCanalMaterialCodes } from './canal'
 import { fetchSsrItems, type MasterItem } from './masterData'
 
 export interface TemplateMaterialActions {
@@ -14,6 +15,7 @@ export interface TemplateMaterialActions {
     item: MasterItem
   ) => void
   resolveBundMaterials: (nodeId: string, masters: MasterItem[]) => string[]
+  resolveCanalMaterials: (nodeId: string, masters: MasterItem[]) => string[]
 }
 
 /**
@@ -26,7 +28,7 @@ export async function resolveTemplateDashboardMaterials(
 ): Promise<void> {
   const nodes: ProjectNode[] = []
   const visit = (node: ProjectNode): void => {
-    if (node.templateId === 'guide-wall' || node.templateId === 'bund') {
+    if (node.templateId === 'guide-wall' || node.templateId === 'bund' || node.canal) {
       nodes.push(node)
     }
     node.children.forEach(visit)
@@ -51,6 +53,12 @@ export async function resolveTemplateDashboardMaterials(
   for (const { code } of bundPending) {
     prefixes.add(code.split('-').slice(0, 2).join('-'))
   }
+  const canalPending = nodes.filter((node) => node.canal).flatMap((node) =>
+    unresolvedCanalMaterialCodes(node).map((code) => ({ node, code }))
+  )
+  for (const { code } of canalPending) {
+    prefixes.add(code.split('-').slice(0, 2).join('-'))
+  }
   if (!prefixes.size) return
 
   const masters = (
@@ -72,6 +80,12 @@ export async function resolveTemplateDashboardMaterials(
   }
 
   for (const node of nodes) {
+    if (node.canal && unresolvedCanalMaterialCodes(node).length) {
+      const remaining = actions.resolveCanalMaterials(node.id, masters)
+      if (remaining.length) {
+        throw new Error(`Could not resolve canal code(s): ${remaining.join(', ')}`)
+      }
+    }
     if (node.templateId !== 'bund' || !node.bund) continue
     const pending = unresolvedBundMaterialCodes(node.bund)
     if (!pending.length) continue

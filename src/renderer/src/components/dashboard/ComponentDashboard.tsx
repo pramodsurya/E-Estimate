@@ -72,6 +72,7 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
   const setDashboardSnapshot = useStore((s) => s.setDashboardSnapshot)
   const setGuideWallMaterial = useStore((s) => s.setGuideWallMaterial)
   const resolveBundMaterials = useStore((s) => s.resolveBundMaterials)
+  const resolveCanalMaterials = useStore((s) => s.resolveCanalMaterials)
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
   const [printStudioOpen, setPrintStudioOpen] = useState(false)
@@ -116,6 +117,7 @@ export default function ComponentDashboard({ node }: { node: ProjectNode }): JSX
       await resolveTemplateDashboardMaterials(node, {
         setGuideWallMaterial,
         resolveBundMaterials,
+        resolveCanalMaterials,
       })
       const current = useStore.getState().project
       if (!current || current.id !== project.id) return false

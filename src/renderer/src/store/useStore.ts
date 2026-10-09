@@ -92,7 +92,7 @@ import {
   unresolvedBundMaterialCodes,
   type BundMasterMetadata
 } from '../lib/bund'
-import { defaultCanalData } from '../lib/canal'
+import { defaultCanalData, migrateCanalData, syncCanalItems, unresolvedCanalMaterialCodes } from '../lib/canal'
 import type { ImportedComponentSpec } from '../lib/geometryImport'
 import { foldsIntoPreviousEntry, MAX_HISTORY, type HistoryRun } from './history'
 import { compactProjectForSave, expandLoadedProject } from '../lib/projectFile'
@@ -437,6 +437,11 @@ export function ensureTemplateComponentsSynced(root: ProjectNode): ProjectNode {
       if (hasLength && !hasItems) {
         next = syncBundItems(next, node.id)
       }
+    } else if (node.canal) {
+      next = syncCanalItems(
+        patchNode(next, node.id, { canal: migrateCanalData(node.canal) }),
+        node.id
+      )
     }
     node.children.forEach(visit)
   }
@@ -745,6 +750,7 @@ interface StoreState {
    * than latching a one-shot guard on a lookup that may have failed.
    */
   resolveBundMaterials: (nodeId: string, masters: MasterItem[]) => string[]
+  resolveCanalMaterials: (nodeId: string, masters: MasterItem[]) => string[]
   setTemplateCodeVariant: (
     nodeId: string,
     code: string,
@@ -1584,7 +1590,33 @@ export const useStore = create<StoreState>((set, get) => {
     },
 
     setCanal: (nodeId, data) => {
-      mutate((root) => patchNode(root, nodeId, { canal: data }))
+      mutate((root) => syncCanalItems(patchNode(root, nodeId, { canal: data }), nodeId))
+    },
+
+    resolveCanalMaterials: (nodeId, masters) => {
+      const project = get().project
+      const component = project ? findNode(project.root, nodeId) : null
+      if (!component?.canal) return []
+      const pending = new Set(unresolvedCanalMaterialCodes(component))
+      if (!pending.size) return []
+      const byCode = new Map(masters.map((master) => [master.code, master]))
+      mutate((root) => {
+        let next = root
+        for (const item of component.children) {
+          const master = item.itemCode ? byCode.get(item.itemCode) : undefined
+          if (!master || !pending.has(master.code) || item.kind !== 'item' || !item.templateGenerated || item.templateOwnerId !== nodeId) continue
+          next = patchNode(next, item.id, {
+            itemSource: master.side,
+            categoryKey: master.category,
+            itemDescription: master.description,
+            unit: item.dataVariant?.unit ?? master.unit
+          })
+        }
+        return next
+      })
+      const current = get().project
+      const resolved = current ? findNode(current.root, nodeId) : null
+      return resolved ? unresolvedCanalMaterialCodes(resolved) : []
     },
 
     setNodeAreaAllowance: (nodeId, allowance) => {

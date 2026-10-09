@@ -1,6 +1,6 @@
 /**
  * Intelligent Excel to E-Estimate (.eestimate) Converter.
- *
+ * 
  * - Parses engineering estimate workbooks (.xls, .xlsx).
  * - Resolves all items against Supabase ssr_item and ssr_year.
  * - Extracts canonical SSR codes (e.g. IRR-CCDW-2-25).

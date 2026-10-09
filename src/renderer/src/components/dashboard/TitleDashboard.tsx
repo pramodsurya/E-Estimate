@@ -114,6 +114,7 @@ export default function TitleDashboard(): JSX.Element | null {
   const updatePrintStudioDocument = useStore((state) => state.updatePrintStudioDocument)
   const setGuideWallMaterial = useStore((state) => state.setGuideWallMaterial)
   const resolveBundMaterials = useStore((state) => state.resolveBundMaterials)
+  const resolveCanalMaterials = useStore((state) => state.resolveCanalMaterials)
 
   const allItems = (project ? collectProjectItems(project.root) : [])
 
@@ -192,6 +193,7 @@ export default function TitleDashboard(): JSX.Element | null {
       await resolveTemplateDashboardMaterials(project.root, {
         setGuideWallMaterial,
         resolveBundMaterials,
+        resolveCanalMaterials,
       })
       const current = useStore.getState().project
       if (!current || current.id !== project.id) return false

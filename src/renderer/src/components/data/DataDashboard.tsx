@@ -68,6 +68,7 @@ export default function DataDashboard(): JSX.Element | null {
   const setDashboardSnapshot = useStore((state) => state.setDashboardSnapshot)
   const setGuideWallMaterial = useStore((state) => state.setGuideWallMaterial)
   const resolveBundMaterials = useStore((state) => state.resolveBundMaterials)
+  const resolveCanalMaterials = useStore((state) => state.resolveCanalMaterials)
   const openRateAnalysis = useStore((state) => state.openRateAnalysis)
   const dataDashboardSection = useStore((state) => state.dataDashboardSection)
   const setDataDashboardSection = useStore((state) => state.setDataDashboardSection)
@@ -130,6 +131,7 @@ export default function DataDashboard(): JSX.Element | null {
       await resolveTemplateDashboardMaterials(project.root, {
         setGuideWallMaterial,
         resolveBundMaterials,
+        resolveCanalMaterials,
       })
       // Template resolution mutates generated items (for example, replacing a
       // zoned bund's casing/hearting DATA with its homogeneous DATA). Always

@@ -7,8 +7,7 @@ import { BANK_PROTECTION_ITEMS } from './canalBankProtectionCatalogue'
 // Canal component template: canal-level design (Chapter 1), chainage
 // sections, derived section geometry, and the sync that writes computed
 // quantities into ordinary item children (so totals and every print keep
-// working). Chapters 2+ (cross-sections, earthwork, LA width, lining) plug
-// into syncCanalItems; until then it leaves the tree unchanged.
+// working). Every billable chapter feeds syncCanalItems.
 
 import { canalCnsTotals, measureCnsReach, normalizeCnsChapter } from './canalCns'
 import { measureLiningChapter, normalizeLiningChapter } from './canalLiningChapter'
@@ -3891,11 +3890,16 @@ export function canalLiningTotals(data: CanalData): CanalLiningTotals {
 
 
 
-/**
- * Write computed quantities into ordinary item children. Jungle, earthwork,
- * bank fill and lining chapters all feed the estimate through it.
- * Foundation treatment, toe/bed drains and road pavement sync by code, bund-style.
- */
+/** Catalogue metadata still needed by generated canal items for the abstract. */
+export function unresolvedCanalMaterialCodes(component: ProjectNode): string[] {
+  return [...new Set(component.children.filter((item) =>
+    item.kind === 'item' && item.templateGenerated && item.templateOwnerId === component.id &&
+    item.itemCode?.startsWith('IRR-') &&
+    (!item.itemDescription || !item.unit || !item.categoryKey || !item.itemSource)
+  ).map((item) => item.itemCode as string))]
+}
+
+/** Write every billable canal chapter's computed quantities into ordinary items. */
 export function syncCanalItems(root: ProjectNode, componentId: string): ProjectNode {
   // Item sync. One generated item per distinct (role, code) in use; each
   // carries its grand-total quantity via `computedQuantity` (no
@@ -4027,10 +4031,10 @@ export function syncCanalItems(root: ProjectNode, componentId: string): ProjectN
     }
     // Bund foundation treatment & filters bill from the bank-height tiers.
     for (const item of canalTierFoundationItems(canal)) {
-      pushRequired(out, item.role, { code: item.code }, item.quantity)
+      pushRequired(out, item.role, { code: item.code, unit: item.unit }, item.quantity)
     }
     for (const item of canalTierToeProtectionItems(canal)) {
-      pushRequired(out, item.role, { code: item.code }, item.quantity)
+      pushRequired(out, item.role, { code: item.code, unit: item.unit }, item.quantity)
     }
     for (const item of bankProtectionQuantities(canal)) {
       pushRequired(out, 'bank-protection', { code: item.code, unit: 'SQM', description: BANK_PROTECTION_ITEMS.find((row) => row.code === item.code)?.description }, item.area)
@@ -4040,7 +4044,8 @@ export function syncCanalItems(root: ProjectNode, componentId: string): ProjectN
     for (const reach of (canal.filterDrainReaches ?? []).filter((row) => row.kind === '5-8' || row.kind === '5-9')) {
       const role: CanalItemRole =
         reach.kind === '5-6' || reach.kind === '5-11' ? 'rock-toe' : 'filter'
-      pushRequired(out, role, reach.material, canalFilterDrainQuantity(canal, reach).quantity)
+      const measured = canalFilterDrainQuantity(canal, reach)
+      pushRequired(out, role, reach.material ? { ...reach.material, unit: reach.material.unit ?? measured.unit } : null, measured.quantity)
     }
     // Road pavement. Formation already bills inside Bank Design (the Roads
     // chapter states it must not bill again here), so only hard metal and
@@ -4083,7 +4088,10 @@ export function syncCanalItems(root: ProjectNode, componentId: string): ProjectN
     const key = requiredKey(req.role, req.ref)
     if (usedKeys.has(key)) continue
     usedKeys.add(key)
-    const existingNode = registry.find((m) => m.role === req.role && m.code === req.ref.code)
+    const existingNode = registry.find((entry) => {
+      const held = findNode(next, entry.itemNodeId)
+      return held && requiredKey(entry.role, { code: entry.code, dataVariant: held.dataVariant }) === key
+    })
     const prior = existingNode ? findNode(next, existingNode.itemNodeId) : null
     // A bare ref must never overwrite metadata a resolved one already
     // wrote: losing categoryKey makes the recipe panel report a perfectly
@@ -4092,12 +4100,12 @@ export function syncCanalItems(root: ProjectNode, componentId: string): ProjectN
       incoming ?? held
     const patch = {
       name: req.ref.code,
-      itemSource: keep(req.ref.side, prior?.itemSource),
+      itemSource: keep(req.ref.side, prior?.itemSource) ?? (req.ref.code.startsWith('IRR-') ? 'SSR' as const : undefined),
       itemCode: req.ref.code,
       itemDescription: keep(req.ref.description, prior?.itemDescription),
       itemEditorType: 'spreadsheet' as const,
       unit: keep(req.ref.unit ?? undefined, prior?.unit ?? undefined),
-      categoryKey: keep(req.ref.categoryKey, prior?.categoryKey),
+      categoryKey: keep(req.ref.categoryKey, prior?.categoryKey) ?? (req.ref.code.startsWith('IRR-') ? 'ssr_item' : undefined),
       dataVariant: keep(req.ref.dataVariant, prior?.dataVariant),
       sorCatalogue: keep(req.ref.sorCatalogue, prior?.sorCatalogue),
       computedQuantity: req.quantity,
