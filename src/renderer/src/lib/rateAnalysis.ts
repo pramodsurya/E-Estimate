@@ -10,6 +10,8 @@ import {
   sourceContextTitle
 } from './sorCatalogue'
 import { pipeLeadSourceFromContext } from './pipeLead'
+import { resolveReviewedSelection } from './sorReviewed'
+import { reviewedSorRecipe } from './reviewedSorEstimate'
 import {
   applyMaterialRateOverrides,
   fetchMaterialAliases,
@@ -42,6 +44,8 @@ type SorRef = {
 }
 
 interface RateAnalysisFetchOptions {
+  /** Only an explicit source refresh may replace a reviewed insertion snapshot. */
+  refreshReviewedSnapshot?: boolean
   zone?: SorZone
   areaAllowancePercent?: number
   areaAllowanceLabel?: string
@@ -2349,6 +2353,9 @@ async function fetchSorRecipe(
   options: RateAnalysisFetchOptions = {}
 ): Promise<RateAnalysisRecipe> {
   const category = node.categoryKey ?? ''
+  if (node.sorCatalogue?.reviewed) {
+    return reviewedSorRecipe(node, await resolveReviewedSelection(node.sorCatalogue.reviewed, year, options.refreshReviewedSnapshot))
+  }
   const overheadPercent = await fetchOverheadPercent(year)
   if (category === SOR_CATALOGUE_CATEGORY) {
     const selection = node.sorCatalogue

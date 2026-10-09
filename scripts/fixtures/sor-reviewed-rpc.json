@@ -1,0 +1,855 @@
+{
+  "rows": [
+    {
+      "rate": 2058,
+      "unit": "m",
+      "item_id": "ELECTRICAL_D2A9DD4326B914FB",
+      "pdf_page": 511,
+      "sor_year": "2026-27",
+      "cost_ready": true,
+      "table_name": "electrical",
+      "description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 75mm x 2mm thick",
+      "group_label": "",
+      "family_label": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent",
+      "printed_code": "ELEC-4.10.1.a",
+      "occurrence_id": "E7DD8E935F3571CEBC6DD40B",
+      "serial_number": "1121",
+      "variant_label": "600mm x 75mm x 2mm thick",
+      "basis_quantity": 1,
+      "catalogue_code": "ELECTRICAL",
+      "assessment_status": "numeric",
+      "effective_description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 75mm x 2mm thick",
+      "has_reviewed_correction": false
+    },
+    {
+      "rate": 1528,
+      "unit": "m",
+      "item_id": "ELECTRICAL_04BB6AAED244C60F",
+      "pdf_page": 511,
+      "sor_year": "2026-27",
+      "cost_ready": true,
+      "table_name": "electrical",
+      "description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 50mm x 2mm thick",
+      "group_label": "",
+      "family_label": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent",
+      "printed_code": "ELEC-4.10.1.b",
+      "occurrence_id": "FD3EEB9B3B8E7BE168E0DF66",
+      "serial_number": "1122",
+      "variant_label": "600mm x 50mm x 2mm thick",
+      "basis_quantity": 1,
+      "catalogue_code": "ELECTRICAL",
+      "assessment_status": "numeric",
+      "effective_description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 50mm x 2mm thick",
+      "has_reviewed_correction": false
+    },
+    {
+      "rate": 1638,
+      "unit": "m",
+      "item_id": "ELECTRICAL_B1D2A9EE12E82788",
+      "pdf_page": 511,
+      "sor_year": "2026-27",
+      "cost_ready": true,
+      "table_name": "electrical",
+      "description": "Supply, Transportation and Installation of GI Ladder type cable tray along with required coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 1000mm x 75mm x 2mm thick",
+      "group_label": "",
+      "family_label": "Supply, Transportation and Installation of GI Ladder type cable tray along with required coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent",
+      "printed_code": "ELEC-4.10.2.a",
+      "occurrence_id": "43CF319F4D50CAC5B0ACDB47",
+      "serial_number": "1137",
+      "variant_label": "1000mm x 75mm x 2mm thick",
+      "basis_quantity": 1,
+      "catalogue_code": "ELECTRICAL",
+      "assessment_status": "numeric",
+      "effective_description": "Supply, Transportation and Installation of GI Ladder type cable tray along with required coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 1000mm x 75mm x 2mm thick",
+      "has_reviewed_correction": false
+    }
+  ],
+  "tray": {
+    "rules": [
+      {
+        "base": "selected_observation_published_rate",
+        "kind": "percentage_extra",
+        "label": "Cable tray with cover",
+        "rule_id": "NOTE_e3264803575c48907e24",
+        "sor_year": "2026-27",
+        "selection": "optional",
+        "value_pct": 30,
+        "source_note": {
+          "page": 511,
+          "text": "Note: Add 30% Extra for Perforated cable tray with cover on below rates."
+        },
+        "scope_status": "visually_verified_parent_and_priced_children",
+        "printed_codes": [
+          "ELEC-4.10.1.a",
+          "ELEC-4.10.1.b",
+          "ELEC-4.10.1.c",
+          "ELEC-4.10.1.d",
+          "ELEC-4.10.1.e",
+          "ELEC-4.10.1.f",
+          "ELEC-4.10.1.g",
+          "ELEC-4.10.1.h",
+          "ELEC-4.10.1.i",
+          "ELEC-4.10.1.j",
+          "ELEC-4.10.1.k",
+          "ELEC-4.10.1.l",
+          "ELEC-4.10.1.m",
+          "ELEC-4.10.1.n",
+          "ELEC-4.10.1.o",
+          "ELEC-4.10.1.g2.n"
+        ],
+        "source_review": {
+          "conclusion": "The printed 30% note sits below the ELEC-4.10.1 without-cover parent and above its priced children; the next ladder-tray family has a separate parent.",
+          "reviewed_on": "2026-10-09",
+          "physical_pdf_page": 511
+        },
+        "exclusive_group": "cable_tray_cover",
+        "calculation_ready": true,
+        "applies_to_occurrences": [
+          "E7DD8E935F3571CEBC6DD40B",
+          "FD3EEB9B3B8E7BE168E0DF66",
+          "18D7ADDB978D49C03B233CC6",
+          "0938FED616F024A07AE1CC31",
+          "9D0E68733ADDE92E460C06E0",
+          "26A57E56CFEF6FC4158B8F40",
+          "6D39905F03FB4A830DAE8BEB",
+          "385EA9832D835864942FD935",
+          "CA371171151FF649767F290F",
+          "0C7B5A7AE091C855EB81C98B",
+          "E8203DB3DF02BA6702F13AC1",
+          "8DA92DB3075EC10F99B8838A",
+          "A1D1DF64611A0E1F95229196",
+          "AF14E029AA6954844E003457",
+          "2EA409931ECFD94E0D2A28A2",
+          "907E68A18C280DDABB76191D"
+        ]
+      }
+    ],
+    "recipe": {
+      "name": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 75mm x 2mm thick",
+      "item_id": "ELECTRICAL_D2A9DD4326B914FB"
+    },
+    "observation": {
+      "rate": 2058,
+      "item_id": "ELECTRICAL_D2A9DD4326B914FB",
+      "row_role": "priced_item",
+      "assessment": {
+        "reason": "Published numeric value",
+        "status": "numeric",
+        "rate_text": "",
+        "resolution": "direct"
+      },
+      "cost_ready": true,
+      "unit_basis": {
+        "unit": "m",
+        "quantity": 1,
+        "raw_unit": "1 Mtr"
+      },
+      "description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 75mm x 2mm thick",
+      "occurrence_id": "E7DD8E935F3571CEBC6DD40B",
+      "effective_from": "2026-06-01",
+      "source_context": {
+        "rate_notes": [
+          {
+            "page": 511,
+            "text": "Note: Add 30% Extra for Perforated cable tray with cover on below rates."
+          }
+        ],
+        "header_rows": [],
+        "parent_page": 511,
+        "printed_code": "ELEC-4.10.1.a",
+        "continuations": [],
+        "section_scope": "CABLE TRAYS",
+        "variant_group": "",
+        "supplier_scope": "",
+        "parent_description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent",
+        "parent_continuations": []
+      },
+      "row_description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 75mm x 2mm thick",
+      "source_reference": {
+        "row_key": "ELEC-4.10.1.a",
+        "pdf_page": 511,
+        "sor_year": "2026-27",
+        "column_key": "rate",
+        "table_name": "electrical",
+        "printed_code": "ELEC-4.10.1.a",
+        "source_pages": [
+          511
+        ],
+        "imported_code": "ELEC-4.10.1.a",
+        "serial_number": "1121",
+        "catalogue_code": "ELECTRICAL"
+      },
+      "printed_unit_basis": {
+        "unit": "m",
+        "quantity": 1,
+        "raw_unit": "1 Mtr"
+      },
+      "effective_description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 75mm x 2mm thick"
+    }
+  },
+  "cooler": {
+    "rules": [],
+    "recipe": {
+      "name": "Supply, Installation, Testing and Commissioning of ..... cooling capacity, .... storage capacity self contained drinking water cooler as per IS : 1475 with hermetically sealed compressor, non CFC refrigerant suitable for operation on 230 V , 1 phase, 50 Hz AC supply, Fully stainless steel (SS 304) body (0.8 mm thick) and tank (0.5 mm thick), stainless steel water tray, minimum 2 numbers SS / Brass chrome plated faucetes and suitable drainage system complete in all respects including comprehensive maintenance of units during the defect liability period. Makes : Bluestar / Voltas or equivalent make - Cooling capacity of 20 Ltr / Hr , 40 Ltr Storage capacity",
+      "item_id": "ELECTRICAL_72A790DF46D5D6E2"
+    },
+    "observation": {
+      "rate": 39900,
+      "item_id": "ELECTRICAL_72A790DF46D5D6E2",
+      "row_role": "priced_item",
+      "assessment": {
+        "reason": "Published numeric value",
+        "status": "numeric",
+        "rate_text": "",
+        "resolution": "direct"
+      },
+      "cost_ready": true,
+      "unit_basis": {
+        "unit": "each",
+        "quantity": 1,
+        "raw_unit": "1 each"
+      },
+      "description": "Supply, Installation, Testing and Commissioning of ..... cooling capacity, .... storage capacity self contained drinking water cooler as per IS : 1475 with hermetically sealed compressor, non CFC refrigerant suitable for operation on 230 V , 1 phase, 50 Hz AC supply, Fully stainless steel (SS 304) body (0.8 mm thick) and tank (0.5 mm thick), stainless steel water tray, minimum 2 numbers SS / Brass chrome plated faucetes and suitable drainage system complete in all respects including comprehensive maintenance of units during the defect liability period. Makes : Bluestar / Voltas or equivalent make - Cooling capacity of 20 Ltr / Hr , 40 Ltr Storage capacity",
+      "occurrence_id": "4891C2B31F3A1E79C1F2F5B6",
+      "effective_from": "2026-06-01",
+      "source_context": {
+        "rate_notes": [],
+        "header_rows": [],
+        "parent_page": 548,
+        "printed_code": "ELEC-6.11.1.a",
+        "continuations": [],
+        "section_scope": "VRV / VRF DUCTABLE UNITS",
+        "variant_group": "",
+        "supplier_scope": "",
+        "unit_resolution": {
+          "method": "user_confirmation",
+          "reason": "User confirmed one complete installed equipment assembly as tariff basis; capacity/range remains a specification. Printed unit cell remains blank.",
+          "source": {
+            "sha256": "16f4b7912e130a975d55e86263db9175597b65759e2c7eebeaef86852d74eb33",
+            "source_pdf": "C:\\Users\\napra\\Claude\\Projects\\E-Estimate\\2026-27\\SOR 2026-27 final_merged.pdf"
+          },
+          "target": {
+            "pdf_page": 548,
+            "sor_year": "2026-27",
+            "table_name": "electrical",
+            "printed_code": "ELEC-6.11.1.a",
+            "imported_code": "ELEC-6.11.1.a",
+            "serial_number": "1594"
+          },
+          "authority": "user_confirmation",
+          "reviewed_on": "2026-10-09",
+          "printed_unit": "",
+          "effective_unit": "1 each",
+          "supporting_rows": [],
+          "confirmation_text": "Yes, per one complete installed cooler",
+          "price_transferred": false,
+          "printed_row_sha256": "93ae96761f2702483d4ef5dad153b9e4c15cc0aa0420f85ff5faaedc942c3549",
+          "official_correction": false
+        },
+        "parent_description": "Supply, Installation, Testing and Commissioning of ..... cooling capacity, .... storage capacity self contained drinking water cooler as per IS : 1475 with hermetically sealed compressor, non CFC refrigerant suitable for operation on 230 V , 1 phase, 50 Hz AC supply, Fully stainless steel (SS 304) body (0.8 mm thick) and tank (0.5 mm thick), stainless steel water tray, minimum 2 numbers SS / Brass chrome plated faucetes and suitable drainage system complete in all respects including comprehensive maintenance of units during the defect liability period. Makes : Bluestar / Voltas or equivalent make",
+        "parent_continuations": []
+      },
+      "row_description": "Supply, Installation, Testing and Commissioning of ..... cooling capacity, .... storage capacity self contained drinking water cooler as per IS : 1475 with hermetically sealed compressor, non CFC refrigerant suitable for operation on 230 V , 1 phase, 50 Hz AC supply, Fully stainless steel (SS 304) body (0.8 mm thick) and tank (0.5 mm thick), stainless steel water tray, minimum 2 numbers SS / Brass chrome plated faucetes and suitable drainage system complete in all respects including comprehensive maintenance of units during the defect liability period. Makes : Bluestar / Voltas or equivalent make - Cooling capacity of 20 Ltr / Hr , 40 Ltr Storage capacity",
+      "source_reference": {
+        "row_key": "ELEC-6.11.1.a",
+        "pdf_page": 548,
+        "sor_year": "2026-27",
+        "column_key": "rate",
+        "table_name": "electrical",
+        "printed_code": "ELEC-6.11.1.a",
+        "source_pages": [
+          548
+        ],
+        "imported_code": "ELEC-6.11.1.a",
+        "serial_number": "1594",
+        "catalogue_code": "ELECTRICAL"
+      },
+      "printed_unit_basis": {
+        "unit": "",
+        "quantity": 1,
+        "raw_unit": ""
+      },
+      "effective_description": "Supply, Installation, Testing and Commissioning of ..... cooling capacity, .... storage capacity self contained drinking water cooler as per IS : 1475 with hermetically sealed compressor, non CFC refrigerant suitable for operation on 230 V , 1 phase, 50 Hz AC supply, Fully stainless steel (SS 304) body (0.8 mm thick) and tank (0.5 mm thick), stainless steel water tray, minimum 2 numbers SS / Brass chrome plated faucetes and suitable drainage system complete in all respects including comprehensive maintenance of units during the defect liability period. Makes : Bluestar / Voltas or equivalent make - Cooling capacity of 20 Ltr / Hr , 40 Ltr Storage capacity"
+    }
+  },
+  "blocked": {
+    "rules": [],
+    "recipe": {
+      "name": "Supply of SPC Flooring which features a total thickness of 4+1 mm, including an integrated IXPE underlay that provides superior sound absorption and enhanced walking comfort. The flooring offers excellent dimensional stability (≤ 0.17%) and minimal curling (≤ 2 mm). With a wear layer thickness of no less than +0.3 mm and a density range of 1.98–2.05 g/cc, it ensures outstanding strength, resilience, and surface integrity. The precision locking system provides a locking strength of ≥ 2.5 kN/m, ensuring excellent joint integrity and long-lasting performance. The surface delivers AC6 wear resistance and a refined gloss level of 5–8 GU. The flooring also demonstrates high peel strength (≥ 90 N) and meets Bfl-S1 fire-resistance standards, ensuring safety, durability, and reliability under demanding conditions.",
+      "item_id": "CIVIL_B9A85816726455D8"
+    },
+    "observation": {
+      "rate": 2055,
+      "item_id": "CIVIL_B9A85816726455D8",
+      "row_role": "priced_item",
+      "assessment": {
+        "reason": "Printed rows retain the same description, section, approved-make scope and unit, but different annual prices",
+        "status": "conflicting_source_rates",
+        "rate_text": "",
+        "resolution": "source_distinction_or_correction_required"
+      },
+      "cost_ready": false,
+      "unit_basis": {
+        "unit": "sqm",
+        "quantity": 1,
+        "raw_unit": "Sqm"
+      },
+      "description": "Supply of SPC Flooring which features a total thickness of 4+1 mm, including an integrated IXPE underlay that provides superior sound absorption and enhanced walking comfort. The flooring offers excellent dimensional stability (≤ 0.17%) and minimal curling (≤ 2 mm). With a wear layer thickness of no less than +0.3 mm and a density range of 1.98–2.05 g/cc, it ensures outstanding strength, resilience, and surface integrity. The precision locking system provides a locking strength of ≥ 2.5 kN/m, ensuring excellent joint integrity and long-lasting performance. The surface delivers AC6 wear resistance and a refined gloss level of 5–8 GU. The flooring also demonstrates high peel strength (≥ 90 N) and meets Bfl-S1 fire-resistance standards, ensuring safety, durability, and reliability under demanding conditions.",
+      "occurrence_id": "F0E63C08B16804587C97CF87",
+      "effective_from": "2026-06-01",
+      "source_context": {
+        "header_rows": [
+          [
+            "WALL & FLOOR TILES"
+          ]
+        ],
+        "printed_code": "TBSC-C.X-20",
+        "continuations": []
+      },
+      "row_description": "Supply of SPC Flooring which features a total thickness of 4+1 mm, including an integrated IXPE underlay that provides superior sound absorption and enhanced walking comfort. The flooring offers excellent dimensional stability (≤ 0.17%) and minimal curling (≤ 2 mm). With a wear layer thickness of no less than +0.3 mm and a density range of 1.98–2.05 g/cc, it ensures outstanding strength, resilience, and surface integrity. The precision locking system provides a locking strength of ≥ 2.5 kN/m, ensuring excellent joint integrity and long-lasting performance. The surface delivers AC6 wear resistance and a refined gloss level of 5–8 GU. The flooring also demonstrates high peel strength (≥ 90 N) and meets Bfl-S1 fire-resistance standards, ensuring safety, durability, and reliability under demanding conditions.",
+      "source_reference": {
+        "row_key": "TBSC-C.X-20",
+        "pdf_page": 128,
+        "sor_year": "2026-27",
+        "column_key": "rate",
+        "table_name": "civil",
+        "printed_code": "TBSC-C.X- 20",
+        "source_pages": [
+          128
+        ],
+        "imported_code": "TBSC-C.X-20",
+        "serial_number": "153",
+        "catalogue_code": "CIVIL"
+      },
+      "printed_unit_basis": {
+        "unit": "sqm",
+        "quantity": 1,
+        "raw_unit": "Sqm"
+      },
+      "effective_description": "Supply of SPC Flooring which features a total thickness of 4+1 mm, including an integrated IXPE underlay that provides superior sound absorption and enhanced walking comfort. The flooring offers excellent dimensional stability (≤ 0.17%) and minimal curling (≤ 2 mm). With a wear layer thickness of no less than +0.3 mm and a density range of 1.98–2.05 g/cc, it ensures outstanding strength, resilience, and surface integrity. The precision locking system provides a locking strength of ≥ 2.5 kN/m, ensuring excellent joint integrity and long-lasting performance. The surface delivers AC6 wear resistance and a refined gloss level of 5–8 GU. The flooring also demonstrates high peel strength (≥ 90 N) and meets Bfl-S1 fire-resistance standards, ensuring safety, durability, and reliability under demanding conditions."
+    }
+  },
+  "thousand": {
+    "rules": [],
+    "recipe": {
+      "name": "Cleaning of water tanks, Sumps and PVC/RCC tank through ‘T’ clean process undertaking cleaning by using latest German state of art technology with High pressure Rotary Jet cleaning and usage of the most effective Anti-bacterial agents, which is Bio degradable and echo friendly in nature, UV radiation in following stages: 1. First stage of Mechanized dewatering, 2. Cleaning of wall and ceiling to the sump with high pressure rotary jet which dislodges the layer of dirt and algae, 3. Dirty water and sludge are removed by using sludge pump, 4. Removing dirt is again removed by using industrial vacuum, 5. Treatment of wall ceiling roof with anti-bacterial liquid (which is bio degradable and eco-friendly in nature), 6. Final important treatment is ultra violet radiation which kills suspended or floating bacteria(for sumps)",
+      "item_id": "PLUMBING_ED74B46DB8622E6E"
+    },
+    "observation": {
+      "rate": 104,
+      "item_id": "PLUMBING_ED74B46DB8622E6E",
+      "row_role": "priced_item",
+      "assessment": {
+        "reason": "Published numeric value",
+        "status": "numeric",
+        "rate_text": "",
+        "resolution": "direct"
+      },
+      "cost_ready": true,
+      "unit_basis": {
+        "unit": "litres",
+        "quantity": 1000,
+        "raw_unit": "1000 litres"
+      },
+      "description": "Cleaning of water tanks, Sumps and PVC/RCC tank through ‘T’ clean process undertaking cleaning by using latest German state of art technology with High pressure Rotary Jet cleaning and usage of the most effective Anti-bacterial agents, which is Bio degradable and echo friendly in nature, UV radiation in following stages: 1. First stage of Mechanized dewatering, 2. Cleaning of wall and ceiling to the sump with high pressure rotary jet which dislodges the layer of dirt and algae, 3. Dirty water and sludge are removed by using sludge pump, 4. Removing dirt is again removed by using industrial vacuum, 5. Treatment of wall ceiling roof with anti bacterial liquid (which is bio degradable and eco friendly in nature), 6. Final important treatment is ultra violet radiation which kills suspended or floating bacteria(for sumps)",
+      "occurrence_id": "939D64860432D0994604F2C4",
+      "effective_from": "2025-06-18",
+      "source_context": {
+        "header_rows": [
+          [
+            "CPFITTINGS (Materials shall be procured from the list of approved Brands/ Manufacturers/ Suppliers) / LABOUR CHARGES"
+          ]
+        ],
+        "printed_code": "TBSP-F.VIII-05",
+        "continuations": [
+          {
+            "row": [
+              "",
+              "",
+              "High pressure Rotary Jet cleaning and usage of the most effective Anti-bacterial agents, which is Bio degradable and echo friendly in nature, UV radiation in following stages: 1. First stage of Mechanized dewatering, 2. Cleaning of wall and ceiling to the sump with high pressure rotary jet which dislodges the layer of dirt and algae, 3. Dirty water and sludge are removed by using sludge pump, 4. Removing dirt is again removed by using industrial vacuum, 5. Treatment of wall ceiling roof with anti bacterial liquid (which is bio degradable and eco friendly in nature), 6. Final important treatment is ultra violet radiation which kills suspended or floating bacteria(for sumps)",
+              "",
+              ""
+            ],
+            "page": 318
+          }
+        ],
+        "unit_resolution": {
+          "method": "verified_historical_printed_basis",
+          "reason": "Visually checked 2020–21 PDF pages 229–230: same six-stage T-clean process prints 1000 Litres. The later printed quantity 1000 is retained. 2026–27 Each basis remains separate.",
+          "source": {
+            "sha256": "8d14c454f7017823b8ad1d2341847493495cca6183e1204483fa8b8da1983777",
+            "source_pdf": "C:\\Users\\napra\\Claude\\Projects\\E-Estimate\\2025-26\\01.Telangana Schedule of Rates Yr 2025-26 - 18.06.2025.pdf"
+          },
+          "target": {
+            "pdf_page": 317,
+            "sor_year": "2025-26",
+            "table_name": "plumbing",
+            "printed_code": "TBSP-F.VIII-05",
+            "imported_code": "TBSP-F.VIII-05",
+            "serial_number": "405"
+          },
+          "authority": "verified_historical_printed_basis",
+          "reviewed_on": "2026-10-09",
+          "printed_unit": "1000",
+          "effective_unit": "1000 litres",
+          "supporting_rows": [
+            {
+              "reference": {
+                "pdf_page": 229,
+                "sor_year": "2020-21",
+                "table_name": "plumbing",
+                "printed_code": "TBSP- F.VIII- 05",
+                "source_pages": [
+                  229,
+                  230
+                ],
+                "imported_code": "TBSP-F.VIII-05",
+                "serial_number": "392"
+              },
+              "source_pdf": "source_support/official_2020-21.pdf",
+              "description": "Cleaning of water tanks, Sumps and PVC/RCC tank through ‘T’ clean process undertaking cleaning by using latest Gernam state of art technology with High pressure Rotary Jet cleaning and usage of the most effective Anti-bacterial agents, which is Bio degradable and echo friendly in nature, UV radiation 1. First stage of Mechanised dewatering 2. Cleaningof wall and ceiling to the sump with high pressure rotary jet which dislodges the layer of dirt and algae 3. Dirty water and sludge are removed by using sludge pump 4. Removing dirt is again removed by using industrial vacuum 5. Treatment of wall ceiling roof with anti bacterial liquid (which is bio degradable and eco friendly in nature) 6. Final important treatment is ultra violet radiation which kills suspended or floating bacteria(for sumps)",
+              "official_url": "https://pred.telangana.gov.in/assets/pdf/1-SSR_s-2014-15_TO_2022-23/19-SSR-2020-21/01.Telangana%20Schedule%20of%20Rates%20Yr%202020-21.pdf",
+              "printed_unit": "1000 Litres",
+              "continuation_rows": [
+                {
+                  "row": [
+                    "",
+                    "",
+                    "Rotary Jet cleaning and usage of the most effective Anti-bacterial agents, which is Bio degradable and echo friendly in nature, UV radiation 1. First stage of Mechanised dewatering 2. Cleaningof wall and ceiling to the sump with high pressure rotary jet which dislodges the layer of dirt and algae 3. Dirty water and sludge are removed by using sludge pump 4. Removing dirt is again removed by using industrial vacuum 5. Treatment of wall ceiling roof with anti bacterial liquid (which is bio degradable and eco friendly in nature) 6. Final important treatment is ultra violet radiation which kills suspended or floating bacteria(for sumps)",
+                    "",
+                    ""
+                  ],
+                  "page": 230
+                }
+              ],
+              "source_pdf_sha256": "f8b268a3740a5efa3f5550c9289a71b57e0c0d50d95dba064e00421ce35efa33"
+            }
+          ],
+          "price_transferred": false,
+          "printed_row_sha256": "050aa7c24d03c45dd16e58fda92eeb9d182c2689ad7d9d4adab65d9391310685",
+          "official_correction": false
+        }
+      },
+      "row_description": "Cleaning of water tanks, Sumps and PVC/RCC tank through ‘T’ clean process undertaking cleaning by using latest German state of art technology with High pressure Rotary Jet cleaning and usage of the most effective Anti-bacterial agents, which is Bio degradable and echo friendly in nature, UV radiation in following stages: 1. First stage of Mechanized dewatering, 2. Cleaning of wall and ceiling to the sump with high pressure rotary jet which dislodges the layer of dirt and algae, 3. Dirty water and sludge are removed by using sludge pump, 4. Removing dirt is again removed by using industrial vacuum, 5. Treatment of wall ceiling roof with anti bacterial liquid (which is bio degradable and eco friendly in nature), 6. Final important treatment is ultra violet radiation which kills suspended or floating bacteria(for sumps)",
+      "source_reference": {
+        "row_key": "TBSP-F.VIII-05",
+        "pdf_page": 317,
+        "sor_year": "2025-26",
+        "column_key": "rate",
+        "table_name": "plumbing",
+        "printed_code": "TBSP-F.VIII-05",
+        "source_pages": [
+          317
+        ],
+        "imported_code": "TBSP-F.VIII-05",
+        "serial_number": "405",
+        "catalogue_code": "PLUMBING"
+      },
+      "printed_unit_basis": {
+        "unit": "",
+        "quantity": 1000,
+        "raw_unit": "1000"
+      },
+      "effective_description": "Cleaning of water tanks, Sumps and PVC/RCC tank through ‘T’ clean process undertaking cleaning by using latest German state of art technology with High pressure Rotary Jet cleaning and usage of the most effective Anti-bacterial agents, which is Bio degradable and echo friendly in nature, UV radiation in following stages: 1. First stage of Mechanized dewatering, 2. Cleaning of wall and ceiling to the sump with high pressure rotary jet which dislodges the layer of dirt and algae, 3. Dirty water and sludge are removed by using sludge pump, 4. Removing dirt is again removed by using industrial vacuum, 5. Treatment of wall ceiling roof with anti bacterial liquid (which is bio degradable and eco friendly in nature), 6. Final important treatment is ultra violet radiation which kills suspended or floating bacteria(for sumps)"
+    }
+  },
+  "vrf_rows": [
+    {
+      "rate": 48038,
+      "unit": "each",
+      "item_id": "ELECTRICAL_435439CF2CB84EA9",
+      "pdf_page": 544,
+      "sor_year": "2026-27",
+      "cost_ready": true,
+      "table_name": "electrical",
+      "description": "Supply of ..... TR minimum capacity and external static pressure VRV/ VRF ceiling mounted ductable type indoor unit equipped with washable synthetic media pre-filter, fan section with low noise fan / dynamically balanced blower, multispeed motor, coil section with DX copper coil, electronic expansion valve, corded remote control, outer cabinet, vibration isolators, drain pipe, prain pump, other necessay supports etc., suitable for operation on single phase AC supply 230V +/- 10% , 50Hz complete as required. Makes: Blue star / Hitachi / Daikin/ Mitsubishi/ LG/ Voltas or equivalent models approved by the Engineer-in- Charge. The unit shall have automatic force shutdown valve in case of fire on receiving signal from BMS system. The cooling capacity of indoor unit will be at air inlet conditions of 27°C DB and 19°C WB temperature. All as per pre approved by Engineer-In-Charge. - Low Static ductable Units (19 to 30 pascal external static pressure) - 0.8 TR",
+      "group_label": "Low Static ductable Units (19 to 30 pascal external static pressure)",
+      "family_label": "Supply of ..... TR minimum capacity and external static pressure VRV/ VRF ceiling mounted ductable type indoor unit equipped with washable synthetic media pre-filter, fan section with low noise fan / dynamically balanced blower, multispeed motor, coil section with DX copper coil, electronic expansion valve, corded remote control, outer cabinet, vibration isolators, drain pipe, prain pump, other necessay supports etc., suitable for operation on single phase AC supply 230V +/- 10% , 50Hz complete as required. Makes: Blue star / Hitachi / Daikin/ Mitsubishi/ LG/ Voltas or equivalent models approved by the Engineer-in- Charge. The unit shall have automatic force shutdown valve in case of fire on receiving signal from BMS system. The cooling capacity of indoor unit will be at air inlet conditions of 27°C DB and 19°C WB temperature. All as per pre approved by Engineer-In-Charge.",
+      "printed_code": "ELEC-6.10.1.a",
+      "occurrence_id": "68CD9EA3C6FD31458A557AC9",
+      "serial_number": "1546",
+      "variant_label": "Low Static ductable Units (19 to 30 pascal external static pressure) / 0.8 TR",
+      "basis_quantity": 1,
+      "catalogue_code": "ELECTRICAL",
+      "assessment_status": "numeric",
+      "effective_description": "Supply of ..... TR minimum capacity and external static pressure VRV/ VRF ceiling mounted ductable type indoor unit equipped with washable synthetic media pre-filter, fan section with low noise fan / dynamically balanced blower, multispeed motor, coil section with DX copper coil, electronic expansion valve, corded remote control, outer cabinet, vibration isolators, drain pipe, prain pump, other necessay supports etc., suitable for operation on single phase AC supply 230V +/- 10% , 50Hz complete as required. Makes: Blue star / Hitachi / Daikin/ Mitsubishi/ LG/ Voltas or equivalent models approved by the Engineer-in- Charge. The unit shall have automatic force shutdown valve in case of fire on receiving signal from BMS system. The cooling capacity of indoor unit will be at air inlet conditions of 27°C DB and 19°C WB temperature. All as per pre approved by Engineer-In-Charge. - Low Static ductable Units (19 to 30 pascal external static pressure) - 0.8 TR",
+      "has_reviewed_correction": false
+    },
+    {
+      "rate": 73059,
+      "unit": "each",
+      "item_id": "ELECTRICAL_F0A4D7E1BB423621",
+      "pdf_page": 545,
+      "sor_year": "2026-27",
+      "cost_ready": true,
+      "table_name": "electrical",
+      "description": "Supply of ..... TR minimum capacity and external static pressure VRV/ VRF ceiling mounted ductable type indoor unit equipped with washable synthetic media pre-filter, fan section with low noise fan / dynamically balanced blower, multispeed motor, coil section with DX copper coil, electronic expansion valve, corded remote control, outer cabinet, vibration isolators, drain pipe, prain pump, other necessay supports etc., suitable for operation on single phase AC supply 230V +/- 10% , 50Hz complete as required. Makes: Blue star / Hitachi / Daikin/ Mitsubishi/ LG/ Voltas or equivalent models approved by the Engineer-in- Charge. The unit shall have automatic force shutdown valve in case of fire on receiving signal from BMS system. The cooling capacity of indoor unit will be at air inlet conditions of 27°C DB and 19°C WB temperature. All as per pre approved by Engineer-In-Charge. - Mid Static ductable Units (35 to 77 pascal external static pressure) - 3.2 TR",
+      "group_label": "Mid Static ductable Units (35 to 77 pascal external static pressure)",
+      "family_label": "Supply of ..... TR minimum capacity and external static pressure VRV/ VRF ceiling mounted ductable type indoor unit equipped with washable synthetic media pre-filter, fan section with low noise fan / dynamically balanced blower, multispeed motor, coil section with DX copper coil, electronic expansion valve, corded remote control, outer cabinet, vibration isolators, drain pipe, prain pump, other necessay supports etc., suitable for operation on single phase AC supply 230V +/- 10% , 50Hz complete as required. Makes: Blue star / Hitachi / Daikin/ Mitsubishi/ LG/ Voltas or equivalent models approved by the Engineer-in- Charge. The unit shall have automatic force shutdown valve in case of fire on receiving signal from BMS system. The cooling capacity of indoor unit will be at air inlet conditions of 27°C DB and 19°C WB temperature. All as per pre approved by Engineer-In-Charge.",
+      "printed_code": "ELEC-6.10.1.a",
+      "occurrence_id": "D59AD704CDAFD60FAE073A32",
+      "serial_number": "1552",
+      "variant_label": "Mid Static ductable Units (35 to 77 pascal external static pressure) / 3.2 TR",
+      "basis_quantity": 1,
+      "catalogue_code": "ELECTRICAL",
+      "assessment_status": "numeric",
+      "effective_description": "Supply of ..... TR minimum capacity and external static pressure VRV/ VRF ceiling mounted ductable type indoor unit equipped with washable synthetic media pre-filter, fan section with low noise fan / dynamically balanced blower, multispeed motor, coil section with DX copper coil, electronic expansion valve, corded remote control, outer cabinet, vibration isolators, drain pipe, prain pump, other necessay supports etc., suitable for operation on single phase AC supply 230V +/- 10% , 50Hz complete as required. Makes: Blue star / Hitachi / Daikin/ Mitsubishi/ LG/ Voltas or equivalent models approved by the Engineer-in- Charge. The unit shall have automatic force shutdown valve in case of fire on receiving signal from BMS system. The cooling capacity of indoor unit will be at air inlet conditions of 27°C DB and 19°C WB temperature. All as per pre approved by Engineer-In-Charge. - Mid Static ductable Units (35 to 77 pascal external static pressure) - 3.2 TR",
+      "has_reviewed_correction": true
+    },
+    {
+      "rate": 137760,
+      "unit": "each",
+      "item_id": "ELECTRICAL_9F590D7A6E9025D1",
+      "pdf_page": 545,
+      "sor_year": "2026-27",
+      "cost_ready": true,
+      "table_name": "electrical",
+      "description": "Supply of ..... TR minimum capacity and external static pressure VRV/ VRF ceiling mounted ductable type indoor unit equipped with washable synthetic media pre-filter, fan section with low noise fan / dynamically balanced blower, multispeed motor, coil section with DX copper coil, electronic expansion valve, corded remote control, outer cabinet, vibration isolators, drain pipe, prain pump, other necessay supports etc., suitable for operation on single phase AC supply 230V +/- 10% , 50Hz complete as required. Makes: Blue star / Hitachi / Daikin/ Mitsubishi/ LG/ Voltas or equivalent models approved by the Engineer-in- Charge. The unit shall have automatic force shutdown valve in case of fire on receiving signal from BMS system. The cooling capacity of indoor unit will be at air inlet conditions of 27°C DB and 19°C WB temperature. All as per pre approved by Engineer-In-Charge. - High Static ductable Units (78 pascal or above external static pressure) - 5.5 TR",
+      "group_label": "High Static ductable Units (78 pascal or above external static pressure)",
+      "family_label": "Supply of ..... TR minimum capacity and external static pressure VRV/ VRF ceiling mounted ductable type indoor unit equipped with washable synthetic media pre-filter, fan section with low noise fan / dynamically balanced blower, multispeed motor, coil section with DX copper coil, electronic expansion valve, corded remote control, outer cabinet, vibration isolators, drain pipe, prain pump, other necessay supports etc., suitable for operation on single phase AC supply 230V +/- 10% , 50Hz complete as required. Makes: Blue star / Hitachi / Daikin/ Mitsubishi/ LG/ Voltas or equivalent models approved by the Engineer-in- Charge. The unit shall have automatic force shutdown valve in case of fire on receiving signal from BMS system. The cooling capacity of indoor unit will be at air inlet conditions of 27°C DB and 19°C WB temperature. All as per pre approved by Engineer-In-Charge.",
+      "printed_code": "ELEC-6.10.1.a",
+      "occurrence_id": "D288F4F88F85E75B0B021D42",
+      "serial_number": "1555",
+      "variant_label": "High Static ductable Units (78 pascal or above external static pressure) / 5.5 TR",
+      "basis_quantity": 1,
+      "catalogue_code": "ELECTRICAL",
+      "assessment_status": "numeric",
+      "effective_description": "Supply of ..... TR minimum capacity and external static pressure VRV/ VRF ceiling mounted ductable type indoor unit equipped with washable synthetic media pre-filter, fan section with low noise fan / dynamically balanced blower, multispeed motor, coil section with DX copper coil, electronic expansion valve, corded remote control, outer cabinet, vibration isolators, drain pipe, prain pump, other necessay supports etc., suitable for operation on single phase AC supply 230V +/- 10% , 50Hz complete as required. Makes: Blue star / Hitachi / Daikin/ Mitsubishi/ LG/ Voltas or equivalent models approved by the Engineer-in- Charge. The unit shall have automatic force shutdown valve in case of fire on receiving signal from BMS system. The cooling capacity of indoor unit will be at air inlet conditions of 27°C DB and 19°C WB temperature. All as per pre approved by Engineer-In-Charge. - High Static ductable Units (78 pascal or above external static pressure) - 5.5 TR",
+      "has_reviewed_correction": true
+    },
+    {
+      "rate": 181913,
+      "unit": "each",
+      "item_id": "ELECTRICAL_BE97EAFA9E465F9A",
+      "pdf_page": 541,
+      "sor_year": "2026-27",
+      "cost_ready": true,
+      "table_name": "electrical",
+      "description": "Supply, Transportation, Installation, Testing and Commissioning of .... HP Variable refrigerant Volume (VRV) / variable refrigerant flow (VRF) Air Cooled Outdoor Units (ODU) suitable for cooling and heating having 100% thermetically sealed inverter type compressor and minimum 2 compressors along with 2 condensing fans above 14 / 18 HP Modules, Microprocessor based controller, Side / Top Discharge type condensing units with R-410 A refrigerant, vibration isolators with suitable foundation etc., complete as required. The outdoor unit shall deliver the rated capacity at AHRI conditions and work even at 50 ° centigrade ambient temperature without tripping. The unit shall be suitable to work on 430 V +/- 10%, 3 phase 50 Hz AC Power supply etc., complete finished item of work including comprehensive maintenance of units during the defect liability period. Makes: Blue star / Hitachi / Daikin/ Mitsubishi Electric or equivalent models approved by the Engineer-in-Charge. - 6 HP",
+      "group_label": "",
+      "family_label": "Supply, Transportation, Installation, Testing and Commissioning of .... HP Variable refrigerant Volume (VRV) / variable refrigerant flow (VRF) Air Cooled Outdoor Units (ODU) suitable for cooling and heating having 100% thermetically sealed inverter type compressor and minimum 2 compressors along with 2 condensing fans above 14 / 18 HP Modules, Microprocessor based controller, Side / Top Discharge type condensing units with R-410 A refrigerant, vibration isolators with suitable foundation etc., complete as required. The outdoor unit shall deliver the rated capacity at AHRI conditions and work even at 50 ° centigrade ambient temperature without tripping. The unit shall be suitable to work on 430 V +/- 10%, 3 phase 50 Hz AC Power supply etc., complete finished item of work including comprehensive maintenance of units during the defect liability period. Makes: Blue star / Hitachi / Daikin/ Mitsubishi Electric or equivalent models approved by the Engineer-in-Charge.",
+      "printed_code": "ELEC-6.9.1.a",
+      "occurrence_id": "80435B31F0E534B1F82305BB",
+      "serial_number": "1511",
+      "variant_label": "6 HP",
+      "basis_quantity": 1,
+      "catalogue_code": "ELECTRICAL",
+      "assessment_status": "numeric",
+      "effective_description": "Supply, Transportation, Installation, Testing and Commissioning of .... HP Variable refrigerant Volume (VRV) / variable refrigerant flow (VRF) Air Cooled Outdoor Units (ODU) suitable for cooling and heating having 100% thermetically sealed inverter type compressor and minimum 2 compressors along with 2 condensing fans above 14 / 18 HP Modules, Microprocessor based controller, Side / Top Discharge type condensing units with R-410 A refrigerant, vibration isolators with suitable foundation etc., complete as required. The outdoor unit shall deliver the rated capacity at AHRI conditions and work even at 50 ° centigrade ambient temperature without tripping. The unit shall be suitable to work on 430 V +/- 10%, 3 phase 50 Hz AC Power supply etc., complete finished item of work including comprehensive maintenance of units during the defect liability period. Makes: Blue star / Hitachi / Daikin/ Mitsubishi Electric or equivalent models approved by the Engineer-in-Charge. - 6 HP",
+      "has_reviewed_correction": false
+    },
+    {
+      "rate": 242550,
+      "unit": "each",
+      "item_id": "ELECTRICAL_B2DA71D30EAB415E",
+      "pdf_page": 541,
+      "sor_year": "2026-27",
+      "cost_ready": true,
+      "table_name": "electrical",
+      "description": "Supply, Transportation, Installation, Testing and Commissioning of .... HP Variable refrigerant Volume (VRV) / variable refrigerant flow (VRF) Air Cooled Outdoor Units (ODU) suitable for cooling and heating having 100% thermetically sealed inverter type compressor and minimum 2 compressors along with 2 condensing fans above 14 / 18 HP Modules, Microprocessor based controller, Side / Top Discharge type condensing units with R-410 A refrigerant, vibration isolators with suitable foundation etc., complete as required. The outdoor unit shall deliver the rated capacity at AHRI conditions and work even at 50 ° centigrade ambient temperature without tripping. The unit shall be suitable to work on 430 V +/- 10%, 3 phase 50 Hz AC Power supply etc., complete finished item of work including comprehensive maintenance of units during the defect liability period. Makes: Blue star / Hitachi / Daikin/ Mitsubishi Electric or equivalent models approved by the Engineer-in-Charge. - 8 HP",
+      "group_label": "",
+      "family_label": "Supply, Transportation, Installation, Testing and Commissioning of .... HP Variable refrigerant Volume (VRV) / variable refrigerant flow (VRF) Air Cooled Outdoor Units (ODU) suitable for cooling and heating having 100% thermetically sealed inverter type compressor and minimum 2 compressors along with 2 condensing fans above 14 / 18 HP Modules, Microprocessor based controller, Side / Top Discharge type condensing units with R-410 A refrigerant, vibration isolators with suitable foundation etc., complete as required. The outdoor unit shall deliver the rated capacity at AHRI conditions and work even at 50 ° centigrade ambient temperature without tripping. The unit shall be suitable to work on 430 V +/- 10%, 3 phase 50 Hz AC Power supply etc., complete finished item of work including comprehensive maintenance of units during the defect liability period. Makes: Blue star / Hitachi / Daikin/ Mitsubishi Electric or equivalent models approved by the Engineer-in-Charge.",
+      "printed_code": "ELEC-6.9.1.b",
+      "occurrence_id": "41C9DF03C6084CFD404588F8",
+      "serial_number": "1512",
+      "variant_label": "8 HP",
+      "basis_quantity": 1,
+      "catalogue_code": "ELECTRICAL",
+      "assessment_status": "numeric",
+      "effective_description": "Supply, Transportation, Installation, Testing and Commissioning of .... HP Variable refrigerant Volume (VRV) / variable refrigerant flow (VRF) Air Cooled Outdoor Units (ODU) suitable for cooling and heating having 100% thermetically sealed inverter type compressor and minimum 2 compressors along with 2 condensing fans above 14 / 18 HP Modules, Microprocessor based controller, Side / Top Discharge type condensing units with R-410 A refrigerant, vibration isolators with suitable foundation etc., complete as required. The outdoor unit shall deliver the rated capacity at AHRI conditions and work even at 50 ° centigrade ambient temperature without tripping. The unit shall be suitable to work on 430 V +/- 10%, 3 phase 50 Hz AC Power supply etc., complete finished item of work including comprehensive maintenance of units during the defect liability period. Makes: Blue star / Hitachi / Daikin/ Mitsubishi Electric or equivalent models approved by the Engineer-in-Charge. - 8 HP",
+      "has_reviewed_correction": false
+    },
+    {
+      "rate": 303188,
+      "unit": "each",
+      "item_id": "ELECTRICAL_C2C8C16716F70D20",
+      "pdf_page": 541,
+      "sor_year": "2026-27",
+      "cost_ready": true,
+      "table_name": "electrical",
+      "description": "Supply, Transportation, Installation, Testing and Commissioning of .... HP Variable refrigerant Volume (VRV) / variable refrigerant flow (VRF) Air Cooled Outdoor Units (ODU) suitable for cooling and heating having 100% thermetically sealed inverter type compressor and minimum 2 compressors along with 2 condensing fans above 14 / 18 HP Modules, Microprocessor based controller, Side / Top Discharge type condensing units with R-410 A refrigerant, vibration isolators with suitable foundation etc., complete as required. The outdoor unit shall deliver the rated capacity at AHRI conditions and work even at 50 ° centigrade ambient temperature without tripping. The unit shall be suitable to work on 430 V +/- 10%, 3 phase 50 Hz AC Power supply etc., complete finished item of work including comprehensive maintenance of units during the defect liability period. Makes: Blue star / Hitachi / Daikin/ Mitsubishi Electric or equivalent models approved by the Engineer-in-Charge. - 10 HP",
+      "group_label": "",
+      "family_label": "Supply, Transportation, Installation, Testing and Commissioning of .... HP Variable refrigerant Volume (VRV) / variable refrigerant flow (VRF) Air Cooled Outdoor Units (ODU) suitable for cooling and heating having 100% thermetically sealed inverter type compressor and minimum 2 compressors along with 2 condensing fans above 14 / 18 HP Modules, Microprocessor based controller, Side / Top Discharge type condensing units with R-410 A refrigerant, vibration isolators with suitable foundation etc., complete as required. The outdoor unit shall deliver the rated capacity at AHRI conditions and work even at 50 ° centigrade ambient temperature without tripping. The unit shall be suitable to work on 430 V +/- 10%, 3 phase 50 Hz AC Power supply etc., complete finished item of work including comprehensive maintenance of units during the defect liability period. Makes: Blue star / Hitachi / Daikin/ Mitsubishi Electric or equivalent models approved by the Engineer-in-Charge.",
+      "printed_code": "ELEC-6.9.1.c",
+      "occurrence_id": "AAAD8B75463D0DEEC31FE5F7",
+      "serial_number": "1513",
+      "variant_label": "10 HP",
+      "basis_quantity": 1,
+      "catalogue_code": "ELECTRICAL",
+      "assessment_status": "numeric",
+      "effective_description": "Supply, Transportation, Installation, Testing and Commissioning of .... HP Variable refrigerant Volume (VRV) / variable refrigerant flow (VRF) Air Cooled Outdoor Units (ODU) suitable for cooling and heating having 100% thermetically sealed inverter type compressor and minimum 2 compressors along with 2 condensing fans above 14 / 18 HP Modules, Microprocessor based controller, Side / Top Discharge type condensing units with R-410 A refrigerant, vibration isolators with suitable foundation etc., complete as required. The outdoor unit shall deliver the rated capacity at AHRI conditions and work even at 50 ° centigrade ambient temperature without tripping. The unit shall be suitable to work on 430 V +/- 10%, 3 phase 50 Hz AC Power supply etc., complete finished item of work including comprehensive maintenance of units during the defect liability period. Makes: Blue star / Hitachi / Daikin/ Mitsubishi Electric or equivalent models approved by the Engineer-in-Charge. - 10 HP",
+      "has_reviewed_correction": false
+    }
+  ],
+  "tray_base": {
+    "item_id": "ELECTRICAL_D2A9DD4326B914FB",
+    "quantity": 1,
+    "sor_year": "2026-27",
+    "release_id": "reviewed_sor_862e1b0c4ca915ca25cf",
+    "adjustments": [],
+    "base_amount": 2058,
+    "extra_amount": 0,
+    "total_amount": 2058,
+    "occurrence_id": "E7DD8E935F3571CEBC6DD40B",
+    "quantity_unit": "m",
+    "basis_quantity": 1,
+    "published_rate": 2058,
+    "adjusted_rate_per_basis": 2058
+  },
+  "catalogues": [
+    {
+      "table_name": "electrical",
+      "catalogue_code": "ELECTRICAL",
+      "published_variants": 2559,
+      "cost_ready_variants": 2559
+    },
+    {
+      "table_name": "Public Health labour and work items",
+      "catalogue_code": "PH_WORK_ITEMS",
+      "published_variants": 291,
+      "cost_ready_variants": 203
+    },
+    {
+      "table_name": "Roads and Bridges labour rates",
+      "catalogue_code": "RB_LABOUR",
+      "published_variants": 330,
+      "cost_ready_variants": 0
+    },
+    {
+      "table_name": "Roads and Bridges work items",
+      "catalogue_code": "RB_WORK",
+      "published_variants": 186,
+      "cost_ready_variants": 45
+    }
+  ],
+  "tray_cover": {
+    "item_id": "ELECTRICAL_D2A9DD4326B914FB",
+    "quantity": 1,
+    "sor_year": "2026-27",
+    "release_id": "reviewed_sor_862e1b0c4ca915ca25cf",
+    "adjustments": [
+      {
+        "base": "selected_observation_published_rate",
+        "label": "Cable tray with cover",
+        "rule_id": "NOTE_e3264803575c48907e24",
+        "value_pct": 30,
+        "extra_per_basis": 617.4
+      }
+    ],
+    "base_amount": 2058,
+    "extra_amount": 617.4,
+    "total_amount": 2675.4,
+    "occurrence_id": "E7DD8E935F3571CEBC6DD40B",
+    "quantity_unit": "m",
+    "basis_quantity": 1,
+    "published_rate": 2058,
+    "adjusted_rate_per_basis": 2675.4
+  },
+  "tray_history": [
+    {
+      "rate": 1960,
+      "unit": "m",
+      "item_id": "ELECTRICAL_D2A9DD4326B914FB",
+      "pdf_page": 432,
+      "sor_year": "2025-26",
+      "cost_ready": true,
+      "table_name": "electrical",
+      "description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 75mm x 2mm thick",
+      "printed_code": "ELEC-4.10.1.a",
+      "occurrence_id": "416135B665C8659245E01A0B",
+      "serial_number": "1066",
+      "basis_quantity": 1,
+      "assessment_status": "numeric",
+      "effective_description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 75mm x 2mm thick"
+    },
+    {
+      "rate": 2058,
+      "unit": "m",
+      "item_id": "ELECTRICAL_D2A9DD4326B914FB",
+      "pdf_page": 511,
+      "sor_year": "2026-27",
+      "cost_ready": true,
+      "table_name": "electrical",
+      "description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 75mm x 2mm thick",
+      "printed_code": "ELEC-4.10.1.a",
+      "occurrence_id": "E7DD8E935F3571CEBC6DD40B",
+      "serial_number": "1121",
+      "basis_quantity": 1,
+      "assessment_status": "numeric",
+      "effective_description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 75mm x 2mm thick"
+    }
+  ],
+  "thousand_single": {
+    "item_id": "PLUMBING_ED74B46DB8622E6E",
+    "quantity": 1,
+    "sor_year": "2025-26",
+    "release_id": "reviewed_sor_862e1b0c4ca915ca25cf",
+    "adjustments": [],
+    "base_amount": 0.1,
+    "extra_amount": 0,
+    "total_amount": 0.1,
+    "occurrence_id": "939D64860432D0994604F2C4",
+    "quantity_unit": "litres",
+    "basis_quantity": 1000,
+    "published_rate": 104,
+    "adjusted_rate_per_basis": 104
+  },
+  "thousand_calculation": {
+    "item_id": "PLUMBING_ED74B46DB8622E6E",
+    "quantity": 1500,
+    "sor_year": "2025-26",
+    "release_id": "reviewed_sor_862e1b0c4ca915ca25cf",
+    "adjustments": [],
+    "base_amount": 156,
+    "extra_amount": 0,
+    "total_amount": 156,
+    "occurrence_id": "939D64860432D0994604F2C4",
+    "quantity_unit": "litres",
+    "basis_quantity": 1000,
+    "published_rate": 104,
+    "adjusted_rate_per_basis": 104
+  },
+  "provenance": "Read-only samples from active reviewed Supabase RPCs, 2026-10-09. Source geometry omitted.",
+  "previous_tray": {
+    "rules": [
+      {
+        "base": "selected_observation_published_rate",
+        "kind": "percentage_extra",
+        "label": "Cable tray with cover",
+        "rule_id": "NOTE_d30dc1571c6f7aaa293c",
+        "sor_year": "2025-26",
+        "selection": "optional",
+        "value_pct": 30,
+        "source_note": {
+          "page": 432,
+          "text": "Note: Add 30% Extra for Perforated cable tray with cover on below rates."
+        },
+        "scope_status": "visually_verified_parent_and_priced_children",
+        "printed_codes": [
+          "ELEC-4.10.1.a",
+          "ELEC-4.10.1.b",
+          "ELEC-4.10.1.c",
+          "ELEC-4.10.1.d",
+          "ELEC-4.10.1.e",
+          "ELEC-4.10.1.f",
+          "ELEC-4.10.1.g",
+          "ELEC-4.10.1.h",
+          "ELEC-4.10.1.i",
+          "ELEC-4.10.1.j",
+          "ELEC-4.10.1.k",
+          "ELEC-4.10.1.l",
+          "ELEC-4.10.1.m",
+          "ELEC-4.10.1.n"
+        ],
+        "source_review": {
+          "conclusion": "The printed 30% note sits below the ELEC-4.10.1 without-cover parent and above its priced children; the next ladder-tray family has a separate parent.",
+          "reviewed_on": "2026-10-09",
+          "physical_pdf_page": 432
+        },
+        "exclusive_group": "cable_tray_cover",
+        "calculation_ready": true,
+        "applies_to_occurrences": [
+          "416135B665C8659245E01A0B",
+          "3846CC2629925754E5430DA8",
+          "8D8D57AF3F36FBD79F97FFD4",
+          "487F79499F97A1F4C401BB27",
+          "A7C67B3760B8F032397B3323",
+          "09150283B5EE255E7849FABA",
+          "293C1BBD9FE94D727BF3A69A",
+          "9926C554B76838E21D7A15FD",
+          "8E1183AC533E20767B64F2A5",
+          "593D5D05BA49DC21B235A06D",
+          "0EB8967370F4D1169845AFF3",
+          "093E2E6D297EE99E9C15DB55",
+          "31B4C943F1B867C4DA11C995",
+          "3370DE684A3F341E26CEA159"
+        ]
+      }
+    ],
+    "recipe": {
+      "name": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 75mm x 2mm thick",
+      "item_id": "ELECTRICAL_D2A9DD4326B914FB"
+    },
+    "observation": {
+      "rate": 1960,
+      "item_id": "ELECTRICAL_D2A9DD4326B914FB",
+      "row_role": "priced_item",
+      "assessment": {
+        "reason": "Published numeric value",
+        "status": "numeric",
+        "rate_text": "",
+        "resolution": "direct"
+      },
+      "cost_ready": true,
+      "unit_basis": {
+        "unit": "m",
+        "quantity": 1,
+        "raw_unit": "1 Mtr"
+      },
+      "description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 75mm x 2mm thick",
+      "occurrence_id": "416135B665C8659245E01A0B",
+      "effective_from": "2025-06-18",
+      "source_context": {
+        "rate_notes": [
+          {
+            "page": 432,
+            "text": "Note: Add 30% Extra for Perforated cable tray with cover on below rates."
+          }
+        ],
+        "header_rows": [],
+        "parent_page": 432,
+        "printed_code": "ELEC-4.10.1.a",
+        "continuations": [],
+        "section_scope": "CABLE TRAYS",
+        "variant_group": "",
+        "supplier_scope": "",
+        "parent_description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent",
+        "parent_continuations": []
+      },
+      "row_description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 75mm x 2mm thick",
+      "source_reference": {
+        "row_key": "ELEC-4.10.1.a",
+        "pdf_page": 432,
+        "sor_year": "2025-26",
+        "column_key": "rate",
+        "table_name": "electrical",
+        "printed_code": "ELEC-4.10.1.a",
+        "source_pages": [
+          432
+        ],
+        "imported_code": "ELEC-4.10.1.a",
+        "serial_number": "1066",
+        "catalogue_code": "ELECTRICAL"
+      },
+      "printed_unit_basis": {
+        "unit": "m",
+        "quantity": 1,
+        "raw_unit": "1 Mtr"
+      },
+      "effective_description": "Supply, Transportation and Installation of hot dip GI perforated cable tray without cover along with coupler plates, T's, Bends, Reducers, Anchor bolts, nuts, washers and slotted channels / Angle Iron Channels etc complete and the tray should be fitted on the wall / Ceiling etc. complete for finished item of work. Makes: DEC / MNR / Aparna / H FAB or equivalent - 600mm x 75mm x 2mm thick"
+    }
+  },
+  "previous_cover": {
+    "item_id": "ELECTRICAL_D2A9DD4326B914FB",
+    "quantity": 1,
+    "sor_year": "2025-26",
+    "release_id": "reviewed_sor_862e1b0c4ca915ca25cf",
+    "adjustments": [
+      {
+        "base": "selected_observation_published_rate",
+        "label": "Cable tray with cover",
+        "rule_id": "NOTE_d30dc1571c6f7aaa293c",
+        "value_pct": 30,
+        "extra_per_basis": 588
+      }
+    ],
+    "base_amount": 1960,
+    "extra_amount": 588,
+    "total_amount": 2548,
+    "occurrence_id": "416135B665C8659245E01A0B",
+    "quantity_unit": "m",
+    "basis_quantity": 1,
+    "published_rate": 1960,
+    "adjusted_rate_per_basis": 2548
+  }
+}

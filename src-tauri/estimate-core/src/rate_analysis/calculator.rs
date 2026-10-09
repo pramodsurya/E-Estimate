@@ -148,7 +148,14 @@ pub fn calculate_base_rate_analysis(recipe: &RateAnalysisRecipe) -> RateAnalysis
                 .unwrap_or(0.0)
         });
         let overhead_amount = round_money(base_rate * recipe.overhead_percent / 100.0);
-        let rate = round_money(base_rate + overhead_amount);
+        // A tariff such as Rs. 104 per 1,000 litres becomes Rs. 0.104/litre.
+        // Preserve that unit rate; rounding it before applying the estimate
+        // quantity would underprice 1,500 litres as Rs. 150 instead of Rs. 156.
+        let rate = if recipe.overhead_percent == 0.0 {
+            base_rate
+        } else {
+            round_money(base_rate + overhead_amount)
+        };
         let mut result = summary(
             recipe,
             RateAnalysisSectionTotals {

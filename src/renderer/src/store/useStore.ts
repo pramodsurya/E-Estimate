@@ -36,6 +36,7 @@ import type {
   ProjectAreaAllowance
 } from '../types/project'
 import type { MasterItem } from '../lib/masterData'
+import { reviewedRecipeSnapshots, seedReviewedMeasurement, seedSharedReviewedMeasurements } from '../lib/reviewedSorEstimate'
 import {
   collectProjectItemGroups,
   projectItemKey
@@ -1885,7 +1886,7 @@ export const useStore = create<StoreState>((set, get) => {
       if (!p) return
       const parent = resolveItemParent(p.root, parentId)
       const nodes = items.map((m) =>
-        createNode('item', m.side === 'SOR' ? m.description : m.code, {
+        seedReviewedMeasurement(createNode('item', m.side === 'SOR' ? m.description : m.code, {
           itemSource: m.side,
           itemCode: m.code,
           itemDescription: m.description,
@@ -1894,10 +1895,11 @@ export const useStore = create<StoreState>((set, get) => {
           categoryKey: m.category,
           dataVariant: m.dataVariant,
           sorCatalogue: m.sorCatalogue
-        })
+        }))
       )
       mutate((root) => addChildren(root, parent.id, nodes))
-      set((s) => ({ expanded: { ...s.expanded, [parent.id]: true } }))
+      set((s) => ({ expanded: { ...s.expanded, [parent.id]: true },
+        project: s.project ? { ...s.project, rateAnalysisOverrides: reviewedRecipeSnapshots(nodes, s.project.rateAnalysisOverrides) } : null }))
     },
 
     addSharedItemsFromMaster: (parentId, items, opts) => {
@@ -1906,7 +1908,7 @@ export const useStore = create<StoreState>((set, get) => {
       const parent = resolveItemParent(p.root, parentId)
       const seed = findSharedOwner(p.root, opts.sharedSheetId)?.spreadsheet
       const print = findSharedPrintSource(p.root, opts.sharedSheetId)?.print
-      const nodes = items.map((m) =>
+      const nodes = seedSharedReviewedMeasurements(items.map((m) =>
         createNode('item', m.side === 'SOR' ? m.description : m.code, {
           itemSource: m.side,
           itemCode: m.code,
@@ -1921,9 +1923,18 @@ export const useStore = create<StoreState>((set, get) => {
           ...(seed ? { spreadsheet: seed } : {}),
           ...(print ? { print } : {})
         })
-      )
-      mutate((root) => addChildren(root, parent.id, nodes))
-      set((s) => ({ expanded: { ...s.expanded, [parent.id]: true } }))
+      ))
+      mutate((root) => {
+        let next = addChildren(root, parent.id, nodes)
+        if (nodes.some(node => node.sorCatalogue?.reviewed)) {
+          for (const member of collectSharedMembers(next, opts.sharedSheetId)) {
+            next = patchNode(next, member.id, { spreadsheet: nodes[0].spreadsheet })
+          }
+        }
+        return next
+      })
+      set((s) => ({ expanded: { ...s.expanded, [parent.id]: true },
+        project: s.project ? { ...s.project, rateAnalysisOverrides: reviewedRecipeSnapshots(nodes, s.project.rateAnalysisOverrides) } : null }))
     },
 
     addProjectDataItemsToSharedSheet: (parentId, projectDataIds, opts) => {

@@ -21,6 +21,7 @@ import {
 } from '../../lib/dataPresentation'
 import { supabase } from '../../lib/supabase'
 import { pipeLeadCatalogueLabel } from '../../lib/pipeLead'
+import { reviewedReference, reviewedTariff, sorMoney } from '../../lib/sorReviewed'
 import { lineIdentity } from '../../lib/recipeMerge'
 import type {
   LeadApplication,
@@ -1085,7 +1086,7 @@ function SorDataSheet({
   const rate = hasNumericRate ? numericRate : 0
   const profitPercent = Math.max(0, recipe.overheadPercent || 0)
   const profitAmount = Math.round(rate * profitPercent) / 100
-  const adoptedRate = Math.round((rate + profitAmount) * 100) / 100
+  const adoptedRate = recipe.reviewedSor && profitPercent === 0 ? rate : Math.round((rate + profitAmount) * 100) / 100
   const rateText = recipe.publishedRateText?.trim() ?? ''
   const catalogueSource = recipe.sorCatalogueSource
   const outputQuantity = recipe.outputQuantity || 1
@@ -1227,6 +1228,14 @@ function SorDataSheet({
           ) : null}
         </tbody>
       </table>
+      {recipe.reviewedSor ? <details className="sor-sheet-audit">
+        <summary>Saved reviewed tariff &amp; calculation</summary>
+        <p>{reviewedReference(recipe.reviewedSor.observation)}</p>
+        <p>Published base: {reviewedTariff(recipe.reviewedSor.observation, recipe.reviewedSor.sourceContext)}</p>
+        {recipe.reviewedSor.calculation.adjustments.map(rule => <p key={rule.rule_id}>{rule.label}: +{sorMoney(rule.extra_per_basis)} per published basis</p>)}
+        <p>Verified tariff: {reviewedTariff({ ...recipe.reviewedSor.observation, rate: recipe.reviewedSor.calculation.adjusted_rate_per_basis }, recipe.reviewedSor.sourceContext)}</p>
+        <p>Saved selection: {recipe.reviewedSor.quantity.toLocaleString('en-IN')} {recipe.reviewedSor.observation.unit} · {sorMoney(recipe.reviewedSor.calculation.total_amount)}</p>
+      </details> : null}
       {catalogueSource ? (
         <div className="sor-sheet-audit">
           <div>

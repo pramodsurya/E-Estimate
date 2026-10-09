@@ -385,6 +385,8 @@ export function mergeSavedRecipe(
     publishedRateBlocks: source.publishedRateBlocks,
     publishedRate: source.publishedRate,
     publishedRateText: source.publishedRateText,
+    reviewedSor: source.reviewedSor,
+    sorCatalogueSource: source.reviewedSor ? source.sorCatalogueSource : saved.sorCatalogueSource ?? source.sorCatalogueSource,
     publishedLabourComponent: source.publishedLabourComponent,
     multiRateClassification: source.multiRateClassification,
     dataVariant: source.dataVariant,

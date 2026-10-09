@@ -88,6 +88,7 @@ const analysis = load(lib('rateAnalysis'), {
   './supabase': { supabase },
   './dataVariants': { applyDataVariantToRecipe: recipe => recipe, buildDataVariantSpec: () => ({}) },
   './pipeLead': { pipeLeadSourceFromContext: () => undefined },
+  './sorReviewed': {}, './reviewedSorEstimate': {},
   './materialRates': { applyMaterialRateOverrides: recipe => ({ recipe, applications: [] }),
     fetchMaterialAliases: async () => new Map(), fetchMonthlyMaterials: async () => [] },
   './projectItems': { projectItemKey: () => 'test' },

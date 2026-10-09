@@ -27,6 +27,7 @@ import {
 import type { DataVariantSelection, ProjectDataDefinition } from '../../types/project'
 import SsrCode from '../templates/SsrCode'
 import SorCatalogueColumn from './SorCatalogueColumn'
+import ReviewedSorColumn from './ReviewedSorColumn'
 import {
   fetchDataVariantSpecs,
   type DataVariantOption,
@@ -46,7 +47,8 @@ import {
 } from '../../lib/semanticMasterSearch'
 
 function itemKey(m: MasterItem): string {
-  return `${m.side}:${m.category}:${m.code}`
+  const rules = m.sorCatalogue?.reviewed?.selectedRuleIds
+  return `${m.side}:${m.category}:${m.code}${rules?.length ? `:rules:${[...rules].sort().join(',')}` : ''}`
 }
 
 type SortDir = 'asc' | 'desc'
@@ -174,6 +176,10 @@ export default function AddItemModal(): JSX.Element {
 
   const confirm = async (): Promise<void> => {
     if (selected.size + selectedProjectData.size === 0 || !project) return
+    if (Array.from(selected.values()).some(item => item.sorCatalogue?.reviewed && item.sorCatalogue.reviewed.year !== project.meta.sorYear)) {
+      setVariantError('The project SOR year changed. Remove the old reviewed selections and choose variants from the project edition.')
+      return
+    }
     if (selected.size === 0) {
       openStorageStep()
       return
@@ -716,7 +722,12 @@ function SorSelectionColumn({
   onAdd: (item: MasterItem) => void
   onRemove: (key: string) => void
 }): JSX.Element {
-  const [mode, setMode] = useState<'catalogue' | 'basic'>('basic')
+  const [mode, setMode] = useState<'reviewed' | 'catalogue' | 'basic'>('reviewed')
+
+  if (mode === 'reviewed') {
+    return <ReviewedSorColumn sorYear={sorYear} selected={selected} onAdd={onAdd}
+      onShowBasicRates={() => setMode('basic')} />
+  }
 
   if (mode === 'basic') {
     return (
@@ -730,6 +741,9 @@ function SorSelectionColumn({
         onRemove={onRemove}
         trailingCategory={
           <div className="cat-group sor-others-group">
+            <button type="button" className="cat-head sor-others-head" onClick={() => setMode('reviewed')}>
+              <ChevronRight size={14} /> Reviewed annual SOR
+            </button>
             <button
               type="button"
               className="cat-head sor-others-head"

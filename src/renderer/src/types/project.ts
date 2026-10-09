@@ -7,6 +7,7 @@ import type {
 } from './rateAnalysis'
 import type { IDocumentData, IWorkbookData } from '@univerjs/core'
 import type { DocumentFontFamily } from '../lib/typist-output/documentSettings'
+import type { ReviewedSorSelection } from './sorReviewed'
 
 export type NodeKind = 'title' | 'page' | 'component' | 'subcomponent' | 'item'
 
@@ -182,6 +183,7 @@ export interface SorPublishedReference {
 }
 
 export interface SorCatalogueItemSelection {
+  reviewed?: ReviewedSorSelection
   catalogueCode: string
   catalogueName: string
   part: string

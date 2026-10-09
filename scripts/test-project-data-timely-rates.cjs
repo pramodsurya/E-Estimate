@@ -40,6 +40,7 @@ const analysis = load(lib('rateAnalysis'), {
   './supabase': {supabase}, './projectItems': {projectItemKey:node=>`PROJECT_DATA:${node.projectDataId}`},
   './rateAnalysisVisibility':visibility, './dataVariants':{applyDataVariantToRecipe:r=>r,buildDataVariantSpec:()=>({})},
   './pipeLead':{pipeLeadSourceFromContext:()=>undefined}, './materialRates':materialMocks,
+  './sorReviewed':{}, './reviewedSorEstimate':{},
   './seigniorageClassification':{canonicalSeigniorageCode:code=>code},
   './sorCatalogue':{SOR_CATALOGUE_CATEGORY:'sor_catalogue',fetchSorCataloguePrice:async()=>[],sorCommercialTerms:()=>undefined,sourceContextTitle:()=>null}
 })

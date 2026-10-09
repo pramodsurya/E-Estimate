@@ -71,7 +71,9 @@ export function projectItemKey(node: ProjectNode): string {
   const variant = node.dataVariant
     ? `:${node.dataVariant.kind}:${node.dataVariant.key}`
     : ''
-  return `${source}:${category}:${code}${variant}`
+  const reviewedRules = node.sorCatalogue?.reviewed?.selectedRuleIds
+  const extras = reviewedRules?.length ? `:rules:${[...reviewedRules].sort().join(',')}` : ''
+  return `${source}:${category}:${code}${variant}${extras}`
 }
 
 /** Find the structural ancestors of an item, from Title down to its direct parent. */

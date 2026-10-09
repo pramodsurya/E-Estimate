@@ -99,6 +99,8 @@ const {
     './supabase': { supabase: {} },
     './dataVariants': { applyDataVariantToRecipe: (recipe) => recipe, buildDataVariantSpec: () => ({}) },
     './pipeLead': { pipeLeadSourceFromContext: () => undefined },
+    './sorReviewed': {},
+    './reviewedSorEstimate': {},
     './materialRates': {
       applyMaterialRateOverrides: (recipe) => ({ recipe, applications: [] }),
       fetchMaterialAliases: async () => new Map(),
@@ -168,6 +170,11 @@ assert.equal(
   (await calculateRateAnalysis({ ...sorWithProfit, overheadPercent: 0 })).ratePerUnit,
   815,
   'Deleting the SOR contractor-profit line must make cost the adopted rate'
+)
+assert.equal(
+  (await calculateRateAnalysis({ ...sorWithProfit, unit: 'litres', publishedRate: 0.104, overheadPercent: 0 })).ratePerUnit,
+  0.104,
+  'SOR tariffs normalized from a 1,000-unit basis must retain precision before multiplication by quantity'
 )
 
 const abstract = [

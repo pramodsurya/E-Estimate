@@ -1,4 +1,5 @@
 import type { ConveyanceClass, PipeLeadSource, ProjectDataRateSource } from './project'
+import type { ReviewedSorSelection } from './sorReviewed'
 
 export type RateAnalysisSectionKey = 'materials' | 'machinery' | 'labour'
 
@@ -447,6 +448,8 @@ export interface RateAnalysisRecipe {
    * asked again every time the sheet is merged onto a schedule.
    */
   acknowledgedEdits?: string[]
+  /** Reviewed insertion/refresh evidence, including the immutable server calculation. */
+  reviewedSor?: ReviewedSorSelection
   publishedRate?: number
   /** Printed non-numeric instruction/reference; it must never be coerced to zero. */
   publishedRateText?: string

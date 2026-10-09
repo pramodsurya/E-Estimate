@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { SorCatalogueItemSelection } from '../../types/project'
 import { fetchSorPublishedReference, sorPublishedReferenceLabel } from '../../lib/sorCatalogue'
 import SsrCode from './SsrCode'
+import { reviewedReference } from '../../lib/sorReviewed'
 
 export default function CatalogueItemReference({ code, description, catalogue, sorYear }: {
   code: string
@@ -17,14 +18,18 @@ export default function CatalogueItemReference({ code, description, catalogue, s
     result: Awaited<ReturnType<typeof fetchSorPublishedReference>>
   } | null>(null)
   useEffect(() => {
-    if (!isCatalogue || savedReference) return
+    if (!isCatalogue || savedReference || catalogue?.reviewed) return
     let active = true
     void fetchSorPublishedReference(code, sorYear)
       .then((result) => { if (active) setResolved({ key, result }) })
       .catch(() => { if (active) setResolved({ key, result: null }) })
     return () => { active = false }
-  }, [code, sorYear, key, isCatalogue, savedReference])
+  }, [code, sorYear, key, isCatalogue, savedReference, catalogue?.reviewed])
 
+  if (catalogue?.reviewed) {
+    const label = reviewedReference(catalogue.reviewed.observation)
+    return <b className="ssr-code-hover" title={[label, description].filter(Boolean).join('\n')}>{label}</b>
+  }
   if (!isCatalogue) return <SsrCode code={code} description={description} />
   const fetched = resolved?.key === key ? resolved.result : null
   const reference = savedReference ?? fetched?.reference

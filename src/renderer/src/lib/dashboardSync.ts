@@ -143,7 +143,8 @@ export function dashboardItemSignature(item: ProjectNode): string {
     sorCatalogue: item.sorCatalogue
       ? {
           catalogueCode: item.sorCatalogue.catalogueCode,
-          dimensions: item.sorCatalogue.dimensions
+          dimensions: item.sorCatalogue.dimensions,
+          reviewed: item.sorCatalogue.reviewed ?? null
         }
       : null
   })
@@ -275,6 +276,7 @@ async function fetchDashboardSourceGroup(
   let fetchFailure: string | null = null
   try {
     fetchedRecipe = await fetchRateAnalysis(representative, context.sorYear, {
+      refreshReviewedSnapshot: true,
       zone: context.sorZone,
       areaAllowancePercent: allowance.percent,
       areaAllowanceLabel: allowance.label,
