@@ -1,320 +1,216 @@
-import { useEffect, useState } from 'react'
-import { ArrowLeft, Check, ChevronRight, LoaderCircle, Plus, Search } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowLeft, BookOpen, ChevronRight, FolderOpen, LoaderCircle, Search } from 'lucide-react'
 import type { MasterItem } from '../../lib/masterData'
-import {
-  calculateReviewedSorSelection, getReviewedSorHistory, getReviewedSorItem,
-  listReviewedSorCatalogues, makeReviewedMasterItem, normallySelectable,
-  parseReviewedSorSearch, readyReviewedRules, reviewedCostStatus, reviewedFamilyKey,
-  reviewedReference, reviewedTariff, searchReviewedSorItems, sorMoney, sorRecord, tableLabel,
-  type ReviewedSorCatalogue
-} from '../../lib/sorReviewed'
-import type { ReviewedSorCalculation, ReviewedSorDetail, ReviewedSorObservation } from '../../types/sorReviewed'
+import { getReviewedSorHistory, listReviewedSorCatalogues, normallySelectable, parseReviewedSorSearch,
+  reviewedCostStatus, reviewedReference, reviewedTariff, tableLabel, type ReviewedSorCatalogue } from '../../lib/sorReviewed'
+import { browseReviewedSor, reviewedSorLocations, reviewedSorTable, searchReviewedSorWithLocations,
+  type SorNavigationLocation, type SorNavigationNode, type SorNavigationPage } from '../../lib/sorNavigation'
+import type { ReviewedSorObservation } from '../../types/sorReviewed'
+import ReviewedSorDetailPanel from './ReviewedSorDetailPanel'
 import './reviewedSor.css'
 
 const EDITIONS = ['2026-27', '2025-26', '2024-25', '2023-24']
 const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error)
+type SearchPage = Awaited<ReturnType<typeof searchReviewedSorWithLocations>>
+const nodeTitle = (node: SorNavigationNode): string => node.node_type === 'table' ? tableLabel(node.display_title) : node.display_title
+const nodeKind = (node: SorNavigationNode): string => ({ table: 'Schedule', section: 'Section', subsection: 'Subsection', family: 'Item family', specification_group: 'Specification group' })[node.node_type]
 
-export default function ReviewedSorColumn({ sorYear, selected, onAdd, onShowBasicRates }: {
-  sorYear: string
-  selected: Map<string, MasterItem>
-  onAdd: (item: MasterItem) => void
-  onShowBasicRates: () => void
+export default function ReviewedSorColumn({ sorYear, selected, onAdd, onShowBasicRates, initialCatalogue = null }: {
+  sorYear: string; selected: Map<string, MasterItem>; onAdd: (item: MasterItem) => void; onShowBasicRates: () => void; initialCatalogue?: string | null
 }): JSX.Element {
   const [year, setYear] = useState(sorYear)
   const [projectYear, setProjectYear] = useState(sorYear)
   const [query, setQuery] = useState('')
-  const [catalogue, setCatalogue] = useState<string | null>(null)
+  const [catalogue, setCatalogue] = useState<string | null>(initialCatalogue)
+  const [path, setPath] = useState<SorNavigationNode[]>([])
+  const [offset, setOffset] = useState(0)
+  const [anchor, setAnchor] = useState<string | null>(null)
   const [choice, setChoice] = useState<ReviewedSorObservation | null>(null)
+  const [choicePath, setChoicePath] = useState<SorNavigationNode[]>([])
+  const [showDetail, setShowDetail] = useState(false)
   const [notice, setNotice] = useState('')
   const [pendingRecipe, setPendingRecipe] = useState<string | null>(null)
   const [catalogues, setCatalogues] = useState<{ key: string; rows: ReviewedSorCatalogue[]; error?: string } | null>(null)
-  const [results, setResults] = useState<{ key: string; rows: ReviewedSorObservation[]; offset: number; hasMore: boolean; error?: string } | null>(null)
+  const [browse, setBrowse] = useState<{ key: string; page?: SorNavigationPage; error?: string } | null>(null)
+  const [search, setSearch] = useState<{ key: string; offset: number; page?: SearchPage; error?: string } | null>(null)
+  const [searchOffset, setSearchOffset] = useState(0)
   const [reload, setReload] = useState(0)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const key = JSON.stringify([year, catalogue, query, reload])
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const parent = path.at(-1)
+  const browseKey = JSON.stringify([year, parent?.node_id, offset, anchor, reload])
+  const searchKey = JSON.stringify([year, query.trim(), catalogue, reload])
   const catalogueKey = `${year}:${reload}`
+  const searching = query.trim().length > 0
 
   if (projectYear !== sorYear) {
-    setProjectYear(sorYear)
-    setYear(sorYear)
-    setPendingRecipe(choice?.item_id ?? null)
-    setChoice(null)
-    setCatalogue(null)
-    setNotice('Project SOR year changed. Choose a variant from the selected edition.')
+    setProjectYear(sorYear); setYear(sorYear); setPendingRecipe(choice?.item_id ?? null)
+    setChoice(null); setChoicePath([]); setPath([]); setOffset(0); setAnchor(null); setCatalogue(null); setSearchOffset(0)
+    setNotice('Project SOR year changed. Checking the selected variant in this edition.')
   }
 
   useEffect(() => {
     let active = true
-    void listReviewedSorCatalogues(year).then(rows => {
-      if (active) setCatalogues({ key: catalogueKey, rows })
-    }).catch(error => {
-      if (active) setCatalogues({ key: catalogueKey, rows: [], error: errorText(error) })
-    })
+    void listReviewedSorCatalogues(year).then(rows => { if (active) setCatalogues({ key: catalogueKey, rows }) })
+      .catch(error => { if (active) setCatalogues({ key: catalogueKey, rows: [], error: errorText(error) }) })
     return () => { active = false }
   }, [year, catalogueKey])
 
+  // Resolve an explicit schedule entry (including legacy Electrical/Civil/Plumbing links).
   useEffect(() => {
-    let active = true
+    if (!catalogue || path[0]?.catalogue_code === catalogue) return
+    const controller = new AbortController()
+    void reviewedSorTable(year, catalogue, controller.signal).then(node => {
+      if (!controller.signal.aborted) { setPath([node]); setOffset(0); setAnchor(null) }
+    }).catch(error => { if (!controller.signal.aborted) setNotice(errorText(error)) })
+    return () => controller.abort()
+  }, [year, catalogue, path])
+
+  useEffect(() => {
+    if (searching) return
+    const controller = new AbortController()
+    void browseReviewedSor(year, parent?.node_id ?? null, offset, anchor, controller.signal)
+      .then(page => { if (!controller.signal.aborted) setBrowse({ key: browseKey, page }) })
+      .catch(error => { if (!controller.signal.aborted) setBrowse({ key: browseKey, error: errorText(error) }) })
+    return () => controller.abort()
+  }, [year, parent?.node_id, offset, anchor, browseKey, searching])
+
+  useEffect(() => {
+    if (!searching) return
+    const controller = new AbortController()
     const timer = setTimeout(() => {
-      void searchReviewedSorItems(year, query, catalogue).then(page => {
-        if (active) setResults({ key, ...page, offset: 100 })
-      }).catch(error => {
-        if (active) setResults({ key, rows: [], offset: 0, hasMore: false, error: errorText(error) })
-      })
+      void searchReviewedSorWithLocations(year, query, catalogue, searchOffset, controller.signal).then(page => {
+        if (!controller.signal.aborted) setSearch(previous => ({ key: searchKey, offset: searchOffset,
+          page: { ...page, rows: searchOffset > 0 && previous?.key === searchKey ? [...(previous.page?.rows ?? []), ...page.rows] : page.rows } }))
+      }).catch(error => { if (!controller.signal.aborted) setSearch({ key: searchKey, offset: searchOffset, error: errorText(error) }) })
     }, 250)
-    return () => { active = false; clearTimeout(timer) }
-  }, [year, query, catalogue, key])
+    return () => { controller.abort(); clearTimeout(timer) }
+  }, [year, query, catalogue, searchOffset, searchKey, searching])
 
   useEffect(() => {
     if (!pendingRecipe) return
     let active = true
-    void getReviewedSorHistory(pendingRecipe).then(history => {
-      if (!active) return
+    void getReviewedSorHistory(pendingRecipe).then(async history => {
       const candidates = history.filter(row => row.sor_year === year && normallySelectable(row))
-      if (candidates.length === 1) {
-        setChoice(candidates[0])
-        setNotice('Loaded this variant in the selected edition. Extras were cleared; review the applicable rules again.')
-      } else {
-        setNotice(`This variant has no unique compatible observation in ${year}. Choose an available variant below.`)
-      }
+      const row = candidates.length === 1 ? candidates[0] : null
+      const locations = row ? await reviewedSorLocations([row.occurrence_id]) : []
+      if (!active) return
+      setChoice(row); setChoicePath(locations[0]?.path ?? []); setShowDetail(Boolean(row))
+      setNotice(row ? 'Loaded this variant in the selected edition. Review its applicable extras again.'
+        : `This variant has no unique compatible observation in ${year}. Choose an available variant from this edition.`)
       setPendingRecipe(null)
-    }).catch(error => {
-      if (active) { setNotice(errorText(error)); setPendingRecipe(null) }
-    })
+    }).catch(error => { if (active) { setNotice(errorText(error)); setPendingRecipe(null) } })
     return () => { active = false }
-  }, [pendingRecipe, year, sorYear])
+  }, [pendingRecipe, year])
 
-  const changeYear = (nextYear: string): void => {
-    setPendingRecipe(choice?.item_id ?? null)
-    setYear(nextYear)
-    setChoice(null)
-    setCatalogue(null)
-    setLoadingMore(false)
-    setNotice('')
+  const navigate = (next: SorNavigationNode[]): void => {
+    setPath(next); setCatalogue(next[0]?.catalogue_code ?? null); setOffset(0); setAnchor(null); setQuery(''); setShowDetail(false); setNotice('')
   }
-
-  const choose = (row: ReviewedSorObservation): void => {
-    setPendingRecipe(null)
-    setChoice(row)
-    setNotice('')
+  const changeYear = (next: string): void => {
+    setPendingRecipe(choice?.item_id ?? null); setChoice(null); setChoicePath([]); setYear(next)
+    navigate([]); setSearchOffset(0)
   }
-
-  const loadMore = (): void => {
-    if (!results || results.key !== key || loadingMore) return
-    const current = results
-    setLoadingMore(true)
-    void searchReviewedSorItems(year, query, catalogue, current.offset).then(page => {
-      setResults(previous => previous?.key === key ? { key, rows: [...previous.rows, ...page.rows], offset: current.offset + 100, hasMore: page.hasMore } : previous)
-      setLoadingMore(false)
-    }).catch(error => { setNotice(errorText(error)); setLoadingMore(false) })
+  const choose = (row: ReviewedSorObservation, locationPath: SorNavigationNode[]): void => {
+    setPendingRecipe(null); setChoice(row); setChoicePath(locationPath); setShowDetail(true); setNotice('')
   }
-
-  const currentResults = results?.key === key ? results : null
+  const showInSection = (location: SorNavigationLocation): void => {
+    navigate(location.path); setAnchor(location.occurrence_id)
+  }
+  const currentBrowse = browse?.key === browseKey ? browse : null
+  const currentSearch = search?.key === searchKey ? search : null
   const currentCatalogues = catalogues?.key === catalogueKey ? catalogues : null
-  const groups = new Map<string, ReviewedSorObservation[]>()
-  for (const row of currentResults?.rows ?? []) {
-    const family = reviewedFamilyKey(row)
-    groups.set(family, [...(groups.get(family) ?? []), row])
-  }
-  const parsedSearch = parseReviewedSorSearch(query)
-  const schedules = parsedSearch.roadsAndBridges
-    ? currentCatalogues?.rows.filter(row => row.catalogue_code.startsWith('RB_')) : currentCatalogues?.rows
-  const selectedInDifferentYear = year !== sorYear
+  const parsed = parseReviewedSorSearch(query)
+  const schedules = parsed.roadsAndBridges ? currentCatalogues?.rows.filter(row => row.catalogue_code.startsWith('RB_')) : currentCatalogues?.rows
+  const activePage = currentBrowse?.page
+  const heading = showDetail ? choicePath.at(-1) : parent
+  const breadcrumbs = showDetail ? choicePath : path
+
+  useEffect(() => {
+    if (anchor && currentBrowse?.page) scrollRef.current?.querySelector(`[data-sor-observation="${CSS.escape(anchor)}"]`)?.scrollIntoView({ block: 'nearest' })
+  }, [anchor, currentBrowse])
 
   return <div className="additem-col reviewed-sor-col">
     <div className="col-header reviewed-sor-header">
-      <div><h3>Reviewed SOR</h3><span className="col-tag">Annual rates &amp; priced variants</span></div>
-      <button type="button" className="btn-mini" onClick={onShowBasicRates}>Basic rates / legacy catalogue</button>
+      <div><h3><BookOpen size={16} /> SOR book</h3><span className="col-tag">Browse sections → specifications → priced variants</span></div>
+      <button type="button" className="btn-mini" onClick={onShowBasicRates}>Basic resource rates</button>
     </div>
     <div className="reviewed-sor-filters">
-      <label>SOR year<select value={year} onChange={event => changeYear(event.target.value)}>
+      <label>SOR year<select aria-label="SOR year" value={year} onChange={event => changeYear(event.target.value)}>
         {Array.from(new Set([sorYear, ...EDITIONS])).filter(Boolean).map(edition => <option key={edition} value={edition}>{edition}{edition === sorYear ? ' · Project' : ''}</option>)}
       </select></label>
-      <label>Table / schedule<select value={catalogue ?? ''} onChange={event => { setCatalogue(event.target.value || null); setChoice(null); setPendingRecipe(null) }}>
-        <option value="">All available schedules</option>
-        {schedules?.map(row => <option key={row.catalogue_code} value={row.catalogue_code}>{tableLabel(row.table_name)} ({row.published_variants.toLocaleString('en-IN')})</option>)}
+      <label>Schedule<select aria-label="SOR schedule" value={catalogue ?? ''} onChange={event => {
+        setCatalogue(event.target.value || null); setPath([]); setOffset(0); setAnchor(null); setSearchOffset(0); setShowDetail(false)
+      }}><option value="">All available schedules</option>
+        {schedules?.map(row => <option key={row.catalogue_code} value={row.catalogue_code}>{tableLabel(row.table_name)}</option>)}
       </select></label>
-      <label className="reviewed-sor-search"><Search size={14} /><input className="text-input" aria-label="Search reviewed SOR" placeholder="Description, code, table or R&B Sl. No. 230" value={query} onChange={event => setQuery(event.target.value)} /></label>
+      <label className="reviewed-sor-search"><Search size={14} /><input className="text-input" aria-label="Search reviewed SOR" placeholder="Find a description, printed code or Sl. No."
+        value={query} onChange={event => { setQuery(event.target.value); setSearchOffset(0); setShowDetail(false) }} /></label>
     </div>
     {notice && <p className="reviewed-sor-notice" role="status">{notice}</p>}
-    {selectedInDifferentYear && <p className="reviewed-sor-notice">Comparing {year}. Return to the project year {sorYear} to add an item.</p>}
-    {parsedSearch.serial && !catalogue && <p className="reviewed-sor-notice">Serial {parsedSearch.serial} is scoped to each schedule. Choose the relevant table above or use its reference below.</p>}
-    {currentCatalogues?.error && <div className="reviewed-sor-error" role="alert">{currentCatalogues.error} <button onClick={() => setReload(value => value + 1)}>Retry</button></div>}
-    <div className="reviewed-sor-scroll">
-      {pendingRecipe ? <p className="reviewed-sor-loading"><LoaderCircle className="spin" size={16} /> Checking this variant in {year}…</p> : choice && choice.sor_year === year ? <>
-        <button className="btn-mini" onClick={() => { setPendingRecipe(null); setChoice(null) }}><ArrowLeft size={13} /> Families and variants</button>
-        <ReviewedSorDetailPanel key={choice.occurrence_id} row={choice} projectYear={sorYear} onAdd={onAdd}
-          selected={selected} />
-      </> : !currentResults ? <p className="reviewed-sor-loading"><LoaderCircle className="spin" size={16} /> Loading this edition…</p>
-        : currentResults.error ? <div className="reviewed-sor-error" role="alert">{currentResults.error} <button onClick={() => setReload(value => value + 1)}>Retry</button></div>
-          : <>
-            {!groups.size && <p className="reviewed-sor-empty">No selectable items found in {year}. Try another table or search.</p>}
-            {Array.from(groups.entries()).map(([family, rows]) => <ReviewedSorFamily key={family} rows={rows} onChoose={choose} />)}
-            {currentResults.hasMore && <button className="reviewed-sor-more" disabled={loadingMore} onClick={loadMore}>{loadingMore ? 'Loading…' : 'Load more families and variants'}</button>}
+    {year !== sorYear && <p className="reviewed-sor-notice">Comparing {year}. Return to the project year {sorYear} to add an item.</p>}
+    {parsed.serial && !catalogue && <p className="reviewed-sor-notice">Sl. No. {parsed.serial} belongs to a schedule and year. Choose its schedule above or check the references below.</p>}
+    {currentCatalogues?.error && <ErrorMessage error={currentCatalogues.error} retry={() => setReload(value => value + 1)} />}
+    <nav className="sor-book-breadcrumbs" aria-label="SOR book location">
+      <button onClick={() => navigate([])}><BookOpen size={13} /> Book index</button>
+      {breadcrumbs.map((node, index) => <span key={node.node_id}><ChevronRight size={12} /><button title={node.display_title}
+        onClick={() => navigate(breadcrumbs.slice(0, index + 1))}>{nodeTitle(node)}</button></span>)}
+    </nav>
+    {choice && !showDetail && <button className="sor-book-selection" onClick={() => setShowDetail(true)}>
+      <span>Selected variant <strong>{choice.variant_label || choice.effective_description}</strong></span><span>Review <ChevronRight size={13} /></span>
+    </button>}
+    <div className="reviewed-sor-scroll" ref={scrollRef}>
+      {pendingRecipe ? <Loading text={`Checking this variant in ${year}…`} /> : <>
+        {choice && <div hidden={!showDetail}>
+          <button className="btn-mini" onClick={() => setShowDetail(false)}><ArrowLeft size={13} /> Return to book navigation</button>
+          {choicePath.filter(node => node.node_type === 'family' || node.node_type === 'specification_group').map(node => <p className="sor-book-shared" key={node.node_id}><small>{nodeKind(node)}</small>{node.display_title}</p>)}
+          <ReviewedSorDetailPanel key={choice.occurrence_id} row={choice} projectYear={sorYear} onAdd={onAdd} selected={selected} />
+        </div>}
+        {!showDetail && (searching ? <>
+          <div className="sor-book-heading"><h4>Search results</h4><button className="btn-mini" onClick={() => setQuery('')}>Return to section</button></div>
+          {!currentSearch ? <Loading text="Searching this edition…" /> : currentSearch.error ? <ErrorMessage error={currentSearch.error} retry={() => setReload(value => value + 1)} /> : <>
+            {!currentSearch.page?.rows.length && <p className="reviewed-sor-empty">No matching items in {year}. Try another schedule or reference.</p>}
+            {currentSearch.page?.rows.map(({ observation: row, location }) => <VariantRow key={row.occurrence_id} row={row} path={location?.path ?? []}
+              onSelect={() => choose(row, location?.path ?? [])} onLocate={location ? () => showInSection(location) : undefined} />)}
+            {currentSearch.page?.hasMore && <button className="reviewed-sor-more" disabled={currentSearch.offset !== searchOffset}
+              onClick={() => setSearchOffset(value => value + 100)}>{currentSearch.offset !== searchOffset ? 'Loading…' : 'Load more results'}</button>}
           </>}
+        </> : <>
+          <div className="sor-book-heading"><div><small>{heading ? nodeKind(heading) : `${year} edition`}</small><h4>{heading ? nodeTitle(heading) : 'Choose a department or schedule'}</h4></div>
+            {path.length > 0 && <button className="btn-mini" onClick={() => navigate(path.slice(0, -1))}><ArrowLeft size={13} /> Back</button>}
+          </div>
+          {parent?.node_type === 'specification_group' && path.filter(node => node.node_type === 'family').map(node => <p className="sor-book-shared" key={node.node_id}><small>Common specification</small>{node.display_title}</p>)}
+          {parent?.node_type === 'family' && <p className="sor-book-hint">Common specification above applies to each separately priced variant below.</p>}
+          {!currentBrowse ? <Loading text="Loading book section…" /> : currentBrowse.error ? <ErrorMessage error={currentBrowse.error} retry={() => setReload(value => value + 1)} /> : <>
+            {!activePage?.entries.length && <p className="reviewed-sor-empty">No available choices in this section for {year}.</p>}
+            {activePage?.entries.map(entry => entry.node_type === 'variant' ? <VariantRow key={entry.observation.occurrence_id} row={entry.observation}
+              highlighted={entry.observation.occurrence_id === anchor} onSelect={() => choose(entry.observation, path)} />
+              : <button key={entry.node_id} className="sor-book-node" data-kind={entry.node_type} onClick={() => navigate([...path, entry])}>
+                <FolderOpen size={17} /><span><small>{nodeKind(entry)}{entry.printed_reference ? ` · ${entry.printed_reference}` : ''}</small><strong title={entry.display_title}>{nodeTitle(entry)}</strong>
+                  <small>{entry.available_variant_count.toLocaleString('en-IN')} variant{entry.available_variant_count === 1 ? '' : 's'}{entry.source_evidence.pdf_page ? ` · PDF p. ${entry.source_evidence.pdf_page}` : ''}</small></span><ChevronRight size={17} />
+              </button>)}
+            {activePage && activePage.total_count > 50 && <div className="sor-book-paging">
+              <button className="btn-mini" disabled={activePage.offset === 0} onClick={() => { setAnchor(null); setOffset(Math.max(0, activePage.offset - 50)) }}>Previous</button>
+              <span>{activePage.offset + 1}–{Math.min(activePage.offset + 50, activePage.total_count)} of {activePage.total_count} · Book order</span>
+              <button className="btn-mini" disabled={!activePage.has_more} onClick={() => { setAnchor(null); setOffset(activePage.offset + 50) }}>Next</button>
+            </div>}
+          </>}
+        </>)}
+      </>}
     </div>
   </div>
 }
 
-function ReviewedSorFamily({ rows, onChoose }: { rows: ReviewedSorObservation[]; onChoose: (row: ReviewedSorObservation) => void }): JSX.Element {
-  const first = rows[0]
-  const [complete, setComplete] = useState<ReviewedSorObservation[] | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const loadVariants = (): void => {
-    if (complete || loading) return
-    setLoading(true)
-    setError('')
-    // Search the exact published parent phrase, then retain its exact family key.
-    // Paging ensures a result boundary never silently hides a priced child.
-    const load = async (): Promise<ReviewedSorObservation[]> => {
-      const found: ReviewedSorObservation[] = []
-      let offset = 0
-      let more = true
-      while (more) {
-        const page = await searchReviewedSorItems(first.sor_year, `"${first.family_label.replace(/"/g, '')}"`, first.catalogue_code, offset, false)
-        found.push(...page.rows.filter(row => reviewedFamilyKey(row) === reviewedFamilyKey(first)))
-        more = page.hasMore
-        offset += 100
-      }
-      return found
-    }
-    void load().then(found => { setComplete(found); setLoading(false) }).catch(reason => { setError(errorText(reason)); setLoading(false) })
-  }
-  const variants = Array.from(new Map([...rows, ...(complete ?? [])].map(row => [row.occurrence_id, row])).values())
-  const subgroups = new Map<string, ReviewedSorObservation[]>()
-  for (const row of variants) subgroups.set(row.group_label, [...(subgroups.get(row.group_label) ?? []), row])
-  return <details className="reviewed-sor-family" onToggle={event => { if (event.currentTarget.open) loadVariants() }}>
-    <summary><ChevronRight size={14} /><span><small>{tableLabel(first.table_name)}</small><strong>{first.family_label}</strong><small>{variants.length} priced variant{variants.length === 1 ? '' : 's'}{!complete ? ' shown' : ''}</small></span></summary>
-    <div className="reviewed-sor-variants">
-      {loading && <p role="status">Loading all matching variants…</p>}
-      {error && <p className="reviewed-sor-error" role="alert">{error} <button onClick={loadVariants}>Retry</button></p>}
-      {Array.from(subgroups.entries()).map(([group, children]) => <div key={group}>
-        {group && <h4>{group}</h4>}
-        {children.map(row => <button key={row.occurrence_id} className="reviewed-sor-variant" onClick={() => onChoose(row)}>
-          <span><strong>{row.variant_label || row.effective_description}</strong><small>{reviewedReference(row)}</small></span>
-          <span><b>{row.cost_ready ? reviewedTariff(row) : reviewedCostStatus(row)}</b>{row.has_reviewed_correction && <small>Reviewed specification / basis</small>}</span>
-        </button>)}
-      </div>)}
-    </div>
-  </details>
-}
-
-function ReviewedSorDetailPanel({ row, projectYear, onAdd, selected }: {
-  row: ReviewedSorObservation; projectYear: string; onAdd: (item: MasterItem) => void; selected: Map<string, MasterItem>
+function VariantRow({ row, path = [], onSelect, onLocate, highlighted = false }: {
+  row: ReviewedSorObservation; path?: SorNavigationNode[]; onSelect: () => void; onLocate?: () => void; highlighted?: boolean
 }): JSX.Element {
-  const [detailResult, setDetailResult] = useState<{ reload: number; value: ReviewedSorDetail } | null>(null)
-  const [history, setHistory] = useState<ReviewedSorObservation[] | null>(null)
-  const [error, setError] = useState('')
-  const [historyError, setHistoryError] = useState('')
-  const [quantity, setQuantity] = useState('1')
-  const [ruleIds, setRuleIds] = useState<string[]>([])
-  const [calculation, setCalculation] = useState<{ key: string; value?: ReviewedSorCalculation; error?: string } | null>(null)
-  const [reload, setReload] = useState(0)
-  const detail = detailResult?.reload === reload ? detailResult.value : null
-  const calculationKey = JSON.stringify([detail?.observation.occurrence_id, quantity, ruleIds, reload])
-  const currentCalculation = calculation?.key === calculationKey ? calculation : null
-
-  useEffect(() => {
-    let active = true
-    void getReviewedSorItem(row.occurrence_id).then(value => { if (active) { setDetailResult({ reload, value }); setError('') } })
-      .catch(reason => { if (active) setError(errorText(reason)) })
-    void getReviewedSorHistory(row.item_id).then(value => { if (active) { setHistory(value); setHistoryError('') } })
-      .catch(reason => { if (active) setHistoryError(errorText(reason)) })
-    return () => { active = false }
-  }, [row.occurrence_id, row.item_id, reload])
-
-  useEffect(() => {
-    if (!detail?.observation.cost_ready || detail.observation.assessment_status !== 'numeric' || !(Number(quantity) > 0)) return
-    let active = true
-    const timer = setTimeout(() => {
-      void calculateReviewedSorSelection(detail.observation.occurrence_id, Number(quantity), ruleIds)
-        .then(value => { if (active) setCalculation({ key: calculationKey, value }) })
-        .catch(reason => { if (active) setCalculation({ key: calculationKey, error: errorText(reason) }) })
-    }, 200)
-    return () => { active = false; clearTimeout(timer) }
-  }, [detail, quantity, ruleIds, calculationKey])
-
-  if (error) return <div className="reviewed-sor-error" role="alert">{error} <button onClick={() => setReload(value => value + 1)}>Retry</button></div>
-  if (!detail) return <p className="reviewed-sor-loading"><LoaderCircle className="spin" size={16} /> Loading reviewed specification…</p>
-  const annual = detail.observation
-  const readyRules = readyReviewedRules(detail)
-  const sourceNotes = Array.isArray(detail.sourceContext.rate_notes) ? detail.sourceContext.rate_notes : []
-  const informational = sourceNotes.map(note => String(sorRecord(note).text ?? '')).filter(Boolean)
-    .filter(text => !readyRules.some(rule => rule.source_note?.text === text))
-  const unreadyRules = detail.rules.filter(rule => !readyRules.includes(rule))
-  const value = currentCalculation?.value
-  const positiveQuantity = Number.isFinite(Number(quantity)) && Number(quantity) > 0
-  const canCost = annual.cost_ready && annual.assessment_status === 'numeric'
-  const selectionKey = `SOR:sor_catalogue:${row.item_id}${ruleIds.length ? `:rules:${[...ruleIds].sort().join(',')}` : ''}`
-  const alreadySelected = selected.has(selectionKey)
-  const add = (): void => {
-    if (!value || !positiveQuantity || annual.sor_year !== projectYear) return
-    if (value.published_rate !== annual.rate || value.basis_quantity !== annual.basis_quantity || value.quantity_unit !== annual.unit) {
-      setError('The reviewed observation changed during calculation. Retry to review the current specification and tariff.')
-      return
-    }
-    onAdd(makeReviewedMasterItem(detail, value, ruleIds))
-  }
-  return <article className="reviewed-sor-detail">
-    <p className="reviewed-sor-reference">{reviewedReference(annual)}</p>
-    <h4>Effective reviewed specification</h4><p className="reviewed-sor-specification">{annual.effective_description}</p>
-    <div className="reviewed-sor-tariff"><strong>{reviewedTariff(annual, detail.sourceContext)}</strong><span>{reviewedCostStatus(annual)}</span></div>
-    <details className="reviewed-sor-evidence"><summary>Printed wording &amp; review evidence</summary>
-      <h4>Printed wording</h4><p>{annual.description}</p>
-      <p>Source PDF page {annual.pdf_page ?? 'not recorded'} · Printed unit: {String(sorRecord(detail.payload.printed_unit_basis).raw_unit ?? '') || 'blank in source'}</p>
-      {Object.keys(sorRecord(annual.features.commercial_terms ?? detail.sourceContext.commercial_terms)).length > 0 && <>
-        <h4>Published commercial terms</h4><Evidence value={sorRecord(annual.features.commercial_terms ?? detail.sourceContext.commercial_terms)} />
-      </>}
-      {['specification_review', 'unit_resolution'].map(key => {
-        const evidence = sorRecord(detail.sourceContext[key])
-        return Object.keys(evidence).length ? <div key={key}>
-          <h4>{key === 'specification_review' ? 'Specification review' : 'Tariff unit evidence'}</h4>
-          <p>{evidence.authority === 'user_confirmation' || evidence.method === 'user_confirmation' ? 'User confirmation' : 'Historical / reviewed source evidence'}{evidence.official_correction === false ? ' · not an official correction' : ''}</p>
-          <Evidence value={evidence} />
-        </div> : null
-      })}
-    </details>
-    <section className="reviewed-sor-extras"><h4>Optional add-ons</h4>
-      {readyRules.filter(rule => rule.selection === 'optional').map(rule => <label key={rule.rule_id} className="reviewed-sor-rule">
-        <input type="checkbox" checked={ruleIds.includes(rule.rule_id)} disabled={!canCost} onChange={event => setRuleIds(event.target.checked ? [rule.rule_id] : [])} />
-        <span>{rule.label}: +{rule.value_pct}%<small>Base: selected annual published rate</small></span>
-      </label>)}
-      {!readyRules.some(rule => rule.selection === 'optional') && <p>No verified optional add-ons for this annual variant.</p>}
-      <details><summary>Adjustments, included work &amp; source notes</summary>
-        <h4>Adjustments</h4><p>Conditional increases or deductions require a verified calculation rule and base.</p>
-        {readyRules.filter(rule => rule.selection !== 'optional').map(rule => <label key={rule.rule_id} className="reviewed-sor-rule"><input type="checkbox" checked={ruleIds.includes(rule.rule_id)} disabled={!canCost} onChange={event => setRuleIds(event.target.checked ? [rule.rule_id] : [])} /><span>{rule.label}: {rule.value_pct}% · selected annual published rate</span></label>)}
-        <h4>Included work</h4><p>Work covered by the effective specification above is included in the published rate.</p>
-        <h4>Source notes</h4>
-        {readyRules.map(rule => <p key={rule.rule_id}>{rule.source_note?.text || rule.label} · verified for this annual variant{rule.source_note?.page ? ` · PDF page ${rule.source_note.page}` : ''}</p>)}
-        {informational.map((text, index) => <p key={index}>{text}</p>)}
-        {unreadyRules.map(rule => <p key={rule.rule_id}>{rule.label || rule.source_note?.text} · awaiting verified calculation rules</p>)}
-        {!informational.length && !unreadyRules.length && <p>No additional unverified notes retained for this variant.</p>}
-        {(informational.length > 0 || unreadyRules.length > 0) && <p>Informational only. No calculation or stacking is inferred.</p>}
-      </details>
-    </section>
-    <details className="reviewed-sor-history"><summary>Rates across available editions</summary>
-      {historyError ? <p role="alert">{historyError} <button onClick={() => setReload(count => count + 1)}>Retry</button></p> : !history ? <p>Loading annual observations…</p> : <div className="reviewed-sor-table-wrap"><table>
-        <thead><tr><th>Edition / annual reference</th><th>Wording</th><th>Tariff</th><th>Costing status</th></tr></thead>
-        <tbody>{history.map(observation => <tr key={observation.occurrence_id}><td>{reviewedReference(observation)}</td><td><details><summary>View wording</summary><p>{observation.effective_description}</p>{observation.description !== observation.effective_description && <p>Printed: {observation.description}</p>}</details></td><td>{reviewedTariff(observation)}</td><td>{reviewedCostStatus(observation)}</td></tr>)}</tbody>
-      </table></div>}
-    </details>
-    {canCost ? <div className="reviewed-sor-costing">
-      <label>Quantity ({annual.unit})<input className="text-input" type="number" min="0" step="any" value={quantity} onChange={event => setQuantity(event.target.value)} /></label>
-      {!positiveQuantity ? <p role="alert">Enter a positive quantity.</p> : currentCalculation?.error ? <p className="reviewed-sor-error" role="alert">{currentCalculation.error} <button onClick={() => setReload(count => count + 1)}>Retry</button></p> : !value ? <p role="status">Calculating verified amount…</p> : <div className="reviewed-sor-amount" aria-live="polite">
-        <p>Base {sorMoney(value.published_rate)}{value.adjustments.map(rule => <span key={rule.rule_id}> + {rule.label.toLowerCase()} {sorMoney(rule.extra_per_basis)}</span>)} = <strong>{sorMoney(value.adjusted_rate_per_basis)}</strong> per {value.basis_quantity === 1 ? '' : `${value.basis_quantity.toLocaleString('en-IN')} `}{value.quantity_unit}</p>
-        <p>{value.quantity.toLocaleString('en-IN')} {value.quantity_unit} · Base amount {sorMoney(value.base_amount)}{value.extra_amount !== 0 ? ` + extras ${sorMoney(value.extra_amount)}` : ''}</p>
-        <div>Final amount <strong>{sorMoney(value.total_amount)}</strong></div>
-      </div>}
-      <button className="reviewed-sor-add" disabled={!value || !positiveQuantity || annual.sor_year !== projectYear} onClick={add}>
-        {alreadySelected ? <Check size={15} /> : <Plus size={15} />}{alreadySelected ? 'Update selected item' : 'Add to estimate selection'}
-      </button>
-    </div> : <p className="reviewed-sor-error">{reviewedCostStatus(annual)}. {String(sorRecord(detail.payload.assessment).reason ?? '')} Direct costing is blocked until the required analysis, inputs or clarification is resolved.</p>}
+  return <article className={`sor-book-variant${highlighted ? ' is-highlighted' : ''}`} aria-label={reviewedReference(row)} data-sor-observation={row.occurrence_id}>
+    {path.length > 0 && <p className="sor-book-result-path">{path.map(node => nodeTitle(node)).join(' › ')}</p>}
+    <div><strong>{row.variant_label || row.effective_description}</strong>
+      {Boolean(row.features.column_role) && String(row.features.column_role) !== 'rate' && <span>{tableLabel(String(row.features.column_role))}</span>}
+      <span>{reviewedReference(row)}</span></div>
+    <div className="sor-book-variant-footer"><span><b>{reviewedTariff(row)}</b><small className={row.cost_ready ? '' : 'sor-book-blocked'}>{reviewedCostStatus(row)}</small></span>
+      <div>{onLocate && <button className="btn-mini" onClick={onLocate}>Show in section</button>}<button className="btn-mini sor-book-select" onClick={onSelect}>{row.cost_ready ? 'Select' : 'View requirements'}<ChevronRight size={13} /></button></div>
+    </div>
   </article>
 }
-
-function Evidence({ value }: { value: Record<string, unknown> }): JSX.Element {
-  return <dl className="reviewed-sor-evidence-list">{Object.entries(value).filter(([key]) => !['target', 'source', 'printed_row_sha256', 'official_correction', 'authority', 'method'].includes(key)).map(([key, entry]) => <div key={key}>
-    <dt>{tableLabel(key)}</dt><dd>{typeof entry === 'object' && entry !== null ? <pre>{JSON.stringify(entry, null, 2)}</pre> : String(entry ?? '')}</dd>
-  </div>)}</dl>
-}
+function Loading({ text }: { text: string }): JSX.Element { return <p className="reviewed-sor-loading" role="status"><LoaderCircle className="spin" size={16} />{text}</p> }
+function ErrorMessage({ error, retry }: { error: string; retry: () => void }): JSX.Element { return <div className="reviewed-sor-error" role="alert">{error} <button onClick={retry}>Retry</button></div> }

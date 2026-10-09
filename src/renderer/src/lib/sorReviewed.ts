@@ -52,8 +52,9 @@ export function normalizeReviewedObservation(value: unknown): ReviewedSorObserva
   }
 }
 
-async function rpc(name: string, args: Record<string, unknown>): Promise<unknown> {
-  const { data, error } = await supabase.rpc(name, args)
+async function rpc(name: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
+  const request = supabase.rpc(name, args)
+  const { data, error } = await (signal ? request.abortSignal(signal) : request)
   if (error) throw new Error(error.message)
   return data
 }
@@ -79,12 +80,12 @@ export function normallySelectable(row: ReviewedSorObservation): boolean {
   return !['deleted', 'not_applicable'].includes(row.assessment_status)
 }
 
-export async function searchReviewedSorItems(year: string, input: string, catalogue: string | null, offset = 0, parseReference = true): Promise<{ rows: ReviewedSorObservation[]; hasMore: boolean }> {
+export async function searchReviewedSorItems(year: string, input: string, catalogue: string | null, offset = 0, parseReference = true, signal?: AbortSignal): Promise<{ rows: ReviewedSorObservation[]; hasMore: boolean }> {
   const parsed = parseReference ? parseReviewedSorSearch(input) : { query: input, serial: null, roadsAndBridges: false }
   const data = await rpc('search_sor_reviewed_items', {
     p_sor_year: year, p_query: parsed.query, p_catalogue_code: catalogue,
     p_serial_number: parsed.serial, p_limit: 100, p_offset: offset
-  })
+  }, signal)
   const raw = Array.isArray(data) ? data : []
   return { rows: raw.map(normalizeReviewedObservation).filter(normallySelectable)
     .filter(row => !parsed.roadsAndBridges || row.catalogue_code.startsWith('RB_')), hasMore: raw.length === 100 }

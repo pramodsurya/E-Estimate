@@ -50,3 +50,40 @@
 .reviewed-sor-table-wrap { overflow-x: auto; margin-top: 8px; }
 .reviewed-sor-history table { border-collapse: collapse; min-width: 420px; width: 100%; }
 .reviewed-sor-history th, .reviewed-sor-history td { vertical-align: top; text-align: left; border-bottom: 1px solid var(--border); padding: 8px; min-width: 100px; }
+
+.reviewed-sor-header h3 { display: flex; align-items: center; gap: 7px; }
+.sor-book-breadcrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.sor-book-breadcrumbs > span { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.sor-book-breadcrumbs button { display: inline-flex; align-items: center; gap: 5px; max-width: 190px; padding: 3px; border: 0; background: transparent; color: var(--text-dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.sor-book-breadcrumbs button:hover { color: var(--accent); }
+.sor-book-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.sor-book-heading h4 { margin: 4px 0 0; font-size: 14px; font-weight: 600; line-height: 1.6; }
+.sor-book-heading small, .sor-book-node small { display: block; font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+.sor-book-node { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 13px; margin-bottom: 8px; cursor: pointer; }
+.sor-book-node > span { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.sor-book-node > svg { flex-shrink: 0; color: var(--text-dim); }
+.sor-book-node strong { font-size: 12px; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; }
+.sor-book-node:hover { background: var(--accent-soft, rgba(59,130,246,.08)); border-color: var(--accent); }
+.sor-book-variant { padding: 12px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 8px; }
+.sor-book-variant > div:first-of-type { display: grid; gap: 6px; }
+.sor-book-variant strong { font-size: 13px; font-weight: 600; line-height: 1.6; }
+.sor-book-variant span, .sor-book-variant small { font-size: 11px; line-height: 1.6; }
+.sor-book-variant > div:first-of-type > span { color: var(--text-dim); }
+.sor-book-variant-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.sor-book-variant-footer > span { display: grid; gap: 3px; }
+.sor-book-variant-footer b { font-size: 13px; font-weight: 600; }
+.sor-book-variant-footer > div { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sor-book-variant-footer small { color: var(--text-dim); }
+.sor-book-variant-footer .sor-book-blocked { color: var(--danger, #d98f4e); }
+.sor-book-select { color: var(--accent); }
+.sor-book-result-path { font-size: 11px; line-height: 1.6; color: var(--text-dim); margin: 0 0 10px; overflow-wrap: anywhere; }
+.sor-book-variant.is-highlighted { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.sor-book-paging { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11px; padding: 12px 0; color: var(--text-dim); }
+.sor-book-selection { display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; border: 0; border-bottom: 1px solid var(--border); background: var(--accent-soft, rgba(59,130,246,.08)); color: var(--text); padding: 10px 14px; cursor: pointer; }
+.sor-book-selection > span:first-child { display: grid; gap: 3px; font-size: 10px; min-width: 0; }
+.sor-book-selection strong { font-size: 11px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sor-book-selection > span:last-child { display: flex; align-items: center; font-size: 11px; gap: 5px; }
+.sor-book-shared { display: grid; gap: 5px; margin-top: 12px; padding: 10px; background: var(--accent-soft, rgba(59,130,246,.08)); font-size: 12px; line-height: 1.6; border-radius: 6px; }
+.sor-book-shared small, .sor-book-hint { font-size: 11px; color: var(--text-dim); line-height: 1.6; }
+.reviewed-sor-scroll > [hidden], .reviewed-sor-scroll [hidden] { display: none; }
+.sor-book-node[data-kind="family"] strong { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

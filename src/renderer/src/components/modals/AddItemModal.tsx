@@ -723,9 +723,10 @@ function SorSelectionColumn({
   onRemove: (key: string) => void
 }): JSX.Element {
   const [mode, setMode] = useState<'reviewed' | 'catalogue' | 'basic'>('reviewed')
+  const [reviewedCatalogue, setReviewedCatalogue] = useState<string | null>(null)
 
   if (mode === 'reviewed') {
-    return <ReviewedSorColumn sorYear={sorYear} selected={selected} onAdd={onAdd}
+    return <ReviewedSorColumn sorYear={sorYear} selected={selected} onAdd={onAdd} initialCatalogue={reviewedCatalogue}
       onShowBasicRates={() => setMode('basic')} />
   }
 
@@ -734,15 +735,19 @@ function SorSelectionColumn({
       <Column
         side="SOR"
         tag="Basic item tables"
-        categories={SOR_CATEGORIES}
+        categories={SOR_CATEGORIES.filter(category => ['material', 'labour', 'machinery'].includes(category.key))}
         fetcher={fetchSorItems}
         selected={selected}
         onAdd={onAdd}
         onRemove={onRemove}
         trailingCategory={
           <div className="cat-group sor-others-group">
-            <button type="button" className="cat-head sor-others-head" onClick={() => setMode('reviewed')}>
-              <ChevronRight size={14} /> Reviewed annual SOR
+            {(['PLUMBING', 'ELECTRICAL', 'CIVIL'] as const).map(catalogue => <button key={catalogue} type="button" className="cat-head sor-others-head"
+              onClick={() => { setReviewedCatalogue(catalogue); setMode('reviewed') }}>
+              <ChevronRight size={14} /> {catalogue[0] + catalogue.slice(1).toLowerCase()} <span className="cat-count sor-others-count">Book sections</span>
+            </button>)}
+            <button type="button" className="cat-head sor-others-head" onClick={() => { setReviewedCatalogue(null); setMode('reviewed') }}>
+              <ChevronRight size={14} /> SOR book index
             </button>
             <button
               type="button"
@@ -750,7 +755,7 @@ function SorSelectionColumn({
               onClick={() => setMode('catalogue')}
             >
               <ChevronRight size={14} />
-              Others
+              Legacy catalogues
               <span className="cat-count sor-others-count">Catalogue</span>
             </button>
           </div>
