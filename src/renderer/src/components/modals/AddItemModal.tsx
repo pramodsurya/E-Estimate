@@ -329,6 +329,7 @@ export default function AddItemModal(): JSX.Element {
             />
             <SorSelectionColumn
               sorYear={project?.meta.sorYear ?? ''}
+              sorZone={project?.meta.sorZone ?? 'zone_3'}
               selected={selected}
               onAdd={add}
               onRemove={removeKey}
@@ -649,9 +650,11 @@ export function SsrCodeSelectionColumn({
  */
 export function BackendDataSelectionColumns({
   sorYear,
+  sorZone,
   onPick
 }: {
   sorYear: string
+  sorZone: 'zone_1' | 'zone_2' | 'zone_3'
   onPick: (item: MasterItem) => void
 }): JSX.Element {
   const [source, setSource] = useState<'SOR' | 'SSR'>('SSR')
@@ -694,6 +697,7 @@ export function BackendDataSelectionColumns({
         ) : (
           <SorSelectionColumn
             sorYear={sorYear}
+            sorZone={sorZone}
             selected={selected}
             onAdd={onPick}
             onRemove={() => undefined}
@@ -704,20 +708,23 @@ export function BackendDataSelectionColumns({
   )
 }
 
-export function SorCodeSelectionColumn({sorYear,onPick}: {
+export function SorCodeSelectionColumn({sorYear,sorZone,onPick}: {
   sorYear: string
+  sorZone: 'zone_1' | 'zone_2' | 'zone_3'
   onPick: (item: MasterItem) => void
 }): JSX.Element {
-  return <SorSelectionColumn sorYear={sorYear} selected={new Map()} onAdd={onPick} onRemove={() => undefined} />
+  return <SorSelectionColumn sorYear={sorYear} sorZone={sorZone} selected={new Map()} onAdd={onPick} onRemove={() => undefined} />
 }
 
 function SorSelectionColumn({
   sorYear,
+  sorZone,
   selected,
   onAdd,
   onRemove
 }: {
   sorYear: string
+  sorZone: 'zone_1' | 'zone_2' | 'zone_3'
   selected: Map<string, MasterItem>
   onAdd: (item: MasterItem) => void
   onRemove: (key: string) => void
@@ -726,7 +733,7 @@ function SorSelectionColumn({
   const [reviewedCatalogue, setReviewedCatalogue] = useState<string | null>(null)
 
   if (mode === 'reviewed') {
-    return <ReviewedSorColumn sorYear={sorYear} selected={selected} onAdd={onAdd} initialCatalogue={reviewedCatalogue}
+    return <ReviewedSorColumn sorYear={sorYear} sorZone={sorZone} selected={selected} onAdd={onAdd} initialCatalogue={reviewedCatalogue}
       onShowBasicRates={() => setMode('basic')} />
   }
 

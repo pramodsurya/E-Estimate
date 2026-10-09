@@ -2354,7 +2354,7 @@ async function fetchSorRecipe(
 ): Promise<RateAnalysisRecipe> {
   const category = node.categoryKey ?? ''
   if (node.sorCatalogue?.reviewed) {
-    return reviewedSorRecipe(node, await resolveReviewedSelection(node.sorCatalogue.reviewed, year, options.refreshReviewedSnapshot))
+    return reviewedSorRecipe(node, await resolveReviewedSelection(node.sorCatalogue.reviewed, year, options.refreshReviewedSnapshot, options.zone ?? DEFAULT_ZONE))
   }
   const overheadPercent = await fetchOverheadPercent(year)
   if (category === SOR_CATALOGUE_CATEGORY) {

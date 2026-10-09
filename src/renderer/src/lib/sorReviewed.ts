@@ -3,7 +3,7 @@ import { SOR_CATALOGUE_CATEGORY, sorCommercialTerms } from './sorCatalogue'
 import type { MasterItem } from './masterData'
 import type {
   ReviewedSorCalculation, ReviewedSorDetail, ReviewedSorObservation,
-  ReviewedSorRule, ReviewedSorSelection
+  ReviewedSorRule, ReviewedSorSelection, ReviewedSorProjectZone
 } from '../types/sorReviewed'
 
 export interface ReviewedSorCatalogue {
@@ -59,8 +59,8 @@ async function rpc(name: string, args: Record<string, unknown>, signal?: AbortSi
   return data
 }
 
-export async function listReviewedSorCatalogues(year: string): Promise<ReviewedSorCatalogue[]> {
-  const data = await rpc('list_sor_reviewed_catalogues', { p_sor_year: year })
+export async function listReviewedSorCatalogues(year: string, zone?: ReviewedSorProjectZone): Promise<ReviewedSorCatalogue[]> {
+  const data = await rpc('list_sor_reviewed_catalogues', { p_sor_year: year, ...(zone ? { p_sor_zone: zone } : {}) })
   return (Array.isArray(data) ? data : []).map(value => {
     const row = sorRecord(value)
     return { catalogue_code: String(row.catalogue_code), table_name: String(row.table_name),
@@ -80,11 +80,11 @@ export function normallySelectable(row: ReviewedSorObservation): boolean {
   return !['deleted', 'not_applicable'].includes(row.assessment_status)
 }
 
-export async function searchReviewedSorItems(year: string, input: string, catalogue: string | null, offset = 0, parseReference = true, signal?: AbortSignal): Promise<{ rows: ReviewedSorObservation[]; hasMore: boolean }> {
+export async function searchReviewedSorItems(year: string, input: string, catalogue: string | null, offset = 0, parseReference = true, signal?: AbortSignal, zone?: ReviewedSorProjectZone): Promise<{ rows: ReviewedSorObservation[]; hasMore: boolean }> {
   const parsed = parseReference ? parseReviewedSorSearch(input) : { query: input, serial: null, roadsAndBridges: false }
   const data = await rpc('search_sor_reviewed_items', {
     p_sor_year: year, p_query: parsed.query, p_catalogue_code: catalogue,
-    p_serial_number: parsed.serial, p_limit: 100, p_offset: offset
+    p_serial_number: parsed.serial, p_limit: 100, p_offset: offset, ...(zone ? { p_sor_zone: zone } : {})
   }, signal)
   const raw = Array.isArray(data) ? data : []
   return { rows: raw.map(normalizeReviewedObservation).filter(normallySelectable)
@@ -107,6 +107,20 @@ export async function getReviewedSorItem(id: string): Promise<ReviewedSorDetail>
 export async function getReviewedSorHistory(id: string): Promise<ReviewedSorObservation[]> {
   const data = await rpc('get_sor_reviewed_history', { p_item_id: id })
   return (Array.isArray(data) ? data : []).map(normalizeReviewedObservation)
+}
+
+/** A missing zone denotes a rate shared by all project zones. */
+export function matchesReviewedProjectZone(row: ReviewedSorObservation, zone: ReviewedSorProjectZone): boolean {
+  const published = sorRecord(row.features.specifications).zone
+  return published === undefined || published === null || `zone_${published}` === zone
+}
+
+export async function getReviewedSorProjectObservation(itemId: string, year: string, zone: ReviewedSorProjectZone): Promise<ReviewedSorObservation | null> {
+  const result = await rpc('get_sor_reviewed_project_observation', { p_item_id: itemId, p_sor_year: year, p_sor_zone: zone })
+  if (!result) return null
+  const row = normalizeReviewedObservation(result)
+  if (row.sor_year !== year || !matchesReviewedProjectZone(row, zone) || !normallySelectable(row)) return null
+  return row
 }
 
 export function readyReviewedRules(detail: ReviewedSorDetail): ReviewedSorRule[] {
@@ -191,12 +205,13 @@ export function makeReviewedMasterItem(detail: ReviewedSorDetail, calculation: R
 }
 
 /** Follow stable identity only. Missing editions and invalid extras fail closed. */
-export async function resolveReviewedSelection(saved: ReviewedSorSelection, year: string, refresh = false): Promise<ReviewedSorSelection> {
+export async function resolveReviewedSelection(saved: ReviewedSorSelection, year: string, refresh = false, zone?: ReviewedSorProjectZone): Promise<ReviewedSorSelection> {
   if (!refresh && year === saved.year) return saved
-  const history = await getReviewedSorHistory(saved.recipeId)
+  const history = zone ? [await getReviewedSorProjectObservation(saved.recipeId, year, zone)].filter((row): row is ReviewedSorObservation => row !== null) : await getReviewedSorHistory(saved.recipeId)
   const annual = history.filter(row => row.sor_year === year && normallySelectable(row))
   if (annual.length !== 1) throw new Error(`No unique compatible reviewed observation exists in SOR ${year}. Select an annual variant again.`)
   const detail = await getReviewedSorItem(annual[0].occurrence_id)
+  if (zone && !matchesReviewedProjectZone(detail.observation, zone)) throw new Error('The reviewed rate does not match the project zone. Select the item again.')
   const ready = readyReviewedRules(detail)
   const ruleIds = saved.selectedRuleIds.map(id => {
     const previous = saved.rules.find(rule => rule.rule_id === id)

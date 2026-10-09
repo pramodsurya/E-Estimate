@@ -115,7 +115,8 @@ async function run() {
   assert.deepEqual(saved.selectedRuleIds, [ready[0].rule_id])
   const beforeCalls = calls.length
   assert.equal(await api.resolveReviewedSelection(saved, '2026-27'), saved)
-  assert.equal(calls.length, beforeCalls, 'Loading an insertion snapshot must not fetch new rates')
+  assert.equal(await api.resolveReviewedSelection(saved, '2026-27', false, 'zone_1'), saved)
+  assert.equal(calls.length, beforeCalls, 'Loading an insertion snapshot must not fetch new rates even after a project zone change')
   const original = JSON.stringify(saved)
   rpcHandler = async (name, args) => {
     if (name === 'get_sor_reviewed_history') return { data: fixtures.tray_history }
@@ -140,6 +141,20 @@ async function run() {
   await assert.rejects(api.resolveReviewedSelection(saved, '2024-25', true), /No unique compatible/)
   rpcHandler = async name => ({ data: name === 'get_sor_reviewed_history' ? fixtures.tray_history : { ...fixtures.previous_tray, rules: [] } })
   await assert.rejects(api.resolveReviewedSelection(saved, '2025-26', true), /saved extra is not verified/)
+
+  rpcHandler = async (name, args) => {
+    if (name === 'get_sor_reviewed_project_observation') return { data: tray.observation }
+    if (name === 'get_sor_reviewed_item') return { data: fixtures.tray }
+    if (name === 'calculate_sor_reviewed_selection') return { data: fixtures.tray_cover }
+    throw new Error(`Unexpected RPC ${name}`)
+  }
+  await api.resolveReviewedSelection(saved, '2026-27', true, 'zone_2')
+  assert.equal(calls.findLast(c => c.name === 'get_sor_reviewed_project_observation').args.p_sor_zone, 'zone_2')
+  assert.equal(JSON.stringify(saved), original)
+  rpcHandler = async name => ({ data: name === 'get_sor_reviewed_project_observation' ? tray.observation : {
+    ...fixtures.tray, observation: { ...fixtures.tray.observation, features: { specifications: { zone: 1 } } }
+  } })
+  await assert.rejects(api.resolveReviewedSelection(saved, '2026-27', true, 'zone_3'), /does not match the project zone/)
 
   const seeded = estimate.seedReviewedMeasurement(node(item))
   assert.equal(readFinalValueFromSnapshot(seeded), 1)

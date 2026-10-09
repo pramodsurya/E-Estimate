@@ -1,3 +1,5 @@
+export type ReviewedSorProjectZone = 'zone_1' | 'zone_2' | 'zone_3'
+
 export interface ReviewedSorObservation {
   occurrence_id: string
   item_id: string

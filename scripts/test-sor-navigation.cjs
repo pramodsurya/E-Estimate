@@ -35,6 +35,8 @@ function load(relative) {
   return mod.exports
 }
 const api = load('src/renderer/src/lib/sorNavigation.ts')
+const reviewed = load('src/renderer/src/lib/sorReviewed.ts')
+const zoneFixture = require('./fixtures/sor-project-zone-rpc.json')
 const entries = fixture.pages.flatMap(page => page.page.entries)
 const electrical = entries.find(entry => entry.node_type === 'table' && entry.catalogue_code === 'ELECTRICAL')
 const families = entries.filter(entry => entry.node_type === 'family')
@@ -83,6 +85,39 @@ async function run() {
   await api.searchReviewedSorWithLocations('2025-26', 'R&B Sl. No. 230', 'RB_WORK', 100)
   const searchCall = calls.findLast(call => call.name === 'search_sor_reviewed_items')
   assert.equal(searchCall.args.p_sor_year, '2025-26'); assert.equal(searchCall.args.p_serial_number, '230'); assert.equal(searchCall.args.p_offset, 100)
+  handler = (name, args) => {
+    const zone = zoneFixture.zones.find(z => z.zone === args.p_sor_zone)
+    if (name === 'browse_sor_reviewed_children') return { data: zone.page }
+    if (name === 'search_sor_reviewed_items') return { data: zone.search }
+    if (name === 'list_sor_reviewed_catalogues') return { data: zone.catalogues }
+    if (name === 'get_sor_reviewed_locations') return { data: zoneFixture.locations.filter(l => args.p_occurrence_ids.includes(l.occurrence_id)) }
+    if (name === 'get_sor_reviewed_project_observation') return { data: args.p_sor_year === '2026-27' ? zone.resolved : null }
+    throw new Error(`Unexpected RPC ${name}`)
+  }
+  for (const [i, zone] of zoneFixture.zones.entries()) {
+    const page = await api.browseReviewedSor('2026-27', zoneFixture.locations[0].parent_node_id, 0, null, undefined, zone.zone)
+    assert.equal(calls.at(-1).args.p_sor_zone, zone.zone)
+    assert.equal(page.total_count, 47)
+    const rows = page.entries.filter(e => e.node_type === 'variant').map(e => e.observation)
+    assert.equal(rows.length, 45)
+    assert(rows.every(row => row.features.specifications.zone === i + 1))
+    assert.equal(rows.filter(row => row.variant_label === 'Bar bender').length, 1)
+    const search = await api.searchReviewedSorWithLocations('2026-27', 'bar bender', 'RB_LABOUR', 0, undefined, zone.zone)
+    assert.equal(search.rows.length, 1)
+    assert.equal(search.rows[0].observation.rate, [925, 885, 845][i])
+    const catalogues = await reviewed.listReviewedSorCatalogues('2026-27', zone.zone)
+    assert.equal(catalogues[0].published_variants, 110)
+    const resolved = await reviewed.getReviewedSorProjectObservation(zoneFixture.zones[0].search[0].item_id, '2026-27', zone.zone)
+    assert.equal(resolved.occurrence_id, zone.search[0].occurrence_id)
+    assert.equal(reviewed.matchesReviewedProjectZone(resolved, zone.zone), true)
+    assert.equal(reviewed.matchesReviewedProjectZone(resolved, zone.zone === 'zone_1' ? 'zone_2' : 'zone_1'), false)
+    assert.equal(await reviewed.getReviewedSorProjectObservation(resolved.item_id, '2025-26', zone.zone), null)
+  }
+  assert.equal(reviewed.matchesReviewedProjectZone(variants[0].observation, 'zone_1'), true, 'Universal rates apply to every zone')
+  const wrong = zoneFixture.zones[0].resolved
+  handler = () => ({ data: wrong })
+  assert.equal(await reviewed.getReviewedSorProjectObservation(wrong.item_id, '2026-27', 'zone_3'), null, 'Reject mismatched zone even if server returns one')
+  handler = (name, args) => ({ data: fixture.pages.find(page => page.node_id === args.p_parent_node_id && page.page.offset === args.p_offset)?.page })
   const controller = new AbortController()
   await api.browseReviewedSor('2026-27', null, 0, null, controller.signal)
   assert.equal(receivedSignal, controller.signal)
@@ -92,6 +127,6 @@ async function run() {
   await assert.rejects(api.browseReviewedSor('2025-26', electrical.node_id), /active edition/)
   handler = () => ({ data: null })
   await assert.rejects(api.browseReviewedSor('2026-27', null), /index is unavailable/)
-  console.log('SOR navigation: captured book hierarchy, distinct cable families, source-order pagination, capacities, search locations, tariff basis, anchors and cancellation passed')
+  console.log('SOR navigation: captured book hierarchy, distinct cable families, source-order pagination, capacities, search locations, tariff basis, project zones, counterpart resolution, anchors and cancellation passed')
 }
 run().catch(error => { console.error(error); process.exitCode = 1 })

@@ -16,6 +16,8 @@ export default function UnifiedCodePicker({
 }): JSX.Element {
   const sorYear = useStore((state) => state.project?.meta.sorYear ?? '2026-27')
 
+  const sorZone = useStore((state) => state.project?.meta.sorZone ?? 'zone_3')
+
   return (
     <div className="gw-picker canal-unified-code-picker">
       <div className="gw-picker-head">
@@ -29,6 +31,7 @@ export default function UnifiedCodePicker({
       </div>
       <BackendDataSelectionColumns
         sorYear={sorYear}
+        sorZone={sorZone}
         onPick={(item) => {
           onPick(item)
           onClose()

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, BookOpen, ChevronRight, FolderOpen, LoaderCircle, Search } from 'lucide-react'
 import type { MasterItem } from '../../lib/masterData'
-import { getReviewedSorHistory, listReviewedSorCatalogues, normallySelectable, parseReviewedSorSearch,
-  reviewedCostStatus, reviewedReference, reviewedTariff, tableLabel, type ReviewedSorCatalogue } from '../../lib/sorReviewed'
+import { getReviewedSorProjectObservation, listReviewedSorCatalogues, parseReviewedSorSearch,
+  reviewedCostStatus, reviewedReference, reviewedTariff, sorRecord, tableLabel, type ReviewedSorCatalogue } from '../../lib/sorReviewed'
 import { browseReviewedSor, reviewedSorLocations, reviewedSorTable, searchReviewedSorWithLocations,
   type SorNavigationLocation, type SorNavigationNode, type SorNavigationPage } from '../../lib/sorNavigation'
-import type { ReviewedSorObservation } from '../../types/sorReviewed'
+import type { ReviewedSorObservation, ReviewedSorProjectZone } from '../../types/sorReviewed'
 import ReviewedSorDetailPanel from './ReviewedSorDetailPanel'
 import './reviewedSor.css'
 
@@ -14,11 +14,11 @@ type SearchPage = Awaited<ReturnType<typeof searchReviewedSorWithLocations>>
 const nodeTitle = (node: SorNavigationNode): string => node.node_type === 'table' ? tableLabel(node.display_title) : node.display_title
 const nodeKind = (node: SorNavigationNode): string => ({ table: 'Schedule', section: 'Section', subsection: 'Subsection', family: 'Item family', specification_group: 'Specification group' })[node.node_type]
 
-export default function ReviewedSorColumn({ sorYear, selected, onAdd, onShowBasicRates, initialCatalogue = null }: {
-  sorYear: string; selected: Map<string, MasterItem>; onAdd: (item: MasterItem) => void; onShowBasicRates: () => void; initialCatalogue?: string | null
+export default function ReviewedSorColumn({ sorYear, sorZone, selected, onAdd, onShowBasicRates, initialCatalogue = null }: {
+  sorYear: string; sorZone: ReviewedSorProjectZone; selected: Map<string, MasterItem>; onAdd: (item: MasterItem) => void; onShowBasicRates: () => void; initialCatalogue?: string | null
 }): JSX.Element {
   const year = sorYear
-  const [projectYear, setProjectYear] = useState(sorYear)
+  const [projectContext, setProjectContext] = useState(`${sorYear}:${sorZone}`)
   const [query, setQuery] = useState('')
   const [catalogue, setCatalogue] = useState<string | null>(initialCatalogue)
   const [path, setPath] = useState<SorNavigationNode[]>([])
@@ -36,23 +36,23 @@ export default function ReviewedSorColumn({ sorYear, selected, onAdd, onShowBasi
   const [reload, setReload] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const parent = path.at(-1)
-  const browseKey = JSON.stringify([year, parent?.node_id, offset, anchor, reload])
-  const searchKey = JSON.stringify([year, query.trim(), catalogue, reload])
-  const catalogueKey = `${year}:${reload}`
+  const browseKey = JSON.stringify([year, sorZone, parent?.node_id, offset, anchor, reload])
+  const searchKey = JSON.stringify([year, sorZone, query.trim(), catalogue, reload])
+  const catalogueKey = `${year}:${sorZone}:${reload}`
   const searching = query.trim().length > 0
 
-  if (projectYear !== sorYear) {
-    setProjectYear(sorYear); setPendingRecipe(choice?.item_id ?? null)
+  if (projectContext !== `${sorYear}:${sorZone}`) {
+    setProjectContext(`${sorYear}:${sorZone}`); setPendingRecipe(choice?.item_id ?? pendingRecipe)
     setChoice(null); setChoicePath([]); setPath([]); setOffset(0); setAnchor(null); setCatalogue(null); setSearchOffset(0)
-    setNotice('Project SOR year changed. Checking the selected variant in this edition.')
+    setNotice('Project SOR settings changed. Checking the selected item.')
   }
 
   useEffect(() => {
     let active = true
-    void listReviewedSorCatalogues(year).then(rows => { if (active) setCatalogues({ key: catalogueKey, rows }) })
+    void listReviewedSorCatalogues(year, sorZone).then(rows => { if (active) setCatalogues({ key: catalogueKey, rows }) })
       .catch(error => { if (active) setCatalogues({ key: catalogueKey, rows: [], error: errorText(error) }) })
     return () => { active = false }
-  }, [year, catalogueKey])
+  }, [year, sorZone, catalogueKey])
 
   // Resolve an explicit schedule entry (including legacy Electrical/Civil/Plumbing links).
   useEffect(() => {
@@ -67,39 +67,37 @@ export default function ReviewedSorColumn({ sorYear, selected, onAdd, onShowBasi
   useEffect(() => {
     if (searching) return
     const controller = new AbortController()
-    void browseReviewedSor(year, parent?.node_id ?? null, offset, anchor, controller.signal)
+    void browseReviewedSor(year, parent?.node_id ?? null, offset, anchor, controller.signal, sorZone)
       .then(page => { if (!controller.signal.aborted) setBrowse({ key: browseKey, page }) })
       .catch(error => { if (!controller.signal.aborted) setBrowse({ key: browseKey, error: errorText(error) }) })
     return () => controller.abort()
-  }, [year, parent?.node_id, offset, anchor, browseKey, searching])
+  }, [year, sorZone, parent?.node_id, offset, anchor, browseKey, searching])
 
   useEffect(() => {
     if (!searching) return
     const controller = new AbortController()
     const timer = setTimeout(() => {
-      void searchReviewedSorWithLocations(year, query, catalogue, searchOffset, controller.signal).then(page => {
+      void searchReviewedSorWithLocations(year, query, catalogue, searchOffset, controller.signal, sorZone).then(page => {
         if (!controller.signal.aborted) setSearch(previous => ({ key: searchKey, offset: searchOffset,
           page: { ...page, rows: searchOffset > 0 && previous?.key === searchKey ? [...(previous.page?.rows ?? []), ...page.rows] : page.rows } }))
       }).catch(error => { if (!controller.signal.aborted) setSearch({ key: searchKey, offset: searchOffset, error: errorText(error) }) })
     }, 250)
     return () => { controller.abort(); clearTimeout(timer) }
-  }, [year, query, catalogue, searchOffset, searchKey, searching])
+  }, [year, sorZone, query, catalogue, searchOffset, searchKey, searching])
 
   useEffect(() => {
     if (!pendingRecipe) return
     let active = true
-    void getReviewedSorHistory(pendingRecipe).then(async history => {
-      const candidates = history.filter(row => row.sor_year === year && normallySelectable(row))
-      const row = candidates.length === 1 ? candidates[0] : null
+    void getReviewedSorProjectObservation(pendingRecipe, year, sorZone).then(async row => {
       const locations = row ? await reviewedSorLocations([row.occurrence_id]) : []
       if (!active) return
       setChoice(row); setChoicePath(locations[0]?.path ?? []); setShowDetail(Boolean(row))
-      setNotice(row ? 'Loaded this variant in the selected edition. Review its applicable extras again.'
-        : `This variant has no unique compatible observation in ${year}. Choose an available variant from this edition.`)
+      setNotice(row ? 'Loaded the rate for the project year and zone. Review its applicable extras again.'
+        : `This variant has no unique compatible observation in ${year} for the project zone. Choose an available variant from this edition.`)
       setPendingRecipe(null)
     }).catch(error => { if (active) { setNotice(errorText(error)); setPendingRecipe(null) } })
     return () => { active = false }
-  }, [pendingRecipe, year])
+  }, [pendingRecipe, year, sorZone])
 
   const navigate = (next: SorNavigationNode[]): void => {
     setPath(next); setCatalogue(next[0]?.catalogue_code ?? null); setOffset(0); setAnchor(null); setQuery(''); setShowDetail(false); setNotice('')
@@ -153,7 +151,7 @@ export default function ReviewedSorColumn({ sorYear, selected, onAdd, onShowBasi
         {choice && <div hidden={!showDetail}>
           <button className="btn-mini" onClick={() => setShowDetail(false)}><ArrowLeft size={13} /> Return to book navigation</button>
           {choicePath.filter(node => node.node_type === 'family' || node.node_type === 'specification_group').map(node => <p className="sor-book-shared" key={node.node_id}><small>{nodeKind(node)}</small>{node.display_title}</p>)}
-          <ReviewedSorDetailPanel key={choice.occurrence_id} row={choice} projectYear={sorYear} onAdd={onAdd} selected={selected} />
+          <ReviewedSorDetailPanel key={choice.occurrence_id} row={choice} projectYear={sorYear} projectZone={sorZone} onAdd={onAdd} selected={selected} />
         </div>}
         {!showDetail && (searching ? <>
           <div className="sor-book-heading"><h4>Search results</h4><button className="btn-mini" onClick={() => setQuery('')}>Return to section</button></div>
@@ -176,7 +174,7 @@ export default function ReviewedSorColumn({ sorYear, selected, onAdd, onShowBasi
               highlighted={entry.observation.occurrence_id === anchor} onSelect={() => choose(entry.observation, path)} />
               : <button key={entry.node_id} className="sor-book-node" data-kind={entry.node_type} onClick={() => navigate([...path, entry])}>
                 <FolderOpen size={17} /><span><small>{nodeKind(entry)}{entry.printed_reference ? ` · ${entry.printed_reference}` : ''}</small><strong title={entry.display_title}>{nodeTitle(entry)}</strong>
-                  <small>{entry.available_variant_count.toLocaleString('en-IN')} variant{entry.available_variant_count === 1 ? '' : 's'}</small></span><ChevronRight size={17} />
+                  <small>{entry.available_variant_count.toLocaleString('en-IN')} {entry.node_type === 'family' || entry.node_type === 'specification_group' ? 'variant' : 'item'}{entry.available_variant_count === 1 ? '' : 's'}</small></span><ChevronRight size={17} />
               </button>)}
             {activePage && activePage.total_count > 50 && <div className="sor-book-paging">
               <button className="btn-mini" disabled={activePage.offset === 0} onClick={() => { setAnchor(null); setOffset(Math.max(0, activePage.offset - 50)) }}>Previous</button>
@@ -196,7 +194,7 @@ function VariantRow({ row, path = [], onSelect, onLocate, highlighted = false }:
   return <article className={`sor-book-variant${highlighted ? ' is-highlighted' : ''}`} aria-label={reviewedReference(row)} data-sor-observation={row.occurrence_id}>
     {path.length > 0 && <p className="sor-book-result-path">{path.map(node => nodeTitle(node)).join(' › ')}</p>}
     <div><strong>{row.variant_label || row.effective_description}</strong>
-      {Boolean(row.features.column_role) && String(row.features.column_role) !== 'rate' && <span>{tableLabel(String(row.features.column_role))}</span>}
+      {sorRecord(row.features.specifications).zone == null && Boolean(row.features.column_role) && String(row.features.column_role) !== 'rate' && <span>{tableLabel(String(row.features.column_role))}</span>}
       <span>{reviewedReference(row)}</span></div>
     <div className="sor-book-variant-footer"><span><b>{reviewedTariff(row)}</b><small className={row.cost_ready ? '' : 'sor-book-blocked'}>{reviewedCostStatus(row)}</small></span>
       <div>{onLocate && <button className="btn-mini" onClick={onLocate}>Show in section</button>}<button className="btn-mini sor-book-select" onClick={onSelect}>{row.cost_ready ? 'Select' : 'View requirements'}<ChevronRight size={13} /></button></div>

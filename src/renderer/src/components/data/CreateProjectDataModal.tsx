@@ -322,7 +322,7 @@ function BackendSorPrefill({year,zone,onPrefilled}: {
     <div><strong>Use an existing SOR code</strong><small>Copy its price and keep a source link for optional yearly updates.</small></div>
     <button type="button" className="btn ghost compact" onClick={() => setOpen(!open)}><Search size={15} /> {open ? 'Hide codes' : 'Select a code'}</button>
     {loading && <small>Loading {loading}…</small>}
-    {open && <div className="project-data-backend-prefill-picker"><SorCodeSelectionColumn sorYear={year} onPick={item => void pick(item)} /></div>}
+    {open && <div className="project-data-backend-prefill-picker"><SorCodeSelectionColumn sorYear={year} sorZone={zone} onPick={item => void pick(item)} /></div>}
     {error && <div className="rate-warning">{error}</div>}
   </section>
 }

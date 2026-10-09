@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Check, LoaderCircle, Plus } from 'lucide-react'
 import type { MasterItem } from '../../lib/masterData'
-import { calculateReviewedSorSelection, getReviewedSorHistory, getReviewedSorItem, makeReviewedMasterItem,
+import { calculateReviewedSorSelection, getReviewedSorHistory, getReviewedSorItem, makeReviewedMasterItem, matchesReviewedProjectZone,
   readyReviewedRules, reviewedCostStatus, reviewedReference, reviewedTariff, sorMoney, sorRecord, tableLabel } from '../../lib/sorReviewed'
-import type { ReviewedSorCalculation, ReviewedSorDetail, ReviewedSorObservation } from '../../types/sorReviewed'
+import type { ReviewedSorCalculation, ReviewedSorDetail, ReviewedSorObservation, ReviewedSorProjectZone } from '../../types/sorReviewed'
 const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error)
 
-export default function ReviewedSorDetailPanel({ row, projectYear, onAdd, selected }: {
-  row: ReviewedSorObservation; projectYear: string; onAdd: (item: MasterItem) => void; selected: Map<string, MasterItem>
+export default function ReviewedSorDetailPanel({ row, projectYear, projectZone, onAdd, selected }: {
+  row: ReviewedSorObservation; projectYear: string; projectZone: ReviewedSorProjectZone; onAdd: (item: MasterItem) => void; selected: Map<string, MasterItem>
 }): JSX.Element {
   const [detailResult, setDetailResult] = useState<{ reload: number; value: ReviewedSorDetail } | null>(null)
   const [history, setHistory] = useState<ReviewedSorObservation[] | null>(null)
@@ -31,7 +31,7 @@ export default function ReviewedSorDetailPanel({ row, projectYear, onAdd, select
   }, [row.occurrence_id, row.item_id, reload])
 
   useEffect(() => {
-    if (!detail?.observation.cost_ready || detail.observation.assessment_status !== 'numeric' || !(Number(quantity) > 0)) return
+    if (!detail?.observation.cost_ready || !matchesReviewedProjectZone(detail.observation, projectZone) || detail.observation.assessment_status !== 'numeric' || !(Number(quantity) > 0)) return
     let active = true
     const timer = setTimeout(() => {
       void calculateReviewedSorSelection(detail.observation.occurrence_id, Number(quantity), ruleIds)
@@ -39,7 +39,7 @@ export default function ReviewedSorDetailPanel({ row, projectYear, onAdd, select
         .catch(reason => { if (active) setCalculation({ key: calculationKey, error: errorText(reason) }) })
     }, 200)
     return () => { active = false; clearTimeout(timer) }
-  }, [detail, quantity, ruleIds, calculationKey])
+  }, [detail, quantity, ruleIds, calculationKey, projectZone])
 
   if (error) return <div className="reviewed-sor-error" role="alert">{error} <button onClick={() => setReload(value => value + 1)}>Retry</button></div>
   if (!detail) return <p className="reviewed-sor-loading"><LoaderCircle className="spin" size={16} /> Loading reviewed specification…</p>
@@ -51,11 +51,11 @@ export default function ReviewedSorDetailPanel({ row, projectYear, onAdd, select
   const unreadyRules = detail.rules.filter(rule => !readyRules.includes(rule))
   const value = currentCalculation?.value
   const positiveQuantity = Number.isFinite(Number(quantity)) && Number(quantity) > 0
-  const canCost = annual.cost_ready && annual.assessment_status === 'numeric'
+  const canCost = annual.cost_ready && annual.assessment_status === 'numeric' && matchesReviewedProjectZone(annual, projectZone)
   const selectionKey = `SOR:sor_catalogue:${row.item_id}${ruleIds.length ? `:rules:${[...ruleIds].sort().join(',')}` : ''}`
   const alreadySelected = selected.has(selectionKey)
   const add = (): void => {
-    if (!value || !positiveQuantity || annual.sor_year !== projectYear) return
+    if (!value || !positiveQuantity || annual.sor_year !== projectYear || !matchesReviewedProjectZone(annual, projectZone)) return
     if (value.published_rate !== annual.rate || value.basis_quantity !== annual.basis_quantity || value.quantity_unit !== annual.unit) {
       setError('The reviewed observation changed during calculation. Retry to review the current specification and tariff.')
       return

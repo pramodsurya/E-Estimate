@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { normalizeReviewedObservation, searchReviewedSorItems, sorRecord } from './sorReviewed'
-import type { ReviewedSorObservation } from '../types/sorReviewed'
+import type { ReviewedSorObservation, ReviewedSorProjectZone } from '../types/sorReviewed'
 
 export interface SorNavigationNode {
   node_id: string
@@ -45,9 +45,9 @@ async function navigationRpc(name: string, args: Record<string, unknown>, signal
   return data
 }
 
-export async function browseReviewedSor(year: string, parent: string | null, offset = 0, anchor: string | null = null, signal?: AbortSignal): Promise<SorNavigationPage> {
+export async function browseReviewedSor(year: string, parent: string | null, offset = 0, anchor: string | null = null, signal?: AbortSignal, zone?: ReviewedSorProjectZone): Promise<SorNavigationPage> {
   const data = sorRecord(await navigationRpc('browse_sor_reviewed_children', {
-    p_sor_year: year, p_parent_node_id: parent, p_offset: offset, p_limit: 50, p_anchor_occurrence_id: anchor
+    p_sor_year: year, p_parent_node_id: parent, p_offset: offset, p_limit: 50, p_anchor_occurrence_id: anchor, ...(zone ? { p_sor_zone: zone } : {})
   }, signal))
   if (!Array.isArray(data.entries)) throw new Error('The SOR book index is unavailable. Retry after publication.')
   return { release_id: String(data.release_id), offset: Number(data.offset), total_count: Number(data.total_count), has_more: data.has_more === true,
@@ -72,10 +72,10 @@ export async function reviewedSorTable(year: string, catalogue: string, signal?:
   return data as SorNavigationNode
 }
 
-export async function searchReviewedSorWithLocations(year: string, query: string, catalogue: string | null, offset = 0, signal?: AbortSignal): Promise<{
+export async function searchReviewedSorWithLocations(year: string, query: string, catalogue: string | null, offset = 0, signal?: AbortSignal, zone?: ReviewedSorProjectZone): Promise<{
   rows: Array<{ observation: ReviewedSorObservation; location?: SorNavigationLocation }>; hasMore: boolean
 }> {
-  const page = await searchReviewedSorItems(year, query, catalogue, offset, true, signal)
+  const page = await searchReviewedSorItems(year, query, catalogue, offset, true, signal, zone)
   const locations = await reviewedSorLocations(page.rows.map(row => row.occurrence_id), signal)
   const byId = new Map(locations.map(location => [location.occurrence_id, location]))
   return { rows: page.rows.map(observation => ({ observation, location: byId.get(observation.occurrence_id) })), hasMore: page.hasMore }
