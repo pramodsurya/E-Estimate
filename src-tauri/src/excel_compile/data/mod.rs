@@ -2,6 +2,7 @@ use super::models::ExcelCompileRequest;
 use rust_xlsxwriter::{Workbook, XlsxError};
 use std::collections::HashMap;
 
+mod morth;
 mod sor;
 mod ssr;
 mod signature;
@@ -21,12 +22,13 @@ pub(crate) fn write_excel_data_sheets(
     lead_rate_refs: &HashMap<String, String>,
     require_lead_refs: bool,
 ) -> Result<HashMap<String, String>, XlsxError> {
-    let mut refs = ssr::write_ssr_sheet(workbook, req, lead_rate_refs, require_lead_refs)?;
+    let mut refs = if !req.recipes.is_empty() || req.morth.is_empty(){ssr::write_ssr_sheet(workbook, req, lead_rate_refs, require_lead_refs, false)?}else{HashMap::new()};
     refs.extend(sor::write_sor_sheet(
         workbook,
         req,
         lead_rate_refs,
         require_lead_refs,
     )?);
+    refs.extend(morth::write_morth_sheets(workbook, req, lead_rate_refs, require_lead_refs)?);
     Ok(refs)
 }

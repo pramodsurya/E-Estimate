@@ -12,6 +12,8 @@ import type {
 import type { RateAnalysisLine, RateAnalysisRecipe } from '../types/rateAnalysis'
 
 export interface LeadInfo {
+  /** SOR-only source binding. SSR policy never populates this field. */
+  sorRuleCode?: string
   classes: ConveyanceClass[]
   materials: Record<string, ConveyanceClass>
   earthwork: boolean
@@ -111,6 +113,7 @@ export function parseLeadInfo(value: unknown): LeadInfo {
       })
     : []
   return {
+    sorRuleCode: typeof source.sor_rule_code === 'string' ? source.sor_rule_code : undefined,
     classes,
     materials,
     earthwork: Boolean(source.earthwork),
@@ -343,6 +346,12 @@ export function quantityForVariant(
   variant: LeadVariant,
   info: LeadInfo
 ): QuantityMatch {
+  if (recipe.itemSource === 'SOR') {
+    const targetUnit = leadQuantityUnitForClass(variant.conveyanceClass)
+    const quantity = convertQuantityToLeadUnit(recipe.outputQuantity || 1, recipe.unit, targetUnit)
+    if (quantity === null) throw new Error(`The SOR item needs a reviewed conversion from ${recipe.unit} to ${targetUnit} before Lead can be applied.`)
+    return { quantity, unit: targetUnit, source: `Published SOR basis: ${recipe.outputQuantity || 1} ${recipe.unit}` }
+  }
   if (isDisposalLeadMaterial(variant.materialName)) {
     const targetUnit = leadQuantityUnitForClass(variant.conveyanceClass)
     const converted = convertQuantityToLeadUnit(recipe.outputQuantity || 1, recipe.unit, targetUnit)

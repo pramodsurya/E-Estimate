@@ -87,10 +87,10 @@ function component(id, children) {
 
 {
   const sor = item('sor-pipe', {
-    name: 'PH_MATERIAL_01_7B2047AC47D9',
+    name: 'SOR-P04-T01-M006110358',
     itemSource: 'SOR',
-    categoryKey: 'sor_catalogue',
-    itemCode: 'PH_MATERIAL_01_7B2047AC47D9',
+    categoryKey: 'SOR_Recipie',
+    itemCode: 'SOR-P04-T01-M006110358',
     itemDescription: 'RCC plain-ended pipes — 1000 mm dia'
   })
   assert.equal(

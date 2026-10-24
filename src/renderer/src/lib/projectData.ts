@@ -1,3 +1,4 @@
+import {applyMiscellaneousCosts, type MiscellaneousCosts} from "./miscellaneousCosts"
 import type {
   ConveyanceClass,
   MaterialRateOverride,
@@ -13,6 +14,7 @@ import type {
 import { recalculateRateAnalysis } from './rateAnalysis'
 import { defaultRateAnalysisLayout } from './rateAnalysisVisibility'
 import { projectItemKey } from './projectItems'
+import type { IndividualCosts } from '../types/individualCosts'
 import { projectDataUsesTimelyRates } from './projectDataRateLinks'
 import {
   applyMaterialRateOverrides,
@@ -66,9 +68,6 @@ export function projectDataLeadApplicability(definition: ProjectDataDefinition):
   if (!selections.length) return {}
   const materials = Object.fromEntries(selections)
   return {
-    ...(definition.kind === 'ssr' && definition.builtIn?.sourceLeadApplicability &&
-    typeof definition.builtIn.sourceLeadApplicability === 'object'
-      ? definition.builtIn.sourceLeadApplicability : {}),
     classes: Array.from(new Set(selections.map(([, conveyanceClass]) => conveyanceClass))),
     materials,
     ...(definition.lead?.applicable && definition.lead.policy
@@ -290,7 +289,6 @@ export function projectSsrFormulaReferences(
 export function projectDataRate(definition: ProjectDataDefinition): number {
   if (projectDataUsesTimelyRates(definition) && definition.rateRefresh && definition.rateRefresh.status !== 'ready') return Number.NaN
   if (definition.kind === 'sor') return definition.rate
-  if (definition.builtIn && projectDataUsesTimelyRates(definition) && definition.builtIn.rateStatus !== 'ready') return Number.NaN
   const sectionTotals = Object.fromEntries(
     resolveProjectSsrSections(definition.sections).map((section) => [
       section.key,
@@ -310,7 +308,9 @@ export async function projectDataRecipe(
   year: string,
   zone: 'zone_1' | 'zone_2' | 'zone_3',
   materialRateOverrides?: Record<string, MaterialRateOverride>,
-  allowance?: { percent: number; label: string }
+  allowance?: { percent: number; label: string },
+  individualCosts?: IndividualCosts,
+  miscellaneousCosts?: MiscellaneousCosts
 ): Promise<RateAnalysisRecipe> {
   if (projectDataUsesTimelyRates(definition)) {
     const { resolveTimelyProjectData } = await import('./projectDataTimelyRates')
@@ -362,7 +362,11 @@ export async function projectDataRecipe(
     recipe.areaAllowancePercent = Math.max(0, allowance.percent)
     recipe.areaAllowanceLabel = allowance.label
   }
-  return withProjectMaterialRateOverrides(await recalculateRateAnalysis(recipe), materialRateOverrides)
+  const materials = await withProjectMaterialRateOverrides(await recalculateRateAnalysis(recipe), materialRateOverrides)
+  if ((!individualCosts || !Object.keys(individualCosts).length) && !Object.keys(miscellaneousCosts??{}).length) return materials
+  const { applyIndividualCosts } = await import('./individualCosts')
+  const adopted = applyMiscellaneousCosts(await applyIndividualCosts(materials, individualCosts, zone),miscellaneousCosts)
+  return adopted === materials ? materials : recalculateRateAnalysis(adopted)
 }
 
 /**
@@ -431,7 +435,10 @@ function projectSorDataRecipe(
                 rate: definition.rate,
                 amount: definition.rate,
                 resourceCode: definition.rateSource?.itemCode ?? definition.code,
-                materialCode: definition.rateSource?.categoryKey === 'material' ? definition.rateSource.itemCode : undefined,
+                materialCode: definition.rateSource?.itemSource === 'SOR' ? definition.rateSource.itemCode : undefined,
+                resourceIdentity: definition.rateSource?.itemSource === 'SOR' ? {
+                  sourceTable: 'SOR_Year', masterCode: definition.rateSource.itemCode, rateComponent: 'rate'
+                } : undefined,
                 timelyRates: definition.timelyRates,
                 sorRateLink: definition.rateSource?.itemSource === 'SOR' ? {...definition.rateSource,itemSource:'SOR'} : undefined,
                 userAdded: !definition.timelyRates,

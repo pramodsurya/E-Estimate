@@ -64,6 +64,7 @@ const dataPresentation = loadTs(path.join(root, 'src/renderer/src/lib/dataPresen
   './rateAnalysisVisibility': visibilityMock
 })
 const data = loadTs(path.join(root, 'src/renderer/src/lib/typist-output/dataTypst.ts'), {
+  '../morthAppendices': loadTs(path.join(root,'src/renderer/src/lib/morthAppendices.ts')),
   '../rateAnalysisVisibility': visibilityMock,
   '../dataPresentation': dataPresentation,
   './documentSettings': documentSettings,

@@ -7,15 +7,9 @@ import type {
 import type { RateAnalysisLine, RateAnalysisRecipe } from '../types/rateAnalysis'
 
 /**
- * Cement, steel and Public Health rates move every month by G.O. circular, while the
- * published SSR/SOR rate for an item is frozen for the whole year. These helpers link
- * the two: they resolve which master material governs a DATA line, and re-price that
- * line from the month the estimator has chosen for the project.
- *
- * Two rate tables exist and they are NOT duplicates:
- *   material_rate          - the yearly published SOR rate, one row per sor_year
- *   material_rate_monthly  - the monthly G.O. circulars, one row per month issued
- * A disagreement between them is normal; the monthly circular wins for its month.
+ * Current SOR identities and quote functions supply annual cement/steel prices.
+ * SOR_Monthly_Rate supplies dated circulars with explicit recipe/resource bindings;
+ * project overrides remain separately supported.
  */
 
 export interface MonthlyMaterial {
@@ -53,21 +47,16 @@ export interface ResolvedMaterialRate {
   effectiveFrom?: string
 }
 
-const MONTHLY_TABLE = 'material_rate_monthly'
-const YEARLY_TABLE = 'material_rate'
-const ALIAS_TABLE = 'ssr_material_alias'
-
 /**
- * Must stay byte-identical to the SQL that seeded ssr_material_alias:
- *   lower(regexp_replace(trim(desc), '\s+', ' ', 'g'))
+ * Shared normalization for exact resource names and unambiguous current aliases.
  */
 export function normalizeMaterialDesc(description: string): string {
   return description.trim().replace(/\s+/g, ' ').toLowerCase()
 }
 
 function tonneFactor(unit: string): number | null {
-  const text = unit.trim().toLowerCase().replace(/\./g, '')
-  if (/^(t|mt|ton|tons|tonne|tonnes|metric ton|metric tons)$/.test(text)) return 1000
+  const text = unit.trim().toLowerCase().replace(/\./g, '').replace(/^one\s+/, '')
+  if (/^(t|mt|ton|tons|tonne|tonnes|metric tons?|metric tonnes?)$/.test(text)) return 1000
   if (/^(kg|kgs|kilo|kilos|kilogram|kilograms)$/.test(text)) return 1
   return null
 }
@@ -95,96 +84,102 @@ export function convertMasterRate(
 // Master data changes rarely within a session, but the Cement/Steel page has an
 // explicit refresh, so keep this in memory only and let that button clear it.
 let materialsCache: Promise<MonthlyMaterial[]> | null = null
-let periodsCache: Promise<MaterialRatePeriod[]> | null = null
 let aliasCache: Promise<Map<string, string>> | null = null
+interface CurrentMonthlyRate {
+  recipe_code: string | null
+  resource_code: string | null
+  year: string
+  effective_from: string
+  effective_to: string | null
+  rate: number | string
+  source: string
+  unit: string | null
+}
+let monthlyCache: Promise<CurrentMonthlyRate[]> | null = null
+function currentMonthlyRows(): Promise<CurrentMonthlyRate[]> {
+  if (!monthlyCache) monthlyCache = (async () => {
+    const {data,error} = await supabase.from('SOR_Monthly_Rate')
+      .select('recipe_code,resource_code,year,effective_from,effective_to,rate,source,unit:metadata->>unit')
+      .order('effective_from',{ascending:false})
+    if (error) throw error
+    return (data ?? []) as unknown as CurrentMonthlyRate[]
+  })().catch(reason=>{monthlyCache=null;throw reason})
+  return monthlyCache
+}
 
 export function invalidateMaterialRateCache(): void {
   materialsCache = null
-  periodsCache = null
   aliasCache = null
+  monthlyCache = null
 }
 
 export async function fetchMonthlyMaterials(): Promise<MonthlyMaterial[]> {
-  if (!materialsCache) {
-    materialsCache = (async () => {
-      const { data, error } = await supabase
-        .from('material')
-        .select('material_code, name, unit, category')
-        .eq('update_frequency', 'MONTHLY')
-        .order('category')
-        .order('material_code')
-      if (error) throw error
-      return (data ?? []).map((row) => ({
-        materialCode: String(row.material_code ?? ''),
-        name: String(row.name ?? ''),
-        unit: String(row.unit ?? ''),
-        category: String(row.category ?? '')
-      }))
-    })().catch((reason) => {
-      materialsCache = null
-      throw reason
+  if(!materialsCache)materialsCache=(async()=>{
+    const {data,error}=await supabase.from('SOR_Recipie').select('recipe_code,description,unit,lead_applicability')
+      .in('lead_applicability',['CEMENT','STEEL']).order('recipe_code')
+    if(error)throw error
+    const materials = new Map((data ?? []).map(row=>[String(row.recipe_code),{materialCode:String(row.recipe_code),name:String(row.description),unit:String(row.unit),category:String(row.lead_applicability)}]))
+    const monthly = await currentMonthlyRows()
+    const missing = [...new Set(monthly.flatMap(row=>row.recipe_code&&!materials.has(row.recipe_code)?[row.recipe_code]:[]))]
+    if (missing.length) {
+      const extra=await supabase.from('SOR_Recipie').select('recipe_code,description,unit,lead_applicability').in('recipe_code',missing)
+      if (extra.error) throw extra.error
+      for (const row of extra.data ?? []) materials.set(String(row.recipe_code),{materialCode:String(row.recipe_code),name:String(row.description),unit:String(row.unit),category:String(row.lead_applicability ?? 'PUBLIC_HEALTH')})
+    }
+    for (const row of monthly) if (!row.recipe_code && row.resource_code && row.unit) materials.set(row.resource_code,{
+      materialCode:row.resource_code,name:row.resource_code.replaceAll('_',' '),unit:row.unit,category:'PUBLIC_HEALTH'
     })
-  }
+    return [...materials.values()]
+  })().catch(reason=>{materialsCache=null;throw reason})
   return materialsCache
 }
 
+/** Preserve explicit current bindings and convert the published circular unit once. */
 export async function fetchMaterialRatePeriods(): Promise<MaterialRatePeriod[]> {
-  if (!periodsCache) {
-    periodsCache = (async () => {
-      const { data, error } = await supabase
-        .from(MONTHLY_TABLE)
-        .select('material_code, rate, effective_from, effective_to, sor_year, source')
-        .order('effective_from', { ascending: false })
-      if (error) throw error
-      return (data ?? []).map((row) => ({
-        materialCode: String(row.material_code ?? ''),
-        rate: Number(row.rate ?? 0),
-        effectiveFrom: String(row.effective_from ?? ''),
-        effectiveTo: row.effective_to ? String(row.effective_to) : null,
-        sorYear: String(row.sor_year ?? ''),
-        source: String(row.source ?? '')
-      }))
-    })().catch((reason) => {
-      periodsCache = null
-      throw reason
-    })
-  }
-  return periodsCache
+  const [rows,materials] = await Promise.all([currentMonthlyRows(),fetchMonthlyMaterials()])
+  const units = new Map(materials.map(material=>[material.materialCode,material.unit]))
+  return rows.map(row=>{
+    const materialCode=row.recipe_code ?? row.resource_code
+    const targetUnit=materialCode?units.get(materialCode):undefined
+    const raw=Number(row.rate)
+    if(!materialCode||!targetUnit||!row.unit||!Number.isFinite(raw)||raw<0)throw new Error('A current monthly circular is missing its material, unit or rate.')
+    const rate=targetUnit.trim().toLowerCase()===row.unit.trim().toLowerCase()?raw:convertMasterRate(raw,row.unit,targetUnit)
+    if(rate===null)throw new Error(`The monthly circular unit for ${materialCode} does not match its SOR definition.`)
+    return {materialCode,rate,effectiveFrom:row.effective_from,effectiveTo:row.effective_to,sorYear:row.year,source:row.source}
+  })
 }
 
-export async function fetchMaterialAliases(): Promise<Map<string, string>> {
-  if (!aliasCache) {
-    aliasCache = (async () => {
-      const { data, error } = await supabase
-        .from(ALIAS_TABLE)
-        .select('desc_normalized, material_code')
-      if (error) throw error
-      const map = new Map<string, string>()
-      for (const row of data ?? []) {
-        map.set(String(row.desc_normalized ?? ''), String(row.material_code ?? ''))
+/** Only reviewed SSR resource identities establish aliases; ambiguous names are omitted. */
+export async function fetchMaterialAliases(): Promise<Map<string,string>> {
+  if(!aliasCache)aliasCache=(async()=>{
+    const codes=new Map<string,Set<string>>()
+    for(let offset=0;;offset+=500){
+      const {data,error}=await supabase.from('SSR_Recipe').select('materials').order('recipe_code').range(offset,offset+499)
+      if(error)throw error
+      for(const recipe of data ?? [])for(const raw of Array.isArray(recipe.materials)?recipe.materials:[]){
+        const row=raw as Record<string,unknown>, identity=row.resource_identity as Record<string,unknown>|undefined
+        if(identity?.source_table!=='SOR_Year'||typeof identity.master_code!=='string')continue
+        const name=normalizeMaterialDesc(String(row.desc ?? ''));const values=codes.get(name)??new Set<string>();values.add(identity.master_code);codes.set(name,values)
       }
-      return map
-    })().catch((reason) => {
-      aliasCache = null
-      throw reason
-    })
-  }
+      if(!data||data.length<500)break
+    }
+    return new Map([...codes].filter(([,values])=>values.size===1).map(([name,values])=>[name,[...values][0]]))
+  })().catch(reason=>{aliasCache=null;throw reason})
   return aliasCache
 }
 
-export async function fetchYearlyMaterialRates(
-  sorYear: string
-): Promise<Map<string, number>> {
-  const { data, error } = await supabase
-    .from(YEARLY_TABLE)
-    .select('material_code, rate')
-    .eq('sor_year', sorYear)
-  if (error) throw error
-  const map = new Map<string, number>()
-  for (const row of data ?? []) {
-    map.set(String(row.material_code ?? ''), Number(row.rate ?? 0))
+export async function fetchYearlyMaterialRates(sorYear:string,zone:'zone_1'|'zone_2'|'zone_3'='zone_3'):Promise<Map<string,number>> {
+  const materials=await fetchMonthlyMaterials(),result=new Map<string,number>()
+  for(let offset=0;offset<materials.length;offset+=6){
+    await Promise.all(materials.slice(offset,offset+6).map(async material=>{
+      if(!material.materialCode.startsWith('SOR-'))return
+      const {data,error}=await supabase.rpc('sor_resource_quote',{p_recipe_code:material.materialCode,p_year:sorYear,p_zone:zone,p_component:'rate',p_unit:material.unit})
+      if(error)throw error
+      const quote=data as Record<string,unknown>|null
+      if(quote?.status==='priced'&&quote.year===sorYear&&quote.zone===zone&&typeof quote.rate==='number'&&Number.isFinite(quote.rate))result.set(material.materialCode,quote.rate)
+    }))
   }
-  return map
+  return result
 }
 
 /** Group the monthly rows into the circulars they were published as. */
@@ -329,7 +324,7 @@ export function applyMaterialRateOverrides(
     if (section.key !== 'materials') return section
     const lines = section.lines.map((line): RateAnalysisLine => {
       const materialCode =
-        line.materialCode ?? aliases.get(normalizeMaterialDesc(line.description))
+        line.materialCode ?? (line.resourceIdentity?.sourceTable==='SOR_Year'?line.resourceIdentity.masterCode:undefined) ?? aliases.get(normalizeMaterialDesc(line.description))
       if (!materialCode) return line
       const override = overrides[materialCode]
       if (!override || !Number.isFinite(override.rate)) return line
@@ -473,8 +468,8 @@ export async function materialUsageForProject(
       if (!refForSsrCode.has(code)) {
         refForSsrCode.set(code, { code, description, source: 'SSR' })
       }
-    } else if (item.categoryKey === 'material') {
-      add(code, { code, description, source: 'SOR' })
+    } else if (item.itemSource === 'SOR' && item.sorCatalogue) {
+      add(item.sorCatalogue.resolvedRecipeCode, { code, description, source: 'SOR' })
     }
   }
 
@@ -487,7 +482,7 @@ export async function materialUsageForProject(
     for (const section of definition.sections) {
       for (const line of section.lines) {
         const code =
-          line.materialCode ?? aliases.get(normalizeMaterialDesc(line.description))
+          line.materialCode ?? (line.resourceIdentity?.sourceTable==='SOR_Year'?line.resourceIdentity.masterCode:undefined) ?? aliases.get(normalizeMaterialDesc(line.description))
         if (code) {
           add(code, {
             code: definition.code,
@@ -515,7 +510,9 @@ export async function materialUsageForProject(
             ? String((entry as Record<string, unknown>).desc ?? '')
             : ''
         if (!description) continue
-        const materialCode = aliases.get(normalizeMaterialDesc(description))
+        const identity=(entry as Record<string,unknown>).resource_identity as Record<string,unknown>|undefined
+        const materialCode = identity?.source_table==='SOR_Year'&&typeof identity.master_code==='string'
+          ? identity.master_code : aliases.get(normalizeMaterialDesc(description))
         if (materialCode) add(materialCode, ref)
       }
     }
@@ -539,12 +536,12 @@ export function materialCodesInRecipe(
   const codes = new Set<string>()
   for (const section of recipe.sections) {
     for (const line of section.lines) {
-      const code = line.materialCode ?? aliases.get(normalizeMaterialDesc(line.description))
+      const code = line.materialCode ?? (line.resourceIdentity?.sourceTable==='SOR_Year'?line.resourceIdentity.masterCode:undefined) ?? aliases.get(normalizeMaterialDesc(line.description))
       if (code) codes.add(code)
     }
   }
-  if (recipe.itemSource === 'SOR' && recipe.categoryKey === 'material' && recipe.itemCode) {
-    codes.add(recipe.itemCode)
+  if (recipe.itemSource === 'SOR' && recipe.sor) {
+    codes.add(recipe.sor.resolvedRecipeCode)
   }
   return Array.from(codes)
 }

@@ -51,6 +51,7 @@ assert.equal(
 assert.equal(convertMasterRate(5100, 'tonne', 'kg'), 5.1)
 assert.equal(convertMasterRate(5100, 'MT', 'Kg'), 5.1)
 assert.equal(convertMasterRate(56000, 'tonne', 'tonne'), 56000)
+assert.equal(convertMasterRate(55000, 'MT', 'One Metric Tonne'), 55000)
 assert.equal(convertMasterRate(5100, 'tonne', 'cum'), null, 'volume is not weight-comparable')
 assert.equal(convertMasterRate(20, 'tonne', 'LS'), null, 'lump sum must never be converted')
 
@@ -345,3 +346,49 @@ assert.equal(
 )
 
 console.log('material rate overrides: all assertions passed')
+
+async function currentSourceChecks() {
+  const tables=[]
+  const definitions=[
+    {recipe_code:'SOR-CEMENT',description:'Published cement',unit:'kg',lead_applicability:'CEMENT'},
+    {recipe_code:'SOR-BOUND',description:'Explicitly bound material',unit:'MT',lead_applicability:null}
+  ]
+  const circulars=[
+    {recipe_code:'SOR-CEMENT',resource_code:null,year:'2025-26',effective_from:'2026-05-01',effective_to:null,rate:'5100',source:'May circular',unit:'tonne'},
+    {recipe_code:'SOR-BOUND',resource_code:null,year:'2025-26',effective_from:'2026-05-01',effective_to:null,rate:'60000',source:'May circular',unit:'tonne'},
+    {recipe_code:null,resource_code:'PH_EXPLICIT_RESOURCE',year:'2025-26',effective_from:'2026-05-01',effective_to:null,rate:'52000',source:'May circular',unit:'tonne'}
+  ]
+  const client={from(table){
+    tables.push(table)
+    let rows=table==='SOR_Recipie'?definitions:table==='SOR_Monthly_Rate'?circulars:null
+    assert.ok(rows,`archived table read: ${table}`)
+    const query={select(){return query},order(){return query},in(key,values){rows=rows.filter(row=>values.includes(row[key]));return query},then(resolve,reject){return Promise.resolve({data:rows,error:null}).then(resolve,reject)}}
+    return query
+  },async rpc(name,args){
+    assert.equal(name,'sor_resource_quote')
+    assert.ok(args.p_recipe_code.startsWith('SOR-'),'unbound monthly resource keys must not be guessed into SOR recipe quotes')
+    return {data:{status:'priced',year:args.p_year,zone:args.p_zone,unit:args.p_unit,rate:6},error:null}
+  }}
+  const current=loadTsModule(path.join(root,'src/renderer/src/lib/materialRates.ts'),{'./supabase':{supabase:client}})
+  const [materials,periods]=await Promise.all([current.fetchMonthlyMaterials(),current.fetchMaterialRatePeriods()])
+  assert.equal(materials.length,3)
+  assert.equal(periods.find(row=>row.materialCode==='SOR-CEMENT').rate,5.1,'the circular tonne basis converts to the exact source kg basis')
+  assert.equal(periods.find(row=>row.materialCode==='SOR-BOUND').rate,60000,'an explicit monthly binding loads even without a Lead profile')
+  assert.equal(periods.find(row=>row.materialCode==='PH_EXPLICIT_RESOURCE').rate,52000,'unbound resource identity stays distinct')
+  assert.equal(current.periodForDate(periods,'SOR-CEMENT','2026-04-30'),null)
+  assert.equal((await current.fetchYearlyMaterialRates('2026-27','zone_1')).size,2)
+  assert.ok(tables.every(table=>['SOR_Recipie','SOR_Monthly_Rate'].includes(table)))
+  if(process.argv.includes('--live')){
+    const config=fs.readFileSync(path.join(root,'src/renderer/src/lib/supabase.ts'),'utf8')
+    const publicClient=require('@supabase/supabase-js').createClient(/https:\/\/[a-z]+\.supabase\.co/.exec(config)[0],/sb_publishable_[A-Za-z0-9_-]+/.exec(config)[0],{auth:{persistSession:false}})
+    const live=loadTsModule(path.join(root,'src/renderer/src/lib/materialRates.ts'),{'./supabase':{supabase:publicClient}})
+    const published=await live.fetchMaterialRatePeriods()
+    assert.equal(published.length,86)
+    const cement=published.find(row=>row.materialCode==='SOR-P01-T01-G0001-V001'&&row.effectiveFrom==='2026-05-01')
+    assert.equal(cement.rate,5100)
+    assert.ok(published.some(row=>row.materialCode==='PH_PC_WIRE_3MM'))
+    console.log('Current material circular public API: 86 explicit recipe/resource bindings and May cement rate passed')
+  }
+  console.log('Current material rates: explicit identities, circular dates, source unit conversion and unbound-resource separation passed')
+}
+currentSourceChecks().catch(error=>{console.error(error);process.exitCode=1})

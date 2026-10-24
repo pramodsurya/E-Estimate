@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { Plus, Trash2, Sparkles, Layers, Link2, Unlink, ChevronLeft, ChevronRight, Check, AlertCircle } from 'lucide-react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
+import { Plus, Trash2, Sparkles, Layers, Link2, Unlink, ChevronLeft, ChevronRight, Check, AlertCircle, FileSpreadsheet, RefreshCw, CheckCircle2 } from 'lucide-react'
 import type {
   CanalBankMaterialZone,
   CanalBerm,
@@ -11,6 +11,10 @@ import type {
   CanalBankBermStep,
   CanalBankDesignConfig
 } from '../../../../types/project'
+import type {
+  CanalEmbankmentCalculationResponse,
+  CanalEmbankmentInput
+} from '../../../../types/eestimateApi'
 import CanalSectionDiagram from '../../CanalSectionDiagram'
 import { newId } from '../../../../lib/tree'
 import CanalBankReachEditor from './CanalBankReachEditor'
@@ -22,7 +26,7 @@ import { switchCanalBankDesignMode } from '../../../../lib/canalManualBankReache
 import { formatCanalReachChainage } from '../../../../lib/canalTierReaches'
 import {
   canalBankRepairItems,
-  canalBankVolumeTotals,
+
   canalEarthworkTotals,
   recommendedCanalCrestWidth,
   defaultCanalBankDesignConfig,
@@ -119,6 +123,13 @@ export default function CanalBankDesign({
   const [selectedSectionId, setSelectedSectionId] = useState<string>('')
   const [selectedTierId, setSelectedTierId] = useState<string>('')
   const [manualDraft, setManualDraft] = useState<CanalManualReachDraft | null>(null)
+
+  // Rust Embankment Engine State & Export
+  const [calcResult, setCalcResult] = useState<CanalEmbankmentCalculationResponse | null>(null)
+  const [isCalculating, setIsCalculating] = useState<boolean>(false)
+  const [isExporting, setIsExporting] = useState<boolean>(false)
+  const [exportNotice, setExportNotice] = useState<string | null>(null)
+  const [calcError, setCalcError] = useState<string | null>(null)
 
   const bankConfig: CanalBankDesignConfig = design.bankConfig ?? defaultCanalBankDesignConfig(data.mode)
   const mode = bankConfig.mode
@@ -271,7 +282,171 @@ export default function CanalBankDesign({
   const zoned = design.bankSectionType === 'zoned'
   const recommended = recommendedCanalCrestWidth(design.discharge)
   const earthwork = useMemo(() => canalEarthworkTotals(data), [data])
-  const bankVolumes = useMemo(() => canalBankVolumeTotals(data), [data])
+  // Rust engine payload builder
+  const buildPayload = useCallback((): CanalEmbankmentInput => {
+    return {
+      bedWidth: design.bedWidth,
+      fullSupplyDepth: design.fullSupplyDepth,
+      freeBoard: design.freeBoard,
+      bedSlope: design.bedSlope,
+      bedLevelAtStart: design.bedLevelAtStart,
+      strippingDepth: data.strippingDepth ?? 0.15,
+      mode: bankConfig.mode ?? 'tiered',
+      linkSymmetrical: bankConfig.linkSymmetrical ?? true,
+      leftTiers: (bankConfig.leftTiers ?? []).map((t) => ({
+        id: t.id,
+        name: t.name,
+        minFillHeight: t.minFillHeight,
+        maxFillHeight: t.maxFillHeight,
+        crestWidth: t.crestWidth,
+        baseSlope: t.baseSlope,
+        innerSlope: design.sideSlope ?? 1.5,
+        sectionType: t.sectionType ?? 'homogeneous',
+        berms: (t.berms ?? []).map((b) => ({
+          id: b.id,
+          dropHeight: b.dropHeight,
+          shelfWidth: b.shelfWidth,
+          slopeAfterBerm: b.slopeAfterBerm,
+        })),
+        heartingTopWidth: t.heartingTopWidth ?? design.heartingTopWidth,
+        heartingSideSlope: t.heartingSideSlope ?? design.heartingLeftSlope,
+      })),
+      rightTiers: (bankConfig.rightTiers ?? []).map((t) => ({
+        id: t.id,
+        name: t.name,
+        minFillHeight: t.minFillHeight,
+        maxFillHeight: t.maxFillHeight,
+        crestWidth: t.crestWidth,
+        baseSlope: t.baseSlope,
+        innerSlope: design.sideSlope ?? 1.5,
+        sectionType: t.sectionType ?? 'homogeneous',
+        berms: (t.berms ?? []).map((b) => ({
+          id: b.id,
+          dropHeight: b.dropHeight,
+          shelfWidth: b.shelfWidth,
+          slopeAfterBerm: b.slopeAfterBerm,
+        })),
+        heartingTopWidth: t.heartingTopWidth ?? design.heartingTopWidth,
+        heartingSideSlope: t.heartingSideSlope ?? design.heartingRightSlope,
+      })),
+      leftManualReaches: (bankConfig.leftManualReaches ?? []).map((r) => ({
+        from: r.from,
+        to: r.to,
+        tierId: r.tierId ?? '',
+        status: r.status,
+      })),
+      rightManualReaches: (bankConfig.rightManualReaches ?? []).map((r) => ({
+        from: r.from,
+        to: r.to,
+        tierId: r.tierId ?? '',
+        status: r.status,
+      })),
+      leftBank: {
+        topWidth: design.leftBankCrestWidth ?? 5.0,
+        innerSlope: design.sideSlope ?? 1.5,
+        outerSlope: design.leftBankOuterSlope ?? 2.0,
+      },
+      rightBank: {
+        topWidth: design.rightBankCrestWidth ?? 5.0,
+        innerSlope: design.sideSlope ?? 1.5,
+        outerSlope: design.rightBankOuterSlope ?? 2.0,
+      },
+      excavationBands: (data.excavationBands ?? []).map((b) => ({
+        label: b.label,
+        pct: b.pct,
+        bankReusePct: b.bankReusePct ?? 100.0,
+      })),
+      materialAllocations: (design.bankMaterialAllocations ?? []).map((a) => ({
+        id: a.id,
+        zone: a.zone,
+        source: a.source,
+        percentage: a.percentage,
+        compaction: a.compaction ?? 95,
+        watering: a.watering ?? true,
+      })),
+      totalCutVolume: undefined,
+      sections: sections.map((s) => {
+        const groundPoints = s.ground ?? []
+        const gl = groundPoints.length > 0
+          ? groundPoints.find((p) => Math.abs(p.offset) < 0.01)?.rl ?? Math.max(...groundPoints.map((p) => p.rl))
+          : Math.max(s.leftToeRl ?? design.bedLevelAtStart, s.rightToeRl ?? design.bedLevelAtStart)
+        return {
+          id: s.id,
+          chainage: s.chainage,
+          groundLevel: gl,
+        }
+      }),
+    }
+  }, [design, bankConfig, data.excavationBands, sections])
+
+  // Execute Rust Calculation
+  const runRustCalculation = useCallback(async () => {
+    if (!window.api?.canal?.calculateEmbankment) return
+    setIsCalculating(true)
+    setCalcError(null)
+    try {
+      const payload = buildPayload()
+      const response = await window.api.canal.calculateEmbankment(payload)
+      setCalcResult(response)
+    } catch (err: unknown) {
+      console.error('Rust Canal Embankment calculation error:', err)
+      setCalcError(String(err))
+    } finally {
+      setIsCalculating(false)
+    }
+  }, [buildPayload])
+
+  useEffect(() => {
+    void runRustCalculation()
+  }, [runRustCalculation])
+
+  // Handle Excel Export with Native File Selector Dialog
+  const handleExportExcel = async (): Promise<void> => {
+    if (!window.api?.canal?.exportEmbankmentExcel) return
+    setIsExporting(true)
+    setExportNotice(null)
+    try {
+      const payload = buildPayload()
+      const res = await window.api.canal.exportEmbankmentExcel(payload, true)
+      if (res.ok && res.filePath) {
+        if (typeof window.api.export?.workbook === 'function') {
+          const fromCh = sections[0]?.chainage ?? 0
+          const toCh = sections[sections.length - 1]?.chainage ?? fromCh
+          const defaultFileName = `Canal Embankment Formation (Ch ${fromCh} to ${toCh}).xlsx`
+          const saveRes = await window.api.export.workbook(
+            '',
+            defaultFileName,
+            undefined,
+            { sourcePath: res.filePath }
+          )
+          if (saveRes && !saveRes.canceled && saveRes.path) {
+            setExportNotice(`Exported Canal Embankment Excel to: ${saveRes.path}`)
+          }
+        } else {
+          setExportNotice(`Exported Excel to: ${res.filePath}`)
+        }
+      } else if (res.error) {
+        setExportNotice(`Export Error: ${res.error}`)
+      }
+    } catch (err: unknown) {
+      setExportNotice(`Export Error: ${String(err)}`)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  // Derive bankVolumes directly from Rust calcResult (zero React calculation freezing)
+  const bankVolumes = useMemo(() => {
+    if (!calcResult) {
+      return { homogeneous: 0, hearting: 0, casing: 0, totalFill: 0 }
+    }
+    return {
+      homogeneous: calcResult.totalHomogeneousVolume,
+      hearting: calcResult.totalHeartingVolume,
+      casing: calcResult.totalCasingVolume,
+      totalFill: calcResult.totalBankVolume
+    }
+  }, [calcResult])
 
   // Material allocation zones
   const activeZones: CanalBankMaterialZone[] = useMemo(() => {
@@ -354,7 +529,7 @@ export default function CanalBankDesign({
 
   return (
     <section className="canal-chapter canal-bank-chapter">
-      <header className="canal-v2-section-header">
+      <header className="canal-v2-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <span className="canal-v2-section-kicker">Chapter 3</span>
           <h2>Canal Bank / Bund Design</h2>
@@ -362,7 +537,43 @@ export default function CanalBankDesign({
             Programmatic embankment geometry, height brackets, outer berm shelves, and impervious zoned construction rules.
           </p>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            type="button"
+            className="btn ghost"
+            disabled={isCalculating}
+            onClick={() => void runRustCalculation()}
+            title="Recalculate with Rust Engine"
+          >
+            <RefreshCw size={14} className={isCalculating ? 'animate-spin' : ''} />
+            <span>{isCalculating ? 'Calculating...' : 'Recalculate'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn primary"
+            disabled={isExporting || isCalculating}
+            onClick={() => void handleExportExcel()}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <FileSpreadsheet size={15} />
+            <span>{isExporting ? 'Exporting...' : 'Export Embankment (.xlsx)'}</span>
+          </button>
+        </div>
       </header>
+
+      {exportNotice && (
+        <div style={{ margin: '8px 0 16px 0', padding: '10px 14px', borderRadius: 6, background: exportNotice.startsWith('Export Error') ? '#fee2e2' : '#ecfdf5', color: exportNotice.startsWith('Export Error') ? '#991b1b' : '#065f46', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+          {exportNotice.startsWith('Export Error') ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
+          <span>{exportNotice}</span>
+        </div>
+      )}
+      {calcError && (
+        <div style={{ margin: '8px 0 16px 0', padding: '10px 14px', borderRadius: 6, background: '#fee2e2', color: '#991b1b', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+          <AlertCircle size={16} />
+          <span>Rust calculation error: {calcError}</span>
+        </div>
+      )}
 
       {(data.design.serviceRoadReaches?.length ?? 0) > 0 && <div className="canal-bank-recommendation"><strong>Roads &amp; Access applied:</strong> Active road platforms widen the crest or outer berm on their selected bank and chainages. The section preview and bank quantities include this formation; the tier widths below remain your base bank rules.</div>}
 
@@ -932,8 +1143,10 @@ export default function CanalBankDesign({
         </div>
 
         <div className="canal-bank-source-summary">
-          <span>Canal Excavation Quantity <strong>{earthwork.excavation.toLocaleString('en-IN')} cu.m</strong></span>
-          <span>Material Quantity Needed <strong>{bankVolumes.totalFill.toLocaleString('en-IN')} cu.m</strong></span>
+          <span>Suitable Cut Available <strong>{(calcResult?.soilAllocation.suitableCutAvailableM3 ?? 0).toLocaleString('en-IN')} cu.m</strong></span>
+          <span>Allocated from Canal Cut <strong>{(calcResult?.soilAllocation.allocatedFromCutM3 ?? 0).toLocaleString('en-IN')} cu.m</strong></span>
+          <span>Allocated from Borrow <strong>{(calcResult?.soilAllocation.allocatedFromBorrowM3 ?? 0).toLocaleString('en-IN')} cu.m</strong></span>
+          <span>Total Fill Needed <strong>{(calcResult?.totalBankVolume ?? bankVolumes.totalFill).toLocaleString('en-IN')} cu.m</strong></span>
         </div>
 
         {data.mode === 'repair' &&
@@ -950,6 +1163,95 @@ export default function CanalBankDesign({
             ))}
 
         {data.mode !== 'repair' && <CanalBankMaterialEditor allocations={design.bankMaterialAllocations ?? []} zones={activeZones} volumes={bankVolumes} onSave={bankMaterialAllocations => onCommit({ bankMaterialAllocations })} />}
+      </section>
+
+      {/* ========================================================================= */}
+      {/* ABSTRACT OF EMBANKMENT REACHES (RUST ENGINE COMPUTED)                     */}
+      {/* ========================================================================= */}
+      <section className="canal-earthwork-card">
+        <div className="canal-cross-panel-title">
+          Abstract of Embankment Reaches
+          <small>
+            Contiguous canal reaches classified into bund height tiers and pure cutting stretches (zero embankment)
+          </small>
+        </div>
+
+        {calcResult && calcResult.reaches.length > 0 ? (
+          <div className="canal-soil-table-container">
+            <table className="canal-soil-table">
+              <thead>
+                <tr>
+                  <th>Reach No.</th>
+                  <th>Bund Profile / Reach Name</th>
+                  <th>From Ch (m)</th>
+                  <th>To Ch (m)</th>
+                  <th>Length (m)</th>
+                  <th>Sections</th>
+                  <th>Left Bank Vol (m³)</th>
+                  <th>Right Bank Vol (m³)</th>
+                  <th>Stripping Vol (m³)</th>
+                  <th>Total Bank Vol (m³)</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {calcResult.reaches.map((rch) => (
+                  <tr key={rch.reachIndex} style={rch.isPureCut ? { background: '#f8fafc', color: '#64748b' } : undefined}>
+                    <td style={{ textAlign: 'center' }}>{rch.reachIndex}</td>
+                    <td><strong>{rch.tierName}</strong></td>
+                    <td style={{ textAlign: 'right' }}>{rch.fromChainage.toFixed(1)}</td>
+                    <td style={{ textAlign: 'right' }}>{rch.toChainage.toFixed(1)}</td>
+                    <td style={{ textAlign: 'right' }}>{rch.length.toFixed(1)}</td>
+                    <td style={{ textAlign: 'center' }}>{rch.sectionCount}</td>
+                    <td style={{ textAlign: 'right' }}>{rch.leftVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style={{ textAlign: 'right' }}>{rch.rightVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style={{ textAlign: 'right' }}>{rch.strippingVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <strong>{rch.totalBankVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      {rch.isPureCut ? (
+                        <span style={{ padding: '2px 8px', borderRadius: 4, background: '#fee2e2', color: '#991b1b', fontSize: 11, fontWeight: 600 }}>
+                          Pure Cut (0 Bank)
+                        </span>
+                      ) : (
+                        <span style={{ padding: '2px 8px', borderRadius: 4, background: '#e0f2fe', color: '#0369a1', fontSize: 11, fontWeight: 600 }}>
+                          Active Formation
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ background: '#f1f5f9', fontWeight: 600 }}>
+                  <td colSpan={4} style={{ textAlign: 'center' }}>GRAND TOTALS</td>
+                  <td style={{ textAlign: 'right' }}>
+                    {calcResult.reaches.reduce((sum, r) => sum + r.length, 0).toFixed(1)}
+                  </td>
+                  <td style={{ textAlign: 'center' }}>{calcResult.sections.length}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    {calcResult.totalLeftBankVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    {calcResult.totalRightBankVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    {calcResult.totalStrippingVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td style={{ textAlign: 'right', color: '#1e3a8a' }}>
+                    {calcResult.totalBankVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        ) : (
+          <div className="canal-zoned-empty">
+            {isCalculating ? 'Computing reaches in Rust engine...' : 'No reaches computed.'}
+          </div>
+        )}
       </section>
 
       {/* ========================================================================= */}

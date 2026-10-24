@@ -1,3 +1,4 @@
+import {collectMorthAppendices} from "../morthAppendices"
 /**
  * Excel DATA export module.
  * Produces an exact replica of the official Standard Data workbook:
@@ -13,7 +14,7 @@ import { calculateDataSheets, type DataSheet } from '../dataSheets'
 import type { EestimateProject } from '../../types/project'
 import { excelPrintSettings, resolveExcelDocumentSettings } from './excelDocumentSettings'
 import { excelSignatureSettings } from './excelSignature'
-import { buildRateAnalysisRenderData } from '../typist-output/dataTypst'
+import { buildRateAnalysisRenderData, buildMorthAppendixRenderData } from '../typist-output/dataTypst'
 
 function decodeBase64(b64: string): Uint8Array {
   const binary = atob(b64)
@@ -26,7 +27,8 @@ function decodeBase64(b64: string): Uint8Array {
 }
 
 export function buildDataExcelPayload(project: EestimateProject, sheets: DataSheet[]) {
-  const ssrSheets = sheets.filter((s) => s.recipe.itemSource !== 'SOR')
+  const ssrSheets = sheets.filter((s) => s.recipe.itemSource !== 'SOR' && s.recipe.itemSource !== 'MORTH')
+  const appendices=collectMorthAppendices(sheets.map(s=>s.recipe))
   const sorSheets = sheets.filter((s) => s.recipe.itemSource === 'SOR')
 
   return {
@@ -42,6 +44,8 @@ export function buildDataExcelPayload(project: EestimateProject, sheets: DataShe
       }, s.calculatedSummary),
       excelKey: s.id
     })),
+    morthAppendices: buildMorthAppendixRenderData(sheets.map(s=>s.recipe),appendices),
+    morth: sheets.filter(s=>s.recipe.itemSource==='MORTH').map(s=>({...buildRateAnalysisRenderData(s.recipe,s.leadApplications,s.leadVariants,{scopeName:s.scopeName,usagePath:s.usagePath,scope:s.scope},s.calculatedSummary,appendices),excelKey:s.id})),
     sor: sorSheets.map((s, i) => ({
       excelKey: s.id,
       sl: i + 1,

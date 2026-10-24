@@ -1,0 +1,2997 @@
+{
+  "verified_date": "2026-10-23",
+  "project_id": "hqddsxnykndgcmxwqwmn",
+  "scope": "Read-only investigation; source data not modified.",
+  "inventory": [
+    {
+      "inventory": {
+        "functions": [
+          {
+            "name": "morth_pricing_snapshot",
+            "returns": "jsonb",
+            "signature": "p_year text, p_zone text, p_requests jsonb, p_resource_codes text[]",
+            "security_definer": false
+          },
+          {
+            "name": "sor_morth_analysis_rate_valid",
+            "returns": "boolean",
+            "signature": "v jsonb",
+            "security_definer": false
+          },
+          {
+            "name": "sor_morth_analysis_link_guard",
+            "returns": "trigger",
+            "signature": "",
+            "security_definer": false
+          },
+          {
+            "name": "sor_morth_referenced_key_guard",
+            "returns": "trigger",
+            "signature": "",
+            "security_definer": false
+          },
+          {
+            "name": "sor_morth_analysis_options",
+            "returns": "jsonb",
+            "signature": "p_recipe_code text, p_year text",
+            "security_definer": false
+          }
+        ],
+        "relations": [
+          {
+            "rls": true,
+            "kind": "r",
+            "name": "analysis_resource",
+            "schema": "public",
+            "columns": [
+              {
+                "name": "resource_code",
+                "type": "text",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "kind",
+                "type": "text",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "description",
+                "type": "text",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "unit",
+                "type": "text",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "source_definition",
+                "type": "jsonb",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "pricing_records",
+                "type": "jsonb",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "status",
+                "type": "text",
+                "nullable": false,
+                "generated": ""
+              }
+            ],
+            "estimated_rows": 889
+          },
+          {
+            "rls": true,
+            "kind": "r",
+            "name": "morth_variant_merge",
+            "schema": "public",
+            "columns": [
+              {
+                "name": "code",
+                "type": "text",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "source_codes",
+                "type": "text[]",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "project_categories",
+                "type": "text[]",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "representative_code",
+                "type": "text",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "dependency_groups",
+                "type": "text[]",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "source_fingerprints",
+                "type": "jsonb",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "merge_hash",
+                "type": "text",
+                "nullable": false,
+                "generated": ""
+              }
+            ],
+            "estimated_rows": 319
+          },
+          {
+            "rls": false,
+            "kind": "v",
+            "name": "MORTH_Recipie_Variant_View",
+            "schema": "public",
+            "columns": [
+              {
+                "name": "part",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "heading",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "description",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "materials",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "machinery",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "labour",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "others",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "unit",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "quantity",
+                "type": "numeric",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "rate_structure",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "code",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "subject",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "chapter",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "section_heading",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "printed_item",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "description_detail",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "project_category",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "analysis_variant",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "rate_divisor",
+                "type": "numeric",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "addon_table",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "source_pages",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "source_edition",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "review_flags",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "sor_mapping_status",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "cost_ready",
+                "type": "boolean",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "required_project_parameters",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "notes",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "source_issues",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "specification_reference",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "component_links",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "source_context",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "content_hash",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "created_at",
+                "type": "timestamp with time zone",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "updated_at",
+                "type": "timestamp with time zone",
+                "nullable": true,
+                "generated": ""
+              }
+            ],
+            "estimated_rows": -1
+          },
+          {
+            "rls": false,
+            "kind": "v",
+            "name": "MORTH_Recipie_View",
+            "schema": "public",
+            "columns": [
+              {
+                "name": "part",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "heading",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "description",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "materials",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "machinery",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "labour",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "others",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "unit",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "quantity",
+                "type": "numeric",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "rate_structure",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "code",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "subject",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "chapter",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "section_heading",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "printed_item",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "description_detail",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "project_category",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "analysis_variant",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "rate_divisor",
+                "type": "numeric",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "addon_table",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "source_pages",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "source_edition",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "review_flags",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "sor_mapping_status",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "cost_ready",
+                "type": "boolean",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "required_project_parameters",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "notes",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "source_issues",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "specification_reference",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "component_links",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "source_context",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "content_hash",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "created_at",
+                "type": "timestamp with time zone",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "updated_at",
+                "type": "timestamp with time zone",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "is_shared",
+                "type": "boolean",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "project_categories",
+                "type": "text[]",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "source_codes",
+                "type": "text[]",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "source_codes_by_category",
+                "type": "jsonb",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "representative_code",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              },
+              {
+                "name": "merge_hash",
+                "type": "text",
+                "nullable": true,
+                "generated": ""
+              }
+            ],
+            "estimated_rows": -1
+          },
+          {
+            "rls": true,
+            "kind": "r",
+            "name": "morth",
+            "schema": "public",
+            "columns": [
+              {
+                "name": "code",
+                "type": "text",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "recipe",
+                "type": "jsonb",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "source_context",
+                "type": "jsonb",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "component_links",
+                "type": "jsonb",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "content_hash",
+                "type": "text",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "source_edition",
+                "type": "text",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "chapter",
+                "type": "text",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "section_heading",
+                "type": "text",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "printed_item",
+                "type": "text",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "description",
+                "type": "text",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "unit",
+                "type": "text",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "analysis_quantity",
+                "type": "numeric",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "rate_divisor",
+                "type": "numeric",
+                "nullable": true,
+                "generated": "s"
+              },
+              {
+                "name": "materials",
+                "type": "jsonb",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "machinery",
+                "type": "jsonb",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "labour",
+                "type": "jsonb",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "calculation",
+                "type": "jsonb",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "source_pages",
+                "type": "jsonb",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "sor_mapping_status",
+                "type": "text",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "cost_ready",
+                "type": "boolean",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "created_at",
+                "type": "timestamp with time zone",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "updated_at",
+                "type": "timestamp with time zone",
+                "nullable": false,
+                "generated": ""
+              },
+              {
+                "name": "part",
+                "type": "text",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "heading",
+                "type": "text",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "quantity",
+                "type": "numeric",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "description_detail",
+                "type": "text",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "project_category",
+                "type": "text",
+                "nullable": true,
+                "generated": "s"
+              },
+              {
+                "name": "others",
+                "type": "jsonb",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "rate_structure",
+                "type": "jsonb",
+                "nullable": false,
+                "generated": "s"
+              },
+              {
+                "name": "review_flags",
+                "type": "jsonb",
+                "nullable": false,
+                "generated": "s"
+              }
+            ],
+            "estimated_rows": 3345
+          }
+        ]
+      }
+    }
+  ],
+  "overview": [
+    {
+      "overview": {
+        "views": [
+          {
+            "name": "MORTH_Recipie_Variant_View",
+            "options": [
+              "security_invoker=true"
+            ],
+            "definition": " SELECT part,\n    heading,\n    description,\n    materials,\n    machinery,\n    labour,\n    others,\n    unit,\n    quantity,\n    rate_structure,\n    code,\n    part AS subject,\n    chapter,\n    section_heading,\n    printed_item,\n    description_detail,\n    project_category,\n    recipe ->> 'analysis_variant'::text AS analysis_variant,\n    rate_divisor,\n    COALESCE(recipe -> 'addon_table'::text, '[]'::jsonb) AS addon_table,\n    source_pages,\n    source_edition,\n    review_flags,\n    sor_mapping_status,\n    cost_ready,\n    COALESCE(recipe -> 'required_project_parameters'::text, '[]'::jsonb) AS required_project_parameters,\n    COALESCE(recipe -> 'notes'::text, '[]'::jsonb) AS notes,\n    COALESCE(recipe -> 'source_issues'::text, '[]'::jsonb) AS source_issues,\n    recipe -> 'ref_to_m'::text AS specification_reference,\n    component_links,\n    source_context,\n    content_hash,\n    created_at,\n    updated_at\n   FROM morth;"
+          },
+          {
+            "name": "MORTH_Recipie_View",
+            "options": [
+              "security_invoker=true"
+            ],
+            "definition": " WITH RECURSIVE states AS MATERIALIZED (\n         SELECT g.code,\n            g.source_codes,\n            g.project_categories,\n            g.representative_code,\n            g.dependency_groups,\n            g.source_fingerprints,\n            g.merge_hash,\n            ( SELECT count(*) = 3 AND count(DISTINCT m.project_category) = 3 AND bool_and((g.source_fingerprints ->> m.code) = md5(jsonb_build_array(m.recipe, m.source_context, m.component_links)::text))\n                   FROM morth m\n                  WHERE m.code = ANY (g.source_codes)) AS valid\n           FROM morth_variant_merge g\n        ), invalid(code) AS (\n         SELECT states.code\n           FROM states\n          WHERE NOT COALESCE(states.valid, false)\n        UNION\n         SELECT s.code\n           FROM states s\n             JOIN invalid i ON i.code = ANY (s.dependency_groups)\n        ), active AS MATERIALIZED (\n         SELECT s.code,\n            s.source_codes,\n            s.project_categories,\n            s.representative_code,\n            s.dependency_groups,\n            s.source_fingerprints,\n            s.merge_hash,\n            s.valid\n           FROM states s\n          WHERE s.valid AND NOT (EXISTS ( SELECT 1\n                   FROM invalid i\n                  WHERE i.code = s.code))\n        )\n SELECT v.part,\n    v.heading,\n    v.description,\n        CASE\n            WHEN a.code IS NULL THEN v.materials\n            ELSE COALESCE(( SELECT jsonb_agg((x.c - 'source_quantity_column'::text) || jsonb_build_object('source_quantity_columns', a.project_categories) ORDER BY x.n) AS jsonb_agg\n               FROM jsonb_array_elements(v.materials) WITH ORDINALITY x(c, n)), '[]'::jsonb)\n        END AS materials,\n        CASE\n            WHEN a.code IS NULL THEN v.machinery\n            ELSE COALESCE(( SELECT jsonb_agg((x.c - 'source_quantity_column'::text) || jsonb_build_object('source_quantity_columns', a.project_categories) ORDER BY x.n) AS jsonb_agg\n               FROM jsonb_array_elements(v.machinery) WITH ORDINALITY x(c, n)), '[]'::jsonb)\n        END AS machinery,\n        CASE\n            WHEN a.code IS NULL THEN v.labour\n            ELSE COALESCE(( SELECT jsonb_agg((x.c - 'source_quantity_column'::text) || jsonb_build_object('source_quantity_columns', a.project_categories) ORDER BY x.n) AS jsonb_agg\n               FROM jsonb_array_elements(v.labour) WITH ORDINALITY x(c, n)), '[]'::jsonb)\n        END AS labour,\n    v.others,\n    v.unit,\n    v.quantity,\n    v.rate_structure,\n    COALESCE(a.code, v.code) AS code,\n    v.subject,\n    v.chapter,\n    v.section_heading,\n    v.printed_item,\n    v.description_detail,\n        CASE\n            WHEN a.code IS NULL THEN v.project_category\n            ELSE 'all'::text\n        END AS project_category,\n    v.analysis_variant,\n    v.rate_divisor,\n    v.addon_table,\n    v.source_pages,\n    v.source_edition,\n    v.review_flags,\n    v.sor_mapping_status,\n    v.cost_ready,\n    v.required_project_parameters,\n    v.notes,\n    v.source_issues,\n    v.specification_reference,\n    v.component_links,\n    v.source_context,\n    v.content_hash,\n    v.created_at,\n    v.updated_at,\n    a.code IS NOT NULL AS is_shared,\n        CASE\n            WHEN a.code IS NULL THEN ARRAY[v.project_category]\n            ELSE a.project_categories\n        END AS project_categories,\n    COALESCE(a.source_codes, ARRAY[v.code]) AS source_codes,\n        CASE\n            WHEN a.code IS NULL THEN jsonb_build_object(COALESCE(v.project_category, 'shared'::text), v.code)\n            ELSE ( SELECT jsonb_object_agg(m.project_category, m.code) AS jsonb_object_agg\n               FROM morth m\n              WHERE m.code = ANY (a.source_codes))\n        END AS source_codes_by_category,\n    v.code AS representative_code,\n    a.merge_hash\n   FROM \"MORTH_Recipie_Variant_View\" v\n     LEFT JOIN active a ON v.code = ANY (a.source_codes)\n  WHERE a.code IS NULL OR v.code = a.representative_code;"
+          }
+        ],
+        "counts": {
+          "cost_ready": 0,
+          "source_rows": 3345,
+          "divisors_missing": 1,
+          "components_with_links": 3345
+        },
+        "groups": [
+          {
+            "n": 136,
+            "part": "Plant and Machinery",
+            "source_edition": "MoRTH Standard Data Book Second Revision2019 VolumeI",
+            "project_category": "not_applicable"
+          },
+          {
+            "n": 31,
+            "part": "Appendix",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": "large"
+          },
+          {
+            "n": 500,
+            "part": "Bridge Works",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": "large"
+          },
+          {
+            "n": 26,
+            "part": "Environmental and Safety Management and Bio Engineering",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": "large"
+          },
+          {
+            "n": 483,
+            "part": "Road Works",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": "large"
+          },
+          {
+            "n": 22,
+            "part": "Tunnel Works",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": "large"
+          },
+          {
+            "n": 31,
+            "part": "Appendix",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": "medium"
+          },
+          {
+            "n": 500,
+            "part": "Bridge Works",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": "medium"
+          },
+          {
+            "n": 26,
+            "part": "Environmental and Safety Management and Bio Engineering",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": "medium"
+          },
+          {
+            "n": 483,
+            "part": "Road Works",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": "medium"
+          },
+          {
+            "n": 22,
+            "part": "Tunnel Works",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": "medium"
+          },
+          {
+            "n": 31,
+            "part": "Appendix",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": "small"
+          },
+          {
+            "n": 500,
+            "part": "Bridge Works",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": "small"
+          },
+          {
+            "n": 26,
+            "part": "Environmental and Safety Management and Bio Engineering",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": "small"
+          },
+          {
+            "n": 483,
+            "part": "Road Works",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": "small"
+          },
+          {
+            "n": 22,
+            "part": "Tunnel Works",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": "small"
+          },
+          {
+            "n": 23,
+            "part": "Road Works",
+            "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+            "project_category": null
+          }
+        ],
+        "mapping": [
+          {
+            "n": 3183,
+            "sor_mapping_status": "review_required"
+          },
+          {
+            "n": 162,
+            "sor_mapping_status": "linked"
+          }
+        ],
+        "policies": [
+          {
+            "cmd": "SELECT",
+            "qual": "true",
+            "roles": [
+              "anon",
+              "authenticated"
+            ],
+            "tablename": "analysis_resource",
+            "policyname": "analysis_resource_read"
+          },
+          {
+            "cmd": "SELECT",
+            "qual": "true",
+            "roles": [
+              "anon",
+              "authenticated"
+            ],
+            "tablename": "morth",
+            "policyname": "morth_reference_read"
+          },
+          {
+            "cmd": "SELECT",
+            "qual": "true",
+            "roles": [
+              "anon",
+              "authenticated"
+            ],
+            "tablename": "morth_variant_merge",
+            "policyname": "morth_variant_merge_reference_read"
+          }
+        ]
+      }
+    }
+  ],
+  "facts": [
+    {
+      "facts": {
+        "triggers": [
+          {
+            "name": "sor_morth_referenced_key_guard",
+            "table": "morth",
+            "definition": "CREATE TRIGGER sor_morth_referenced_key_guard BEFORE DELETE OR UPDATE OF code, recipe ON public.morth FOR EACH ROW EXECUTE FUNCTION sor_morth_referenced_key_guard()"
+          }
+        ],
+        "catalogue": {
+          "shared_rows": 319,
+          "with_addons": 0,
+          "visible_rows": 2707,
+          "with_project_parameters": 2516
+        },
+        "constraints": [
+          {
+            "name": "morth_analysis_quantity_positive",
+            "table": "morth",
+            "definition": "CHECK ((analysis_quantity > (0)::numeric))"
+          },
+          {
+            "name": "morth_calculation_is_object",
+            "table": "morth",
+            "definition": "CHECK ((jsonb_typeof(calculation) = 'object'::text))"
+          },
+          {
+            "name": "morth_code_matches_recipe",
+            "table": "morth",
+            "definition": "CHECK (((code <> ''::text) AND (code = (recipe ->> 'code'::text))))"
+          },
+          {
+            "name": "morth_component_links_is_array",
+            "table": "morth",
+            "definition": "CHECK ((jsonb_typeof(component_links) = 'array'::text))"
+          },
+          {
+            "name": "morth_content_hash_shape",
+            "table": "morth",
+            "definition": "CHECK ((content_hash ~ '^[a-f0-9]{64}$'::text))"
+          },
+          {
+            "name": "morth_current_resource_links",
+            "table": "morth",
+            "definition": "CHECK ((sor_resource_links_valid(recipe) AND sor_resource_links_valid(component_links) AND sor_resource_links_valid(materials) AND sor_resource_links_valid(machinery) AND sor_resource_links_valid(labour) AND sor_resource_links_valid(calculation) AND sor_resource_links_valid(source_context)))"
+          },
+          {
+            "name": "morth_labour_is_array",
+            "table": "morth",
+            "definition": "CHECK ((jsonb_typeof(labour) = 'array'::text))"
+          },
+          {
+            "name": "morth_machinery_is_array",
+            "table": "morth",
+            "definition": "CHECK ((jsonb_typeof(machinery) = 'array'::text))"
+          },
+          {
+            "name": "morth_materials_is_array",
+            "table": "morth",
+            "definition": "CHECK ((jsonb_typeof(materials) = 'array'::text))"
+          },
+          {
+            "name": "morth_pkey",
+            "table": "morth",
+            "definition": "PRIMARY KEY (code)"
+          },
+          {
+            "name": "morth_rate_divisor_positive",
+            "table": "morth",
+            "definition": "CHECK (((rate_divisor IS NULL) OR (rate_divisor > (0)::numeric)))"
+          },
+          {
+            "name": "morth_recipe_is_object",
+            "table": "morth",
+            "definition": "CHECK ((jsonb_typeof(recipe) = 'object'::text))"
+          },
+          {
+            "name": "morth_source_context_is_object",
+            "table": "morth",
+            "definition": "CHECK ((jsonb_typeof(source_context) = 'object'::text))"
+          },
+          {
+            "name": "morth_source_pages_is_array",
+            "table": "morth",
+            "definition": "CHECK ((jsonb_typeof(source_pages) = 'array'::text))"
+          },
+          {
+            "name": "analysis_resource_kind_check",
+            "table": "analysis_resource",
+            "definition": "CHECK ((kind = ANY (ARRAY['material'::text, 'machinery'::text, 'labour'::text])))"
+          },
+          {
+            "name": "analysis_resource_pkey",
+            "table": "analysis_resource",
+            "definition": "PRIMARY KEY (resource_code)"
+          },
+          {
+            "name": "analysis_resource_pricing_records_check",
+            "table": "analysis_resource",
+            "definition": "CHECK ((jsonb_typeof(pricing_records) = 'array'::text))"
+          },
+          {
+            "name": "analysis_resource_status_check",
+            "table": "analysis_resource",
+            "definition": "CHECK ((status = ANY (ARRAY['source_identity_only'::text, 'recipe_link_review_required'::text])))"
+          },
+          {
+            "name": "morth_variant_merge_check",
+            "table": "morth_variant_merge",
+            "definition": "CHECK ((representative_code = ANY (source_codes)))"
+          },
+          {
+            "name": "morth_variant_merge_merge_hash_check",
+            "table": "morth_variant_merge",
+            "definition": "CHECK ((merge_hash ~ '^[a-f0-9]{64}$'::text))"
+          },
+          {
+            "name": "morth_variant_merge_pkey",
+            "table": "morth_variant_merge",
+            "definition": "PRIMARY KEY (code)"
+          },
+          {
+            "name": "morth_variant_merge_project_categories_check",
+            "table": "morth_variant_merge",
+            "definition": "CHECK ((project_categories = ARRAY['small'::text, 'medium'::text, 'large'::text]))"
+          },
+          {
+            "name": "morth_variant_merge_source_codes_check",
+            "table": "morth_variant_merge",
+            "definition": "CHECK ((cardinality(source_codes) = 3))"
+          },
+          {
+            "name": "morth_variant_merge_source_fingerprints_check",
+            "table": "morth_variant_merge",
+            "definition": "CHECK ((jsonb_typeof(source_fingerprints) = 'object'::text))"
+          }
+        ],
+        "recipe_keys": [
+          "additional_required_parameters",
+          "aggregate_density_tonne_cum",
+          "alternative_group",
+          "analysis_quantity",
+          "analysis_variant",
+          "annual_rate_lookup",
+          "appendix_dependency_policy",
+          "average_excavation_depth_m",
+          "binder_application_kg_sqm",
+          "binder_percent",
+          "bitumen_percent",
+          "calculation",
+          "calculation_overrides",
+          "capacity_interpretation",
+          "chapter",
+          "chapter_type",
+          "code",
+          "concrete_grade",
+          "concrete_type",
+          "conditional_adjustments",
+          "conditional_alternative",
+          "conditional_omit_parameter",
+          "conditional_omit_resource_keys",
+          "conditional_resources",
+          "cost_ready",
+          "cost_scope",
+          "credit_rate_expression",
+          "cycle_time_minutes",
+          "dependencies_include_overhead_and_profit",
+          "dependency_adoption",
+          "depth_rate_rule",
+          "description",
+          "description_detail",
+          "description_heading_raw",
+          "design_required",
+          "dismantled_concrete_volume_cum",
+          "effective_item",
+          "equipment_specifications",
+          "excluded_work",
+          "explosive_quantity_derivation",
+          "extraction_method",
+          "fibre_dosage_kg_cum",
+          "finished_output_quantity",
+          "fixed_haul_lead_km",
+          "furrow_depth_mm",
+          "grading",
+          "grading_table",
+          "historical_source_benchmark",
+          "identity_links_resolved",
+          "labour",
+          "machinery",
+          "maintenance_duration_months",
+          "maintenance_duration_years",
+          "mapping_review_required",
+          "markup_excluded_dependency_keys",
+          "material_design_required",
+          "materials",
+          "missing_selected_year_rate_resources",
+          "mix_design_required",
+          "mix_mass_tonne",
+          "nominal_bore_mm",
+          "nominal_mix_ratio",
+          "notes",
+          "omit_condition",
+          "omit_markup",
+          "optional_allowances",
+          "optional_omit_resource",
+          "optional_scope",
+          "output_specifications",
+          "output_variants",
+          "output_volume_factor",
+          "parent_markup_applied",
+          "pending_salvage_credit",
+          "percentage_allowances",
+          "pricing_additions",
+          "printed_item",
+          "printed_rate_formula",
+          "printed_ref_to_m",
+          "printed_soil_group",
+          "printed_work_unit",
+          "pro_rata_thickness_options_mm",
+          "production_cum_per_hour_by_category",
+          "project_category",
+          "rate_availability",
+          "rate_divisor",
+          "recipe_type",
+          "recycled_fraction",
+          "ref_to_m",
+          "reference_corrections",
+          "required_project_parameters",
+          "resolved_source_issues",
+          "review_flags",
+          "road_length_band",
+          "rock_volume_cum",
+          "roller_option",
+          "salvage_credit_requires_project_rate",
+          "scarification_depth_m",
+          "scope",
+          "screening_option",
+          "secondary_explosive_formula_kg",
+          "section_heading",
+          "setup_cost_allocation",
+          "sinking_rate_metres_per_hour",
+          "sor_mapping_status",
+          "sor_recipe_links",
+          "source_bearing_volume",
+          "source_concrete_scope",
+          "source_edition",
+          "source_height_band",
+          "source_issues",
+          "source_markup_literal",
+          "source_pages",
+          "source_quantity_column_policy",
+          "source_structure_type",
+          "supplement_to",
+          "supply_assumptions",
+          "test_standard_source",
+          "thickness_mm",
+          "thickness_range_mm",
+          "transport",
+          "trial_application_required",
+          "unit",
+          "unit_raw",
+          "vehicle_description_effective",
+          "vehicle_description_printed",
+          "water_costing_policy"
+        ],
+        "resource_status": [
+          {
+            "n": 46,
+            "kind": "labour",
+            "status": "source_identity_only",
+            "with_pricing": 0
+          },
+          {
+            "n": 4,
+            "kind": "machinery",
+            "status": "recipe_link_review_required",
+            "with_pricing": 4
+          },
+          {
+            "n": 307,
+            "kind": "machinery",
+            "status": "source_identity_only",
+            "with_pricing": 170
+          },
+          {
+            "n": 7,
+            "kind": "material",
+            "status": "recipe_link_review_required",
+            "with_pricing": 2
+          },
+          {
+            "n": 525,
+            "kind": "material",
+            "status": "source_identity_only",
+            "with_pricing": 0
+          }
+        ],
+        "calculation_keys": [
+          "allowances",
+          "batch_cost_expression",
+          "calculation_review_required",
+          "component_cost_expression",
+          "contractor_profit_percent",
+          "dependency_markup_policy",
+          "direct_cost_definition",
+          "direct_cost_sections",
+          "direct_unit_cost_expression",
+          "historical_rate_is_not_selected_year_rate",
+          "interpretation_reason",
+          "interpretation_status",
+          "markup_excluded_resource_keys",
+          "overhead_base",
+          "overhead_default",
+          "overhead_percent",
+          "overhead_percent_by_project_type",
+          "overhead_percent_parameter",
+          "overhead_section",
+          "overhead_selection_parameter",
+          "overhead_source_printed_page",
+          "parent_markup_applied",
+          "percentage_allowance_evaluation",
+          "percentage_allowances",
+          "printed_allocation_formula",
+          "printed_overhead_base",
+          "printed_profit_base",
+          "printed_rate_formula",
+          "profit_base",
+          "profit_percent_parameter",
+          "profit_section",
+          "profit_source_printed_page",
+          "project_type",
+          "proposed_interpretation",
+          "reference_density_tonne_per_cum",
+          "section_letters",
+          "source_excludes_all_material_sections_from_parent_markup",
+          "unit_rate_expression"
+        ]
+      }
+    }
+  ],
+  "detail": [
+    {
+      "detail": {
+        "heads": [
+          {
+            "n": 93,
+            "part": "Appendix",
+            "chapter": "21",
+            "heading": "Appendix: Sub-analysis of Concrete / Mortar Rate and Back Matter"
+          },
+          {
+            "n": 750,
+            "part": "Bridge Works",
+            "chapter": "12",
+            "heading": "Foundations"
+          },
+          {
+            "n": 153,
+            "part": "Bridge Works",
+            "chapter": "13",
+            "heading": "Sub-structure"
+          },
+          {
+            "n": 264,
+            "part": "Bridge Works",
+            "chapter": "14",
+            "heading": "Super-structure"
+          },
+          {
+            "n": 207,
+            "part": "Bridge Works",
+            "chapter": "15",
+            "heading": "Box Cell Structure"
+          },
+          {
+            "n": 51,
+            "part": "Bridge Works",
+            "chapter": "16",
+            "heading": "River Training and Protection Works"
+          },
+          {
+            "n": 75,
+            "part": "Bridge Works",
+            "chapter": "17",
+            "heading": "Repair and Rehabilitation"
+          },
+          {
+            "n": 78,
+            "part": "Environmental and Safety Management and Bio Engineering",
+            "chapter": "19",
+            "heading": "Environmental and Safety Management and Bio Engineering"
+          },
+          {
+            "n": 136,
+            "part": "Plant and Machinery",
+            "chapter": "20",
+            "heading": "Usage Rates of Plant and Machinery"
+          },
+          {
+            "n": 23,
+            "part": "Road Works",
+            "chapter": "1",
+            "heading": "Carriage of Materials"
+          },
+          {
+            "n": 63,
+            "part": "Road Works",
+            "chapter": "10",
+            "heading": "Maintenance of Roads"
+          },
+          {
+            "n": 75,
+            "part": "Road Works",
+            "chapter": "11",
+            "heading": "Horticulture"
+          },
+          {
+            "n": 174,
+            "part": "Road Works",
+            "chapter": "2",
+            "heading": "Site Clearance"
+          },
+          {
+            "n": 141,
+            "part": "Road Works",
+            "chapter": "3",
+            "heading": "Earth Work, Erosion Control and Drainage"
+          },
+          {
+            "n": 231,
+            "part": "Road Works",
+            "chapter": "4",
+            "heading": "Sub-Bases, Non-Bituminous Bases and Shoulders"
+          },
+          {
+            "n": 147,
+            "part": "Road Works",
+            "chapter": "5",
+            "heading": "Bases and Surface Courses (Bituminous)"
+          },
+          {
+            "n": 18,
+            "part": "Road Works",
+            "chapter": "6",
+            "heading": "Cement Concrete Pavements"
+          },
+          {
+            "n": 192,
+            "part": "Road Works",
+            "chapter": "7",
+            "heading": "Geosynthetics and Reinforced Earth"
+          },
+          {
+            "n": 294,
+            "part": "Road Works",
+            "chapter": "8",
+            "heading": "Traffic Signs, Markings and Other Road Appurtenances"
+          },
+          {
+            "n": 114,
+            "part": "Road Works",
+            "chapter": "9",
+            "heading": "Pipe Culverts"
+          },
+          {
+            "n": 66,
+            "part": "Tunnel Works",
+            "chapter": "18",
+            "heading": "Tunnel Works"
+          }
+        ],
+        "indexes": [
+          {
+            "indexdef": "CREATE UNIQUE INDEX analysis_resource_pkey ON public.analysis_resource USING btree (resource_code)",
+            "indexname": "analysis_resource_pkey",
+            "tablename": "analysis_resource"
+          },
+          {
+            "indexdef": "CREATE UNIQUE INDEX morth_pkey ON public.morth USING btree (code)",
+            "indexname": "morth_pkey",
+            "tablename": "morth"
+          },
+          {
+            "indexdef": "CREATE INDEX morth_edition_chapter_item_idx ON public.morth USING btree (source_edition, chapter, printed_item)",
+            "indexname": "morth_edition_chapter_item_idx",
+            "tablename": "morth"
+          },
+          {
+            "indexdef": "CREATE UNIQUE INDEX morth_variant_merge_pkey ON public.morth_variant_merge USING btree (code)",
+            "indexname": "morth_variant_merge_pkey",
+            "tablename": "morth_variant_merge"
+          }
+        ],
+        "addon_related": [
+          {
+            "k": "output_variants",
+            "n": 1
+          },
+          {
+            "k": "pricing_additions",
+            "n": 3
+          },
+          {
+            "k": "conditional_adjustments",
+            "n": 18
+          },
+          {
+            "k": "conditional_resources",
+            "n": 3
+          },
+          {
+            "k": "output_volume_factor",
+            "n": 1
+          },
+          {
+            "k": "optional_allowances",
+            "n": 9
+          }
+        ],
+        "missing_divisor": [
+          {
+            "code": "MORTH-2019-1.06",
+            "quantity": 750,
+            "calculation": {
+              "profit_base": "product_basic_rate_plus_overheads",
+              "overhead_base": "product_basic_rate",
+              "section_letters": {
+                "a": "labour",
+                "b": "materials",
+                "c": "machinery"
+              },
+              "direct_cost_sections": [
+                "labour",
+                "materials",
+                "machinery"
+              ],
+              "unit_rate_expression": "product_basic_rate + product_overheads + product_contractor_profit",
+              "batch_cost_expression": "d = a+b+c",
+              "interpretation_reason": "The section (f) quantity entries are cost allocation percentages. Use each percentage as a fraction; section (e) supplies product yield in tonnes. Multiplying the allocated cost per tonne by the printed reference density produces cost per cum.",
+              "interpretation_status": "resolved_from_printed_percentage_rows",
+              "proposed_interpretation": "product_basic_rate = batch_direct_cost * (cost_allocation_percent/100) / yield_tonnes * reference_density_tonne_per_cum",
+              "profit_percent_parameter": "road_works_contractor_profit",
+              "overhead_percent_parameter": "road_works_overheads_by_project_category",
+              "printed_allocation_formula": "% Cost distribution { (d) x (f) / (e) x 1.5 }",
+              "reference_density_tonne_per_cum": 1.5
+            },
+            "description": "Crushing of stone aggregates (Nominal size)"
+          }
+        ],
+        "resource_sample": {
+          "kind": "machinery",
+          "unit": "Hour",
+          "status": "recipe_link_review_required",
+          "description": "Concrete placer pump",
+          "resource_code": "MC_CONCRETE_PLACER_PUMP",
+          "pricing_records": [
+            {
+              "source": "TAW external item resolution",
+              "sor_year": "2025-26",
+              "created_at": "2026-06-09T09:43:47.479355+00:00",
+              "hire_total": 120.8,
+              "zone_rates": null,
+              "crew_charge": 16.8,
+              "fuel_charge": 2,
+              "hire_charge": 102,
+              "capital_cost": null,
+              "effective_to": null,
+              "effective_from": "2025-06-18",
+              "machinery_code": "MC_CONCRETE_PLACER_PUMP",
+              "tyres_tubes_cost": null
+            }
+          ],
+          "source_definition": {
+            "name": "Concrete placer pump",
+            "part": "Part-IV",
+            "unit": "Hour",
+            "notes": "Added for TAW concrete placer pump reference",
+            "category": "PLANT & MACHINERY",
+            "hire_unit": "Hour",
+            "machinery_code": "MC_CONCRETE_PLACER_PUMP",
+            "lead_applicability": {
+              "source": "SOR_RESOURCE",
+              "applicable": false,
+              "review_status": "NOT_CLASSIFIED"
+            }
+          }
+        },
+        "component_shapes": [
+          {
+            "expressions": 1557,
+            "occurrences": 11678,
+            "alternatives": 658,
+            "lookup_table": "analysis_resource"
+          },
+          {
+            "expressions": 270,
+            "occurrences": 10883,
+            "alternatives": 352,
+            "lookup_table": "SOR_Year"
+          },
+          {
+            "expressions": 3,
+            "occurrences": 1737,
+            "alternatives": 0,
+            "lookup_table": "morth"
+          },
+          {
+            "expressions": 0,
+            "occurrences": 18,
+            "alternatives": 0,
+            "lookup_table": "derived_component_rate"
+          }
+        ],
+        "resource_pricing": [
+          {
+            "n": 62,
+            "pricing_year": null,
+            "pricing_zone": null,
+            "pricing_region": null,
+            "pricing_status": null
+          },
+          {
+            "n": 118,
+            "pricing_year": "2019-20",
+            "pricing_zone": null,
+            "pricing_region": "Delhi",
+            "pricing_status": "historical_benchmark_only"
+          }
+        ]
+      }
+    }
+  ],
+  "review": [
+    {
+      "review": {
+        "lookups": [
+          {
+            "direct_keys": 697,
+            "lookup_table": "analysis_resource"
+          },
+          {
+            "direct_keys": 0,
+            "lookup_table": "derived_component_rate"
+          },
+          {
+            "direct_keys": 267,
+            "lookup_table": "morth"
+          },
+          {
+            "direct_keys": 83,
+            "lookup_table": "SOR_Year"
+          }
+        ],
+        "pricing": [
+          {
+            "n": 118,
+            "pricing_year": "2019-20",
+            "pricing_region": "Delhi",
+            "pricing_status": "historical_benchmark_only"
+          },
+          {
+            "n": 46,
+            "pricing_year": "2019-20",
+            "pricing_region": null,
+            "pricing_status": null
+          },
+          {
+            "n": 2,
+            "pricing_year": "2023-24",
+            "pricing_region": null,
+            "pricing_status": null
+          },
+          {
+            "n": 2,
+            "pricing_year": "2024-25",
+            "pricing_region": null,
+            "pricing_status": null
+          },
+          {
+            "n": 6,
+            "pricing_year": "2025-26",
+            "pricing_region": null,
+            "pricing_status": null
+          },
+          {
+            "n": 6,
+            "pricing_year": null,
+            "pricing_region": null,
+            "pricing_status": null
+          }
+        ],
+        "reviews": [
+          {
+            "n": 14518,
+            "review_type": "selected_year_rate_missing"
+          },
+          {
+            "n": 6362,
+            "review_type": "rate_zone_and_effective_date_selection_required"
+          },
+          {
+            "n": 4493,
+            "review_type": "project_parameter_required"
+          },
+          {
+            "n": 4432,
+            "review_type": "identity_candidate_confirmation"
+          },
+          {
+            "n": 3091,
+            "review_type": "source_issue_review"
+          },
+          {
+            "n": 2733,
+            "review_type": "approved_design_required"
+          },
+          {
+            "n": 1671,
+            "review_type": "dependency_costing_required"
+          },
+          {
+            "n": 753,
+            "review_type": "approved_mix_design_required"
+          },
+          {
+            "n": 660,
+            "review_type": "annual_revision_scope_review_required"
+          },
+          {
+            "n": 136,
+            "review_type": "equipment_cost_scope_review"
+          },
+          {
+            "n": 136,
+            "review_type": "selected_year_region_quote_required"
+          },
+          {
+            "n": 90,
+            "review_type": "water_loading_delivery_boundary_review_required"
+          },
+          {
+            "n": 90,
+            "review_type": "site_assessment_required"
+          },
+          {
+            "n": 52,
+            "review_type": "annual_quote_unavailable"
+          },
+          {
+            "n": 45,
+            "review_type": "project_specification_required"
+          },
+          {
+            "n": 32,
+            "review_type": "equipment_duty_and_bundled_hire_review_required"
+          },
+          {
+            "n": 23,
+            "review_type": "carriage_cost_boundary_review_required"
+          },
+          {
+            "n": 12,
+            "review_type": "dependency_reference_requires_review"
+          },
+          {
+            "n": 12,
+            "review_type": "equipment_accessory_scope_review_required"
+          },
+          {
+            "n": 9,
+            "review_type": "supply_cost_boundary_required"
+          },
+          {
+            "n": 6,
+            "review_type": "cross_chapter_dependency_pending"
+          },
+          {
+            "n": 6,
+            "review_type": "equipment_scope_review"
+          },
+          {
+            "n": 1,
+            "review_type": "annual_quote_source_review_required"
+          }
+        ],
+        "expression_types": [
+          {
+            "n": 1827,
+            "expression_type": "affine"
+          },
+          {
+            "n": 3,
+            "expression_type": "parameter"
+          }
+        ],
+        "edition_parameters": [
+          {
+            "profit": null,
+            "overheads": null,
+            "project_parameters": null
+          }
+        ]
+      }
+    }
+  ],
+  "public_checks": [
+    {
+      "checks": {
+        "snapshot": {
+          "year": "2026-27",
+          "zone": "zone_3",
+          "quotes": [
+            {
+              "quote": {
+                "rate": 685,
+                "unit": "day",
+                "year": "2026-27",
+                "zone": "zone_3",
+                "status": "priced",
+                "component": "rate",
+                "recipe_code": "SOR-P01-T07-R0055",
+                "source_unit": "day",
+                "recipe_codes": [
+                  "SOR-P01-T07-R0055"
+                ],
+                "fallback_path": [],
+                "fallback_used": false,
+                "rate_detailed": null,
+                "revision_path": [
+                  "SOR-P01-T07-R0130",
+                  "SOR-P01-T07-R0055"
+                ],
+                "to_be_printed": {
+                  "description": "Gangman / head or survey mazdoor / labourer - Semi Skilled Category - Labour Rates - Sl. No. 10",
+                  "extra_columns": [],
+                  "schema_version": 1
+                },
+                "year_row_code": "SOR-Y-08b44f03600e8106b9c3cbeb659cd91a305a9d6e0fdbfc1543abb636f212516f",
+                "requires_review": false,
+                "conversion_factor": 1,
+                "review_boundaries": [],
+                "requested_recipe_code": "SOR-P01-T07-R0130"
+              },
+              "component": "rate",
+              "recipe_code": "SOR-P01-T07-R0130"
+            },
+            {
+              "quote": {
+                "rate": 635,
+                "unit": "day",
+                "year": "2026-27",
+                "zone": "zone_3",
+                "status": "priced",
+                "component": "rate",
+                "recipe_code": "SOR-P01-T07-R0089",
+                "source_unit": "day",
+                "recipe_codes": [
+                  "SOR-P01-T07-R0089"
+                ],
+                "fallback_path": [],
+                "fallback_used": false,
+                "rate_detailed": null,
+                "revision_path": [
+                  "SOR-P01-T07-R0089"
+                ],
+                "to_be_printed": {
+                  "description": "Heavy mazdoor / labourer for cement / asphalt handling - Unskilled Category - Labour Rates - Sl. No. 1",
+                  "extra_columns": [],
+                  "schema_version": 1
+                },
+                "year_row_code": "SOR-Y-177c82828a0c1b5a1291a7a6114f035c794df5e1d46a56b1f4fd9e7db2e367a2",
+                "requires_review": false,
+                "conversion_factor": 1,
+                "review_boundaries": [],
+                "requested_recipe_code": "SOR-P01-T07-R0089"
+              },
+              "component": "rate",
+              "recipe_code": "SOR-P01-T07-R0089"
+            }
+          ],
+          "resources": [
+            {
+              "unit": "Hour",
+              "status": "recipe_link_review_required",
+              "resource_code": "MC_CONCRETE_PLACER_PUMP",
+              "pricing_records": [
+                {
+                  "source": "TAW external item resolution",
+                  "sor_year": "2025-26",
+                  "created_at": "2026-06-09T09:43:47.479355+00:00",
+                  "hire_total": 120.8,
+                  "zone_rates": null,
+                  "crew_charge": 16.8,
+                  "fuel_charge": 2,
+                  "hire_charge": 102,
+                  "capital_cost": null,
+                  "effective_to": null,
+                  "effective_from": "2025-06-18",
+                  "machinery_code": "MC_CONCRETE_PLACER_PUMP",
+                  "tyres_tubes_cost": null
+                }
+              ]
+            }
+          ],
+          "fetched_at": "2026-10-23T15:11:33.593452+00:00"
+        },
+        "public_rows": 2707,
+        "sor_analysis_link": {
+          "rate": null,
+          "unit": "1 Sqm",
+          "year": "2025-26",
+          "reason": "SOR says heavy jungle; MoRTH distinguishes light and thorny, not heavy. Thorny-jungle analyses are research candidates only. Density is not proof of thorniness or identical grubbing scope.",
+          "status": "scope_review_required",
+          "cost_ready": false,
+          "recipe_code": "SOR-P02-T03-R0001",
+          "option_count": 9,
+          "recipe_codes": [
+            "SOR-P02-T03-R0001"
+          ],
+          "requirements": [
+            "Confirm heavy-jungle vegetation/specification against thorny-jungle scope",
+            "Choose manual, dozer or grader method",
+            "Confirm uprooting, topsoil removal and 1000 m disposal scope",
+            "Select project category and SOR year/zone"
+          ],
+          "fallback_path": [],
+          "fallback_used": false,
+          "revision_path": [
+            "SOR-P02-T03-R0001"
+          ],
+          "year_row_code": "SOR-Y-378dcdaa9e0e269965f5ebea410c4c8073a7f9bd3f3efec1e8d1e91d55f5a5ad",
+          "requires_review": false,
+          "review_boundaries": [],
+          "requested_recipe_code": "SOR-P02-T03-R0001"
+        }
+      }
+    }
+  ],
+  "functions": [
+    {
+      "name": "morth_pricing_snapshot",
+      "definition": "CREATE OR REPLACE FUNCTION public.morth_pricing_snapshot(p_year text, p_zone text, p_requests jsonb, p_resource_codes text[] DEFAULT '{}'::text[])\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\ndeclare quotes jsonb;resources jsonb;\nbegin\n if p_year not in ('2026-27','2025-26') or p_year is null then\n  raise exception using errcode='22023',message='Select 2026-27 or 2025-26';\n end if;\n if p_zone not in ('zone_1','zone_2','zone_3') or p_zone is null then\n  raise exception using errcode='22023',message='Select a valid labour zone';\n end if;\n if jsonb_typeof(p_requests) is distinct from 'array' then\n  raise exception using errcode='22023',message='Quote requests must be a JSON array';\n end if;\n if jsonb_array_length(p_requests)>256 or coalesce(cardinality(p_resource_codes),0)>1000 then\n  raise exception using errcode='22023',message='Too many pricing identities in one request';\n end if;\n if exists(select 1 from jsonb_array_elements(p_requests) x\n   where jsonb_typeof(x) is distinct from 'object' or coalesce(x->>'recipe_code','')=''\n   or coalesce(x->>'component','rate') not in\n     ('rate','total','hire_total','hire_charge','fuel_charge','crew_charge','capital_cost','tyres_tubes_cost')) then\n  raise exception using errcode='22023',message='Invalid quote recipe or rate component';\n end if;\n select coalesce(jsonb_agg(jsonb_build_object(\n   'recipe_code',x->>'recipe_code',\n   'component',coalesce(x->>'component','rate'),\n   'quote',public.sor_resource_quote(x->>'recipe_code',p_year,p_zone,coalesce(x->>'component','rate'),null)\n ) order by n),'[]'::jsonb) into quotes\n from jsonb_array_elements(p_requests) with ordinality q(x,n);\n select coalesce(jsonb_agg(jsonb_build_object(\n   'resource_code',a.resource_code,'unit',a.unit,'status',a.status,\n   'pricing_records',a.pricing_records\n ) order by a.resource_code),'[]'::jsonb) into resources\n from public.analysis_resource a where a.resource_code=any(coalesce(p_resource_codes,'{}'::text[]));\n return jsonb_build_object('year',p_year,'zone',p_zone,'fetched_at',statement_timestamp(),\n   'quotes',quotes,'resources',resources);\nend;\n$function$\n"
+    },
+    {
+      "name": "sor_morth_analysis_link_guard",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_morth_analysis_link_guard()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare o jsonb;\r\nbegin\r\n if tg_op='UPDATE' and old.rate->>'type'='morth_analysis' and new.rate->>'type' is distinct from 'morth_analysis' then\r\n  raise exception 'Do not discard reviewed MoRTH Rate links during re-extraction; replay the exact-year reviewed manifest';\r\n end if;\r\n if new.rate->>'type' is distinct from 'morth_analysis' then return new; end if;\r\n if not public.sor_morth_analysis_rate_valid(new.rate) then raise exception 'Invalid MoRTH analysis reference'; end if;\r\n if new.part_no<>2 or new.table_code<>'P02-T03' or new.metadata->'cost_ready' is distinct from 'false'::jsonb\r\n  or new.metadata->'cost_review'->>'status' is distinct from 'analysis_required'\r\n  or new.metadata->'morth_link_review'->'reviewer'->>'kind' is distinct from 'ai'\r\n  or coalesce(new.metadata->'morth_link_review'->'reviewer'->>'model','')=''\r\n  then raise exception 'MoRTH research candidates must retain explicit AI evidence and costing hold'; end if;\r\n for o in select value from jsonb_array_elements(new.rate->'options') loop\r\n  if not exists(select 1 from public.morth m where m.code=o->>'morth_code'\r\n    and m.source_edition=o->>'source_edition' and m.source_pages=o->'source_pages') then\r\n   raise exception 'Unknown or changed MoRTH key/source evidence: %',o->>'morth_code';\r\n  end if;\r\n end loop;\r\n return new;\r\nend $function$\n"
+    },
+    {
+      "name": "sor_morth_analysis_options",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_morth_analysis_options(p_recipe_code text, p_year text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare resolved jsonb; y public.\"SOR_Year\"; n bigint; options jsonb;\r\nbegin\r\n resolved:=public.sor_resolve_recipe_year(p_recipe_code,p_year);\r\n if coalesce((resolved->>'requires_review')::boolean,false) then return resolved; end if;\r\n select count(*) into n from public.\"SOR_Year\" where recipe_code=resolved->>'recipe_code' and year=p_year;\r\n if n<>1 then return resolved||jsonb_build_object('status',case when n=0 then 'selected_year_rate_missing' else 'annual_scope_review_required' end,'rate',null); end if;\r\n select * into y from public.\"SOR_Year\" where recipe_code=resolved->>'recipe_code' and year=p_year;\r\n if y.rate->>'type' is distinct from 'morth_analysis' then return resolved||jsonb_build_object('status','not_morth_analysis_reference','rate',null); end if;\r\n select coalesce(jsonb_agg(o.value||jsonb_build_object('description',m.description,\r\n  'description_detail',m.description_detail,'project_category',m.project_category,'unit',m.unit,\r\n  'analysis_quantity',m.analysis_quantity,'rate_divisor',m.rate_divisor,'analysis',m.recipe,\r\n  'can_auto_price',false) order by o.n),'[]'::jsonb) into options\r\n from jsonb_array_elements(y.rate->'options') with ordinality o(value,n)\r\n join public.morth m on m.code=o.value->>'morth_code';\r\n return resolved||jsonb_build_object('year',p_year,'year_row_code',y.year_row_code,'unit',y.unit,'status',y.rate->>'status',\r\n  'rate',null,'cost_ready',false,'options',options,'requirements',y.rate->'requirements','reason',y.rate->>'reason',\r\n  'review',y.metadata->'morth_link_review','to_be_printed',y.to_be_printed);\r\nend $function$\n"
+    },
+    {
+      "name": "sor_morth_analysis_rate_valid",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_morth_analysis_rate_valid(v jsonb)\n RETURNS boolean\n LANGUAGE plpgsql\n IMMUTABLE STRICT\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare o jsonb; codes text[]:=array[]::text[]; s jsonb;\r\nbegin\r\n if jsonb_typeof(v) is distinct from 'object' or not(v ?& array['schema_version','type','status','options','requirements','reason'])\r\n  or (v-array['schema_version','type','status','options','requirements','reason'])<>'{}'::jsonb\r\n  or v->'schema_version' is distinct from '1'::jsonb or v->>'type' is distinct from 'morth_analysis'\r\n  or coalesce(v->>'status','') not in ('scope_review_required','no_matching_analysis')\r\n  or jsonb_typeof(v->'options') is distinct from 'array'\r\n  or jsonb_typeof(v->'requirements') is distinct from 'array'\r\n  or jsonb_typeof(v->'reason') is distinct from 'string' or length(btrim(v->>'reason'))=0 then return false; end if;\r\n if jsonb_array_length(v->'options')>512 or jsonb_array_length(v->'requirements')=0\r\n  or ((jsonb_array_length(v->'options')>0)<>(v->>'status'='scope_review_required')) then return false; end if;\r\n for s in select value from jsonb_array_elements(v->'requirements') loop\r\n  if jsonb_typeof(s)<>'string' or length(btrim(s#>>'{}'))=0 then return false; end if;\r\n end loop;\r\n for o in select value from jsonb_array_elements(v->'options') loop\r\n  if jsonb_typeof(o) is distinct from 'object'\r\n   or not(o ?& array['morth_code','relationship','review_status','source_pages','source_edition'])\r\n   or (o-array['morth_code','relationship','review_status','source_pages','source_edition'])<>'{}'::jsonb\r\n   or jsonb_typeof(o->'morth_code') is distinct from 'string' or (o->>'morth_code')!~'^MORTH-.+'\r\n   or coalesce(o->>'relationship','') not in ('whole_work_candidate','component_candidate')\r\n   or o->>'review_status' is distinct from 'scope_review_required'\r\n   or jsonb_typeof(o->'source_edition') is distinct from 'string' or length(btrim(o->>'source_edition'))=0\r\n   or jsonb_typeof(o->'source_pages') not in ('array','object')\r\n   or o->'source_pages' in ('[]'::jsonb,'{}'::jsonb,'null'::jsonb)\r\n   or (o->>'morth_code')=any(codes) then return false; end if;\r\n  codes:=array_append(codes,o->>'morth_code');\r\n end loop;\r\n return true;\r\nend $function$\n"
+    },
+    {
+      "name": "sor_morth_referenced_key_guard",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_morth_referenced_key_guard()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\nbegin\r\n if tg_op='UPDATE' and new.code=old.code and new.recipe->>'source_edition' is not distinct from old.source_edition\r\n  and new.recipe->'source_pages' is not distinct from old.source_pages then return new; end if;\r\n if exists(select 1 from public.\"SOR_Year\" y cross join lateral jsonb_array_elements(coalesce(y.rate->'options','[]'::jsonb)) o\r\n  where y.rate->>'type'='morth_analysis' and o->>'morth_code'=old.code) then\r\n  raise exception 'MoRTH key/source is referenced by reviewed SOR annual analysis links; reconcile before changing it';\r\n end if;\r\n if tg_op='DELETE' then return old; end if; return new;\r\nend $function$\n"
+    }
+  ],
+  "foundation_sample": {
+    "sample": {
+      "code": "MORTH-2019-12.01-I-A-i-large",
+      "part": "Bridge Works",
+      "unit": "cum",
+      "labour": [
+        {
+          "desc": "Mate",
+          "sign": 1,
+          "unit": "day",
+          "source": {
+            "printed_page": 409,
+            "chapter_pdf_page": 9,
+            "original_pdf_page": 429
+          },
+          "sor_ref": {
+            "table": "SOR_Recipie_View",
+            "component": "rate",
+            "recipe_code": "SOR-P01-T07-R0130",
+            "review_status": "approved"
+          },
+          "quantity": 0.14,
+          "price_lookup": {
+            "code": "SOR-P01-T07-R0130",
+            "unit": "day",
+            "table": "SOR_Year",
+            "filters": [
+              "year",
+              "zone",
+              "effective_from"
+            ],
+            "join_key": "recipe_code",
+            "join_keys": [
+              "recipe_code"
+            ],
+            "link_review": {
+              "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "LAB_SS_10",
+              "legacy_table": "labour_rate"
+            },
+            "pricing_rpc": "sor_resource_quote",
+            "recipe_code": "SOR-P01-T07-R0130",
+            "identity_table": "SOR_Recipie_View",
+            "rate_component": "rate",
+            "annual_quote_check": {
+              "year": "2026-27",
+              "zone": "zone_3",
+              "status": "priced",
+              "available": true,
+              "check_only": true,
+              "evidence_file": "Morth/source_evidence/final_annual_quote_probes.json",
+              "zone_is_not_a_project_default": true
+            },
+            "require_priced_status": true,
+            "allow_cross_year_fallback": false,
+            "published_component_label": "rate",
+            "require_priced_rpc_result": true,
+            "require_selected_year_rate": true,
+            "allow_cross_region_fallback": false,
+            "require_region_compatibility": true
+          },
+          "quantity_raw": "0.140",
+          "resource_key": "morth:mate",
+          "sor_link_ref": "morth:mate",
+          "resource_identity": {
+            "version": 3,
+            "resolution": "linked",
+            "unresolved": false,
+            "recipe_code": "SOR-P01-T07-R0130",
+            "source_table": "SOR_Recipie_View",
+            "pricing_review_required": false
+          },
+          "source_quantity_column": "large",
+          "source_quantities_by_project_category": {
+            "large": 0.14,
+            "small": 0.14,
+            "medium": 0.14
+          }
+        },
+        {
+          "desc": "Mazdoor",
+          "sign": 1,
+          "unit": "day",
+          "source": {
+            "printed_page": 409,
+            "chapter_pdf_page": 9,
+            "original_pdf_page": 429
+          },
+          "sor_ref": {
+            "table": "SOR_Recipie_View",
+            "component": "rate",
+            "recipe_code": "SOR-P01-T07-R0089",
+            "review_status": "approved"
+          },
+          "quantity": 3.5,
+          "price_lookup": {
+            "code": "SOR-P01-T07-R0089",
+            "unit": "day",
+            "table": "SOR_Year",
+            "filters": [
+              "year",
+              "zone",
+              "effective_from"
+            ],
+            "join_key": "recipe_code",
+            "join_keys": [
+              "recipe_code"
+            ],
+            "link_review": {
+              "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "LAB_U_03",
+              "legacy_table": "labour_rate"
+            },
+            "pricing_rpc": "sor_resource_quote",
+            "recipe_code": "SOR-P01-T07-R0089",
+            "identity_table": "SOR_Recipie_View",
+            "rate_component": "rate",
+            "annual_quote_check": {
+              "year": "2026-27",
+              "zone": "zone_3",
+              "status": "priced",
+              "available": true,
+              "check_only": true,
+              "evidence_file": "Morth/source_evidence/final_annual_quote_probes.json",
+              "zone_is_not_a_project_default": true
+            },
+            "require_priced_status": true,
+            "allow_cross_year_fallback": false,
+            "published_component_label": "rate",
+            "require_priced_rpc_result": true,
+            "require_selected_year_rate": true,
+            "allow_cross_region_fallback": false,
+            "require_region_compatibility": true
+          },
+          "quantity_raw": "3.500",
+          "resource_key": "morth:mazdoor",
+          "sor_link_ref": "morth:mazdoor",
+          "resource_identity": {
+            "version": 3,
+            "resolution": "linked",
+            "unresolved": false,
+            "recipe_code": "SOR-P01-T07-R0089",
+            "source_table": "SOR_Recipie_View",
+            "pricing_review_required": false
+          },
+          "source_quantity_column": "large",
+          "source_quantities_by_project_category": {
+            "large": 3.5,
+            "small": 3.5,
+            "medium": 3.5
+          }
+        }
+      ],
+      "others": [
+        {
+          "base": "labour_cost",
+          "default": null,
+          "percent": 10,
+          "source_note": "Up to printed allowance; actual site assessment",
+          "printed_page": 409,
+          "percent_is_maximum": true,
+          "condition_parameter": "dewatering_required",
+          "require_explicit_project_selection": true
+        },
+        {
+          "base": "foundation_excavation_cost",
+          "default": null,
+          "percent": 1,
+          "source_note": "Shoring/strutting where needed; review adopted excavation-cost base to prevent circular/double markup",
+          "printed_page": 409,
+          "percent_is_maximum": true,
+          "condition_parameter": "shoring_strutting_required",
+          "require_explicit_project_selection": true
+        }
+      ],
+      "recipe": {
+        "code": "MORTH-2019-12.01-I-A-i-large",
+        "unit": "cum",
+        "notes": [
+          "Surplus excavation reused locally; no off-site disposal included except separate marshy-soil analysis."
+        ],
+        "labour": [
+          {
+            "desc": "Mate",
+            "sign": 1,
+            "unit": "day",
+            "source": {
+              "printed_page": 409,
+              "chapter_pdf_page": 9,
+              "original_pdf_page": 429
+            },
+            "sor_ref": {
+              "table": "SOR_Recipie_View",
+              "component": "rate",
+              "recipe_code": "SOR-P01-T07-R0130",
+              "review_status": "approved"
+            },
+            "quantity": 0.14,
+            "price_lookup": {
+              "code": "SOR-P01-T07-R0130",
+              "unit": "day",
+              "table": "SOR_Year",
+              "filters": [
+                "year",
+                "zone",
+                "effective_from"
+              ],
+              "join_key": "recipe_code",
+              "join_keys": [
+                "recipe_code"
+              ],
+              "link_review": {
+                "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+                "status": "approved",
+                "reviewer": {
+                  "kind": "ai",
+                  "model": "GPT-6"
+                },
+                "legacy_code": "LAB_SS_10",
+                "legacy_table": "labour_rate"
+              },
+              "pricing_rpc": "sor_resource_quote",
+              "recipe_code": "SOR-P01-T07-R0130",
+              "identity_table": "SOR_Recipie_View",
+              "rate_component": "rate",
+              "annual_quote_check": {
+                "year": "2026-27",
+                "zone": "zone_3",
+                "status": "priced",
+                "available": true,
+                "check_only": true,
+                "evidence_file": "Morth/source_evidence/final_annual_quote_probes.json",
+                "zone_is_not_a_project_default": true
+              },
+              "require_priced_status": true,
+              "allow_cross_year_fallback": false,
+              "published_component_label": "rate",
+              "require_priced_rpc_result": true,
+              "require_selected_year_rate": true,
+              "allow_cross_region_fallback": false,
+              "require_region_compatibility": true
+            },
+            "quantity_raw": "0.140",
+            "resource_key": "morth:mate",
+            "sor_link_ref": "morth:mate",
+            "resource_identity": {
+              "version": 3,
+              "resolution": "linked",
+              "unresolved": false,
+              "recipe_code": "SOR-P01-T07-R0130",
+              "source_table": "SOR_Recipie_View",
+              "pricing_review_required": false
+            },
+            "source_quantity_column": "large",
+            "source_quantities_by_project_category": {
+              "large": 0.14,
+              "small": 0.14,
+              "medium": 0.14
+            }
+          },
+          {
+            "desc": "Mazdoor",
+            "sign": 1,
+            "unit": "day",
+            "source": {
+              "printed_page": 409,
+              "chapter_pdf_page": 9,
+              "original_pdf_page": 429
+            },
+            "sor_ref": {
+              "table": "SOR_Recipie_View",
+              "component": "rate",
+              "recipe_code": "SOR-P01-T07-R0089",
+              "review_status": "approved"
+            },
+            "quantity": 3.5,
+            "price_lookup": {
+              "code": "SOR-P01-T07-R0089",
+              "unit": "day",
+              "table": "SOR_Year",
+              "filters": [
+                "year",
+                "zone",
+                "effective_from"
+              ],
+              "join_key": "recipe_code",
+              "join_keys": [
+                "recipe_code"
+              ],
+              "link_review": {
+                "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+                "status": "approved",
+                "reviewer": {
+                  "kind": "ai",
+                  "model": "GPT-6"
+                },
+                "legacy_code": "LAB_U_03",
+                "legacy_table": "labour_rate"
+              },
+              "pricing_rpc": "sor_resource_quote",
+              "recipe_code": "SOR-P01-T07-R0089",
+              "identity_table": "SOR_Recipie_View",
+              "rate_component": "rate",
+              "annual_quote_check": {
+                "year": "2026-27",
+                "zone": "zone_3",
+                "status": "priced",
+                "available": true,
+                "check_only": true,
+                "evidence_file": "Morth/source_evidence/final_annual_quote_probes.json",
+                "zone_is_not_a_project_default": true
+              },
+              "require_priced_status": true,
+              "allow_cross_year_fallback": false,
+              "published_component_label": "rate",
+              "require_priced_rpc_result": true,
+              "require_selected_year_rate": true,
+              "allow_cross_region_fallback": false,
+              "require_region_compatibility": true
+            },
+            "quantity_raw": "3.500",
+            "resource_key": "morth:mazdoor",
+            "sor_link_ref": "morth:mazdoor",
+            "resource_identity": {
+              "version": 3,
+              "resolution": "linked",
+              "unresolved": false,
+              "recipe_code": "SOR-P01-T07-R0089",
+              "source_table": "SOR_Recipie_View",
+              "pricing_review_required": false
+            },
+            "source_quantity_column": "large",
+            "source_quantities_by_project_category": {
+              "large": 3.5,
+              "small": 3.5,
+              "medium": 3.5
+            }
+          }
+        ],
+        "chapter": "12",
+        "ref_to_m": "304",
+        "machinery": [],
+        "materials": [],
+        "cost_ready": false,
+        "calculation": {
+          "profit_base": "eligible_direct_cost_plus_overheads",
+          "overhead_base": "labour_plus_machinery_plus_materials_plus_percentage_allowances_excluding_marked_dependencies",
+          "overhead_default": null,
+          "overhead_percent": null,
+          "direct_cost_sections": [
+            "labour"
+          ],
+          "unit_rate_expression": "(direct_cost + percentage_allowances + overheads + contractor_profit)/rate_divisor",
+          "parent_markup_applied": true,
+          "percentage_allowances": [
+            {
+              "base": "labour_cost",
+              "default": null,
+              "percent": 10,
+              "source_note": "Up to printed allowance; actual site assessment",
+              "printed_page": 409,
+              "percent_is_maximum": true,
+              "condition_parameter": "dewatering_required",
+              "require_explicit_project_selection": true
+            },
+            {
+              "base": "foundation_excavation_cost",
+              "default": null,
+              "percent": 1,
+              "source_note": "Shoring/strutting where needed; review adopted excavation-cost base to prevent circular/double markup",
+              "printed_page": 409,
+              "percent_is_maximum": true,
+              "condition_parameter": "shoring_strutting_required",
+              "require_explicit_project_selection": true
+            }
+          ],
+          "direct_cost_definition": "Sum physical component costs before percentage allowances, overheads and profit",
+          "component_cost_expression": "sign * evaluated_quantity * selected_year_unit_rate",
+          "contractor_profit_percent": 10,
+          "profit_source_printed_page": 404,
+          "calculation_review_required": false,
+          "overhead_selection_parameter": "bridge_project_type",
+          "overhead_source_printed_page": 403,
+          "markup_excluded_resource_keys": [],
+          "percentage_allowance_evaluation": "Apply once to the named cost base before overheads; review supplied tax/transport and dependency boundaries",
+          "overhead_percent_by_project_type": {
+            "rehabilitation": 30,
+            "new_or_widening": 20
+          }
+        },
+        "description": "Ordinary-soil foundation excavation, manual, depth up to 3 m",
+        "printed_item": "12.01",
+        "rate_divisor": 10,
+        "review_flags": [
+          {
+            "type": "project_parameter_required",
+            "parameter": "dewatering_required"
+          },
+          {
+            "type": "project_parameter_required",
+            "parameter": "shoring_strutting_required"
+          },
+          {
+            "type": "approved_design_required",
+            "parameter": "approved_design_and_material_specifications"
+          },
+          {
+            "type": "project_parameter_required",
+            "parameter": "bridge_project_type"
+          },
+          {
+            "type": "rate_zone_and_effective_date_selection_required",
+            "parameter": "selected_project_zone",
+            "recipe_code": "SOR-P01-T07-R0130"
+          },
+          {
+            "type": "rate_zone_and_effective_date_selection_required",
+            "parameter": "selected_project_zone",
+            "recipe_code": "SOR-P01-T07-R0089"
+          }
+        ],
+        "source_pages": [
+          {
+            "printed_page": 409,
+            "chapter_pdf_page": 9,
+            "original_pdf_page": 429
+          }
+        ],
+        "source_issues": [],
+        "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+        "design_required": true,
+        "section_heading": "Foundations",
+        "analysis_variant": "12.01-I-A-i",
+        "project_category": "large",
+        "sor_recipe_links": {
+          "key": "recipe_code",
+          "table": "SOR_Recipie_View",
+          "reason": "No confirmed complete SOR work definition equivalent; verified ingredients are linked independently.",
+          "status": "no_confirmed_scope_equivalent",
+          "approved_links": []
+        },
+        "analysis_quantity": 10,
+        "extraction_method": "direct_visual_reading_no_ocr",
+        "rate_availability": {
+          "selected_sor_year": "2026-27",
+          "selected_year_complete": true,
+          "allow_cross_year_fallback": false,
+          "allow_cross_region_fallback": false
+        },
+        "annual_rate_lookup": {
+          "pricing_rpc": "sor_resource_quote",
+          "rate_tables": [
+            "SOR_Year"
+          ],
+          "identity_view": "SOR_Recipie_View",
+          "lookup_filters": [
+            "recipe_code",
+            "year",
+            "zone",
+            "effective_from"
+          ],
+          "allow_cross_year_fallback": false,
+          "require_selected_year_rate": true,
+          "allow_cross_region_fallback": false,
+          "require_region_compatibility": true
+        },
+        "description_detail": "",
+        "sor_mapping_status": "review_required",
+        "calculation_overrides": {
+          "overhead_default": null,
+          "overhead_percent": null,
+          "contractor_profit_percent": 10,
+          "profit_source_printed_page": 404,
+          "overhead_selection_parameter": "bridge_project_type",
+          "overhead_source_printed_page": 403,
+          "overhead_percent_by_project_type": {
+            "rehabilitation": 30,
+            "new_or_widening": 20
+          }
+        },
+        "percentage_allowances": [
+          {
+            "base": "labour_cost",
+            "default": null,
+            "percent": 10,
+            "source_note": "Up to printed allowance; actual site assessment",
+            "printed_page": 409,
+            "percent_is_maximum": true,
+            "condition_parameter": "dewatering_required",
+            "require_explicit_project_selection": true
+          },
+          {
+            "base": "foundation_excavation_cost",
+            "default": null,
+            "percent": 1,
+            "source_note": "Shoring/strutting where needed; review adopted excavation-cost base to prevent circular/double markup",
+            "printed_page": 409,
+            "percent_is_maximum": true,
+            "condition_parameter": "shoring_strutting_required",
+            "require_explicit_project_selection": true
+          }
+        ],
+        "identity_links_resolved": true,
+        "required_project_parameters": [
+          "approved_design_and_material_specifications",
+          "bridge_project_type",
+          "dewatering_required",
+          "selected_project_zone",
+          "shoring_strutting_required"
+        ],
+        "additional_required_parameters": [
+          "dewatering_required",
+          "shoring_strutting_required"
+        ]
+      },
+      "chapter": "12",
+      "heading": "Foundations",
+      "quantity": 10,
+      "machinery": [],
+      "materials": [],
+      "cost_ready": false,
+      "created_at": "2026-10-13T08:57:17.134152+00:00",
+      "updated_at": "2026-10-13T08:57:17.134152+00:00",
+      "calculation": {
+        "profit_base": "eligible_direct_cost_plus_overheads",
+        "overhead_base": "labour_plus_machinery_plus_materials_plus_percentage_allowances_excluding_marked_dependencies",
+        "overhead_default": null,
+        "overhead_percent": null,
+        "direct_cost_sections": [
+          "labour"
+        ],
+        "unit_rate_expression": "(direct_cost + percentage_allowances + overheads + contractor_profit)/rate_divisor",
+        "parent_markup_applied": true,
+        "percentage_allowances": [
+          {
+            "base": "labour_cost",
+            "default": null,
+            "percent": 10,
+            "source_note": "Up to printed allowance; actual site assessment",
+            "printed_page": 409,
+            "percent_is_maximum": true,
+            "condition_parameter": "dewatering_required",
+            "require_explicit_project_selection": true
+          },
+          {
+            "base": "foundation_excavation_cost",
+            "default": null,
+            "percent": 1,
+            "source_note": "Shoring/strutting where needed; review adopted excavation-cost base to prevent circular/double markup",
+            "printed_page": 409,
+            "percent_is_maximum": true,
+            "condition_parameter": "shoring_strutting_required",
+            "require_explicit_project_selection": true
+          }
+        ],
+        "direct_cost_definition": "Sum physical component costs before percentage allowances, overheads and profit",
+        "component_cost_expression": "sign * evaluated_quantity * selected_year_unit_rate",
+        "contractor_profit_percent": 10,
+        "profit_source_printed_page": 404,
+        "calculation_review_required": false,
+        "overhead_selection_parameter": "bridge_project_type",
+        "overhead_source_printed_page": 403,
+        "markup_excluded_resource_keys": [],
+        "percentage_allowance_evaluation": "Apply once to the named cost base before overheads; review supplied tax/transport and dependency boundaries",
+        "overhead_percent_by_project_type": {
+          "rehabilitation": 30,
+          "new_or_widening": 20
+        }
+      },
+      "description": "Ordinary-soil foundation excavation, manual, depth up to 3 m",
+      "content_hash": "4bde18baa5483e9594acab298577cad41940e405c121638e8ba0ae94242ae65c",
+      "printed_item": "12.01",
+      "rate_divisor": 10,
+      "review_flags": [
+        {
+          "type": "project_parameter_required",
+          "parameter": "dewatering_required"
+        },
+        {
+          "type": "project_parameter_required",
+          "parameter": "shoring_strutting_required"
+        },
+        {
+          "type": "approved_design_required",
+          "parameter": "approved_design_and_material_specifications"
+        },
+        {
+          "type": "project_parameter_required",
+          "parameter": "bridge_project_type"
+        },
+        {
+          "type": "rate_zone_and_effective_date_selection_required",
+          "parameter": "selected_project_zone",
+          "recipe_code": "SOR-P01-T07-R0130"
+        },
+        {
+          "type": "rate_zone_and_effective_date_selection_required",
+          "parameter": "selected_project_zone",
+          "recipe_code": "SOR-P01-T07-R0089"
+        }
+      ],
+      "source_pages": [
+        {
+          "printed_page": 409,
+          "chapter_pdf_page": 9,
+          "original_pdf_page": 429
+        }
+      ],
+      "rate_structure": {
+        "profit_base": "eligible_direct_cost_plus_overheads",
+        "overhead_base": "labour_plus_machinery_plus_materials_plus_percentage_allowances_excluding_marked_dependencies",
+        "overhead_default": null,
+        "overhead_percent": null,
+        "direct_cost_sections": [
+          "labour"
+        ],
+        "unit_rate_expression": "(direct_cost + percentage_allowances + overheads + contractor_profit)/rate_divisor",
+        "parent_markup_applied": true,
+        "percentage_allowances": [
+          {
+            "base": "labour_cost",
+            "default": null,
+            "percent": 10,
+            "source_note": "Up to printed allowance; actual site assessment",
+            "printed_page": 409,
+            "percent_is_maximum": true,
+            "condition_parameter": "dewatering_required",
+            "require_explicit_project_selection": true
+          },
+          {
+            "base": "foundation_excavation_cost",
+            "default": null,
+            "percent": 1,
+            "source_note": "Shoring/strutting where needed; review adopted excavation-cost base to prevent circular/double markup",
+            "printed_page": 409,
+            "percent_is_maximum": true,
+            "condition_parameter": "shoring_strutting_required",
+            "require_explicit_project_selection": true
+          }
+        ],
+        "direct_cost_definition": "Sum physical component costs before percentage allowances, overheads and profit",
+        "component_cost_expression": "sign * evaluated_quantity * selected_year_unit_rate",
+        "contractor_profit_percent": 10,
+        "profit_source_printed_page": 404,
+        "calculation_review_required": false,
+        "overhead_selection_parameter": "bridge_project_type",
+        "overhead_source_printed_page": 403,
+        "markup_excluded_resource_keys": [],
+        "percentage_allowance_evaluation": "Apply once to the named cost base before overheads; review supplied tax/transport and dependency boundaries",
+        "overhead_percent_by_project_type": {
+          "rehabilitation": 30,
+          "new_or_widening": 20
+        }
+      },
+      "source_context": {
+        "source": {
+          "file": "Morth/mort_sdb_2019_chapters/12_Foundations.pdf",
+          "method": "direct_visual_reading_no_ocr",
+          "sha256": "9ddd7e7049accc817b4014bad58aed2cc560f58307fce791a9a705d799085901",
+          "printed_pages": [
+            401,
+            548
+          ],
+          "chapter_pdf_pages": 148,
+          "original_pdf_pages": [
+            421,
+            568
+          ],
+          "reviewed_chapter_pdf_pages": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            63,
+            64,
+            65,
+            66,
+            67,
+            68,
+            69,
+            70,
+            71,
+            72,
+            73,
+            74,
+            75,
+            76,
+            77,
+            78,
+            79,
+            80,
+            81,
+            82,
+            83,
+            84,
+            85,
+            86,
+            87,
+            88,
+            89,
+            90,
+            91,
+            92,
+            93,
+            94,
+            95,
+            96,
+            97,
+            98,
+            99,
+            100,
+            101,
+            102,
+            103,
+            104,
+            105,
+            106,
+            107,
+            108,
+            109,
+            110,
+            111,
+            112,
+            113,
+            114,
+            115,
+            116,
+            117,
+            118,
+            119,
+            120,
+            121,
+            122,
+            123,
+            124,
+            125,
+            126,
+            127,
+            128,
+            129,
+            130,
+            131,
+            132,
+            133,
+            134,
+            135,
+            136,
+            137,
+            138,
+            139,
+            140,
+            141,
+            142,
+            143,
+            144,
+            145,
+            146,
+            147,
+            148
+          ]
+        },
+        "chapter": "Foundations",
+        "preamble": [
+          "Bridge general conditions pp403–405: overhead 20% for new/widening bridge/structure work, 30% for rehabilitation; profit 10% including overhead. This project-type choice is independent of large/medium/small quantity columns and requires explicit selection.",
+          "Bridge overhead includes site setup/access, administration/supervision/as-built documentation, mobilization, camps/worker transport, quality-control testing, minor tools/survey/setting out, temporary diversion, watch/ward, traffic management, environment, sundries, finance and insurance/compensation.",
+          "Materials priced at site including crushing/source cost, loading, carriage, unloading and stacking. Where analysis separately includes haul, check its scope to prevent duplication.",
+          "Highly skilled bridge labour includes first-class mason, carpenter, first-class blacksmith, welder, plumber, first-class electrician and mechanics. One mate per 25 labourers.",
+          "Bridge bearings and expansion joints use approved manufacturer quotations; normal/compound curing covered, steam curing within precast PSC analysis.",
+          "Special structures/erection techniques and changed sizes/specifications require project-specific analyses. Floating barges for deep/wide water crossings provided separately.",
+          "Well sinking covers 6–12 m diameter and 12x6 m Twin-D wells; other geometry requires approved proportional/project analysis.",
+          "Concrete well-staining lifts 2–2.5 m, free fall at most 1.5 m, layers 450 mm.",
+          "Manual/mechanical foundation excavation alternatives; backfill and use surplus locally except marshy soil disposal. Rock excavation considered to 3 m depth.",
+          "Dewatering where needed; site conditions may omit it. No dewatering during open-foundation placement and 24 hours after, or within 7 days of bottom-plug casting.",
+          "Concrete batching plant generally within 1 km; longer lead priced in tonne-km. Coarse/fine aggregate per printed IS383 reference, approved mix design required.",
+          "Pneumatic well sinking specialized; source restricts depth to 30 m below normal water level and calls for medical supervision.",
+          "Pile-driving rigs include power units/accessories; retained driven-pile steel casing priced separately. Pile concrete includes 600 mm sacrificial head allowance.",
+          "Pile-cap levelling M15, open-foundation levelling 100 mm M10. Foundation-rock embedment protection M15 to 0.6 m hard/1.5 m soft rock, then cement-grouted boulders.",
+          "Well-curb concrete at least M25, reinforcement minimum 72 kg/cum excluding bond rods; steel protection plate at least 10 mm through curb, 6 mm above limited to 3 m.",
+          "Bottom-plug mix minimum cement 330 kg/cum and about 150 mm slump; plug top at least 300 mm above curb.",
+          "Pile concrete at least M35, cement minimum 400 kg/cum; pile embeds 50 mm into cap with full anchorage. Cap thickness at least max(0.6 m,1.5 pile diameters)."
+        ],
+        "schema_version": 2,
+        "annual_rate_table": "SOR_Year",
+        "annual_rate_policy": {
+          "year_selection": "at_costing_time",
+          "zone_selection": "selected_project_zone",
+          "selected_sor_year": "2026-27",
+          "allow_cross_year_fallback": false,
+          "allow_cross_region_fallback": false
+        },
+        "context_only_items": [
+          {
+            "code": "part_B_title",
+            "description": "Bridge Works divider",
+            "printed_page": 401
+          },
+          {
+            "code": "blank_page_402",
+            "printed_page": 402
+          },
+          {
+            "code": "blank_page_406",
+            "printed_page": 406
+          }
+        ],
+        "extraction_complete": true,
+        "mapping_identity_view": "SOR_Recipie_View",
+        "source_resource_table": "analysis_resource",
+        "quantity_column_policy": "Large/medium/small are alternative project categories, independent of SOR geographic zone.",
+        "dependency_costing_policy": "Resolve referenced sub-analysis directly; review markup and carriage boundaries to prevent duplicate charges.",
+        "source_lead_symbol_policy": "Preserve printed L1; actual water and material/plant leads are independent project parameters with no defaults."
+      },
+      "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+      "component_links": [
+        {
+          "kind": "labour",
+          "unit": "day",
+          "status": "linked",
+          "candidates": [],
+          "description": "Mate",
+          "price_lookup": {
+            "code": "SOR-P01-T07-R0130",
+            "unit": "day",
+            "table": "SOR_Year",
+            "filters": [
+              "year",
+              "zone",
+              "effective_from"
+            ],
+            "join_key": "recipe_code",
+            "join_keys": [
+              "recipe_code"
+            ],
+            "link_review": {
+              "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "LAB_SS_10",
+              "legacy_table": "labour_rate"
+            },
+            "pricing_rpc": "sor_resource_quote",
+            "recipe_code": "SOR-P01-T07-R0130",
+            "identity_table": "SOR_Recipie_View",
+            "rate_component": "rate",
+            "annual_quote_check": {
+              "year": "2026-27",
+              "zone": "zone_3",
+              "status": "priced",
+              "available": true,
+              "check_only": true,
+              "evidence_file": "Morth/source_evidence/final_annual_quote_probes.json",
+              "zone_is_not_a_project_default": true
+            },
+            "require_priced_status": true,
+            "allow_cross_year_fallback": false,
+            "published_component_label": "rate",
+            "require_priced_rpc_result": true,
+            "require_selected_year_rate": true,
+            "allow_cross_region_fallback": false,
+            "require_region_compatibility": true
+          },
+          "resource_key": "morth:mate",
+          "approved_links": [
+            {
+              "name": "Gang man / Head / Survey mazdoor",
+              "table": "SOR_Recipie_View",
+              "reason": "Mate interpreted as gang/head mazdoor supervising a labour gang; generic MoRTH role, not an exact printed-name match.",
+              "link_review": {
+                "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+                "status": "approved",
+                "reviewer": {
+                  "kind": "ai",
+                  "model": "GPT-6"
+                },
+                "legacy_code": "LAB_SS_10",
+                "legacy_table": "labour"
+              },
+              "master_code": "SOR-P01-T07-R0130",
+              "match_basis": "role_equivalence",
+              "recipe_code": "SOR-P01-T07-R0130"
+            }
+          ],
+          "interpretation": "Mate interpreted as gang/head mazdoor supervising a labour gang; generic MoRTH role, not an exact printed-name match.",
+          "specifications": {},
+          "identity_origin": "existing_sor",
+          "selected_year_available": true
+        },
+        {
+          "kind": "labour",
+          "unit": "day",
+          "status": "linked",
+          "candidates": [],
+          "description": "Mazdoor",
+          "price_lookup": {
+            "code": "SOR-P01-T07-R0089",
+            "unit": "day",
+            "table": "SOR_Year",
+            "filters": [
+              "year",
+              "zone",
+              "effective_from"
+            ],
+            "join_key": "recipe_code",
+            "join_keys": [
+              "recipe_code"
+            ],
+            "link_review": {
+              "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "LAB_U_03",
+              "legacy_table": "labour_rate"
+            },
+            "pricing_rpc": "sor_resource_quote",
+            "recipe_code": "SOR-P01-T07-R0089",
+            "identity_table": "SOR_Recipie_View",
+            "rate_component": "rate",
+            "annual_quote_check": {
+              "year": "2026-27",
+              "zone": "zone_3",
+              "status": "priced",
+              "available": true,
+              "check_only": true,
+              "evidence_file": "Morth/source_evidence/final_annual_quote_probes.json",
+              "zone_is_not_a_project_default": true
+            },
+            "require_priced_status": true,
+            "allow_cross_year_fallback": false,
+            "published_component_label": "rate",
+            "require_priced_rpc_result": true,
+            "require_selected_year_rate": true,
+            "allow_cross_region_fallback": false,
+            "require_region_compatibility": true
+          },
+          "resource_key": "morth:mazdoor",
+          "approved_links": [
+            {
+              "name": "Man mazdoor",
+              "table": "SOR_Recipie_View",
+              "reason": "Generic manual Mazdoor mapped to existing unskilled Man mazdoor master; source does not specify gender.",
+              "link_review": {
+                "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+                "status": "approved",
+                "reviewer": {
+                  "kind": "ai",
+                  "model": "GPT-6"
+                },
+                "legacy_code": "LAB_U_03",
+                "legacy_table": "labour"
+              },
+              "master_code": "SOR-P01-T07-R0089",
+              "match_basis": "role_equivalence",
+              "recipe_code": "SOR-P01-T07-R0089"
+            }
+          ],
+          "interpretation": "Generic manual Mazdoor mapped to existing unskilled Man mazdoor master; source does not specify gender.",
+          "specifications": {},
+          "identity_origin": "existing_sor",
+          "selected_year_available": true
+        }
+      ],
+      "section_heading": "Foundations",
+      "project_category": "large",
+      "analysis_quantity": 10,
+      "description_detail": "",
+      "sor_mapping_status": "review_required"
+    }
+  },
+  "final_projection_checks": {
+    "project_category_counts": {
+      "small": 1062,
+      "medium": 1062,
+      "large": 1062,
+      "not_applicable": 136,
+      "null": 23
+    },
+    "generated_aliases": {
+      "heading": "recipe ->> 'section_heading'",
+      "others": "coalesce(recipe -> 'percentage_allowances', '[]')",
+      "quantity": "(recipe ->> 'analysis_quantity')::numeric",
+      "rate_structure": "recipe -> 'calculation'"
+    },
+    "source_rows_with_nonempty_others": 1458,
+    "allowance_sample": {
+      "base": "sign_material_subtotal",
+      "percent": 1,
+      "source_note": "Drilling holes, nuts, bolts and accessories",
+      "printed_page": 284
+    }
+  }
+}

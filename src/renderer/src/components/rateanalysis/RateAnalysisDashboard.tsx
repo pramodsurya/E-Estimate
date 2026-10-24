@@ -1,3 +1,4 @@
+import MorthDataPreview from '../data/MorthDataPreview'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
@@ -313,7 +314,8 @@ export default function RateAnalysisDashboard(): JSX.Element {
             sorYear,
             distanceKm: variant.actualLeadKm ?? variant.leadKm,
             quantity: current.outputQuantity || 1,
-            zone: null
+            zone: sorZone,
+            source: variant.pipeLead
           })
           breakdown = pipeLeadQuoteBreakdown(quote, sorZone)
           effectiveQuantitySource =
@@ -329,6 +331,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
           breakdown = calculateLeadVariantChargeFromRows(syncedLeadRates, {
             year: sorYear,
             zone: sorZone,
+            leadRuleCode: info.sorRuleCode,
             conveyanceClass: variant.conveyanceClass,
             distanceKm: variant.leadKm,
             quantity: effectiveQuantity,
@@ -598,14 +601,15 @@ export default function RateAnalysisDashboard(): JSX.Element {
               not be resolved automatically and currently show a zero rate.
             </div>
           ) : null}
-          <RateAnalysisTable
+          {draft.itemSource!=='MORTH'&&<RateAnalysisTable
             recipe={draft}
             editing={editing}
             onChange={updateDraft}
             leadApplications={leadApplications}
             leadVariants={leadVariants}
             onLeadApplicationQuantityChange={updateLeadApplicationQuantity}
-          />
+          />}
+          {draft.itemSource==='MORTH' && <MorthDataPreview recipe={draft}/>}
           {draft.itemSource === 'SSR' && <RecalculationAudit recipe={draft} />}
           {!selection.recipeOnly && (
             <section className="rate-usages">

@@ -944,7 +944,8 @@ function addonAnalysis(
   definition: JsonRecord,
   annual: JsonRecord,
   label: string,
-  publishedRate: number
+  publishedRate: number,
+  sourceCode: string
 ): RateAnalysisOptionalAdditionAnalysis | undefined {
   const rated = record(annual.rates)
   const sectionTotals: Partial<Record<RateAnalysisSectionKey, number>> = {}
@@ -963,6 +964,7 @@ function addonAnalysis(
       if (!description || quantity === null || rate === null || amount === null) return []
       if (/^ni?ll?$/i.test(description) && quantity === 0 && amount === 0) return []
       return [{
+        individualCostInput: {owner: 'SSR' as const, kind: key, raw: row, context: `${sourceCode}:addon:${text(annual.id)}:${index}`},
         id: `addon-${text(annual.id)}-${key}-${index}`,
         slNo: text(row.sl ?? row.sl_no) || String(index + 1),
         description,
@@ -1052,7 +1054,7 @@ function structuredAddonSpec(
       rate: Math.round((input.baseRate + addOnRate) * 100) / 100,
       addOnRate,
       componentRates: [input.baseRate, addOnRate],
-      additionAnalysis: addonAnalysis(recipeDefinition, detailAnnual, label, addOnRate),
+      additionAnalysis: addonAnalysis(recipeDefinition, detailAnnual, label, addOnRate, sourceItem || input.code),
       leadMaterials: addonLeadMaterials(
         addonId,
         input.leadApplicability,

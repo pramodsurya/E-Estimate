@@ -95,6 +95,18 @@ export function createBrowserApi(): EestimateApi {
     canal: {
       calculateQuantities: async () => {
         throw new Error(BROWSER_HINT)
+      },
+      calculateCutting: async () => {
+        throw new Error(BROWSER_HINT)
+      },
+      exportCuttingExcel: async () => {
+        throw new Error(BROWSER_HINT)
+      },
+      calculateEmbankment: async () => {
+        throw new Error(BROWSER_HINT)
+      },
+      exportEmbankmentExcel: async () => {
+        throw new Error(BROWSER_HINT)
       }
     },
     rateAnalysis: {

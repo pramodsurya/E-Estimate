@@ -72,6 +72,8 @@ pub struct RateAnalysisRecipe {
     pub published_rate_blocks: Option<Vec<Value>>,
     #[serde(default)]
     pub data_variant: Option<Value>,
+    #[serde(default)]
+    pub morth: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub post_rate_multiplier: Option<f64>,
 }
@@ -87,6 +89,18 @@ fn default_overhead_percent() -> f64 {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RateAnalysisSummary {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_ready: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing: Vec<String>,
+    #[serde(default)]
+    pub profit_amount: f64,
+    #[serde(default)]
+    pub allowance_amount: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub computed_lines: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub morth_abstract: Option<Value>,
     pub section_totals: RateAnalysisSectionTotals,
     pub labour_base_cost: f64,
     pub area_allowance_percent: f64,

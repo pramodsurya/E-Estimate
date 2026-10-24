@@ -1,0 +1,372 @@
+.rate-sheet.morth-sheet {
+  min-width: 0;
+  background: #fff;
+  font-family: Calibri, Arial, sans-serif;
+  font-size: 17px;
+  line-height: 1.2;
+}
+.morth-sheet button {
+  cursor: pointer;
+  font: inherit;
+}
+.morth-sheet-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 12px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--reconstruction-line);
+  font-size: 14px;
+}
+.morth-sheet button:not(.btn-mini) {
+  color: var(--reconstruction-teal);
+  background: transparent;
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 0;
+}
+.morth-sheet-nav button[aria-current] {
+  color: var(--reconstruction-navy);
+  font-weight: 700;
+  border-bottom: 2px solid var(--reconstruction-teal);
+}
+.morth-sheet-nav label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.morth-sheet select,
+.morth-sheet input {
+  color: var(--reconstruction-ink);
+  background: #fff;
+  border: 1px solid #bac2ca;
+  border-radius: 4px;
+  padding: 7px 9px;
+  font: inherit;
+  max-width: 100%;
+}
+.morth-sheet-nav select {
+  max-width: 460px;
+}
+.morth-appendix-context {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+.morth-appendix-context span {
+  color: #617684;
+}
+.morth-sheet-section {
+  --morth-section-color: var(--reconstruction-navy);
+  --morth-section-fill: var(--reconstruction-sky);
+  width: calc(100% - 78px);
+  margin: 14px 0 0 78px;
+}
+.morth-section-materials {
+  --morth-section-color: var(--reconstruction-teal);
+  --morth-section-fill: var(--reconstruction-mint);
+}
+.morth-section-labour {
+  --morth-section-color: #7451a6;
+  --morth-section-fill: var(--reconstruction-lilac);
+}
+.morth-sheet-section h4 {
+  font-size: 18px;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin: 0 0 6px 4px;
+  color: var(--morth-section-color);
+}
+.morth-sheet-scroll {
+  overflow: auto;
+  max-width: 100%;
+}
+.morth-sheet table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  color: inherit;
+  min-width: 690px;
+  font: inherit;
+}
+.morth-sheet th,
+.morth-sheet td {
+  border-left: 1px solid var(--reconstruction-line);
+  border-right: 1px solid var(--reconstruction-line);
+  padding: 6px;
+  vertical-align: middle;
+}
+.morth-sheet thead th {
+  background: var(--morth-section-color);
+  color: #fff;
+  text-align: center;
+  font-weight: 700;
+  border-top: 1px solid var(--reconstruction-line);
+  border-bottom: 1px solid var(--reconstruction-line);
+  line-height: 1.1;
+  padding: 6px;
+}
+.morth-sheet tbody tr:last-child > * {
+  border-bottom: 1px solid var(--reconstruction-line);
+}
+.morth-sheet td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.morth-col-sl {
+  width: 6%;
+}
+.morth-col-description {
+  width: 39%;
+}
+.morth-col-unit {
+  width: 9%;
+}
+.morth-col-number {
+  width: 13%;
+}
+.morth-col-amount {
+  width: 14%;
+}
+.morth-col-action {
+  width: 6%;
+}
+.morth-sheet .morth-particular {
+  text-align: left;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+.morth-sheet .morth-serial,
+.morth-sheet .morth-unit {
+  text-align: center;
+}
+.morth-sheet .morth-alt-row td {
+  background: #f8fafc;
+}
+.morth-sheet td small {
+  display: block;
+  color: #617684;
+  font-size: 11px;
+  line-height: 1.3;
+  margin-top: 4px;
+}
+.morth-sheet td button.morth-sheet-reference {
+  display: flex;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.25;
+  margin-top: 3px;
+}
+.morth-sheet .morth-row-edit {
+  font-size: 12px;
+  justify-content: center;
+  width: 100%;
+}
+.morth-row-edit svg {
+  flex-shrink: 0;
+}
+.morth-section-total > * {
+  font-weight: 400;
+  background: var(--morth-section-fill);
+  border-top: 1px solid var(--reconstruction-line);
+}
+.morth-section-total th {
+  text-align: left;
+}
+.morth-section-total td:nth-last-child(2) {
+  font-weight: 700;
+}
+.morth-sheet-abstract th:first-child,
+.morth-sheet-abstract td:first-child {
+  text-align: left;
+  width: 40%;
+}
+.morth-sheet-abstract th:nth-child(2),
+.morth-sheet-abstract td:nth-child(2) {
+  width: 28%;
+  text-align: left;
+}
+.morth-sheet-abstract th:nth-child(3) {
+  width: 13%;
+}
+.morth-sheet-abstract tbody tr:nth-child(even) td {
+  background: #f8fafc;
+}
+.morth-sheet-abstract td:nth-child(2) {
+  font-size: 14px;
+}
+.morth-sheet-abstract .morth-abstract-total td {
+  font-weight: 700;
+  background: var(--reconstruction-sky);
+  border-top: 1px solid var(--reconstruction-line);
+}
+.morth-sheet-abstract .morth-abstract-total:last-child td {
+  border-top: 2px solid var(--reconstruction-navy);
+  background: var(--reconstruction-mint);
+}
+.morth-sheet-footnote {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: #617684;
+  margin: 10px 0;
+  line-height: 1.4;
+}
+.morth-sheet .morth-sheet-warning {
+  border-left: 3px solid #ad813e;
+  background: #fffaf1;
+  padding: 9px 12px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.morth-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.morth-sheet .morth-row-editor td {
+  text-align: left;
+  padding: 16px;
+  background: #f9fafb;
+}
+.morth-row-editor-body header,
+.morth-row-editor-body footer {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+.morth-row-editor-fields {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+.morth-row-editor-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 160px;
+  font-size: 12px;
+}
+.morth-row-editor-body footer {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.morth-row-editor-body footer small {
+  margin-right: auto;
+  max-width: 360px;
+}
+.morth-sheet .btn-mini {
+  color: #263e50;
+  border: 1px solid #bbc5cd;
+  background: #fff;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+.morth-sheet button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.morth-sheet button:focus-visible {
+  outline: 2px solid #5986a8;
+  outline-offset: 3px;
+}
+.morth-used-by {
+  font-size: 12px;
+  margin-top: 20px;
+}
+.misc-costs .cost-table input {
+  width: 90px;
+}
+.misc-costs > p {
+  color: var(--text-secondary, #777);
+  margin: 18px 0;
+}
+.misc-costs .cost-table small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-secondary, #777);
+}
+
+@media (max-width: 1000px) {
+  .rate-sheet.morth-sheet {
+    padding: 24px;
+  }
+  .morth-sheet-section {
+    width: 100%;
+    margin-left: 0;
+  }
+  .morth-sheet .rate-description {
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .morth-sheet .rate-document-meta > span {
+    white-space: normal;
+    text-align: right;
+  }
+  .morth-sheet .rate-sheet-heading {
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+  }
+}
+@media (max-width: 800px) {
+  .rate-sheet.morth-sheet {
+    padding: 20px 12px;
+  }
+  .morth-sheet-nav {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .morth-sheet-nav label {
+    width: 100%;
+  }
+  .morth-sheet-nav select {
+    width: 100%;
+    min-width: 0;
+  }
+  .morth-appendix-context {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .morth-sheet .rate-sheet-heading {
+    font-size: 15px;
+    gap: 8px;
+  }
+  .morth-sheet .rate-sheet-heading > strong {
+    font-size: 16px;
+  }
+  .morth-sheet .rate-basis {
+    gap: 8px;
+  }
+  .morth-sheet .rate-document-header {
+    gap: 12px;
+  }
+}
+.morth-sheet-abstract thead th:nth-child(2) {
+  text-align: left;
+}
+
+.misc-costs .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.misc-costs .cost-actions > span {
+  margin-right: auto;
+}

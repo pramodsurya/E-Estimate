@@ -237,7 +237,7 @@ function buildLeadAbstract(
       }, row.pipeLead).dataCount += 1
       continue
     }
-    if (row.source !== 'SSR' && row.source !== 'PROJECT_DATA') continue
+    if (!['SSR','SOR','PROJECT_DATA'].includes(row.source)) continue
     for (const ref of materialRefsForLeadInfo(parseLeadInfo(row.metadata), row.description)) {
       ensure(ref).dataCount += 1
     }

@@ -1,5 +1,7 @@
 # Reviewed SOR selector
 
+Retired on 23 October 2026. This document records the former implementation only. Its components, RPC adapters and archived-table paths have been removed from the application. The active design and implementation are in [sor-selector-redesign.md](sor-selector-redesign.md).
+
 The Add Item SOR column defaults to the reviewed annual dataset. Basic rates and the legacy catalogue remain accessible. SSR selection and its existing annual add-on review are unchanged.
 
 The frontend uses the five published RPCs:
@@ -74,3 +76,11 @@ Release publishers must invoke `rebuild_sor_reviewed_navigation(release_id)` in 
 `npm run test:sor-navigation` uses live RPC captures to verify source hierarchy, distinct cable specifications, cross-page order, VRF capacities, price units/bases, location mapping, anchored navigation and cancellation. `supabase/tests/reviewed_sor_navigation.sql` passes against the live database under the anonymous role and verifies total coverage, node counts, hidden rows, pagination, year isolation, repeated labels, actual Plumbing subsections, rejection of matrix column headings, anchored paging, read-only grants and tray rule scope.
 
 Chromium checks with captured live responses pass for cable navigation, 6/8/10 HP order, search-to-section highlighting, the server calculation snapshot, preserving quantity/extras when browsing and resetting extras on year change. Browser-to-Supabase traffic is blocked by this cloud workspace’s host policy, so browser tests use connector-captured responses; live SQL tests use the Supabase connector. TypeScript, lint, production renderer build and the reviewed/legacy pricing and persistence regression suites pass.
+
+### Browse timeout fix — 10 October 2026
+
+The project-zone browse RPC previously materialized every variant in the selected edition and expanded every retained JSON path, even when opening a small schedule. A public REST request reproduced PostgreSQL error `57014` under the anonymous role's three-second statement timeout.
+
+Migration `20261009222428_reviewed_sor_scoped_browse.sql` is applied to the live project. It traverses the requested parent's indexed navigation hierarchy, counts eligible descendants by project zone, ranks compact item IDs, and builds observation DTOs only for the requested page. DTO fields are selected explicitly, avoiding serialization of the full source payload before removing it. Invoker permissions, RLS, source order, pagination, anchors and pricing remain intact; the anonymous timeout remains three seconds.
+
+Anonymous SQL measurements after the fix returned a leakage-repair schedule in approximately 253 ms and the book index in approximately 102 ms. Public REST calls to both returned HTTP 200. `supabase/tests/reviewed_sor_browse_performance.sql` passed against the live database across all four editions and all three zones, checking repeated-call query budgets, independent source-path counts/order, exact observation DTO compatibility, nested headings, paging and anchors. The existing live navigation and project-zone SQL suites and `npm run test:sor-navigation` / `npm run test:sor-reviewed` also passed. This change requires no renderer rebuild.

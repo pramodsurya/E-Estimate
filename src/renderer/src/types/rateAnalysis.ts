@@ -1,5 +1,6 @@
+import type { IndividualCostInput } from './individualCosts'
 import type { ConveyanceClass, PipeLeadSource, ProjectDataRateSource } from './project'
-import type { ReviewedSorSelection } from './sorReviewed'
+import type { SorItemSelection } from './sor'
 
 export type RateAnalysisSectionKey = 'materials' | 'machinery' | 'labour'
 
@@ -42,6 +43,8 @@ export interface RateAnalysisLayout {
 }
 
 export interface RateAnalysisLine {
+  individualCostInput?: IndividualCostInput
+  individualCost?: { key: string; mode: string; label: string; publishedRate: number | null }
   id: string
   slNo: string
   description: string
@@ -115,8 +118,8 @@ export interface RateAnalysisLine {
     resourceKey?: string
   }
   /**
-   * Material master code governing this line's rate. SSR lines carry no code of their
-   * own, so it is resolved through ssr_material_alias and cached here once matched.
+   * Current SOR material identity governing this line's rate, supplied by the
+   * source resource identity or an unambiguous current SSR resource alias.
    */
   materialCode?: string
   /** Set when a per-project monthly material rate replaced the published rate. */
@@ -128,11 +131,6 @@ export interface RateAnalysisLine {
     masterUnit: string
     /** Published rate this replaced, retained for the audit trail. */
     publishedRate: number
-  }
-  sorRef?: {
-    table: 'labour_rate' | 'machinery_rate'
-    code: string
-    component?: string
   }
   linkedRate?: {
     rate: number
@@ -380,9 +378,11 @@ export interface SeigniorageApplicabilityPolicy {
 }
 
 export interface RateAnalysisRecipe {
+  miscellaneousDefaults?: { overheadPercent: number }
+  morth?: { source: Record<string, unknown>; parameters: Record<string, string | number | boolean>; inputs: Record<string, {rate:number|null; raw:Record<string,unknown>; dependency?: RateAnalysisRecipe}>; printedItem: string; pending: string[]; sourceErrors?: string[]; startingSummary?: RateAnalysisSummary }
   schemaVersion: 1
   itemKey: string
-  itemSource: 'SSR' | 'SOR' | 'OTHERS'
+  itemSource: 'SSR' | 'SOR' | 'MORTH' | 'OTHERS'
   categoryKey: string
   itemCode: string
   documentTitle?: string
@@ -449,7 +449,7 @@ export interface RateAnalysisRecipe {
    */
   acknowledgedEdits?: string[]
   /** Reviewed insertion/refresh evidence, including the immutable server calculation. */
-  reviewedSor?: ReviewedSorSelection
+  sor?: SorItemSelection
   publishedRate?: number
   /** Printed non-numeric instruction/reference; it must never be coerced to zero. */
   publishedRateText?: string
@@ -515,6 +515,11 @@ export interface RateAnalysisRecipe {
 }
 
 export interface RateAnalysisSummary {
+  morthAbstract?: import('../lib/morthAppendices').MorthAbstractRow[]
+  costReady?: boolean
+  missing?: string[]
+  profitAmount?: number
+  allowanceAmount?: number
   sectionTotals: Record<RateAnalysisSectionKey, number>
   /** Labour line total before the project location allowance. */
   labourBaseCost: number

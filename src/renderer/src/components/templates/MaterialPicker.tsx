@@ -40,7 +40,8 @@ export default function MaterialPicker({
   initialSearch = '',
   selectionHint,
   categoryLocked = false,
-  allowedCodes
+  allowedCodes,
+  initialItem
 }: {
   onPick: (item: MasterItem) => void
   onClose: () => void
@@ -51,6 +52,7 @@ export default function MaterialPicker({
   /** Keep role-specific pickers inside one SSR chapter. */
   categoryLocked?: boolean
   /** Restrict a role to an explicit set of compatible SSR items. */
+  initialItem?: MasterItem
   allowedCodes?: string[]
 }): JSX.Element {
   const project = useStore((state) => state.project)
@@ -60,12 +62,32 @@ export default function MaterialPicker({
   const [semanticRanking, setSemanticRanking] = useState<SemanticRanking | null>(null)
   const [items, setItems] = useState<MasterItem[]>([])
   const [loading, setLoading] = useState(false)
-  const [checkingVariant, setCheckingVariant] = useState(false)
+  const [checkingVariant, setCheckingVariant] = useState(Boolean(initialItem))
   const [variantError, setVariantError] = useState<string | null>(null)
-  const [pendingItem, setPendingItem] = useState<MasterItem | null>(null)
+  const [pendingItem, setPendingItem] = useState<MasterItem | null>(initialItem ?? null)
   const [variantSpec, setVariantSpec] = useState<DataVariantSpec | null>(null)
   const [variantSelection, setVariantSelection] = useState<DataVariantSelection | undefined>()
   const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(()=>{
+    if(!initialItem)return
+    let active=true
+    const load=async():Promise<void>=>{
+      const year=project?.meta.sorYear
+      if(!year)throw new Error('Select the project SSR year before choosing variants.')
+      const [specs,sourceItems]=await Promise.all([
+        fetchDataVariantSpecs([initialItem.code],year),fetchSsrItems(initialCategory)
+      ])
+      if(!active)return
+      const resolved=sourceItems.find(item=>item.code===initialItem.code)
+      if(!resolved)throw new Error('This SSR item is unavailable. Go back to choose another code.')
+      setPendingItem({...initialItem,...resolved})
+      const spec=specs[initialItem.code];setVariantSpec(spec ?? null)
+      setVariantSelection(initialItem.dataVariant ?? (spec?defaultSelectionForVariantSpec(spec):undefined))
+    }
+    void load().catch(reason=>{if(active)setVariantError(reason instanceof Error?reason.message:String(reason))}).finally(()=>{if(active)setCheckingVariant(false)})
+    return ()=>{active=false}
+  },[initialItem,initialCategory,project?.meta.sorYear])
 
   const [prevCategory, setPrevCategory] = useState(category)
   if (prevCategory !== category) {
@@ -187,13 +209,9 @@ export default function MaterialPicker({
     try {
       const specs = await fetchDataVariantSpecs([item.code], year)
       const spec = specs[item.code]
-      if (!spec) {
-        onPick(item)
-        return
-      }
       setPendingItem(item)
-      setVariantSpec(spec)
-      setVariantSelection(defaultSelectionForVariantSpec(spec))
+      setVariantSpec(spec ?? null)
+      setVariantSelection(spec ? defaultSelectionForVariantSpec(spec) : undefined)
     } catch (error) {
       setVariantError(error instanceof Error ? error.message : String(error))
     } finally {
@@ -201,17 +219,18 @@ export default function MaterialPicker({
     }
   }
 
-  if (pendingItem && variantSpec) {
+  if (pendingItem) {
     return (
       <div className="gw-picker template-variant-picker">
-        <DataVariantReview
+        <h4>{pendingItem.description}</h4>
+        {checkingVariant ? <p>Loading variants…</p> : variantError ? <p role="alert">{variantError}</p> : !variantSpec ? <p>Standard configuration · no alternative variant required.</p> : <DataVariantReview
           heading="Choose DATA variant / add-on"
           specs={{ [variantSpec.code]: variantSpec }}
           selections={variantSelection ? { [variantSpec.code]: variantSelection } : {}}
           onSelect={(_code, spec, option) =>
             setVariantSelection(selectionForVariantOption(spec, option))
           }
-        />
+        />}
         <div className="template-variant-actions">
           <button
             type="button"
@@ -227,7 +246,7 @@ export default function MaterialPicker({
           <button
             type="button"
             className="btn"
-            disabled={!variantSelection}
+            disabled={checkingVariant || Boolean(variantError) || Boolean(variantSpec && !variantSelection)}
             onClick={() =>
               onPick({
                 ...pendingItem,

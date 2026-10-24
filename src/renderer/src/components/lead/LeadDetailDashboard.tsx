@@ -915,7 +915,8 @@ export default function LeadDetailDashboard(): JSX.Element {
             sorYear: project.meta.sorYear,
             distanceKm: variant.actualLeadKm ?? variant.leadKm,
             quantity: 1,
-            zone: null
+            zone: project.meta.sorZone ?? 'zone_3',
+            source: variant.pipeLead
           })
           return [
             variant.id,
@@ -985,7 +986,8 @@ export default function LeadDetailDashboard(): JSX.Element {
         sorYear: project.meta.sorYear,
         distanceKm: variant.actualLeadKm ?? variant.leadKm,
         quantity,
-        zone: null
+        zone: project.meta.sorZone ?? 'zone_3',
+        source: variant.pipeLead
       })
       if (quote.pipeLeadItemCode !== variant.pipeLead.pipeLeadItemCode) {
         throw new Error(
@@ -1030,7 +1032,8 @@ export default function LeadDetailDashboard(): JSX.Element {
         ),
         customGrossRate: variant.rateSource === 'chart' ? null : variant.customGrossRate ?? null,
         chargeCode: variant.chargeCode,
-        leadMultiplier: info.policy?.haulLegs ?? 1
+        leadMultiplier: info.policy?.haulLegs ?? 1,
+        leadRuleCode: info.sorRuleCode
       })
       quantitySource = quantity.source
     }

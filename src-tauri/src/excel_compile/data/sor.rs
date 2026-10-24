@@ -167,7 +167,7 @@ pub(super) fn write_sor_sheet(
             sor_r += 1;
         }
 
-        super::signature::apply_data_signature(ws_sor, &mut sor_r, req, true, 0, 3)?;
+        super::signature::apply_data_signature(ws_sor, &mut sor_r, req, req.morth.is_empty(), 0, 3)?;
         if sor_r > 0 {
             ws_sor.set_print_area(0, 0, sor_r - 1, 3)?;
         }

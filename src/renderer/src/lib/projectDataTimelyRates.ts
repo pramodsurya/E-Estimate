@@ -2,7 +2,7 @@ import type { ProjectDataDefinition, ProjectDataRateSource, ProjectNode, SorZone
 import type { RateAnalysisLine, RateAnalysisRecipe } from '../types/rateAnalysis'
 import { fetchRateAnalysis } from './rateAnalysis'
 import { supabase } from './supabase'
-import { annualRate, resolveBuiltInProjectData, sourceLineFor } from './builtInProjectData'
+import { annualRate, sourceLineFor } from './ssrResourceRates'
 import { projectDataRatesReady } from './projectDataDefaults'
 import { projectDataRowTimely, projectDataSorRateLink, projectDataUsesTimelyRates } from './projectDataRateLinks'
 
@@ -35,27 +35,15 @@ export function createProjectDataRateResolver(year: string, zone: SorZone) {
   }
 
   const sorPrice = async (source: ProjectDataRateSource & { component?: string }, unit: string): Promise<number> => {
-    // A fuel/hire subcomponent is not the machinery master's total hire rate.
-    if (source.component && (source.categoryKey === 'machinery' || source.categoryKey === 'labour')) {
-      const key = JSON.stringify(source)
-      let request = componentRates.get(key)
-      if (!request) {
-        request = (async () => {
-          const labour = source.categoryKey === 'labour'
-          const { data, error } = await supabase.from(labour ? 'labour_rate' : 'machinery_rate').select('*')
-            .eq(labour ? 'labour_code' : 'machinery_code', source.itemCode).eq('sor_year', year).maybeSingle()
-          if (error || !data) throw new Error(error?.message ?? `No ${year} ${source.categoryKey} rate exists for ${source.itemCode}.`)
-          const row = data as Record<string, unknown>
-          const zoned = (row.zone_rates as Record<string, unknown> | null)?.[zone]
-          const raw = labour ? zoned ?? row.rate
-            : (zoned as Record<string,unknown> | null)?.[source.component!] ?? row[source.component!]
-          if (raw === null || raw === undefined || !Number.isFinite(Number(raw)) || Number(raw) < 0) {
-            throw new Error(`Missing ${year} ${zone} ${source.component} rate for ${source.itemCode}.`)
-          }
-          return Number(raw)
-        })()
-        componentRates.set(key, request)
-      }
+    if(source.itemCode.startsWith('SOR-') && (!source.sorCatalogue || source.component && source.component!=='rate')) {
+      const key=JSON.stringify([source.itemCode,source.component,unit,year,zone])
+      let request=componentRates.get(key)
+      if(!request){request=(async()=>{
+        const {data,error}=await supabase.rpc('sor_resource_quote',{p_recipe_code:source.itemCode,p_year:year,p_zone:zone,p_component:source.component ?? 'rate',p_unit:unit})
+        const quote=data as Record<string,unknown>|null
+        if(error||quote?.status!=='priced'||quote.year!==year||quote.zone!==zone||quote.unit!==unit||typeof quote.rate!=='number'||!Number.isFinite(quote.rate))throw new Error(error?.message ?? `No compatible ${year} ${zone} SOR rate exists for ${source.itemCode}.`)
+        return quote.rate
+      })();componentRates.set(key,request)}
       return request
     }
     const recipe = await fetchSource(source)
@@ -72,10 +60,6 @@ export function createProjectDataRateResolver(year: string, zone: SorZone) {
     if (!force && projectDataRatesReady(definition, year, zone)) return definition
     if (!year) throw new Error('Select a SOR/SSR year to load Timely rates.')
 
-    if (definition.kind === 'ssr' && definition.builtIn && !definition.builtIn.initialized) {
-      definition = await resolveBuiltInProjectData(definition, year, zone, true)
-      return { ...definition, rateRefresh:{status:'ready',year,zone} }
-    }
     const rateRefresh = { status: 'ready' as const, year, zone }
     if (definition.kind === 'sor') {
       if (!definition.rateSource || definition.rateSource.itemSource !== 'SOR') {
@@ -85,23 +69,23 @@ export function createProjectDataRateResolver(year: string, zone: SorZone) {
       return { ...definition, rate, rateRefresh, updatedAt: new Date().toISOString() }
     }
 
-    const legacyBuiltIn = Boolean(definition.builtIn)
     const sections = await Promise.all(definition.sections.map(async section => ({
       ...section,
       lines: await Promise.all(section.lines.map(async (line): Promise<RateAnalysisLine> => {
-        if (!projectDataRowTimely(line, legacyBuiltIn)) return line
+        if (!projectDataRowTimely(line)) return line
         let rate: number
         if (line.ssrRateLink) {
           const recipe = await fetchSource({itemSource:'SSR',categoryKey:'ssr_item',itemCode:line.ssrRateLink.itemCode})
           const sourceLine = sourceLineFor(line,recipe)
           sameUnit(line.unit,sourceLine.unit,line.description)
-          if (sourceLine.sorRef?.table === 'machinery_rate' && !sourceLine.sorRef.component) {
-            throw new Error(`Missing machinery price component for ${line.description}.`)
-          }
-          rate = sourceLine.sorRef
-            ? await sorPrice({itemSource:'SOR',categoryKey:sourceLine.sorRef.table === 'labour_rate' ? 'labour' : 'machinery',
-                itemCode:sourceLine.sorRef.code,component:sourceLine.sorRef.table === 'labour_rate' ? 'rate' : sourceLine.sorRef.component},line.unit)
-            : annualRate(sourceLine)
+          if(line.ssrRateLink.section!=='materials'&&sourceLine.resourceIdentity?.sourceTable==='SOR_Year'){
+            const section=recipe.sections.find(section=>section.key===line.ssrRateLink!.section)
+            const index=section?.lines.indexOf(sourceLine) ?? -1
+            const {data,error}=await supabase.rpc('ssr_linked_resource_quote',{p_recipe_code:recipe.itemCode,p_analysis_scope:line.ssrRateLink.section,p_line_index:index,p_year:year,p_zone:zone})
+            const quote=data as Record<string,unknown>|null
+            if(error||quote?.status!=='priced'||quote.year!==year||quote.zone!==zone||quote.unit!==line.unit||typeof quote.rate!=='number'||!Number.isFinite(quote.rate))throw new Error(error?.message ?? `No compatible ${year} ${zone} source rate exists for ${line.description}.`)
+            rate=quote.rate
+          }else rate=annualRate(sourceLine)
         } else {
           const link = projectDataSorRateLink(line)
           if (!link) throw new Error(`Select a catalogue source for ${line.description}.`)
@@ -115,18 +99,14 @@ export function createProjectDataRateResolver(year: string, zone: SorZone) {
     })))
     let overheadPercent = definition.overheadPercent
     if (definition.timelyOverhead) {
-      const source = definition.rateSource ?? (definition.builtIn
-        ? {itemSource:'SSR' as const,categoryKey:'ssr_item',itemCode:definition.builtIn.sourceItemCode}
-        : undefined)
+      const source = definition.rateSource
       if (!source || source.itemSource !== 'SSR') throw new Error('Select an SSR source for Timely overhead.')
       overheadPercent = (await fetchSource(source)).overheadPercent
       if (!Number.isFinite(overheadPercent) || overheadPercent < 0) {
         throw new Error(`No valid ${year} SSR profit/overhead percentage exists for ${source.itemCode}.`)
       }
     }
-    return { ...definition, sections, overheadPercent, rateRefresh, updatedAt: new Date().toISOString(),
-      ...(definition.builtIn ? {builtIn:{...definition.builtIn,rateStatus:'ready' as const,
-        resolvedYear:year,resolvedZone:zone,error:undefined}} : {}) }
+    return { ...definition, sections, overheadPercent, rateRefresh, updatedAt: new Date().toISOString() }
   }
 }
 

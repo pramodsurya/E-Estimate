@@ -76,8 +76,11 @@ function errorMessage(reason: unknown): string {
 export function materialRateSignature(project: EestimateProject): string {
   const overrides = project.meta.materialRateOverrides ?? {}
   const codes = Object.keys(overrides).sort()
-  if (!codes.length && !project.meta.materialRateAsOf) return ''
+  if (!codes.length && !project.meta.materialRateAsOf && !Object.keys(project.meta.individualCosts ?? {}).length && !project.meta.morthParameters && !Object.keys(project.meta.miscellaneousCosts ?? {}).length) return ''
   return JSON.stringify({
+    individualCosts: Object.entries(project.meta.individualCosts ?? {}).sort(([a],[b])=>a.localeCompare(b)),
+    miscellaneousCosts: project.meta.miscellaneousCosts,
+    morthParameters: project.meta.morthParameters,
     asOf: project.meta.materialRateAsOf ?? '',
     overrides: codes.map((code) => ({
       code,
@@ -133,18 +136,19 @@ export function dashboardItemSignature(item: ProjectNode): string {
     // Version 2 includes the published SSR `section_heading` in each compiled
     // recipe. This makes older snapshots refresh instead of silently retaining
     // a recipe that was saved before headings were available in DATA.
-    sourceShapeVersion: item.itemSource === 'SSR' ? 2 : 1,
+    sourceShapeVersion: item.itemSource === 'SSR' ? 2 : item.itemSource === 'MORTH' ? 5 : 3,
     projectDataId: item.projectDataId ?? '',
     itemCode: item.itemCode ?? '',
     categoryKey: item.categoryKey ?? '',
     itemSource: item.itemSource ?? '',
     unit: item.unit ?? '',
     dataVariant: item.dataVariant ?? null,
+    morth: item.morth,
     sorCatalogue: item.sorCatalogue
       ? {
-          catalogueCode: item.sorCatalogue.catalogueCode,
-          dimensions: item.sorCatalogue.dimensions,
-          reviewed: item.sorCatalogue.reviewed ?? null
+          selectionKey: item.sorCatalogue.selectionKey,
+          year: item.sorCatalogue.year,
+          zone: item.sorCatalogue.zone
         }
       : null
   })
@@ -262,7 +266,9 @@ async function fetchDashboardSourceGroup(
           context.sorYear,
           context.sorZone,
           project.meta.materialRateOverrides,
-          { percent: allowance.percent, label: allowance.label }
+          { percent: allowance.percent, label: allowance.label },
+          project.meta.individualCosts,
+          project.meta.miscellaneousCosts
         )
         return {
           id: item.id,
@@ -280,16 +286,20 @@ async function fetchDashboardSourceGroup(
       zone: context.sorZone,
       areaAllowancePercent: allowance.percent,
       areaAllowanceLabel: allowance.label,
+      individualCosts: project.meta.individualCosts,
+      miscellaneousCosts: project.meta.miscellaneousCosts,
+      morthParameters: project.meta.morthParameters,
       materialRateOverrides: project.meta.materialRateOverrides
     })
   } catch (reason) {
     fetchFailure = errorMessage(reason)
   }
   const fetchedRate = fetchedRecipe ? await dashboardRateFromRecipe(fetchedRecipe) : null
-  return group.map((item) => {
+  return Promise.all(group.map(async (item) => {
     const saved = rateAnalysisOverrideForNode(project, item)
+    const adjustedRate = fetchedRecipe && saved && (fetchedRecipe.miscellaneousDefaults || saved.miscellaneousDefaults) ? await dashboardRateFromRecipe(mergeSavedRecipe(fetchedRecipe,saved)) : fetchedRate
     const sourceFailure =
-      fetchFailure && (item.itemSource === 'SSR' || item.itemSource === 'SOR')
+      fetchFailure && (item.itemSource === 'SSR' || item.itemSource === 'SOR' || item.itemSource === 'MORTH')
         ? {
             code: item.itemCode?.trim() || item.name,
             message: fetchFailure
@@ -297,11 +307,11 @@ async function fetchDashboardSourceGroup(
         : undefined
     return {
       id: item.id,
-      rate: fetchedRate,
+      rate: adjustedRate,
       recipe: fetchedRecipe ?? saved,
       sourceFailure
     }
-  })
+  }))
 }
 
 function assertDashboardSourcesLoaded(rows: DashboardItemFetchRow[], sorYear: string): void {
@@ -341,8 +351,8 @@ function leanSnapshotRecipe(recipe: RateAnalysisRecipe): RateAnalysisRecipe {
 }
 
 async function dashboardRateFromRecipe(recipe: RateAnalysisRecipe): Promise<number | null> {
-  const usesAdjustedInputs = recipe.sections.some((section) =>
-    section.lines.some((line) => Boolean(line.linkedRate || line.rateOverride))
+  const usesAdjustedInputs = Boolean(recipe.miscellaneousDefaults) || recipe.sections.some((section) =>
+    section.lines.some((line) => Boolean(line.linkedRate || line.rateOverride || line.individualCost))
   )
   const isUnadjusted =
     !usesAdjustedInputs &&
@@ -508,6 +518,8 @@ export function dashboardLeadCompileSignature(project: EestimateProject): string
       .filter((id): id is string => Boolean(id))
   )
   return JSON.stringify({
+    // Existing snapshots must be synced after separating SSR policy and fixing pipe zones.
+    calculationVersion: 2,
     projectData: (project.projectData ?? [])
       .filter((definition) => usedProjectDataIds.has(definition.id))
       .map((definition) => ({
@@ -603,7 +615,7 @@ export function compileDataDashboardEntries(
       // edited in, however long ago that was — the sheet would print the
       // current year over an old number.
       const priced = dashboardRecipeForNode(project, snapshot, item) ?? resolution.recipe
-      if (typeof priced.publishedRate === 'number' && Number.isFinite(priced.publishedRate)) {
+      if (!priced.miscellaneousDefaults && typeof priced.publishedRate === 'number' && Number.isFinite(priced.publishedRate)) {
         baseRate = priced.publishedRate
       } else if (priced.recalculation?.calculatedRate != null && Number.isFinite(Number(priced.recalculation.calculatedRate))) {
         baseRate = Number(priced.recalculation.calculatedRate)
@@ -801,19 +813,13 @@ function projectWithLeadApplicationUpdates(
 /**
  * Re-price ordinary lead charges at the year being synced.
  *
- * `lead_rate` is published per year, but only *pipe* lead applications were
- * ever recomputed — an ordinary conveyance charge kept the `grossAmount` it was
- * given when it was applied, and that amount is added straight onto the item
- * rate. Change the SOR year and the schedule moved while the charge did not.
- *
  * Only the *rates* are recomputed. The quantity is the estimator's — it may
  * have been typed by hand — and the haul itself has not changed: the variant
  * still holds the same route, lift and handling. What changed is the schedule
  * those inputs are priced against.
  *
- * Deliberately narrow: an application already priced in this year is left
- * exactly as it is. Re-pricing it could only move a figure that is already
- * right, and this path exists to fix ones that are known to be wrong.
+ * Current SOR tariff snapshots reprice on every explicit Sync, including the
+ * same year/zone. Legacy snapshots retain their original refresh behavior.
  */
 function repriceLeadApplications(
   project: EestimateProject,
@@ -828,7 +834,7 @@ function repriceLeadApplications(
   )
   const updates: LeadApplication[] = []
   for (const application of project.leadChart?.applications ?? []) {
-    if (application.rateYear === year && application.rateZone === zone) continue
+    if (application.rateYear === year && application.rateZone === zone && !leadRates.some(row => row.source)) continue
     const variant = variants.get(application.variantId)
     // Pipe lead has its own refresh, which re-derives quantity from the quote.
     if (!variant || variant.pipeLead) continue
@@ -854,7 +860,8 @@ function repriceLeadApplications(
         includedBasis: basisForData(info, variant.includedBasis, description, variant),
         customGrossRate: variant.rateSource === 'chart' ? null : variant.customGrossRate ?? null,
         chargeCode: variant.chargeCode,
-        leadMultiplier: info.policy?.haulLegs ?? 1
+        leadMultiplier: info.policy?.haulLegs ?? 1,
+        leadRuleCode: info.sorRuleCode
       })
       const outputQuantity = application.outputQuantity || 0
       updates.push({
@@ -874,9 +881,12 @@ function repriceLeadApplications(
         rateYear: year,
         appliedAt: new Date().toISOString()
       })
-    } catch {
+    } catch (reason) {
       // A charge this schedule cannot price keeps its stored figure and its old
       // `rateYear`, so the staleness stays visible instead of being papered over.
+      if (leadRates.some(row => row.source)) {
+        throw new Error(`Unable to refresh Lead for ${application.itemCode}: ${errorMessage(reason)}`)
+      }
     }
   }
   return updates
@@ -913,7 +923,8 @@ async function refreshPipeLeadApplications(
             sorYear: project.meta.sorYear,
             distanceKm: variant.actualLeadKm ?? variant.leadKm,
             quantity: outputQuantity,
-            zone: null
+            zone: project.meta.sorZone ?? 'zone_3',
+            source: pipeLead
           })
           if (quote.pipeLeadItemCode !== pipeLead.pipeLeadItemCode) {
             throw new Error(
@@ -1099,7 +1110,7 @@ export async function syncLeadDashboardSnapshot(
   )
   const [itemData, leadRates, applicability, pipeLeadQuoteEntries] = await Promise.all([
     fetchDashboardItemData(project, items),
-    fetchLeadRates(project.meta.sorYear, project.meta.sorZone ?? 'zone_3'),
+    fetchLeadRates(project.meta.sorYear, project.meta.sorZone ?? 'zone_3', true),
     fetchSsrLeadApplicability(leadCodes),
     Promise.all(
       pipeVariants.map(async (variant) => [
@@ -1109,14 +1120,21 @@ export async function syncLeadDashboardSnapshot(
           sorYear: project.meta.sorYear,
           distanceKm: variant.actualLeadKm ?? variant.leadKm,
           quantity: 1,
-          zone: null
+          zone: project.meta.sorZone ?? 'zone_3',
+          source: variant.pipeLead
         })
       ] as const)
     )
   ])
   const merged = mergeDashboardItemData(project, items, itemData)
+  const leadMetadata = new Map<string, unknown>([
+    ...Array.from(applicability, ([code, row]) => [code, row.lead_applicability] as const),
+    ...Object.values(merged.recipes).filter(recipe => recipe.itemSource === 'SOR')
+      .map(recipe => [recipe.itemCode, recipe.leadApplicability] as const),
+    ...Object.entries(customLeadMetadata)
+  ])
   const leadApplicationUpdates = [
-    ...repriceLeadApplications(project, leadRates, applicability, items),
+    ...repriceLeadApplications(project, leadRates, leadMetadata, items),
     ...(await refreshPipeLeadApplications(project, merged.recipes, items))
   ]
   const projectWithCurrentPipeLead = projectWithLeadApplicationUpdates(
@@ -1135,12 +1153,7 @@ export async function syncLeadDashboardSnapshot(
     leadRates,
     pipeLeadQuotes: Object.fromEntries(pipeLeadQuoteEntries),
     leadApplicationUpdates,
-    leadApplicability: Object.fromEntries(
-      [
-        ...Array.from(applicability, ([code, row]) => [code, row.lead_applicability] as const),
-        ...Object.entries(customLeadMetadata)
-      ]
-    )
+    leadApplicability: Object.fromEntries(leadMetadata)
   }
   return {
     ...withLead,

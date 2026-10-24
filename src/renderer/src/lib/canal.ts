@@ -4107,6 +4107,7 @@ export function syncCanalItems(root: ProjectNode, componentId: string): ProjectN
       unit: keep(req.ref.unit ?? undefined, prior?.unit ?? undefined),
       categoryKey: keep(req.ref.categoryKey, prior?.categoryKey) ?? (req.ref.code.startsWith('IRR-') ? 'ssr_item' : undefined),
       dataVariant: keep(req.ref.dataVariant, prior?.dataVariant),
+      morth: keep(req.ref.morth, prior?.morth),
       sorCatalogue: keep(req.ref.sorCatalogue, prior?.sorCatalogue),
       computedQuantity: req.quantity,
       spreadsheet: undefined,

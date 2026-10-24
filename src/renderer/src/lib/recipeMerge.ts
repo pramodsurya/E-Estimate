@@ -104,7 +104,7 @@ function mergeLine(source: RateAnalysisLine, saved: RateAnalysisLine): RateAnaly
     // global application from a hand-typed rate. Holding it here would pin the
     // project to the material rate that was current when the sheet was last
     // opened, instead of the one it is being re-priced against now.
-    if (field === 'rate' && saved.rateOverride) continue
+    if (field === 'rate' && (saved.rateOverride || saved.individualCost)) continue
     switch (field) {
       case 'sl_no':
         merged.slNo = saved.slNo
@@ -173,7 +173,7 @@ function hasEstimatorEdit(line: RateAnalysisLine): boolean {
   const edited = line.editedFields ?? []
   // A rate written by the Cement/Steel page is re-applied from the project, not
   // carried, so losing its marking costs nothing.
-  if (edited.length === 1 && edited[0] === 'rate' && line.rateOverride) return false
+  if (edited.length === 1 && edited[0] === 'rate' && (line.rateOverride || line.individualCost)) return false
   return edited.length > 0
 }
 
@@ -362,6 +362,7 @@ export function mergeSavedRecipe(
   source: RateAnalysisRecipe,
   saved: RateAnalysisRecipe
 ): RateAnalysisRecipe {
+  const miscellaneousChanged = Boolean(source.miscellaneousDefaults || saved.miscellaneousDefaults) && source.overheadPercent !== saved.overheadPercent
   const merged = mergeRecipeSectionsWithReport(
     source.sections,
     saved.sections,
@@ -385,8 +386,13 @@ export function mergeSavedRecipe(
     publishedRateBlocks: source.publishedRateBlocks,
     publishedRate: source.publishedRate,
     publishedRateText: source.publishedRateText,
-    reviewedSor: source.reviewedSor,
-    sorCatalogueSource: source.reviewedSor ? source.sorCatalogueSource : saved.sorCatalogueSource ?? source.sorCatalogueSource,
+    sor: source.sor,
+    morth: source.morth,
+    miscellaneousDefaults: source.miscellaneousDefaults,
+    recalculation: miscellaneousChanged ? undefined : saved.recalculation ?? source.recalculation,
+    calculationStale: miscellaneousChanged || saved.calculationStale || source.calculationStale,
+    overheadPercent: source.morth || source.miscellaneousDefaults || saved.miscellaneousDefaults ? source.overheadPercent : saved.overheadPercent,
+    sorCatalogueSource: source.sor ? source.sorCatalogueSource : saved.sorCatalogueSource ?? source.sorCatalogueSource,
     publishedLabourComponent: source.publishedLabourComponent,
     multiRateClassification: source.multiRateClassification,
     dataVariant: source.dataVariant,

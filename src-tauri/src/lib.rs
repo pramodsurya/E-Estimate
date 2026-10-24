@@ -4,6 +4,8 @@ use tauri::Manager;
 
 mod bund;
 mod canal;
+mod canal_engine_embankment_excel;
+mod canal_engine_excel;
 pub mod excel_compile;
 mod export;
 mod image;
@@ -63,6 +65,10 @@ pub fn run() {
             bund::bund_simulate,
             bund::bund_cancel,
             canal::canal_calculate_quantities,
+            canal::canal_engine_calculate_cutting,
+            canal::canal_engine_export_cutting_excel,
+            canal::canal_engine_calculate_embankment,
+            canal::canal_engine_export_embankment_excel,
             rate_analysis::rate_analysis_calculate,
             rate_analysis::rate_analysis_calculate_base,
             rate_analysis::rate_analysis_batch_calculate,
