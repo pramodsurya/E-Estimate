@@ -1,0 +1,131 @@
+{
+  "captured_on": "2026-10-23",
+  "project": "hqddsxnykndgcmxwqwmn",
+  "scope": "read-only live SQL calls, zone_3",
+  "revision_quotes": [{"requested_code":"SOR-P01-T07-R0111","requested_year":"2025-26","resolved_code":"SOR-P01-T07-R0111","status":"priced","rate":805,"unit":"day","requires_review":false,"fallback_used":false,"revision_path":["SOR-P01-T07-R0111"],"annual_row":"SOR-Y-a9a44e5a59bd579a97c5a7cb062b958422a27f688bf736eecbac516074e1f3b6"},{"requested_code":"SOR-P01-T07-R0111","requested_year":"2026-27","resolved_code":"SOR-P01-T07-R0001","status":"priced","rate":845,"unit":"day","requires_review":false,"fallback_used":false,"revision_path":["SOR-P01-T07-R0111","SOR-P01-T07-R0001"],"annual_row":"SOR-Y-a17d547bf0050c5d3c3bf5deb755727e9c3bb0553b0f484fd193a257b28de46d"},{"requested_code":"SOR-P01-T07-R0001","requested_year":"2025-26","resolved_code":"SOR-P01-T07-R0111","status":"priced","rate":805,"unit":"day","requires_review":false,"fallback_used":false,"revision_path":["SOR-P01-T07-R0001","SOR-P01-T07-R0111"],"annual_row":"SOR-Y-a9a44e5a59bd579a97c5a7cb062b958422a27f688bf736eecbac516074e1f3b6"},{"requested_code":"SOR-P01-T07-R0001","requested_year":"2026-27","resolved_code":"SOR-P01-T07-R0001","status":"priced","rate":845,"unit":"day","requires_review":false,"fallback_used":false,"revision_path":["SOR-P01-T07-R0001"],"annual_row":"SOR-Y-a17d547bf0050c5d3c3bf5deb755727e9c3bb0553b0f484fd193a257b28de46d"},{"requested_code":"SOR-P01-T07-R0001","requested_year":"2027-28","resolved_code":"SOR-P01-T07-R0001","status":"selected_year_rate_missing","rate":null,"unit":null,"requires_review":false,"fallback_used":false,"revision_path":["SOR-P01-T07-R0001"],"annual_row":null}],
+  "revision_counts": {
+    "automatic": 220,
+    "review_required": 1,
+    "populated_historical_fallbacks": 0
+  },
+  "review_and_blank_quotes": [
+    {
+      "label": "forward-review",
+      "quote": {
+        "rate": null,
+        "year": "2026-27",
+        "status": "revision_review_required",
+        "recipe_code": "SOR-P03-T03-R0408",
+        "recipe_codes": [
+          "SOR-P03-T03-R0408"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "revision_path": [
+          "SOR-P03-T03-R0960",
+          "SOR-P03-T03-R0408"
+        ],
+        "requires_review": true,
+        "review_boundaries": [
+          "SOR-P03-T03-R0408"
+        ],
+        "requested_recipe_code": "SOR-P03-T03-R0960"
+      }
+    },
+    {
+      "label": "backward-review",
+      "quote": {
+        "rate": null,
+        "year": "2025-26",
+        "status": "revision_review_required",
+        "recipe_code": "SOR-P03-T03-R0960",
+        "recipe_codes": [
+          "SOR-P03-T03-R0960"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "revision_path": [
+          "SOR-P03-T03-R0408",
+          "SOR-P03-T03-R0960"
+        ],
+        "requires_review": true,
+        "review_boundaries": [
+          "SOR-P03-T03-R0408"
+        ],
+        "requested_recipe_code": "SOR-P03-T03-R0408"
+      }
+    },
+    {
+      "label": "unpublished-cell",
+      "quote": {
+        "rate": null,
+        "year": "2026-27",
+        "status": "source_review_required",
+        "cost_review": {
+          "reason": "Blank/dash cell has no published tariff; no neighbouring price is copied.",
+          "status": "not_published"
+        },
+        "recipe_code": "SOR-P04-T15-M0001",
+        "recipe_codes": [
+          "SOR-P04-T15-M0001"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "revision_path": [
+          "SOR-P04-T15-M0001"
+        ],
+        "requires_review": false,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P04-T15-M0001"
+      }
+    }
+  ],
+  "missing_counterpart_quotes": [
+    {
+      "requested_year": "2025-26",
+      "quote": {
+        "rate": null,
+        "year": "2025-26",
+        "status": "selected_year_rate_missing",
+        "recipe_code": "SOR-P01-T03-R0071",
+        "recipe_codes": [
+          "SOR-P01-T03-R0071"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "revision_path": [
+          "SOR-P01-T03-R0071"
+        ],
+        "requires_review": false,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P01-T03-R0071"
+      }
+    },
+    {
+      "requested_year": "2026-27",
+      "quote": {
+        "rate": 5086913,
+        "unit": "Each",
+        "year": "2026-27",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P01-T03-R0071",
+        "source_unit": "Each",
+        "recipe_codes": [
+          "SOR-P01-T03-R0071"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "revision_path": [
+          "SOR-P01-T03-R0071"
+        ],
+        "year_row_code": "SOR-Y-65498678792cfce98fb25338d94a48a359db53bdcea4e9b758ecadf4510c65dc",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P01-T03-R0071"
+      }
+    }
+  ]
+}

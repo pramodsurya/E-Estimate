@@ -402,7 +402,11 @@ fn weighted_rate_formula(
     let u5 = curve.upto_5km?;
     let per = curve.per_km_5_to_30?;
     let beyond = curve.per_km_beyond_30?;
-    let charged = format!("CEILING({distance_ref},1)");
+    let charged = if curve.continuous_beyond_5km {
+        format!("IF({distance_ref}>5,{distance_ref},CEILING({distance_ref},1))")
+    } else {
+        format!("CEILING({distance_ref},1)")
+    };
     Some(format!(
         "=ROUND(IF({d}<=0.05,0,IF({d}<=0.1,{h100},IF({d}<=0.15,{h150},IF({c}<=1,{u1},IF({c}<=2,{u2},IF({c}<=3,{u3},IF({c}<=4,{u4},IF({c}<=5,{u5},{u5}+MIN({c}-5,25)*{per}+MAX({c}-30,0)*{beyond}))))))))),2)",
         d = distance_ref,

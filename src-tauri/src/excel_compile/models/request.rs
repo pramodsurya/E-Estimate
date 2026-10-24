@@ -15,6 +15,10 @@ pub struct ExcelCompileRequest {
     #[serde(default)]
     pub recipes: Vec<ExcelRecipe>,
     #[serde(default)]
+    pub morth: Vec<ExcelRecipe>,
+    #[serde(default, alias = "morthAppendices")]
+    pub morth_appendices: Vec<ExcelRecipe>,
+    #[serde(default)]
     pub sor: Vec<ExcelSorItem>,
     /// Workbook selector. A missing value falls back to `data` so the
     /// existing DATA-sheet callers keep working unchanged.

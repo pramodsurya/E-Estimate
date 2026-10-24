@@ -5,6 +5,7 @@ const Module = require('node:module')
 const { spawn } = require('node:child_process')
 const ts = require('typescript')
 const fixture = require('./fixtures/m25-project-data.json')
+const currentResource = require('./fixtures/current-ssr-resource-mock.cjs')
 const root = path.resolve(__dirname, '..')
 const lib = name => path.join(root, 'src/renderer/src/lib', `${name}.ts`)
 function load(file, mocks = {}) {
@@ -14,7 +15,7 @@ function load(file, mocks = {}) {
   const loaded = new Module(file, module)
   loaded.filename = file
   loaded.paths = Module._nodeModulePaths(path.dirname(file))
-  loaded.require = request => request in mocks ? mocks[request] : Module.createRequire(file)(request)
+  loaded.require = request => request in mocks ? mocks[request] : request === './miscellaneousCosts' ? load(lib('miscellaneousCosts'),{'./morthAppendices':load(lib('morthAppendices'))}) : Module.createRequire(file)(request)
   loaded._compile(outputText, file)
   return loaded.exports
 }
@@ -23,26 +24,16 @@ const defaults = load(lib('projectDataDefaults'), { './projectDataRateLinks': li
 const visibility = load(lib('rateAnalysisVisibility'))
 const calls = []
 let missingReferences = false
-const supabase = { from(table) {
-  const filters = {}
-  const query = {
-    select() { return query }, eq(key,value) { filters[key]=value;return query },
-    async maybeSingle() {
-      const rows = table === 'labour_rate' ? fixture.labour : fixture.machinery
-      return { data: missingReferences ? null : rows.find(row => Object.entries(filters).every(([key,value]) => row[key] === value)) ?? null }
-    }
-  }
-  return query
-} }
+const supabase = { rpc: (name,args) => currentResource.quote(name,args,missingReferences),
+  from(table) { throw new Error(`Unexpected direct rate table read: ${table}`) } }
 const materialMocks = { applyMaterialRateOverrides: recipe => ({recipe,applications:[]}),
   fetchMaterialAliases: async () => new Map(), fetchMonthlyMaterials: async () => [] }
 const analysis = load(lib('rateAnalysis'), {
   './supabase': {supabase}, './projectItems': {projectItemKey:node=>`PROJECT_DATA:${node.projectDataId}`},
   './rateAnalysisVisibility':visibility, './dataVariants':{applyDataVariantToRecipe:r=>r,buildDataVariantSpec:()=>({})},
   './pipeLead':{pipeLeadSourceFromContext:()=>undefined}, './materialRates':materialMocks,
-  './sorReviewed':{}, './reviewedSorEstimate':{},
+  './individualCosts':{applyIndividualCosts:async r=>r}, './morthEstimate':{}, './sorSource':{}, './sorEstimate':{},
   './seigniorageClassification':{canonicalSeigniorageCode:code=>code},
-  './sorCatalogue':{SOR_CATALOGUE_CATEGORY:'sor_catalogue',fetchSorCataloguePrice:async()=>[],sorCommercialTerms:()=>undefined,sourceContextTitle:()=>null}
 })
 const native = path.join(root,'src-tauri/target/debug',process.platform === 'win32' ? 'rate_analysis_cli.exe' : 'rate_analysis_cli')
 function run(command,args,input) {
@@ -69,9 +60,9 @@ function ssr(year) {
       lines:annual.rates[key].map((row,index)=>{
         const original=fixture.base[key][index], identity=original.resource_identity
         return {id:`${key}-${index}`,slNo:row.sl??'',description:row.desc,unit:row.unit,
-          quantity:Number(row.quantity),rate:Number(row.rate),amount:Number(row.amount),sorRef:original.sor_ref,
+          quantity:Number(row.quantity),rate:Number(row.rate),amount:Number(row.amount),
           sourceValues:{quantity:row.quantity,rate:row.rate,amount:row.amount},
-          resourceIdentity:identity && {sourceTable:identity.source_table,masterCode:identity.master_code,rateComponent:identity.rate_component,resourceKey:identity.resource_key}}
+          resourceIdentity:currentResource.identity(original)}
       })
     }))}
 }
@@ -79,15 +70,14 @@ const engine={recalculateRateAnalysis:analysis.recalculateRateAnalysis,fetchRate
   calls.push({node,year,zone:options.zone})
   if (node.itemSource === 'SSR') return ssr(year)
   if (!['2025-26','2026-27'].includes(year)) throw new Error(`No ${year} SOR`)
-  const catalogue=node.categoryKey === 'sor_catalogue'
+  const catalogue=node.itemCode === 'CELL-300'
   return {itemSource:'SOR',itemCode:node.itemCode,unit:catalogue?'Nos.':'kg',year,zone:options.zone,
     publishedRate:node.itemCode === 'missing' ? 0 : catalogue ? year==='2025-26'?1000:1100 : year==='2025-26'?100:120,
     unresolvedLines:node.itemCode === 'missing'?1:0}
 }}
-const builtin=load(lib('builtInProjectData'),{'./rateAnalysis':engine,'./projectDataDefaults':defaults,'./supabase':{supabase},
-  './leadApplicability':{parseLeadInfo:value=>({materials:value?.materials??{}})}})
+const builtin=load(lib('ssrResourceRates'))
 const timely=load(lib('projectDataTimelyRates'),{'./rateAnalysis':engine,'./projectDataDefaults':defaults,
-  './projectDataRateLinks':links,'./builtInProjectData':builtin,'./supabase':{supabase}})
+  './projectDataRateLinks':links,'./ssrResourceRates':builtin,'./supabase':{supabase}})
 const data=load(lib('projectData'),{'./rateAnalysis':engine,'./projectDataTimelyRates':timely,'./projectDataRateLinks':links,
   './rateAnalysisVisibility':visibility,'./projectItems':{projectItemKey:node=>`PROJECT_DATA:${node.projectDataId}`},'./materialRates':materialMocks})
 const usage={id:'usage',kind:'item',name:'Custom work',children:[],itemSource:'PROJECT_DATA',projectDataId:'custom-data',itemCode:'DATA-SOR-007'}
@@ -98,7 +88,7 @@ const definition={id:usage.projectDataId,kind:'ssr',code:usage.itemCode,descript
 definition.sections[0].lines[0]={...links.withProjectDataRowTimely(definition.sections[0].lines[0],true),quantity:100}
 const annualPrice=year=>Number(fixture.years.find(row=>row.year===year).rates.materials[0].rate)
 const sor={id:'simple',kind:'sor',code:'DATA-SOR-008',description:'Custom material',unit:'kg',rate:90,timelyRates:true,
-  rateSource:{itemSource:'SOR',categoryKey:'material',itemCode:'MAT-test'},createdAt:'',updatedAt:''}
+  rateSource:{itemSource:'SOR',categoryKey:'SOR_Recipie',itemCode:'MAT-test'},createdAt:'',updatedAt:''}
 
 async function main() {
   if (!fs.existsSync(native)) await run('cargo',['build','--manifest-path',path.join(root,'src-tauri/estimate-core/Cargo.toml'),'--bin','rate_analysis_cli'])
@@ -159,7 +149,7 @@ async function main() {
   const sorRecipe=await data.projectDataRecipe(sor,{...usage,projectDataId:sor.id},'2026-27','zone_3')
   assert.equal((await analysis.calculateRateAnalysis(sorRecipe)).ratePerUnit,120)
   assert.equal(sorRecipe.sections[0].lines[0].materialCode,'MAT-test')
-  const catalogue={...sor,unit:'Nos.',rateSource:{itemSource:'SOR',categoryKey:'sor_catalogue',itemCode:'CELL-300',sorCatalogue:{catalogueCode:'pipes',catalogueName:'Pipes',dimensions:{diameter:300,class:'NP3'}}}}
+  const catalogue={...sor,unit:'Nos.',rateSource:{itemSource:'SOR',categoryKey:'SOR_Recipie',itemCode:'CELL-300',sorCatalogue:{recipeCode:'CELL-300',resolvedRecipeCode:'CELL-300',year:'2025-26',zone:'zone_3',configuration:{inputs:{},enabled:[],confirmed:[]},selectionKey:'CELL-300-standard'}}}
   assert.equal((await timely.resolveTimelyProjectData(catalogue,'2026-27','zone_3')).rate,1100)
   assert.deepEqual(calls.at(-1).node.sorCatalogue,catalogue.rateSource.sorCatalogue,'yearly catalogue pricing must retain exact dimensions')
   await assert.rejects(()=>timely.resolveTimelyProjectData({...sor,rateSource:undefined},'2026-27','zone_3'),/Select a SOR code/)
@@ -168,7 +158,7 @@ async function main() {
   await assert.rejects(()=>timely.resolveTimelyProjectData(definition,'2099-00','zone_3'),/No SSR/)
   await assert.rejects(()=>timely.resolveTimelyProjectData(definition,'','zone_3'),/Select a SOR/)
   missingReferences=true
-  await assert.rejects(()=>timely.resolveTimelyProjectData(enabled,'2026-27','zone_3'),/No 2026-27/)
+  await assert.rejects(()=>timely.resolveTimelyProjectData(enabled,'2026-27','zone_3'),/No compatible 2026-27/)
   missingReferences=false
 
   const compare=load(lib('comparativeStatement'),{
@@ -211,6 +201,7 @@ async function main() {
     '../../lib/seigniorage':{fetchSeigniorageCharges:async()=>[],matchMaterialToSeigniorage:()=>null},
     '../../store/useStore':{useStore:selector=>selector({project:{meta:{}}})},
     '../modals/Modal':{default:props=>props.children,__esModule:true},
+    '../sor/SorPicker':{default:()=>null,__esModule:true},
     './ProjectDataImageField':{default:()=>null,__esModule:true}
   }).default
   const markup=renderToStaticMarkup(React.createElement(editor,{value:resolved,onChange:()=>{},year:'2026-27',zone:'zone_3'}))

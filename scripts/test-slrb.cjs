@@ -25,6 +25,11 @@ require.extensions['.ts']=(m,file)=>{
   m._compile(outputText,file)
 }
 const api=load(lib('slrb'))
+const currentSor=require('./fixtures/sor-selector.json')
+const sorMaterial=detail=>({side:'SOR',categoryKey:'SOR_Recipie',sorCatalogue:{recipe:detail.recipe}})
+assert.equal(api.slrbItemCoversCompleteWork(sorMaterial(currentSor.details.sand)),false,'current irrigation material prices are ingredients')
+assert.equal(api.slrbItemCoversCompleteWork(sorMaterial(currentSor.details.hdpe)),false,'pipe supply cannot replace completed bridge work')
+assert.equal(api.slrbItemCoversCompleteWork(sorMaterial(currentSor.details.plumbing)),true,'a source work item still proceeds to the existing specification review')
 const context=load(lib('slrbContext'))
 const tree=load(lib('tree'))
 const canal=load(lib('canal'))
@@ -116,8 +121,7 @@ assert.equal(api.buildSlrbOutputModel(steel.root,steel.bridge).measurements.find
 steel.bridge.slrb.bars[0].count=24;steel.bridge.slrb.bars[0].reviewed=false
 assert.equal(api.buildSlrbOutputModel(steel.root,steel.bridge).measurements.find(m=>m.id==='B1.steel').quantity,null)
 // M25 adopts the existing project DATA, not a duplicate M20 recipe or fixed price.
-const wearing=scene();wearing.project=defaults.ensureBuiltInProjectData(wearing.project)
-const def=wearing.project.projectData[0]
+const wearing=scene();const def={id:'user-data',code:'DATA-SOR-001',description:'User M25 wearing coat',kind:'ssr',unit:'CUM'};wearing.project.projectData=[def]
 Object.assign(wearing.bridge.slrb,{wearingPresence:'provided',wearingThickness:0.075,wearingWidth:4.25,wearingGrade:'M25'})
 wearing.bridge.slrb.materials['wearing.M25']={...ref(def.code),categoryKey:'project_data',projectDataId:def.id,includesFormwork:false}
 owned=tree.findNode(api.syncAllSlrbItems(wearing.root),'bridge')

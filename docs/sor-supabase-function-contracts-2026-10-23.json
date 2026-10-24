@@ -1,0 +1,1639 @@
+{
+  "captured_on": "2026-10-23",
+  "project": "hqddsxnykndgcmxwqwmn",
+  "scope": "Custom public functions excluding extension-owned functions; read-only inspection and smoke checks",
+  "inventory": [
+    {
+      "schema": "legacy_sor_archive",
+      "name": "relink_json",
+      "arguments": "x jsonb",
+      "returns": "jsonb",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": false,
+      "authenticated_execute": false
+    },
+    {
+      "schema": "public",
+      "name": "fn_allowance_at",
+      "arguments": "p_lng double precision, p_lat double precision",
+      "returns": "TABLE(allowance_type text, name text, mandal text, district text, go_reference text)",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "fn_flyash_required",
+      "arguments": "p_lng double precision, p_lat double precision",
+      "returns": "TABLE(required boolean, nearest_plant text, distance_km numeric, radius_km numeric)",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "fn_gst_rate",
+      "arguments": "p_recipient text, p_earthwork boolean, p_date date",
+      "returns": "numeric",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "fn_trial_pit_extra",
+      "arguments": "p_depth_m numeric",
+      "returns": "TABLE(code text, value_pct numeric, description text)",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "fn_trial_pit_extra",
+      "arguments": "p_depth_m numeric, p_sor_year text",
+      "returns": "TABLE(code text, value_pct numeric, description text)",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "get_excavation_extra",
+      "arguments": "p_sor_year text, p_code text",
+      "returns": "TABLE(code text, category text, description text, value_pct numeric, applies_over text, excludes_dewatering boolean, hardrock_two_third boolean, source_clause text, source_pages jsonb)",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "mark_ssr_seigniorage_policy_stale",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "morth_pricing_snapshot",
+      "arguments": "p_year text, p_zone text, p_requests jsonb, p_resource_codes text[]",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": "Read-only selected-year SOR quotes and referenced source identities for MoRTH visualization. Invoker RLS applies. Uses existing sor_resource_quote without cross-year substitution. Does not calculate or approve original recipes, create prices, or write annual-rate rows.",
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "rebuild_ssr_seigniorage_policy",
+      "arguments": "p_code text",
+      "returns": "void",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_centering_details_valid",
+      "arguments": "totals jsonb, details jsonb, review_meta jsonb",
+      "returns": "boolean",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_centering_recipe_addon_valid",
+      "arguments": "spec jsonb",
+      "returns": "boolean",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_electrical_recipe_rules_valid",
+      "arguments": "spec jsonb",
+      "returns": "boolean",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_electrical_year_review_valid",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_fallback_pages_valid",
+      "arguments": "p jsonb",
+      "returns": "boolean",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_fallback_rate_valid",
+      "arguments": "p jsonb",
+      "returns": "boolean",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_fiscal_start",
+      "arguments": "p_year text",
+      "returns": "integer",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_lead_rule_codes",
+      "arguments": "rules jsonb",
+      "returns": "SETOF text",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": false,
+      "authenticated_execute": false
+    },
+    {
+      "schema": "public",
+      "name": "sor_lead_rules_v2_valid",
+      "arguments": "rules jsonb",
+      "returns": "boolean",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_lead_rules_valid",
+      "arguments": "rules jsonb",
+      "returns": "boolean",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": false,
+      "authenticated_execute": false
+    },
+    {
+      "schema": "public",
+      "name": "sor_machinery_details_valid",
+      "arguments": "totals jsonb, details jsonb",
+      "returns": "boolean",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": false,
+      "authenticated_execute": false
+    },
+    {
+      "schema": "public",
+      "name": "sor_morth_analysis_link_guard",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": false,
+      "authenticated_execute": false
+    },
+    {
+      "schema": "public",
+      "name": "sor_morth_analysis_options",
+      "arguments": "p_recipe_code text, p_year text",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": "Exact-year SOR MoRTH research candidates and complete analyses. Options are not approved pricing equivalents; never returns a rupee tariff or chooses method/category.",
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_morth_analysis_rate_valid",
+      "arguments": "v jsonb",
+      "returns": "boolean",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_morth_referenced_key_guard",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": false,
+      "authenticated_execute": false
+    },
+    {
+      "schema": "public",
+      "name": "sor_plumbing_porcelain_rule_valid",
+      "arguments": "spec jsonb",
+      "returns": "boolean",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_public_health_details_valid",
+      "arguments": "t jsonb, d jsonb, m jsonb",
+      "returns": "boolean",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_public_health_recipe_valid",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_public_health_rules_valid",
+      "arguments": "spec jsonb",
+      "returns": "boolean",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_public_health_year_valid",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_recipe_fallback_valid",
+      "arguments": "p_code text, p_unit text, r jsonb",
+      "returns": "void",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_recipe_protect_lead_target",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": false,
+      "authenticated_execute": false
+    },
+    {
+      "schema": "public",
+      "name": "sor_recipe_relationships_valid",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_recipe_revision_chain_valid",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_recipe_revision_valid",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_recipe_validate_lead_links",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": false,
+      "authenticated_execute": false
+    },
+    {
+      "schema": "public",
+      "name": "sor_recipie_prevent_definition_update",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": false,
+      "authenticated_execute": false
+    },
+    {
+      "schema": "public",
+      "name": "sor_resolve_recipe_revision",
+      "arguments": "p_recipe_code text, p_year text",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": "Follow evidenced Recipe revisions. A split returns all possible codes and requires review; never select/sum rates automatically or fall back to an earlier annual price.",
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_resolve_recipe_revision_v1",
+      "arguments": "p_recipe_code text, p_year text",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": "Resolve explicit AI-reviewed Recipe lineage for a financial year. Then fetch exactly that year in SOR_Year; this RPC supplies no fallback price.",
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_resolve_recipe_year",
+      "arguments": "p_recipe_code text, p_year text",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": "Resolve replacement lineage, then explicit historical fallback only if the selected year has no row. Never override held/blank/other-zone rows or use another year price. Returns requested code and auditable fallback path.",
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_resource_links_valid",
+      "arguments": "x jsonb",
+      "returns": "boolean",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_resource_quote",
+      "arguments": "p_recipe_code text, p_year text, p_zone text, p_component text, p_unit text",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_revision_core",
+      "arguments": "r jsonb",
+      "returns": "jsonb",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_revision_previous",
+      "arguments": "r jsonb",
+      "returns": "jsonb",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_revision_replacements",
+      "arguments": "r jsonb, code text",
+      "returns": "jsonb",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_shared_lead_protect_revision",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_shared_lead_validate",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_single_machinery_details_valid",
+      "arguments": "totals jsonb, details jsonb",
+      "returns": "boolean",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_unit_measure",
+      "arguments": "p_unit text",
+      "returns": "jsonb",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_unit_rate_factor",
+      "arguments": "p_source_unit text, p_requested_unit text",
+      "returns": "numeric",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "sor_year_reference_valid",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_annotate_addon_rates",
+      "arguments": "p_ssr_code text, p_year text, p_addon_rates jsonb",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_annotate_addon_table",
+      "arguments": "p_ssr_code text, p_addon_table jsonb",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_annotate_resource_lines",
+      "arguments": "p_ssr_code text, p_analysis_scope text, p_year text, p_lines jsonb",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_annotate_ssr_item_resource_identities",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_annotate_ssr_year_resource_identities",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_annual_recipe_binding_valid",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_curated_resource_identity",
+      "arguments": "p_resource_key text",
+      "returns": "jsonb",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_definition_without_links",
+      "arguments": "x jsonb",
+      "returns": "jsonb",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_description_unit_identity",
+      "arguments": "p_line jsonb",
+      "returns": "jsonb",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_identity_from_description_alias",
+      "arguments": "p_ssr_code text, p_analysis_scope text, p_line jsonb",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_identity_from_explicit_alias",
+      "arguments": "p_ssr_code text, p_analysis_scope text, p_line jsonb",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_identity_from_fixed_master",
+      "arguments": "p_ssr_code text, p_analysis_scope text, p_line jsonb",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_identity_from_resource_key",
+      "arguments": "p_ssr_code text, p_analysis_scope text, p_line jsonb",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_identity_from_sor_ref",
+      "arguments": "p_line jsonb",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_linked_resource_quote",
+      "arguments": "p_recipe_code text, p_analysis_scope text, p_line_index integer, p_year text, p_zone text",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_master_resource_identity",
+      "arguments": "p_source_table text, p_master_code text, p_rate_component text",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_normalize_resource_text",
+      "arguments": "p_value text",
+      "returns": "text",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_recipe_immutable",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_recipe_link_chain_valid",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_recipe_link_valid",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_recipe_previous",
+      "arguments": "r jsonb",
+      "returns": "jsonb",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_recipe_replacements",
+      "arguments": "r jsonb, code text",
+      "returns": "jsonb",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_refresh_yearly_resource_identities",
+      "arguments": "",
+      "returns": "trigger",
+      "volatility": "v",
+      "security_definer": false,
+      "trigger_function": true,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_resolve_recipe_revision",
+      "arguments": "p_recipe_code text, p_year text",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_resolve_recipe_year",
+      "arguments": "p_recipe_code text, p_year text",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": "Resolve a saved permanent recipe to the requested financial year using approved version links, then retrieve that exact edition. Does not modify a saved estimate.",
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_resolve_resource_identity",
+      "arguments": "p_ssr_code text, p_analysis_scope text, p_year text, p_line jsonb",
+      "returns": "jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_resource_line_array",
+      "arguments": "p_value jsonb",
+      "returns": "jsonb",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_resource_slug",
+      "arguments": "p_value text, p_fallback text",
+      "returns": "text",
+      "volatility": "i",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    {
+      "schema": "public",
+      "name": "ssr_static_resource_lines",
+      "arguments": "p_ssr_code text, p_analysis_scope text",
+      "returns": "SETOF jsonb",
+      "volatility": "s",
+      "security_definer": false,
+      "trigger_function": false,
+      "comment": null,
+      "anon_execute": true,
+      "authenticated_execute": true
+    }
+  ],
+  "public_definitions": [
+    {
+      "schema": "public",
+      "name": "fn_allowance_at",
+      "arguments": "p_lng double precision, p_lat double precision",
+      "definition": "CREATE OR REPLACE FUNCTION public.fn_allowance_at(p_lng double precision, p_lat double precision)\n RETURNS TABLE(allowance_type text, name text, mandal text, district text, go_reference text)\n LANGUAGE sql\n STABLE\nAS $function$\n  select v.allowance_type, v.name, v.mandal, v.district, v.go_reference\n  from village_allowance v\n  where ST_Intersects(v.geom, ST_SetSRID(ST_MakePoint(p_lng,p_lat),4326)::geography)\n  order by (v.allowance_type is not null) desc\n  limit 1;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "fn_flyash_required",
+      "arguments": "p_lng double precision, p_lat double precision",
+      "definition": "CREATE OR REPLACE FUNCTION public.fn_flyash_required(p_lng double precision, p_lat double precision)\n RETURNS TABLE(required boolean, nearest_plant text, distance_km numeric, radius_km numeric)\n LANGUAGE sql\n STABLE\nAS $function$\n  with r as (select coalesce(radius_km,100) km from material_policy where code='FLYASH_BRICKS'),\n       pt as (select ST_SetSRID(ST_MakePoint(p_lng,p_lat),4326)::geography g)\n  select (n.dist_km <= (select km from r)) as required, n.name, round(n.dist_km::numeric,1), (select km from r)\n  from (\n    select t.name, ST_Distance(t.geom, pt.g)/1000.0 as dist_km\n    from thermal_power_plant t, pt\n    order by t.geom <-> pt.g limit 1\n  ) n;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "fn_gst_rate",
+      "arguments": "p_recipient text, p_earthwork boolean, p_date date",
+      "definition": "CREATE OR REPLACE FUNCTION public.fn_gst_rate(p_recipient text, p_earthwork boolean DEFAULT false, p_date date DEFAULT CURRENT_DATE)\n RETURNS numeric\n LANGUAGE sql\n STABLE\nAS $function$\n  select rate_pct from gst_rate\n  where recipient_type = p_recipient\n    and earthwork_predominant = p_earthwork\n    and effective_from <= p_date\n    and (effective_to is null or effective_to > p_date)\n  order by effective_from desc limit 1;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "fn_trial_pit_extra",
+      "arguments": "p_depth_m numeric",
+      "definition": "CREATE OR REPLACE FUNCTION public.fn_trial_pit_extra(p_depth_m numeric)\n RETURNS TABLE(code text, value_pct numeric, description text)\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\n  SELECT code, value_pct, description\n  FROM public.excavation_extra\n  WHERE category = 'TRIAL_PIT'\n    AND sor_year = (\n      SELECT sor_year\n      FROM public.excavation_extra\n      ORDER BY effective_from DESC, sor_year DESC\n      LIMIT 1\n    )\n    AND p_depth_m > COALESCE(depth_min_m, -1)\n    AND p_depth_m <= COALESCE(depth_max_m, 1e9)\n  ORDER BY depth_min_m\n  LIMIT 1;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "fn_trial_pit_extra",
+      "arguments": "p_depth_m numeric, p_sor_year text",
+      "definition": "CREATE OR REPLACE FUNCTION public.fn_trial_pit_extra(p_depth_m numeric, p_sor_year text)\n RETURNS TABLE(code text, value_pct numeric, description text)\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\n  SELECT code, value_pct, description\n  FROM public.excavation_extra\n  WHERE category = 'TRIAL_PIT'\n    AND sor_year = p_sor_year\n    AND p_depth_m > COALESCE(depth_min_m, -1)\n    AND p_depth_m <= COALESCE(depth_max_m, 1e9)\n  ORDER BY depth_min_m\n  LIMIT 1;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "get_excavation_extra",
+      "arguments": "p_sor_year text, p_code text",
+      "definition": "CREATE OR REPLACE FUNCTION public.get_excavation_extra(p_sor_year text, p_code text)\n RETURNS TABLE(code text, category text, description text, value_pct numeric, applies_over text, excludes_dewatering boolean, hardrock_two_third boolean, source_clause text, source_pages jsonb)\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\n  SELECT\n    code,\n    category,\n    description,\n    value_pct,\n    applies_over,\n    excludes_dewatering,\n    hardrock_two_third,\n    source_clause,\n    source_pages\n  FROM public.excavation_extra\n  WHERE sor_year = p_sor_year\n    AND code = p_code;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "mark_ssr_seigniorage_policy_stale",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.mark_ssr_seigniorage_policy_stale()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nBEGIN\n  IF TG_OP = 'UPDATE' AND NEW.description IS DISTINCT FROM OLD.description THEN\n    PERFORM public.rebuild_ssr_seigniorage_policy(NEW.recipe_code);\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "morth_pricing_snapshot",
+      "arguments": "p_year text, p_zone text, p_requests jsonb, p_resource_codes text[]",
+      "definition": "CREATE OR REPLACE FUNCTION public.morth_pricing_snapshot(p_year text, p_zone text, p_requests jsonb, p_resource_codes text[] DEFAULT '{}'::text[])\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\ndeclare quotes jsonb;resources jsonb;\nbegin\n if p_year not in ('2026-27','2025-26') or p_year is null then\n  raise exception using errcode='22023',message='Select 2026-27 or 2025-26';\n end if;\n if p_zone not in ('zone_1','zone_2','zone_3') or p_zone is null then\n  raise exception using errcode='22023',message='Select a valid labour zone';\n end if;\n if jsonb_typeof(p_requests) is distinct from 'array' then\n  raise exception using errcode='22023',message='Quote requests must be a JSON array';\n end if;\n if jsonb_array_length(p_requests)>256 or coalesce(cardinality(p_resource_codes),0)>1000 then\n  raise exception using errcode='22023',message='Too many pricing identities in one request';\n end if;\n if exists(select 1 from jsonb_array_elements(p_requests) x\n   where jsonb_typeof(x) is distinct from 'object' or coalesce(x->>'recipe_code','')=''\n   or coalesce(x->>'component','rate') not in\n     ('rate','total','hire_total','hire_charge','fuel_charge','crew_charge','capital_cost','tyres_tubes_cost')) then\n  raise exception using errcode='22023',message='Invalid quote recipe or rate component';\n end if;\n select coalesce(jsonb_agg(jsonb_build_object(\n   'recipe_code',x->>'recipe_code',\n   'component',coalesce(x->>'component','rate'),\n   'quote',public.sor_resource_quote(x->>'recipe_code',p_year,p_zone,coalesce(x->>'component','rate'),null)\n ) order by n),'[]'::jsonb) into quotes\n from jsonb_array_elements(p_requests) with ordinality q(x,n);\n select coalesce(jsonb_agg(jsonb_build_object(\n   'resource_code',a.resource_code,'unit',a.unit,'status',a.status,\n   'pricing_records',a.pricing_records\n ) order by a.resource_code),'[]'::jsonb) into resources\n from public.analysis_resource a where a.resource_code=any(coalesce(p_resource_codes,'{}'::text[]));\n return jsonb_build_object('year',p_year,'zone',p_zone,'fetched_at',statement_timestamp(),\n   'quotes',quotes,'resources',resources);\nend;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "rebuild_ssr_seigniorage_policy",
+      "arguments": "p_code text",
+      "definition": "CREATE OR REPLACE FUNCTION public.rebuild_ssr_seigniorage_policy(p_code text DEFAULT NULL::text)\n RETURNS void\n LANGUAGE sql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nWITH source_materials AS (\n  SELECT\n    s.code AS ssr_code,\n    s.unit AS item_output_unit,\n    NULLIF(regexp_replace(coalesce(s.quantity::text, ''), '[^0-9.\\-]', '', 'g'), '')::numeric\n      AS item_output_qty,\n    m.ordinality::integer AS material_index,\n    trim(coalesce(m.value->>'desc', m.value->>'description', '')) AS recipe_material_desc,\n    trim(coalesce(m.value->>'unit', '')) AS recipe_material_unit,\n    CASE\n      WHEN regexp_replace(coalesce(m.value->>'quantity', ''), '[^0-9.\\-]', '', 'g')\n        ~ '^-?[0-9]+(\\.[0-9]+)?$'\n      THEN regexp_replace(m.value->>'quantity', '[^0-9.\\-]', '', 'g')::numeric\n      ELSE NULL\n    END AS recipe_material_qty\n  FROM public.ssr_item s\n  CROSS JOIN LATERAL jsonb_array_elements(coalesce(s.materials, '[]'::jsonb))\n    WITH ORDINALITY AS m(value, ordinality)\n  WHERE p_code IS NULL OR s.code = p_code\n),\nclassified AS (\n  SELECT\n    sm.*,\n    CASE\n      WHEN lower(sm.recipe_material_desc) ~ 'sand\\s+bag' THEN NULL\n      WHEN lower(sm.recipe_material_desc) ~ '(fine aggregate|sand\\s*\\((un-)?screened|sand for filling|(^|[^a-z])sand($|[^a-z]))'\n        THEN 'SAND_FINE_AGGREGATE'\n      WHEN lower(sm.recipe_material_desc) ~ '(murrum|murum|moorum|morram|ordinary earth|borrow earth|(^|[^a-z])earth($|[^a-z])|(^|[^a-z])soil($|[^a-z]))'\n        THEN 'SOIL_MORRAM_EARTH'\n      WHEN lower(sm.recipe_material_desc) ~ '(coarse aggregate|stone chips?|rubble|rough stones?|uncoursed rubble|coursed rubble|road metal|ballast|boulders?|plums?|khandki|header stones?|through stones?|pin headers?|stone slab|filter\\s*\\(\\s*available|[0-9]+[ -]*mm down filter)'\n        THEN 'STONE_AGGREGATE'\n      WHEN lower(sm.recipe_material_desc) ~ 'laterite'\n        THEN 'LATERITE'\n      WHEN lower(sm.recipe_material_desc) ~ 'lime\\s*stone slab|limestone slab'\n        THEN 'LIMESTONE_SLAB'\n      ELSE NULL\n    END AS material_key\n  FROM source_materials sm\n  WHERE sm.recipe_material_qty IS NOT NULL\n    AND sm.recipe_material_qty > 0\n    AND sm.item_output_qty IS NOT NULL\n    AND sm.item_output_qty > 0\n),\nrecipe_groups AS (\n  SELECT\n    ssr_code,\n    material_key,\n    max(item_output_unit) AS item_output_unit,\n    max(item_output_qty) AS item_output_qty,\n    sum(recipe_material_qty) AS recipe_material_qty,\n    string_agg(recipe_material_desc, ' | ' ORDER BY material_index) AS recipe_material_desc,\n    (array_agg(recipe_material_unit ORDER BY material_index))[1] AS recipe_material_unit\n  FROM classified\n  WHERE material_key IS NOT NULL\n  GROUP BY ssr_code, material_key\n),\nimported_description_value_rows AS (\n  SELECT\n    s.code AS ssr_code,\n    value->>'material_key' AS material_key,\n    NULLIF(value->>'material_label', '') AS description_label,\n    (value->>'quantity')::numeric AS description_quantity,\n    coalesce(value->>'unit', 'CUM') AS description_quantity_unit,\n    value->>'source_text' AS description_source_text,\n    value->'blend_ratio' AS description_blend_ratio\n  FROM public.ssr_item s\n  CROSS JOIN LATERAL jsonb_array_elements(\n    CASE\n      WHEN jsonb_typeof(s.description_quantity_policy->'values') = 'array'\n        THEN s.description_quantity_policy->'values'\n      ELSE '[]'::jsonb\n    END\n  ) AS parsed(value)\n  WHERE s.description_quantity_policy->>'description_hash' = md5(\n    regexp_replace(trim(coalesce(s.description, '')), '\\s+', ' ', 'g')\n  )\n    AND (value->>'quantity') ~ '^[0-9]+(\\.[0-9]+)?$'\n    AND (value->>'quantity')::numeric > 0\n),\nimported_description_values AS (\n  SELECT\n    ssr_code,\n    material_key,\n    max(description_label) AS description_label,\n    sum(description_quantity) AS description_quantity,\n    max(description_quantity_unit) AS description_quantity_unit,\n    string_agg(description_source_text, ' | ' ORDER BY description_source_text)\n      AS description_source_text,\n    (array_agg(description_blend_ratio ORDER BY description_source_text))[1]\n      AS description_blend_ratio\n  FROM imported_description_value_rows\n  GROUP BY ssr_code, material_key\n),\nlegacy_description_values AS (\n  -- Compatibility path for ssr_item rows imported before the extractor field\n  -- existed. New imports use description_quantity_policy above.\n  SELECT\n    s.code AS ssr_code,\n    'STONE_AGGREGATE' AS material_key,\n    'Coarse aggregate' AS description_label,\n    ((regexp_match(\n      s.description,\n      '(?i)(?:CA|coarse\\s+aggregates?)\\s*[:=-]\\s*([0-9]+(?:\\.[0-9]+)?)\\s*(?:cum|cu\\.?\\s*m|m3|m³)'\n    ))[1])::numeric AS description_quantity,\n    'CUM' AS description_quantity_unit,\n    (regexp_match(\n      s.description,\n      '(?i)((?:CA|coarse\\s+aggregates?)\\s*[:=-]\\s*[0-9]+(?:\\.[0-9]+)?\\s*(?:cum|cu\\.?\\s*m|m3|m³))'\n    ))[1] AS description_source_text,\n    (\n      SELECT to_jsonb(regexp_split_to_array(\n        regexp_replace((regexp_match(\n          s.description,\n          '(?i)(?:blending\\s+ratio\\s+of\\s+)?CA\\s*(?:--?|:)\\s*([0-9]+\\s*:\\s*[0-9]+(?:\\s*:\\s*[0-9]+)*)'\n        ))[1], '\\s+', '', 'g'), ':'\n      ))\n    ) AS description_blend_ratio\n  FROM public.ssr_item s\n  WHERE s.description ~* '(?:CA|coarse\\s+aggregates?)\\s*[:=-]\\s*[0-9]+(?:\\.[0-9]+)?\\s*(?:cum|cu\\.?\\s*m|m3|m³)'\n  UNION ALL\n  SELECT\n    s.code,\n    'SAND_FINE_AGGREGATE',\n    'Fine aggregate',\n    ((regexp_match(\n      s.description,\n      '(?i)(?:FA|fine\\s+aggregates?|sand)\\s*[:=-]\\s*([0-9]+(?:\\.[0-9]+)?)\\s*(?:cum|cu\\.?\\s*m|m3|m³)'\n    ))[1])::numeric,\n    'CUM',\n    (regexp_match(\n      s.description,\n      '(?i)((?:FA|fine\\s+aggregates?|sand)\\s*[:=-]\\s*[0-9]+(?:\\.[0-9]+)?\\s*(?:cum|cu\\.?\\s*m|m3|m³))'\n    ))[1],\n    NULL::jsonb\n  FROM public.ssr_item s\n  WHERE s.description ~* '(?:FA|fine\\s+aggregates?|sand)\\s*[:=-]\\s*[0-9]+(?:\\.[0-9]+)?\\s*(?:cum|cu\\.?\\s*m|m3|m³)'\n),\ndescription_values AS (\n  SELECT * FROM imported_description_values\n  UNION ALL\n  SELECT legacy.*\n  FROM legacy_description_values legacy\n  WHERE NOT EXISTS (\n    SELECT 1 FROM imported_description_values imported\n    WHERE imported.ssr_code = legacy.ssr_code\n  )\n),\npolicy_rows AS (\n  SELECT\n    rg.*,\n    dv.description_label,\n    dv.description_quantity,\n    dv.description_quantity_unit,\n    dv.description_source_text,\n    dv.description_blend_ratio,\n    CASE\n      WHEN dv.description_quantity IS NOT NULL THEN dv.description_quantity\n      ELSE round(rg.recipe_material_qty / NULLIF(rg.item_output_qty, 0), 8)\n    END AS quantity_ratio,\n    CASE\n      WHEN dv.description_quantity IS NOT NULL THEN 'SSR_DESCRIPTION'\n      ELSE 'SSR_RECIPE_MATERIALS'\n    END AS quantity_ratio_source\n  FROM recipe_groups rg\n  LEFT JOIN description_values dv\n    ON dv.ssr_code = rg.ssr_code\n   AND dv.material_key = rg.material_key\n),\npolicies AS (\n  SELECT\n    s.code AS ssr_code,\n    jsonb_build_object(\n      'schema_version', 4,\n      'source', 'SSR_DESCRIPTION',\n      'parser_version', coalesce(\n        s.description_quantity_policy->>'parser_version',\n        'ssr-description-quantity-v2'\n      ),\n      'description_hash', md5(regexp_replace(trim(coalesce(s.description, '')), '\\s+', ' ', 'g')),\n      'approval_status', CASE\n        WHEN count(pr.material_key) = 0 THEN 'NOT_APPLICABLE'\n        WHEN bool_and(pr.description_quantity IS NOT NULL) THEN 'APPROVED'\n        ELSE 'REVIEW_REQUIRED'\n      END,\n      'policy_basis', jsonb_build_object(\n        'purpose', 'MATERIAL_SUPPLY',\n        'evidence', jsonb_build_array('SSR item description'),\n        'review_status', CASE\n          WHEN count(pr.material_key) = 0 THEN 'NOT_APPLICABLE'\n          WHEN bool_and(pr.description_quantity IS NOT NULL) THEN 'APPROVED'\n          ELSE 'REVIEW_REQUIRED'\n        END\n      ),\n      'applicable', count(pr.material_key) > 0,\n      'materials', coalesce(\n        jsonb_agg(\n          jsonb_build_object(\n            'material_key', pr.material_key,\n            'material_label', coalesce(pr.description_label, CASE pr.material_key\n              WHEN 'SAND_FINE_AGGREGATE' THEN 'Sand'\n              WHEN 'SOIL_MORRAM_EARTH' THEN 'Soil / murram / earth'\n              WHEN 'STONE_AGGREGATE' THEN 'Stone / aggregate'\n              WHEN 'LATERITE' THEN 'Laterite'\n              WHEN 'LIMESTONE_SLAB' THEN 'Limestone slab'\n              ELSE 'Review required'\n            END),\n            'recipe_material_desc', pr.recipe_material_desc,\n            'recipe_material_unit', pr.recipe_material_unit,\n            'recipe_material_qty', pr.recipe_material_qty,\n            'item_output_unit', pr.item_output_unit,\n            'item_output_qty', pr.item_output_qty,\n            'quantity_ratio', pr.quantity_ratio,\n            'quantity_ratio_source', pr.quantity_ratio_source,\n            'description_quantity', pr.description_quantity,\n            'description_quantity_unit', pr.description_quantity_unit,\n            'description_source_text', pr.description_source_text,\n            'description_blend_ratio', pr.description_blend_ratio,\n            'seig_code', CASE pr.material_key\n              WHEN 'SAND_FINE_AGGREGATE' THEN 'SEIG_SAND_OTHERS'\n              WHEN 'SOIL_MORRAM_EARTH' THEN 'SEIG_MORRAM_GRAVEL_EARTH'\n              WHEN 'STONE_AGGREGATE' THEN 'SEIG_BUILDING_STONE'\n              WHEN 'LATERITE' THEN 'SEIG_LATERITE'\n              WHEN 'LIMESTONE_SLAB' THEN 'SEIG_LIMESTONE_SLABS'\n              ELSE NULL\n            END,\n            'quantity_unit', coalesce(pr.description_quantity_unit, upper(nullif(pr.recipe_material_unit, ''))),\n            'charge_unit', coalesce(pr.description_quantity_unit, upper(nullif(pr.recipe_material_unit, ''))),\n            'conversion_factor', CASE\n              WHEN lower(coalesce(pr.description_quantity_unit, pr.recipe_material_unit)) = 'kg' THEN 0.001\n              ELSE 1\n            END,\n            'mode', CASE\n              WHEN pr.description_quantity IS NULL THEN 'RECIPE_MATERIAL_RATIO'\n              ELSE 'DESCRIPTION_MATERIAL_RATIO'\n            END,\n            'quantity_basis', 'ITEM_QTY_X_RATIO',\n            'status', CASE\n              WHEN pr.description_quantity IS NULL THEN 'REVIEW_REQUIRED'\n              ELSE 'APPROVED'\n            END,\n            'approval_status', CASE\n              WHEN pr.description_quantity IS NULL THEN 'REVIEW_REQUIRED'\n              ELSE 'APPROVED'\n            END,\n            'notes', CASE\n              WHEN pr.description_quantity IS NULL THEN 'No approved quantity was parsed from the SSR description; recipe material quantity is used pending review.'\n              ELSE 'Approved SSR description quantity used for calculation.'\n            END\n          ) ORDER BY pr.material_key\n        ) FILTER (WHERE pr.material_key IS NOT NULL),\n        '[]'::jsonb\n      ),\n      'rows', coalesce(\n        jsonb_agg(\n          jsonb_build_object(\n            'material_key', pr.material_key,\n            'material_label', coalesce(pr.description_label, pr.material_key),\n            'recipe_material_desc', pr.recipe_material_desc,\n            'recipe_material_unit', pr.recipe_material_unit,\n            'recipe_material_qty', pr.recipe_material_qty,\n            'item_output_qty', pr.item_output_qty,\n            'quantity_ratio', pr.quantity_ratio,\n            'quantity_ratio_source', pr.quantity_ratio_source,\n            'description_quantity', pr.description_quantity,\n            'description_quantity_unit', pr.description_quantity_unit,\n            'description_source_text', pr.description_source_text,\n            'description_blend_ratio', pr.description_blend_ratio,\n            'seig_code', CASE pr.material_key\n              WHEN 'SAND_FINE_AGGREGATE' THEN 'SEIG_SAND_OTHERS'\n              WHEN 'SOIL_MORRAM_EARTH' THEN 'SEIG_MORRAM_GRAVEL_EARTH'\n              WHEN 'STONE_AGGREGATE' THEN 'SEIG_BUILDING_STONE'\n              WHEN 'LATERITE' THEN 'SEIG_LATERITE'\n              WHEN 'LIMESTONE_SLAB' THEN 'SEIG_LIMESTONE_SLABS'\n              ELSE NULL\n            END,\n            'quantity_unit', coalesce(pr.description_quantity_unit, upper(nullif(pr.recipe_material_unit, ''))),\n            'charge_unit', coalesce(pr.description_quantity_unit, upper(nullif(pr.recipe_material_unit, ''))),\n            'conversion_factor', 1,\n            'mode', CASE WHEN pr.description_quantity IS NULL\n              THEN 'RECIPE_MATERIAL_RATIO' ELSE 'DESCRIPTION_MATERIAL_RATIO' END,\n            'quantity_basis', 'ITEM_QTY_X_RATIO',\n            'status', CASE WHEN pr.description_quantity IS NULL\n              THEN 'REVIEW_REQUIRED' ELSE 'APPROVED' END,\n            'approval_status', CASE WHEN pr.description_quantity IS NULL\n              THEN 'REVIEW_REQUIRED' ELSE 'APPROVED' END\n          ) ORDER BY pr.material_key\n        ) FILTER (WHERE pr.material_key IS NOT NULL),\n        '[]'::jsonb\n      ),\n      'generated_at', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')\n    ) AS policy\n  FROM public.ssr_item s\n  LEFT JOIN policy_rows pr ON pr.ssr_code = s.code\n  WHERE p_code IS NULL OR s.code = p_code\n  GROUP BY s.code, s.description, s.description_quantity_policy\n)\nUPDATE public.ssr_item s\nSET seigniorage_applicability = policies.policy\nFROM policies\nWHERE policies.ssr_code = s.code\n  -- Leave lead-only, direct-quantity, and other non-material policies intact.\n  AND jsonb_array_length(policies.policy->'rows') > 0;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_centering_details_valid",
+      "arguments": "totals jsonb, details jsonb, review_meta jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_centering_details_valid(totals jsonb, details jsonb, review_meta jsonb)\n RETURNS boolean\n LANGUAGE plpgsql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\nDECLARE\n  status text := review_meta->'cost_review'->>'status';\n  h numeric; l numeric; t numeric; adjustment numeric;\n  keys text[] := ARRAY['material_hire_charge','labour_charge','centering_charge','rounding_adjustment'];\nBEGIN\n  IF jsonb_typeof(details) IS DISTINCT FROM 'object'\n      OR NOT (details ?& keys) OR details - keys <> '{}'::jsonb\n      OR jsonb_typeof(review_meta) IS DISTINCT FROM 'object'\n      OR review_meta->>'rate_component' IS DISTINCT FROM 'centering_total'\n      OR status IS NULL OR status NOT IN ('priced','deleted','source_clarification') THEN\n    RETURN false;\n  END IF;\n  IF status = 'deleted' THEN\n    RETURN coalesce(totals IS NULL AND review_meta->'cost_ready' = 'false'::jsonb\n      AND NOT EXISTS (SELECT 1 FROM jsonb_each(details) AS cells WHERE cells.value <> 'null'::jsonb), false);\n  END IF;\n  IF jsonb_typeof(totals) IS DISTINCT FROM 'number'\n      OR EXISTS (SELECT 1 FROM jsonb_each(details) AS cells WHERE jsonb_typeof(cells.value) <> 'number') THEN\n    RETURN false;\n  END IF;\n  h := (details->>'material_hire_charge')::numeric;\n  l := (details->>'labour_charge')::numeric;\n  t := (details->>'centering_charge')::numeric;\n  adjustment := (details->>'rounding_adjustment')::numeric;\n  IF h < 0 OR l < 0 OR t < 0 OR t <> totals::text::numeric OR h + l + adjustment <> t THEN\n    RETURN false;\n  END IF;\n  IF status = 'source_clarification' THEN\n    RETURN coalesce(review_meta->'cost_ready' = 'false'::jsonb, false);\n  END IF;\n  IF review_meta->'cost_ready' IS DISTINCT FROM 'true'::jsonb THEN RETURN false; END IF;\n  IF adjustment = 0 THEN RETURN true; END IF;\n  IF abs(adjustment) > 0.01\n      OR review_meta->'rounding_review'->>'status' IS DISTINCT FROM 'approved_published_rounding'\n      OR jsonb_typeof(review_meta->'rounding_review'->'difference') IS DISTINCT FROM 'number' THEN\n    RETURN false;\n  END IF;\n  RETURN adjustment = (review_meta->'rounding_review'->>'difference')::numeric;\nEND;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_centering_recipe_addon_valid",
+      "arguments": "spec jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_centering_recipe_addon_valid(spec jsonb)\n RETURNS boolean\n LANGUAGE plpgsql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE review jsonb := spec->'review';\r\nBEGIN\r\n IF jsonb_typeof(spec) IS DISTINCT FROM 'object' OR\r\n    NOT(spec ?& ARRAY['schema_version','rule_code','applies_to_recipe_code','kind','threshold_m','increment_m','percentage','partial_increment','compounding','rounding','review']) OR\r\n    spec-ARRAY['schema_version','rule_code','applies_to_recipe_code','kind','threshold_m','increment_m','percentage','partial_increment','compounding','rounding','review']<>'{}'::jsonb THEN RETURN false; END IF;\r\n IF spec->'schema_version' IS DISTINCT FROM '1'::jsonb OR spec->>'kind' IS DISTINCT FROM 'centering_extra_height'\r\n    OR spec->>'partial_increment' IS NULL OR spec->>'partial_increment' NOT IN ('ceil','exact_only') OR spec->'compounding' IS DISTINCT FROM 'false'::jsonb\r\n    OR spec->>'rounding' IS DISTINCT FROM 'component_paise_half_up'\r\n    OR jsonb_typeof(spec->'threshold_m') IS DISTINCT FROM 'number'\r\n    OR jsonb_typeof(spec->'increment_m') IS DISTINCT FROM 'number'\r\n    OR jsonb_typeof(spec->'percentage') IS DISTINCT FROM 'number' THEN RETURN false; END IF;\r\n IF (spec->>'threshold_m')::numeric<=0 OR (spec->>'increment_m')::numeric<=0 OR (spec->>'percentage')::numeric<=0 THEN RETURN false; END IF;\r\n RETURN coalesce(jsonb_typeof(spec->'rule_code')='string' AND jsonb_typeof(spec->'applies_to_recipe_code')='string'\r\n    AND length(trim(spec->>'rule_code'))>0 AND length(trim(spec->>'applies_to_recipe_code'))>0\r\n    AND jsonb_typeof(review)='object' AND review->>'status' IN ('approved','source_clarification')\r\n    AND review->'reviewer'->>'kind'='ai' AND length(review->>'review_id')=64\r\n    AND length(review->>'source_pdf_sha256')=64 AND length(trim(review->>'source_note'))>0\r\n    AND length(trim(review->>'reason'))>0 AND jsonb_typeof(review->'source_pdf_page')='number',false);\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_electrical_recipe_rules_valid",
+      "arguments": "spec jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_electrical_recipe_rules_valid(spec jsonb)\n RETURNS boolean\n LANGUAGE plpgsql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE rule jsonb; c jsonb; r jsonb; keys text[]; seen text[]:=ARRAY[]::text[];\r\nBEGIN\r\n IF jsonb_typeof(spec) IS DISTINCT FROM 'object' OR spec->'schema_version' IS DISTINCT FROM '1'::jsonb\r\n OR NOT(spec ?& ARRAY['schema_version','applies_to_recipe_code','rules'])\r\n OR spec-ARRAY['schema_version','applies_to_recipe_code','rules']<>'{}'::jsonb\r\n OR coalesce(length(trim(spec->>'applies_to_recipe_code')),0)=0\r\n OR jsonb_typeof(spec->'rules') IS DISTINCT FROM 'array' OR jsonb_array_length(spec->'rules')=0 THEN RETURN false; END IF;\r\n FOR rule IN SELECT jsonb_array_elements(spec->'rules') LOOP\r\n  keys:=ARRAY['rule_code','label','operation','value','basis','parameter','condition','base_count','exclusive_group','review_only','review'];\r\n  IF rule->>'operation'='lift_maintenance' THEN keys:=keys||ARRAY['annual_months','higher_floor_monthly_charge']; END IF;\r\n  IF jsonb_typeof(rule) IS DISTINCT FROM 'object' OR NOT(rule ?& keys) OR rule-keys<>'{}'::jsonb\r\n  OR coalesce(rule->>'operation','') NOT IN ('percentage','percentage_each','fixed_each','lift_maintenance')\r\n  OR coalesce(rule->>'basis','') NOT IN ('scheduled_rate','finished_cost_data','reference_lift_cost')\r\n  OR jsonb_typeof(rule->'value') IS DISTINCT FROM 'number' OR (rule->>'value')::numeric=0\r\n  OR jsonb_typeof(rule->'base_count') IS DISTINCT FROM 'number' OR (rule->>'base_count')::numeric<0\r\n  OR jsonb_typeof(rule->'review_only') IS DISTINCT FROM 'boolean'\r\n  OR coalesce(length(trim(rule->>'rule_code')),0)=0 OR coalesce(length(trim(rule->>'label')),0)=0\r\n  OR coalesce(length(trim(rule->>'parameter')),0)=0 OR rule->>'rule_code'=ANY(seen) THEN RETURN false; END IF;\r\n  seen:=array_append(seen,rule->>'rule_code'); c:=rule->'condition'; r:=rule->'review';\r\n  IF jsonb_typeof(c) IS DISTINCT FROM 'object' OR NOT((c ? 'equals' AND c-ARRAY['equals']='{}'::jsonb)\r\n    OR (c ?& ARRAY['equals','floor_minimum','floor_maximum'] AND c-ARRAY['equals','floor_minimum','floor_maximum']='{}'::jsonb)\r\n    OR (c ?& ARRAY['minimum','maximum'] AND c-ARRAY['minimum','maximum']='{}'::jsonb)) THEN RETURN false; END IF;\r\n  IF c ? 'minimum' AND ((c->>'minimum')::numeric<0 OR (c->>'maximum')::numeric<(c->>'minimum')::numeric) THEN RETURN false; END IF;\r\n  IF c ? 'floor_minimum' AND (NOT(c ? 'floor_maximum') OR (c->>'floor_minimum')::numeric<1 OR (c->>'floor_maximum')::numeric<(c->>'floor_minimum')::numeric) THEN RETURN false; END IF;\r\n  IF NOT(r ?& ARRAY['status','reviewer','source_pdf_sha256','source_pdf_page','source_note','reason'])\r\n  OR coalesce(r->>'status','')<>'approved' OR coalesce(r->'reviewer'->>'kind','')<>'ai'\r\n  OR coalesce(length(trim(r->'reviewer'->>'model')),0)=0 OR coalesce(r->>'source_pdf_sha256','')!~'^[0-9a-f]{64}$'\r\n  OR (r->>'source_pdf_page')::integer<1 OR coalesce(length(trim(r->>'source_note')),0)=0\r\n  OR coalesce(length(trim(r->>'reason')),0)=0 THEN RETURN false; END IF;\r\n  IF rule->>'operation'='lift_maintenance' AND (rule->>'basis'<>'reference_lift_cost'\r\n    OR (rule->>'annual_months')::numeric<>12 OR (rule->>'higher_floor_monthly_charge')::numeric<=0) THEN RETURN false; END IF;\r\n END LOOP;\r\n RETURN true;\r\nEXCEPTION WHEN OTHERS THEN RETURN false;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_electrical_year_review_valid",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_electrical_year_review_valid()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE recipe public.\"SOR_Recipie\"; spec jsonb; status text;\r\nBEGIN\r\n IF new.table_code<>'P03-T04' THEN RETURN new; END IF;\r\n SELECT * INTO recipe FROM public.\"SOR_Recipie\" WHERE recipe_code=new.recipe_code;\r\n status:=new.metadata->'cost_review'->>'status'; spec:=recipe.addons->'electrical_rules';\r\n IF recipe.table_code IS DISTINCT FROM 'P03-T04' OR new.unit IS DISTINCT FROM recipe.unit\r\n OR new.part_no<>3 OR new.zone IS DISTINCT FROM ''\r\n OR status IS NULL OR status NOT IN ('priced','formula','source_clarification')\r\n OR new.metadata->'cost_ready' IS DISTINCT FROM to_jsonb(status IN ('priced','formula')) THEN\r\n RAISE EXCEPTION 'Electrical year needs the reviewed Recipe, unit and cost status'; END IF;\r\n IF status IN ('priced','source_clarification') AND (jsonb_typeof(new.rate) IS DISTINCT FROM 'number' OR (new.rate#>>'{}')::numeric<0) THEN\r\n RAISE EXCEPTION 'Electrical numeric tariff must preserve its source price'; END IF;\r\n IF new.metadata->'fixed_electrical_item_code' IS DISTINCT FROM 'true'::jsonb\r\n OR coalesce(new.metadata->>'source_pdf_sha256','')!~'^[0-9a-f]{64}$'\r\n OR (status IN ('priced','source_clarification') AND\r\n   (new.rate#>>'{}')::numeric IS DISTINCT FROM replace(replace(new.metadata->'price_source_row'->'raw_cells'->>-1,',',''),' ','')::numeric) THEN\r\n RAISE EXCEPTION 'Electrical tariff must bind its original source price and fixed code'; END IF;\r\n IF status='formula' AND (new.rate IS NOT NULL OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(spec->'rules') r WHERE r->>'operation'='lift_maintenance')) THEN\r\n RAISE EXCEPTION 'Formula tariff needs NULL rate and a reviewed pricing formula'; END IF;\r\n IF spec IS NOT NULL AND (new.metadata->'recipe_addon_review'->>'status' IS DISTINCT FROM 'unchanged'\r\n OR new.metadata->'recipe_addon_review'->'rule_snapshot' IS DISTINCT FROM spec) THEN\r\n RAISE EXCEPTION 'Electrical annual rules differ from permanent Recipe'; END IF;\r\n RETURN new;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_fallback_pages_valid",
+      "arguments": "p jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_fallback_pages_valid(p jsonb)\n RETURNS boolean\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\n SELECT CASE WHEN jsonb_typeof(p) IS DISTINCT FROM 'array' THEN false ELSE\r\n jsonb_array_length(p)>0 AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(p) v\r\n WHERE jsonb_typeof(v) IS DISTINCT FROM 'number' OR v::text !~ '^[1-9][0-9]*$')\r\n AND (SELECT count(DISTINCT v) FROM jsonb_array_elements(p) v)=jsonb_array_length(p) END\r\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_fallback_rate_valid",
+      "arguments": "p jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_fallback_rate_valid(p jsonb)\n RETURNS boolean\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\n SELECT CASE WHEN jsonb_typeof(p)='number' THEN (p#>>'{}')::numeric>=0\r\n WHEN jsonb_typeof(p)='object' THEN (SELECT count(*) FROM jsonb_object_keys(p))=3\r\n AND p ?& ARRAY['zone_1','zone_2','zone_3'] AND NOT EXISTS(SELECT 1 FROM jsonb_each(p) v\r\n WHERE CASE WHEN jsonb_typeof(v.value)='number' THEN (v.value#>>'{}')::numeric<0 ELSE true END)\r\n ELSE false END\r\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_fiscal_start",
+      "arguments": "p_year text",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_fiscal_start(p_year text)\n RETURNS integer\n LANGUAGE plpgsql\n IMMUTABLE STRICT\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE n integer;\r\nBEGIN\r\n IF p_year !~ '^[0-9]{4}-[0-9]{2}$' THEN RAISE EXCEPTION 'Year must be YYYY-YY'; END IF;\r\n n:=left(p_year,4)::integer;\r\n IF n<1900 OR right(p_year,2)::integer<>(n+1)%100 THEN RAISE EXCEPTION 'Invalid financial year'; END IF;\r\n RETURN n;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_lead_rule_codes",
+      "arguments": "rules jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_lead_rule_codes(rules jsonb)\n RETURNS SETOF text\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\n  select distinct value #>> '{}' from (\n    select jsonb_path_query(rules, '$.components.*.cases[*].then.terms[*].recipe_code') value\n    union all\n    select jsonb_path_query(rules, '$.components.*.otherwise.terms[*].recipe_code') value\n  ) codes;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_lead_rules_v2_valid",
+      "arguments": "rules jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_lead_rules_v2_valid(rules jsonb)\n RETURNS boolean\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\n  select rules is null or extensions.jsonb_matches_schema('{\"type\":\"object\",\"properties\":{\"schema_version\":{\"const\":2},\"distance_unit\":{\"const\":\"km\"},\"lift_unit\":{\"const\":\"m\"},\"components\":{\"type\":\"object\",\"properties\":{\"lead\":{\"$ref\":\"#/definitions/component\"},\"lift\":{\"$ref\":\"#/definitions/component\"},\"loading\":{\"$ref\":\"#/definitions/component\"},\"unloading\":{\"$ref\":\"#/definitions/component\"}},\"required\":[\"lead\",\"lift\",\"loading\",\"unloading\"],\"additionalProperties\":false}},\"required\":[\"schema_version\",\"distance_unit\",\"lift_unit\",\"components\"],\"additionalProperties\":false,\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"definitions\":{\"expression\":{\"oneOf\":[{\"type\":\"number\"},{\"type\":\"object\",\"properties\":{\"input\":{\"enum\":[\"lead_km\",\"lift_m\"]}},\"required\":[\"input\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"op\":{\"enum\":[\"add\",\"subtract\",\"multiply\"]},\"left\":{\"$ref\":\"#/definitions/expression\"},\"right\":{\"$ref\":\"#/definitions/expression\"}},\"required\":[\"op\",\"left\",\"right\"],\"additionalProperties\":false}]},\"condition\":{\"oneOf\":[{\"type\":\"object\",\"properties\":{\"input\":{\"enum\":[\"lead_km\",\"lift_m\"]},\"op\":{\"enum\":[\"lt\",\"lte\",\"gt\",\"gte\",\"eq\"]},\"value\":{\"type\":\"number\",\"minimum\":0}},\"required\":[\"input\",\"op\",\"value\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"input\":{\"const\":\"placement\"},\"op\":{\"const\":\"eq\"},\"value\":{\"enum\":[\"head_load\",\"mechanical\"]}},\"required\":[\"input\",\"op\",\"value\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"input\":{\"const\":\"handling\"},\"op\":{\"const\":\"eq\"},\"value\":{\"enum\":[\"manual_excluding_idle\",\"manual_including_idle\",\"mechanical_including_idle\"]}},\"required\":[\"input\",\"op\",\"value\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"input\":{\"const\":\"disposal\"},\"op\":{\"const\":\"eq\"},\"value\":{\"enum\":[\"none\",\"excavated_initial_50m\",\"excavated_initial_1km\"]}},\"required\":[\"input\",\"op\",\"value\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"all\":{\"type\":\"array\",\"minItems\":1,\"maxItems\":12,\"items\":{\"$ref\":\"#/definitions/condition\"}}},\"required\":[\"all\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"any\":{\"type\":\"array\",\"minItems\":1,\"maxItems\":12,\"items\":{\"$ref\":\"#/definitions/condition\"}}},\"required\":[\"any\"],\"additionalProperties\":false}]},\"result\":{\"type\":\"object\",\"properties\":{\"status\":{\"enum\":[\"priced\",\"included_in_item_rate\",\"not_payable\",\"review_required\"]},\"reason\":{\"type\":\"string\",\"minLength\":1},\"terms\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"recipe_code\":{\"type\":\"string\",\"minLength\":1},\"multiplier\":{\"$ref\":\"#/definitions/expression\"}},\"required\":[\"recipe_code\",\"multiplier\"],\"additionalProperties\":false}}},\"required\":[\"status\",\"reason\",\"terms\"],\"additionalProperties\":false,\"allOf\":[{\"if\":{\"properties\":{\"status\":{\"const\":\"priced\"}}},\"then\":{\"properties\":{\"terms\":{\"minItems\":1}}}},{\"if\":{\"properties\":{\"status\":{\"enum\":[\"not_payable\",\"review_required\"]}}},\"then\":{\"properties\":{\"terms\":{\"maxItems\":0}}}}]},\"component\":{\"type\":\"object\",\"properties\":{\"cases\":{\"type\":\"array\",\"maxItems\":20,\"items\":{\"type\":\"object\",\"properties\":{\"when\":{\"$ref\":\"#/definitions/condition\"},\"then\":{\"$ref\":\"#/definitions/result\"}},\"required\":[\"when\",\"then\"],\"additionalProperties\":false}},\"otherwise\":{\"$ref\":\"#/definitions/result\"}},\"required\":[\"cases\",\"otherwise\"],\"additionalProperties\":false}}}'::json, rules);\r\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_lead_rules_valid",
+      "arguments": "rules jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_lead_rules_valid(rules jsonb)\n RETURNS boolean\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$ SELECT coalesce(public.sor_lead_rules_v2_valid(rules) OR extensions.jsonb_matches_schema('{\"type\":\"object\",\"properties\":{\"schema_version\":{\"const\":3},\"distance_unit\":{\"const\":\"km\"},\"lift_unit\":{\"const\":\"m\"},\"components\":{\"type\":\"object\",\"properties\":{\"lead\":{\"$ref\":\"#/definitions/component\"},\"lift\":{\"$ref\":\"#/definitions/component\"},\"loading\":{\"$ref\":\"#/definitions/component\"},\"unloading\":{\"$ref\":\"#/definitions/component\"}},\"required\":[\"lead\",\"lift\",\"loading\",\"unloading\"],\"additionalProperties\":false},\"quantity_unit\":{\"type\":\"string\",\"minLength\":1},\"source_recipe_codes\":{\"type\":\"array\",\"minItems\":1,\"uniqueItems\":true,\"items\":{\"type\":\"string\",\"minLength\":1}}},\"required\":[\"schema_version\",\"distance_unit\",\"lift_unit\",\"components\",\"quantity_unit\",\"source_recipe_codes\"],\"additionalProperties\":false,\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"definitions\":{\"expression\":{\"oneOf\":[{\"type\":\"number\"},{\"type\":\"object\",\"properties\":{\"input\":{\"enum\":[\"lead_km\",\"lift_m\"]}},\"required\":[\"input\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"op\":{\"enum\":[\"add\",\"subtract\",\"multiply\",\"max\"]},\"left\":{\"$ref\":\"#/definitions/expression\"},\"right\":{\"$ref\":\"#/definitions/expression\"}},\"required\":[\"op\",\"left\",\"right\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"op\":{\"const\":\"ceil\"},\"value\":{\"$ref\":\"#/definitions/expression\"}},\"required\":[\"op\",\"value\"],\"additionalProperties\":false}]},\"condition\":{\"oneOf\":[{\"type\":\"object\",\"properties\":{\"input\":{\"enum\":[\"lead_km\",\"lift_m\"]},\"op\":{\"enum\":[\"lt\",\"lte\",\"gt\",\"gte\",\"eq\"]},\"value\":{\"type\":\"number\",\"minimum\":0}},\"required\":[\"input\",\"op\",\"value\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"input\":{\"const\":\"placement\"},\"op\":{\"const\":\"eq\"},\"value\":{\"enum\":[\"head_load\",\"mechanical\"]}},\"required\":[\"input\",\"op\",\"value\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"input\":{\"const\":\"handling\"},\"op\":{\"const\":\"eq\"},\"value\":{\"enum\":[\"manual_excluding_idle\",\"manual_including_idle\",\"mechanical_including_idle\"]}},\"required\":[\"input\",\"op\",\"value\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"input\":{\"const\":\"disposal\"},\"op\":{\"const\":\"eq\"},\"value\":{\"enum\":[\"none\",\"excavated_initial_50m\",\"excavated_initial_1km\"]}},\"required\":[\"input\",\"op\",\"value\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"all\":{\"type\":\"array\",\"minItems\":1,\"maxItems\":12,\"items\":{\"$ref\":\"#/definitions/condition\"}}},\"required\":[\"all\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"any\":{\"type\":\"array\",\"minItems\":1,\"maxItems\":12,\"items\":{\"$ref\":\"#/definitions/condition\"}}},\"required\":[\"any\"],\"additionalProperties\":false}]},\"result\":{\"type\":\"object\",\"properties\":{\"status\":{\"enum\":[\"priced\",\"included_in_item_rate\",\"not_payable\",\"review_required\"]},\"reason\":{\"type\":\"string\",\"minLength\":1},\"terms\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"recipe_code\":{\"type\":\"string\",\"minLength\":1},\"multiplier\":{\"$ref\":\"#/definitions/expression\"}},\"required\":[\"recipe_code\",\"multiplier\"],\"additionalProperties\":false}}},\"required\":[\"status\",\"reason\",\"terms\"],\"additionalProperties\":false,\"allOf\":[{\"if\":{\"properties\":{\"status\":{\"const\":\"priced\"}}},\"then\":{\"properties\":{\"terms\":{\"minItems\":1}}}},{\"if\":{\"properties\":{\"status\":{\"enum\":[\"not_payable\",\"review_required\"]}}},\"then\":{\"properties\":{\"terms\":{\"maxItems\":0}}}}]},\"component\":{\"type\":\"object\",\"properties\":{\"cases\":{\"type\":\"array\",\"maxItems\":20,\"items\":{\"type\":\"object\",\"properties\":{\"when\":{\"$ref\":\"#/definitions/condition\"},\"then\":{\"$ref\":\"#/definitions/result\"}},\"required\":[\"when\",\"then\"],\"additionalProperties\":false}},\"otherwise\":{\"$ref\":\"#/definitions/result\"}},\"required\":[\"cases\",\"otherwise\"],\"additionalProperties\":false}}}'::json,rules),false) $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_machinery_details_valid",
+      "arguments": "totals jsonb, details jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_machinery_details_valid(totals jsonb, details jsonb)\n RETURNS boolean\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\nselect case when jsonb_typeof(totals) = 'object' and jsonb_typeof(details) = 'object' then\n  coalesce(\n    totals ?& array['zone_1','zone_2','zone_3']\n    and details ?& array['zone_1','zone_2','zone_3']\n    and details - array['zone_1','zone_2','zone_3'] = '{}'::jsonb\n    and not exists (\n      select 1 from (values ('zone_1'),('zone_2'),('zone_3')) as zones(z)\n      where case when jsonb_typeof(details->z) = 'object' then\n        not coalesce(\n          (details->z) ?& array['hire_charge','fuel_charge','crew_charge']\n          and (details->z) - array['hire_charge','fuel_charge','crew_charge'] = '{}'::jsonb\n          and jsonb_typeof(details->z->'hire_charge') in ('number','null')\n          and jsonb_typeof(details->z->'fuel_charge') in ('number','null')\n          and jsonb_typeof(details->z->'crew_charge') in ('number','null')\n          and jsonb_typeof(totals->z) in ('number','null')\n          and case when jsonb_typeof(totals->z) = 'number'\n                    and jsonb_typeof(details->z->'hire_charge') = 'number'\n                    and jsonb_typeof(details->z->'fuel_charge') = 'number'\n                    and jsonb_typeof(details->z->'crew_charge') = 'number' then\n            (totals->>z)::numeric = (details->z->>'hire_charge')::numeric\n                + (details->z->>'fuel_charge')::numeric + (details->z->>'crew_charge')::numeric\n          else true end, false)\n      else true end\n    ), false)\nelse false end;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_morth_analysis_link_guard",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_morth_analysis_link_guard()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare o jsonb;\r\nbegin\r\n if tg_op='UPDATE' and old.rate->>'type'='morth_analysis' and new.rate->>'type' is distinct from 'morth_analysis' then\r\n  raise exception 'Do not discard reviewed MoRTH Rate links during re-extraction; replay the exact-year reviewed manifest';\r\n end if;\r\n if new.rate->>'type' is distinct from 'morth_analysis' then return new; end if;\r\n if not public.sor_morth_analysis_rate_valid(new.rate) then raise exception 'Invalid MoRTH analysis reference'; end if;\r\n if new.part_no<>2 or new.table_code<>'P02-T03' or new.metadata->'cost_ready' is distinct from 'false'::jsonb\r\n  or new.metadata->'cost_review'->>'status' is distinct from 'analysis_required'\r\n  or new.metadata->'morth_link_review'->'reviewer'->>'kind' is distinct from 'ai'\r\n  or coalesce(new.metadata->'morth_link_review'->'reviewer'->>'model','')=''\r\n  then raise exception 'MoRTH research candidates must retain explicit AI evidence and costing hold'; end if;\r\n for o in select value from jsonb_array_elements(new.rate->'options') loop\r\n  if not exists(select 1 from public.morth m where m.code=o->>'morth_code'\r\n    and m.source_edition=o->>'source_edition' and m.source_pages=o->'source_pages') then\r\n   raise exception 'Unknown or changed MoRTH key/source evidence: %',o->>'morth_code';\r\n  end if;\r\n end loop;\r\n return new;\r\nend $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_morth_analysis_options",
+      "arguments": "p_recipe_code text, p_year text",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_morth_analysis_options(p_recipe_code text, p_year text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare resolved jsonb; y public.\"SOR_Year\"; n bigint; options jsonb;\r\nbegin\r\n resolved:=public.sor_resolve_recipe_year(p_recipe_code,p_year);\r\n if coalesce((resolved->>'requires_review')::boolean,false) then return resolved; end if;\r\n select count(*) into n from public.\"SOR_Year\" where recipe_code=resolved->>'recipe_code' and year=p_year;\r\n if n<>1 then return resolved||jsonb_build_object('status',case when n=0 then 'selected_year_rate_missing' else 'annual_scope_review_required' end,'rate',null); end if;\r\n select * into y from public.\"SOR_Year\" where recipe_code=resolved->>'recipe_code' and year=p_year;\r\n if y.rate->>'type' is distinct from 'morth_analysis' then return resolved||jsonb_build_object('status','not_morth_analysis_reference','rate',null); end if;\r\n select coalesce(jsonb_agg(o.value||jsonb_build_object('description',m.description,\r\n  'description_detail',m.description_detail,'project_category',m.project_category,'unit',m.unit,\r\n  'analysis_quantity',m.analysis_quantity,'rate_divisor',m.rate_divisor,'analysis',m.recipe,\r\n  'can_auto_price',false) order by o.n),'[]'::jsonb) into options\r\n from jsonb_array_elements(y.rate->'options') with ordinality o(value,n)\r\n join public.morth m on m.code=o.value->>'morth_code';\r\n return resolved||jsonb_build_object('year',p_year,'year_row_code',y.year_row_code,'unit',y.unit,'status',y.rate->>'status',\r\n  'rate',null,'cost_ready',false,'options',options,'requirements',y.rate->'requirements','reason',y.rate->>'reason',\r\n  'review',y.metadata->'morth_link_review','to_be_printed',y.to_be_printed);\r\nend $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_morth_analysis_rate_valid",
+      "arguments": "v jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_morth_analysis_rate_valid(v jsonb)\n RETURNS boolean\n LANGUAGE plpgsql\n IMMUTABLE STRICT\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare o jsonb; codes text[]:=array[]::text[]; s jsonb;\r\nbegin\r\n if jsonb_typeof(v) is distinct from 'object' or not(v ?& array['schema_version','type','status','options','requirements','reason'])\r\n  or (v-array['schema_version','type','status','options','requirements','reason'])<>'{}'::jsonb\r\n  or v->'schema_version' is distinct from '1'::jsonb or v->>'type' is distinct from 'morth_analysis'\r\n  or coalesce(v->>'status','') not in ('scope_review_required','no_matching_analysis')\r\n  or jsonb_typeof(v->'options') is distinct from 'array'\r\n  or jsonb_typeof(v->'requirements') is distinct from 'array'\r\n  or jsonb_typeof(v->'reason') is distinct from 'string' or length(btrim(v->>'reason'))=0 then return false; end if;\r\n if jsonb_array_length(v->'options')>512 or jsonb_array_length(v->'requirements')=0\r\n  or ((jsonb_array_length(v->'options')>0)<>(v->>'status'='scope_review_required')) then return false; end if;\r\n for s in select value from jsonb_array_elements(v->'requirements') loop\r\n  if jsonb_typeof(s)<>'string' or length(btrim(s#>>'{}'))=0 then return false; end if;\r\n end loop;\r\n for o in select value from jsonb_array_elements(v->'options') loop\r\n  if jsonb_typeof(o) is distinct from 'object'\r\n   or not(o ?& array['morth_code','relationship','review_status','source_pages','source_edition'])\r\n   or (o-array['morth_code','relationship','review_status','source_pages','source_edition'])<>'{}'::jsonb\r\n   or jsonb_typeof(o->'morth_code') is distinct from 'string' or (o->>'morth_code')!~'^MORTH-.+'\r\n   or coalesce(o->>'relationship','') not in ('whole_work_candidate','component_candidate')\r\n   or o->>'review_status' is distinct from 'scope_review_required'\r\n   or jsonb_typeof(o->'source_edition') is distinct from 'string' or length(btrim(o->>'source_edition'))=0\r\n   or jsonb_typeof(o->'source_pages') not in ('array','object')\r\n   or o->'source_pages' in ('[]'::jsonb,'{}'::jsonb,'null'::jsonb)\r\n   or (o->>'morth_code')=any(codes) then return false; end if;\r\n  codes:=array_append(codes,o->>'morth_code');\r\n end loop;\r\n return true;\r\nend $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_morth_referenced_key_guard",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_morth_referenced_key_guard()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\nbegin\r\n if tg_op='UPDATE' and new.code=old.code and new.recipe->>'source_edition' is not distinct from old.source_edition\r\n  and new.recipe->'source_pages' is not distinct from old.source_pages then return new; end if;\r\n if exists(select 1 from public.\"SOR_Year\" y cross join lateral jsonb_array_elements(coalesce(y.rate->'options','[]'::jsonb)) o\r\n  where y.rate->>'type'='morth_analysis' and o->>'morth_code'=old.code) then\r\n  raise exception 'MoRTH key/source is referenced by reviewed SOR annual analysis links; reconcile before changing it';\r\n end if;\r\n if tg_op='DELETE' then return old; end if; return new;\r\nend $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_plumbing_porcelain_rule_valid",
+      "arguments": "spec jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_plumbing_porcelain_rule_valid(spec jsonb)\n RETURNS boolean\n LANGUAGE plpgsql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE review jsonb:=spec->'review';\r\nBEGIN\r\n IF jsonb_typeof(spec) IS DISTINCT FROM 'object' OR\r\n NOT(spec ?& ARRAY['schema_version','rule_code','applies_to_recipe_code','kind','percentage','basis','when','excludes','review']) OR\r\n spec-ARRAY['schema_version','rule_code','applies_to_recipe_code','kind','percentage','basis','when','excludes','review']<>'{}'::jsonb THEN RETURN false; END IF;\r\n IF spec->'schema_version' IS DISTINCT FROM '1'::jsonb OR spec->>'kind' IS DISTINCT FROM 'coloured_porcelain'\r\n OR spec->>'basis' IS DISTINCT FROM 'white_porcelain_component'\r\n OR spec->'when' IS DISTINCT FROM '{\"colour\":\"coloured\"}'::jsonb\r\n OR spec->'excludes' IS DISTINCT FROM '[\"fittings\"]'::jsonb\r\n OR jsonb_typeof(spec->'percentage') IS DISTINCT FROM 'number' THEN RETURN false; END IF;\r\n IF (spec->>'percentage')::numeric<=0 THEN RETURN false; END IF;\r\n RETURN coalesce(jsonb_typeof(spec->'rule_code')='string' AND length(trim(spec->>'rule_code'))>0\r\n AND jsonb_typeof(spec->'applies_to_recipe_code')='string' AND length(trim(spec->>'applies_to_recipe_code'))>0\r\n AND review->>'status'='approved' AND review->'reviewer'->>'kind'='ai'\r\n AND length(review->>'review_id')=64 AND length(review->>'source_pdf_sha256')=64\r\n AND length(trim(review->>'source_note'))>0 AND length(trim(review->>'reason'))>0,false);\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_public_health_details_valid",
+      "arguments": "t jsonb, d jsonb, m jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_public_health_details_valid(t jsonb, d jsonb, m jsonb)\n RETURNS boolean\n LANGUAGE plpgsql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\nDECLARE v jsonb; total numeric:=0;\nBEGIN\n IF d IS NULL THEN RETURN true; END IF;\n IF d->'schema_version' IS DISTINCT FROM '1'::jsonb OR d-ARRAY['schema_version','components','total_basis']<>'{}'::jsonb OR jsonb_typeof(d->'components') IS DISTINCT FROM 'object' OR jsonb_typeof(t) IS DISTINCT FROM 'number' THEN RETURN false; END IF;\n IF m->>'item_type'='maintenance_job' THEN\n  IF NOT(d->'components' ?& ARRAY['material_charge','labour_machinery_other_charge']) OR (d->'components')-ARRAY['material_charge','labour_machinery_other_charge']<>'{}'::jsonb OR d->>'total_basis'<>'published_total' THEN RETURN false; END IF;\n ELSE\n  IF NOT(d->'components' ?& ARRAY['labour_charge','implements_charge']) OR (d->'components')-ARRAY['labour_charge','implements_charge']<>'{}'::jsonb OR d->>'total_basis'<>'component_sum' THEN RETURN false; END IF;\n END IF;\n FOR v IN SELECT value FROM jsonb_each(d->'components') LOOP\n  IF jsonb_typeof(v)<>'number' OR (v#>>'{}')::numeric<0 THEN RETURN false; END IF; total:=total+(v#>>'{}')::numeric;\n END LOOP;\n IF total=(t#>>'{}')::numeric THEN RETURN true; END IF;\n -- Retain a misprinted source total only as an explicitly blocked AI review.\n RETURN coalesce(\n  m->>'item_type'='maintenance_job'\n  AND m->'cost_ready'='false'::jsonb\n  AND m->>'rate_status'='source_clarification'\n  AND m->'cost_review'->>'status'='source_clarification'\n  AND m->'component_review'->>'status'='unresolved_source_arithmetic'\n  AND m->'component_review'->'reviewer'->>'kind'='ai'\n  AND length(m->'component_review'->>'reason')>0\n  AND jsonb_typeof(m->'component_review'->'component_sum')='number'\n  AND jsonb_typeof(m->'component_review'->'published_total')='number'\n  AND (m->'component_review'->>'component_sum')::numeric=total\n  AND (m->'component_review'->>'published_total')::numeric=(t#>>'{}')::numeric,\n false);\nEXCEPTION WHEN OTHERS THEN RETURN false;\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_public_health_recipe_valid",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_public_health_recipe_valid()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE c jsonb;\r\nBEGIN\r\n IF new.part_no<>4 THEN RETURN new; END IF;\r\n IF new.structure='MATRIX' THEN\r\n  c:=new.metadata->'public_health_cell';\r\n  IF c->'schema_version' IS DISTINCT FROM '1'::jsonb OR c->'column'->>'unit' IS DISTINCT FROM new.unit\r\n   OR NOT(c ?& ARRAY['group','row_axis','column_axis','row','column'])\r\n   OR coalesce(length(c->'row'->>'label'),0)=0 OR coalesce(length(c->'column'->>'label'),0)=0\r\n   OR new.metadata ?| ARRAY['matrix','matrix_cell','parent_recipe_code'] THEN RAISE EXCEPTION 'Independent Part IV matrix coordinate required'; END IF;\r\n END IF;\r\n IF jsonb_path_exists(new.metadata,'$.**.rate') OR jsonb_path_exists(new.metadata,'$.**.rate_detailed') OR jsonb_path_exists(new.metadata,'$.**.year') THEN RAISE EXCEPTION 'Annual prices do not belong in Recipe'; END IF;\r\n RETURN new;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_public_health_rules_valid",
+      "arguments": "spec jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_public_health_rules_valid(spec jsonb)\n RETURNS boolean\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$ SELECT coalesce(extensions.jsonb_matches_schema('{\"type\":\"object\",\"properties\":{\"schema_version\":{\"const\":1},\"applies_to_recipe_code\":{\"type\":\"string\",\"minLength\":1},\"rules\":{\"type\":\"array\",\"minItems\":1,\"items\":{\"type\":\"object\",\"properties\":{\"rule_code\":{\"type\":\"string\",\"minLength\":1},\"label\":{\"type\":\"string\",\"minLength\":1},\"operation\":{\"enum\":[\"add\",\"multiply\",\"replace\",\"linked_item\"]},\"expression\":{\"$ref\":\"#/definitions/expression\"},\"when\":{\"type\":\"object\"},\"target_recipe_code\":{\"type\":[\"string\",\"null\"]},\"review_only\":{\"type\":\"boolean\"},\"source\":{\"type\":\"object\",\"properties\":{\"pdf_page\":{\"type\":\"integer\",\"minimum\":1},\"note\":{\"type\":\"string\",\"minLength\":1},\"reason\":{\"type\":\"string\",\"minLength\":1}},\"required\":[\"pdf_page\",\"note\",\"reason\"],\"additionalProperties\":false}},\"required\":[\"rule_code\",\"label\",\"operation\",\"expression\",\"when\",\"target_recipe_code\",\"review_only\",\"source\"],\"additionalProperties\":false}}},\"required\":[\"schema_version\",\"applies_to_recipe_code\",\"rules\"],\"additionalProperties\":false,\"definitions\":{\"expression\":{\"oneOf\":[{\"type\":\"number\"},{\"type\":\"object\",\"properties\":{\"input\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":160}},\"required\":[\"input\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"annual\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":160}},\"required\":[\"annual\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"op\":{\"enum\":[\"add\",\"subtract\",\"multiply\",\"divide\",\"max\",\"ceil\"]},\"args\":{\"type\":\"array\",\"minItems\":1,\"maxItems\":8,\"items\":{\"$ref\":\"#/definitions/expression\"}}},\"required\":[\"op\",\"args\"],\"additionalProperties\":false}]}}}'::json,spec),false) $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_public_health_year_valid",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_public_health_year_valid()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE r public.\"SOR_Recipie\"; status text; expected jsonb; lead public.\"SOR_Lead_Rule\"; source numeric; raw text;\r\nBEGIN\r\n IF new.part_no<>4 THEN RETURN new; END IF;\r\n SELECT * INTO r FROM public.\"SOR_Recipie\" WHERE recipe_code=new.recipe_code;\r\n status:=new.metadata->'cost_review'->>'status';\r\n IF r.part_no IS DISTINCT FROM 4 OR new.unit IS DISTINCT FROM r.unit OR new.table_code IS DISTINCT FROM r.table_code OR new.structure IS DISTINCT FROM r.structure OR new.zone IS DISTINCT FROM '' THEN RAISE EXCEPTION 'Wrong Part IV annual definition or unit'; END IF;\r\n IF status IS NULL OR status NOT IN ('priced','calculated','formula','not_published','reference_required','source_clarification')\r\n OR new.metadata->'cost_ready' IS DISTINCT FROM to_jsonb(status IN ('priced','calculated','formula'))\r\n OR coalesce(new.metadata->>'source_pdf_sha256','')!~'^[0-9a-f]{64}$' OR new.metadata->'recipe_review'->'reviewer'->>'kind' IS DISTINCT FROM 'ai' THEN RAISE EXCEPTION 'Annual Part IV requires source and AI review'; END IF;\r\n IF status IN ('not_published','reference_required','formula') AND new.rate IS NOT NULL THEN RAISE EXCEPTION 'Unpublished/reference/formula tariff must not invent a rate'; END IF;\r\n IF status IN ('priced','calculated') AND (jsonb_typeof(new.rate) IS DISTINCT FROM 'number' OR (new.rate#>>'{}')::numeric<0) THEN RAISE EXCEPTION 'Missing published Part IV tariff'; END IF;\r\n IF r.addons IS NOT NULL AND (new.metadata->'recipe_addon_review'->>'status' IS DISTINCT FROM 'unchanged' OR new.metadata->'recipe_addon_review'->'rule_snapshot' IS DISTINCT FROM r.addons->'public_health_rules') THEN RAISE EXCEPTION 'Part IV rule changed; AI must review a new definition'; END IF;\r\n IF new.metadata ? 'lead_rule_code' THEN\r\n  SELECT * INTO lead FROM public.\"SOR_Lead_Rule\" WHERE rule_code=new.metadata->>'lead_rule_code';\r\n  IF lead.rules->>'schema_version' IS DISTINCT FROM '3' OR NOT(lead.rules->'source_recipe_codes' ? new.recipe_code) OR lead.rules->>'quantity_unit' IS DISTINCT FROM new.unit THEN RAISE EXCEPTION 'Wrong pipe rule coordinate or unit'; END IF;\r\n ELSIF r.lead_applicability='PIPE' THEN RAISE EXCEPTION 'Missing annual PIPE rule'; END IF;\r\n IF new.rate_detailed IS NOT NULL THEN\r\n  IF new.metadata->>'item_type'='maintenance_job' THEN expected:='[{\"key\":\"material_charge\",\"label\":\"Material (Rs.)\",\"path\":\"rate_detailed.components.material_charge\"},{\"key\":\"labour_machinery_other_charge\",\"label\":\"Labour, machinery and other (Rs.)\",\"path\":\"rate_detailed.components.labour_machinery_other_charge\"}]'::jsonb;\r\n  ELSE expected:='[{\"key\":\"labour_charge\",\"label\":\"Labour (Rs.)\",\"path\":\"rate_detailed.components.labour_charge\"},{\"key\":\"implements_charge\",\"label\":\"Implements (Rs.)\",\"path\":\"rate_detailed.components.implements_charge\"}]'::jsonb; END IF;\r\n  IF new.to_be_printed->'extra_columns' IS DISTINCT FROM expected THEN RAISE EXCEPTION 'Print the exact Part IV cost breakdown'; END IF;\r\n END IF;\r\n IF status='priced' AND new.metadata->'price_token'='null'::jsonb AND new.metadata->'source_correction'='null'::jsonb THEN\r\n  raw:=new.metadata->>'published_rate_text';\r\n  IF raw!~'^[0-9][0-9,]*(\\.[0-9]+)?$' THEN RAISE EXCEPTION 'Part IV tariff lacks its numeric source'; END IF;\r\n  source:=replace(raw,',','')::numeric * (new.metadata->>'price_scale')::numeric;\r\n  IF source IS DISTINCT FROM (new.rate#>>'{}')::numeric THEN RAISE EXCEPTION 'Part IV tariff differs from source'; END IF;\r\n END IF;\r\n RETURN new;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_recipe_fallback_valid",
+      "arguments": "p_code text, p_unit text, r jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_recipe_fallback_valid(p_code text, p_unit text, r jsonb)\n RETURNS void\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE f jsonb; review jsonb; source jsonb; y text; used text[]:=ARRAY[]::text[];\r\n n integer; prior public.\"SOR_Recipie\"; rates jsonb;\r\nBEGIN\r\n IF r IS NULL THEN RETURN; END IF;\r\n IF r->>'schema_version'='3' THEN\r\n  IF r->'schema_version' IS DISTINCT FROM '3'::jsonb OR (SELECT count(*) FROM jsonb_object_keys(r))<>3 OR NOT r ?& ARRAY['schema_version','first_available_year','historical_fallbacks']\r\n  OR public.sor_fiscal_start(r->>'first_available_year') IS NULL THEN RAISE EXCEPTION 'Invalid fallback-only link'; END IF;\r\n END IF;\r\n IF NOT r ? 'historical_fallbacks' THEN RETURN; END IF;\r\n IF jsonb_typeof(r->'historical_fallbacks') IS DISTINCT FROM 'array'\r\n OR (r->>'schema_version'='3' AND jsonb_array_length(r->'historical_fallbacks')=0) THEN RAISE EXCEPTION 'Invalid historical fallback rules'; END IF;\r\n FOR f IN SELECT value FROM jsonb_array_elements(r->'historical_fallbacks') LOOP\r\n  IF jsonb_typeof(f) IS DISTINCT FROM 'object' OR (SELECT count(*) FROM jsonb_object_keys(f))<>6\r\n  OR NOT f ?& ARRAY['relationship_type','target_recipe_code','years','mode','reason','review']\r\n  OR f->>'relationship_type' IS DISTINCT FROM 'historical_fallback'\r\n  OR coalesce(f->>'mode','') NOT IN('automatic','review_required')\r\n  OR jsonb_typeof(f->'target_recipe_code') IS DISTINCT FROM 'string' OR btrim(f->>'target_recipe_code')=''\r\n  OR f->>'target_recipe_code'=p_code OR jsonb_typeof(f->'reason') IS DISTINCT FROM 'string'\r\n  OR btrim(f->>'reason')='' OR jsonb_typeof(f->'years') IS DISTINCT FROM 'array'\r\n  OR jsonb_array_length(f->'years')=0 THEN RAISE EXCEPTION 'Invalid historical_fallback relationship'; END IF;\r\n  review:=f->'review'; rates:=review->'rate_comparison';\r\n  IF review->>'status' IS DISTINCT FROM 'approved' OR review->'reviewer'->>'kind' IS DISTINCT FROM 'ai'\r\n  OR coalesce(review->'reviewer'->>'model','')='' OR coalesce(review->>'pdf_sha256','')!~'^[0-9a-f]{64}$'\r\n  OR NOT public.sor_fallback_pages_valid(review->'source_pages') OR NOT public.sor_fallback_pages_valid(review->'target_pages')\r\n  THEN RAISE EXCEPTION 'Historical fallback requires AI source approval'; END IF;\r\n  n:=public.sor_fiscal_start(review->>'source_year');\r\n  IF n IS NULL OR (r->>'schema_version'='3' AND review->>'source_year' IS DISTINCT FROM r->>'first_available_year')\r\n  OR jsonb_typeof(review->'comparison') IS DISTINCT FROM 'object'\r\n  OR (SELECT count(*) FROM jsonb_object_keys(review->'comparison'))<>5\r\n  OR NOT (review->'comparison') ?& ARRAY['definition','quantity_basis','scope','variants','addons']\r\n  OR EXISTS(SELECT 1 FROM jsonb_each(review->'comparison') c WHERE c.value->>'status' IS DISTINCT FROM 'checked'\r\n    OR coalesce(btrim(c.value->>'reason'),'')='') THEN RAISE EXCEPTION 'AI must compare complete fallback definitions and quantity/scope'; END IF;\r\n  IF rates->>'year' IS DISTINCT FROM review->>'source_year'\r\n  OR NOT public.sor_fallback_rate_valid(rates->'source_rate') OR NOT public.sor_fallback_rate_valid(rates->'target_rate')\r\n  OR (f->>'mode'='automatic' AND rates->'source_rate' IS DISTINCT FROM rates->'target_rate')\r\n  THEN RAISE EXCEPTION 'Fallback rate comparison needs same-edition rates'; END IF;\r\n  IF jsonb_typeof(review->'historical_sources') IS DISTINCT FROM 'array'\r\n  OR jsonb_array_length(review->'historical_sources')<>jsonb_array_length(f->'years')\r\n  THEN RAISE EXCEPTION 'Each historical fallback year needs original PDF evidence'; END IF;\r\n  FOR y IN SELECT jsonb_array_elements_text(f->'years') LOOP\r\n   IF y=ANY(used) OR public.sor_fiscal_start(y) IS NULL OR public.sor_fiscal_start(y)>=n\r\n   THEN RAISE EXCEPTION 'Historical fallback years must be earlier and nonoverlapping'; END IF;\r\n   used:=array_append(used,y);\r\n   SELECT value INTO source FROM jsonb_array_elements(review->'historical_sources') s\r\n     WHERE s.value->>'year'=y;\r\n   IF NOT FOUND OR (SELECT count(*) FROM jsonb_array_elements(review->'historical_sources') s WHERE s.value->>'year'=y)<>1\r\n   OR coalesce(source->>'pdf_sha256','')!~'^[0-9a-f]{64}$' OR NOT public.sor_fallback_pages_valid(source->'pdf_pages')\r\n   THEN RAISE EXCEPTION 'Each historical fallback year needs original PDF evidence'; END IF;\r\n  END LOOP;\r\n  SELECT * INTO prior FROM public.\"SOR_Recipie\" WHERE recipe_code=f->>'target_recipe_code' FOR KEY SHARE;\r\n  IF NOT FOUND THEN RAISE EXCEPTION 'Missing historical fallback target'; END IF;\r\n  IF f->>'mode'='automatic' AND p_unit IS DISTINCT FROM prior.unit THEN RAISE EXCEPTION 'Automatic fallback requires same quantity basis'; END IF;\r\n END LOOP;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_recipe_protect_lead_target",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_recipe_protect_lead_target()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\nBEGIN\r\n IF EXISTS(SELECT 1 FROM public.\"SOR_Lead_Rule\" r CROSS JOIN LATERAL public.sor_lead_rule_codes(r.rules) code WHERE code=old.recipe_code) THEN\r\n  RAISE EXCEPTION 'Conveyance Recipe is referenced by a shared lead rule'; END IF;\r\n IF EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" r WHERE r.variants->>'main_recipe_code'=old.recipe_code AND r.recipe_code<>old.recipe_code) THEN\r\n  RAISE EXCEPTION 'Recipe is an actual variant family anchor'; END IF;\r\n IF EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" r WHERE\r\n  COALESCE(r.addons->'recipe_codes','[]'::jsonb) ? old.recipe_code OR\r\n  COALESCE(r.addons->'rule'->'applies_to','[]'::jsonb) ? old.recipe_code OR\r\n  COALESCE(r.addons->'rule'->'requires','[]'::jsonb) ? old.recipe_code) THEN\r\n  RAISE EXCEPTION 'Recipe is referenced by an addon relationship'; END IF;\r\n RETURN old;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_recipe_relationships_valid",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_recipe_relationships_valid()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE v jsonb; a jsonb; target public.\"SOR_Recipie\"; code text;\r\nBEGIN\r\n SELECT variants,addons INTO v,a FROM public.\"SOR_Recipie\" WHERE recipe_code=new.recipe_code;\r\n IF v IS NOT NULL THEN\r\n  IF jsonb_typeof(v)<>'object' OR v->>'schema_version'<>'1' OR (v-ARRAY['schema_version','main_recipe_code','axis','value'])<>'{}'::jsonb OR NOT(v ?& ARRAY['main_recipe_code','axis','value']) THEN\r\n   RAISE EXCEPTION 'Invalid one-axis variant relationship'; END IF;\r\n  SELECT * INTO target FROM public.\"SOR_Recipie\" WHERE recipe_code=v->>'main_recipe_code';\r\n  IF target.recipe_code IS NULL OR target.structure<>'ROW' OR target.variants->>'main_recipe_code' IS DISTINCT FROM target.recipe_code OR target.variants->>'axis' IS DISTINCT FROM v->>'axis' THEN\r\n   RAISE EXCEPTION 'Variant main must be an actual row in the same family'; END IF;\r\n END IF;\r\n IF a IS NOT NULL THEN\r\n  IF a->>'schema_version'<>'1' OR jsonb_typeof(a)<>'object' THEN RAISE EXCEPTION 'Invalid addon relationship'; END IF;\r\n  IF a ? 'recipe_codes' THEN\r\n   FOR code IN SELECT jsonb_array_elements_text(a->'recipe_codes') LOOP\r\n    SELECT * INTO target FROM public.\"SOR_Recipie\" WHERE recipe_code=code;\r\n    IF target.recipe_code IS NULL OR code=new.recipe_code OR target.metadata->>'item_type' IS DISTINCT FROM 'adjustment' THEN\r\n     RAISE EXCEPTION 'Addon link must reference an adjustment Recipe'; END IF;\r\n   END LOOP;\r\n  ELSIF a ? 'rule' THEN\r\n   IF NOT(a->'rule' ?& ARRAY['applies_to','when','operation','requires','component','basis']) THEN RAISE EXCEPTION 'Incomplete addon rule'; END IF;\r\n   FOR code IN SELECT jsonb_array_elements_text(a->'rule'->'applies_to') UNION ALL SELECT jsonb_array_elements_text(a->'rule'->'requires') LOOP\r\n    IF code=new.recipe_code OR NOT EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" WHERE recipe_code=code) THEN\r\n     RAISE EXCEPTION 'Addon rule target/dependency is absent'; END IF;\r\n   END LOOP;\r\n  ELSIF a ? 'height_rule' THEN\r\n   IF (a-ARRAY['schema_version','height_rule'])<>'{}'::jsonb\r\n      OR NOT public.sor_centering_recipe_addon_valid(a->'height_rule')\r\n      OR a->'height_rule'->>'applies_to_recipe_code' IS DISTINCT FROM new.recipe_code THEN\r\n     RAISE EXCEPTION 'Invalid inline Recipe height addon'; END IF;\r\n   IF NOT EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" r WHERE r.recipe_code=new.recipe_code AND r.table_code='P03-T02' AND r.structure='MATRIX') THEN\r\n     RAISE EXCEPTION 'Height addon belongs to a centering coordinate'; END IF;\r\n  ELSIF a ? 'porcelain_colour_rule' THEN\r\n   IF (a-ARRAY['schema_version','porcelain_colour_rule'])<>'{}'::jsonb\r\n      OR NOT public.sor_plumbing_porcelain_rule_valid(a->'porcelain_colour_rule')\r\n      OR a->'porcelain_colour_rule'->>'applies_to_recipe_code' IS DISTINCT FROM new.recipe_code\r\n      OR NOT EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" r WHERE r.recipe_code=new.recipe_code AND r.table_code='P03-T03' AND r.structure='ROW') THEN\r\n      RAISE EXCEPTION 'Invalid inline Plumbing porcelain addon'; END IF;\r\n  ELSIF a ? 'electrical_rules' THEN\r\n   IF (a-ARRAY['schema_version','electrical_rules'])<>'{}'::jsonb\r\n      OR NOT public.sor_electrical_recipe_rules_valid(a->'electrical_rules')\r\n      OR a->'electrical_rules'->>'applies_to_recipe_code' IS DISTINCT FROM new.recipe_code\r\n      OR NOT EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" r WHERE r.recipe_code=new.recipe_code AND r.table_code='P03-T04' AND r.structure='ROW') THEN\r\n      RAISE EXCEPTION 'Invalid inline Electrical Recipe rules'; END IF;\r\n  ELSIF a ? 'public_health_rules' THEN\r\n   IF (a-ARRAY['schema_version','public_health_rules'])<>'{}'::jsonb\r\n    OR NOT public.sor_public_health_rules_valid(a->'public_health_rules')\r\n    OR a->'public_health_rules'->>'applies_to_recipe_code' IS DISTINCT FROM new.recipe_code\r\n    OR NOT EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" r WHERE r.recipe_code=new.recipe_code AND r.part_no=4) THEN\r\n    RAISE EXCEPTION 'Invalid permanent Public Health application rules'; END IF;\r\n   FOR code IN SELECT x->>'target_recipe_code' FROM jsonb_array_elements(a->'public_health_rules'->'rules') x WHERE x->>'target_recipe_code' IS NOT NULL LOOP\r\n    IF code=new.recipe_code OR NOT EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" r WHERE r.recipe_code=code AND r.part_no=4 AND r.metadata->>'item_type' IN ('adjustment','supply')) THEN\r\n     RAISE EXCEPTION 'Public Health addon target is missing or has the wrong scope'; END IF;\r\n   END LOOP;\r\n  ELSE RAISE EXCEPTION 'Addon needs reviewed Recipe links or an inline rule'; END IF;\r\n END IF;\r\n RETURN NULL;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_recipe_revision_chain_valid",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_recipe_revision_chain_valid()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\nBEGIN\r\n -- This is deferred so all siblings can be inserted in one transaction.\r\n IF EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" child,\r\n  LATERAL jsonb_array_elements_text(public.sor_revision_replacements(child.recipe_revision,child.recipe_code)) c\r\n  LEFT JOIN public.\"SOR_Recipie\" sibling ON sibling.recipe_code=c\r\n  WHERE child.recipe_revision->>'schema_version'='2'\r\n  AND (sibling.recipe_code IS NULL OR public.sor_revision_core(sibling.recipe_revision) IS DISTINCT FROM public.sor_revision_core(child.recipe_revision))) THEN\r\n  RAISE EXCEPTION 'Every split/merge successor must carry the identical complete revision group'; END IF;\r\n IF EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" child,\r\n  LATERAL jsonb_array_elements_text(public.sor_revision_previous(child.recipe_revision)) c\r\n  JOIN public.\"SOR_Recipie\" parent ON parent.recipe_code=c\r\n  WHERE parent.recipe_revision IS NOT NULL AND public.sor_fiscal_start(parent.recipe_revision->>'effective_from_year')\r\n   >=public.sor_fiscal_start(child.recipe_revision->>'effective_from_year')) THEN\r\n  RAISE EXCEPTION 'Revision chain boundaries must strictly increase; cycles are prohibited'; END IF;\r\n IF EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" a JOIN public.\"SOR_Recipie\" b ON a.recipe_code<b.recipe_code\r\n  AND public.sor_revision_previous(a.recipe_revision) ?| ARRAY(SELECT jsonb_array_elements_text(public.sor_revision_previous(b.recipe_revision)))\r\n  WHERE a.recipe_revision IS NOT NULL AND b.recipe_revision IS NOT NULL\r\n  AND (a.recipe_revision->>'schema_version'<>'2' OR public.sor_revision_core(b.recipe_revision) IS DISTINCT FROM public.sor_revision_core(a.recipe_revision))) THEN\r\n  RAISE EXCEPTION 'Conflicting revision branches; author one complete reviewed replacement group'; END IF;\r\n IF EXISTS(WITH RECURSIVE edges AS (\r\n SELECT r.recipe_code AS origin,f.value->>'target_recipe_code' AS target,y.value AS year\r\n FROM public.\"SOR_Recipie\" r CROSS JOIN LATERAL jsonb_array_elements(coalesce(r.recipe_revision->'historical_fallbacks','[]'::jsonb)) f\r\n CROSS JOIN LATERAL jsonb_array_elements_text(f.value->'years') y), walk AS (\r\n SELECT origin,target,year,ARRAY[origin]::text[] path,target=origin cycle FROM edges\r\n UNION ALL SELECT w.origin,e.target,w.year,w.path||w.target,e.target=ANY(w.path||w.target)\r\n FROM walk w JOIN edges e ON e.origin=w.target AND e.year=w.year WHERE NOT w.cycle)\r\n SELECT 1 FROM walk WHERE cycle) THEN RAISE EXCEPTION 'Historical fallback cycle'; END IF;\r\n RETURN NULL;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_recipe_revision_valid",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_recipe_revision_valid()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE r jsonb; prior public.\"SOR_Recipie\"; source jsonb; source_key text; n integer;\r\n before_codes jsonb; after_codes jsonb; c text; cardinality_kind text;\r\nBEGIN\r\n IF TG_OP='DELETE' THEN\r\n  PERFORM pg_advisory_xact_lock(hashtextextended('public.SOR_Recipie.recipe_revision',0));\r\n  IF EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" x WHERE\r\n    public.sor_revision_previous(x.recipe_revision) ? old.recipe_code\r\n    OR (x.recipe_code<>old.recipe_code AND public.sor_revision_replacements(x.recipe_revision,x.recipe_code) ? old.recipe_code)\r\n    OR x.recipe_revision->'historical_fallbacks' @> jsonb_build_array(jsonb_build_object('target_recipe_code',old.recipe_code))) THEN\r\n   RAISE EXCEPTION 'Recipe is referenced by a revision predecessor or replacement group'; END IF;\r\n  RETURN old;\r\n END IF;\r\n IF TG_OP='UPDATE' AND new.recipe_revision IS NOT DISTINCT FROM old.recipe_revision THEN RETURN new; END IF;\r\n PERFORM pg_advisory_xact_lock(hashtextextended('public.SOR_Recipie.recipe_revision',0));\r\n PERFORM public.sor_recipe_fallback_valid(new.recipe_code,new.unit,new.recipe_revision);\r\n r:=public.sor_revision_core(new.recipe_revision);\r\n IF r IS NULL THEN RETURN new; END IF;\r\n IF jsonb_typeof(r) IS DISTINCT FROM 'object' OR r->'schema_version' NOT IN ('1'::jsonb,'2'::jsonb)\r\n OR r->'schema_version' IS NULL THEN RAISE EXCEPTION 'Recipe revision needs reviewed schema 1 or 2'; END IF;\r\n IF r->>'schema_version'='1' THEN\r\n  IF (SELECT count(*) FROM jsonb_object_keys(r))<>7 OR NOT r ?& ARRAY['schema_version','previous_recipe_code','effective_from_year','change_kind','replacement_mode','reason','review']\r\n   OR jsonb_typeof(r->'previous_recipe_code') IS DISTINCT FROM 'string' THEN RAISE EXCEPTION 'Invalid v1 revision fields'; END IF;\r\n ELSE\r\n  IF (SELECT count(*) FROM jsonb_object_keys(r))<>8 OR NOT r ?& ARRAY['schema_version','previous_recipe_codes','replacement_recipe_codes','effective_from_year','change_kind','replacement_mode','reason','review']\r\n   OR jsonb_typeof(r->'previous_recipe_codes') IS DISTINCT FROM 'array'\r\n   OR jsonb_typeof(r->'replacement_recipe_codes') IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'Invalid v2 revision fields'; END IF;\r\n END IF;\r\n before_codes:=public.sor_revision_previous(r); after_codes:=public.sor_revision_replacements(r,new.recipe_code);\r\n IF jsonb_array_length(before_codes)=0 OR jsonb_array_length(after_codes)=0\r\n OR EXISTS(SELECT 1 FROM jsonb_array_elements(before_codes||after_codes) x WHERE jsonb_typeof(x) IS DISTINCT FROM 'string' OR btrim(x#>>'{}')='')\r\n OR (SELECT count(DISTINCT x) FROM jsonb_array_elements(before_codes) x)<>jsonb_array_length(before_codes)\r\n OR (SELECT count(DISTINCT x) FROM jsonb_array_elements(after_codes) x)<>jsonb_array_length(after_codes)\r\n OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(before_codes) x WHERE after_codes ? x)\r\n OR NOT after_codes ? new.recipe_code THEN RAISE EXCEPTION 'Distinct predecessor and replacement codes required'; END IF;\r\n IF jsonb_array_length(before_codes)=1 AND jsonb_array_length(after_codes)=1 THEN\r\n  IF coalesce(r->>'change_kind','') NOT IN ('definition_change','reference_change') THEN RAISE EXCEPTION 'Invalid one-to-one revision kind'; END IF;\r\n ELSE\r\n  cardinality_kind:=CASE WHEN jsonb_array_length(before_codes)=1 THEN 'split_definition'\r\n   WHEN jsonb_array_length(after_codes)=1 THEN 'merged_definition' ELSE NULL END;\r\n  IF cardinality_kind IS NULL OR r->>'change_kind' IS DISTINCT FROM cardinality_kind\r\n   OR r->>'replacement_mode' IS DISTINCT FROM 'review_required' THEN\r\n   RAISE EXCEPTION 'Splits and merges require explicit estimate review'; END IF;\r\n END IF;\r\n IF coalesce(r->>'replacement_mode','') NOT IN ('automatic','review_required')\r\n OR jsonb_typeof(r->'reason') IS DISTINCT FROM 'string' OR btrim(r->>'reason')=''\r\n OR jsonb_typeof(r->'review') IS DISTINCT FROM 'object'\r\n OR (SELECT count(*) FROM jsonb_object_keys(r->'review'))<>4\r\n OR NOT (r->'review') ?& ARRAY['status','reviewer','previous_source','replacement_source']\r\n OR r->'review'->>'status' IS DISTINCT FROM 'approved'\r\n OR r->'review'->'reviewer'->>'kind' IS DISTINCT FROM 'ai'\r\n OR coalesce(r->'review'->'reviewer'->>'model','')='' THEN RAISE EXCEPTION 'Explicit AI revision approval required'; END IF;\r\n n:=public.sor_fiscal_start(r->>'effective_from_year');\r\n IF n IS NULL THEN RAISE EXCEPTION 'Revision needs a financial year boundary'; END IF;\r\n FOREACH source_key IN ARRAY ARRAY['previous_source','replacement_source'] LOOP\r\n  source:=r->'review'->source_key;\r\n  IF jsonb_typeof(source) IS DISTINCT FROM 'object'\r\n  OR (SELECT count(*) FROM jsonb_object_keys(source))<>3\r\n  OR NOT source ?& ARRAY['year','pdf_sha256','pdf_pages']\r\n  OR coalesce(source->>'pdf_sha256','')!~'^[0-9a-f]{64}$'\r\n  OR jsonb_typeof(source->'pdf_pages') IS DISTINCT FROM 'array'\r\n  OR jsonb_array_length(source->'pdf_pages')=0 THEN RAISE EXCEPTION 'Revision source needs PDF hash and pages'; END IF;\r\n  IF EXISTS(SELECT 1 FROM jsonb_array_elements(source->'pdf_pages') p WHERE jsonb_typeof(p) IS DISTINCT FROM 'number' OR p::text !~ '^[1-9][0-9]*$')\r\n  OR (SELECT count(DISTINCT p) FROM jsonb_array_elements(source->'pdf_pages') p)<>jsonb_array_length(source->'pdf_pages')\r\n  OR public.sor_fiscal_start(source->>'year') IS NULL THEN RAISE EXCEPTION 'Invalid revision source pages/year'; END IF;\r\n END LOOP;\r\n IF public.sor_fiscal_start(r->'review'->'previous_source'->>'year')>=n\r\n OR r->'review'->'replacement_source'->>'year' IS DISTINCT FROM r->>'effective_from_year' THEN RAISE EXCEPTION 'Invalid chronological revision boundary'; END IF;\r\n FOR c IN SELECT jsonb_array_elements_text(before_codes) LOOP\r\n  SELECT * INTO prior FROM public.\"SOR_Recipie\" WHERE recipe_code=c FOR KEY SHARE;\r\n  IF NOT FOUND THEN RAISE EXCEPTION 'Missing predecessor Recipe'; END IF;\r\n  IF r->>'replacement_mode'='automatic' AND new.unit IS DISTINCT FROM prior.unit THEN RAISE EXCEPTION 'Automatic replacement requires the same quantity basis'; END IF;\r\n END LOOP;\r\n RETURN new;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_recipe_validate_lead_links",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_recipe_validate_lead_links()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\ndeclare rules jsonb; branch jsonb;\nbegin\n  select lead_applicability into rules from public.\"SOR_Recipie\" where recipe_code=new.recipe_code;\n  if rules is null then return null; end if;\n  if not public.sor_lead_rules_valid(rules) then\n    raise exception 'Lead applicability needs conditional rule schema version 2';\n  end if;\n  for branch in select value from (\n    select jsonb_path_query(rules, '$.components.*.cases[*].then') value\n    union all select jsonb_path_query(rules, '$.components.*.otherwise') value\n  ) results loop\n    if (select count(*)<>count(distinct value->>'recipe_code') from jsonb_array_elements(branch->'terms') value) then\n      raise exception 'Duplicate Lead Recipe terms';\n    end if;\n  end loop;\n  if exists (select 1 from public.sor_lead_rule_codes(rules) code\n      left join public.\"SOR_Recipie\" target on target.recipe_code=code\n      where target.recipe_code is null or target.recipe_code=new.recipe_code\n        or target.structure<>'MATRIX'\n        or target.metadata->>'item_type' is distinct from 'conveyance_matrix_cell'\n        or not (target.metadata ? 'matrix_cell')) then\n    raise exception 'Lead applicability must reference existing Conveyance cell Recipes';\n  end if;\n  return null;\nend;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_recipie_prevent_definition_update",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_recipie_prevent_definition_update()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\nBEGIN\r\n IF (to_jsonb(new)-ARRAY['lead_applicability','variants','addons','recipe_revision']) IS DISTINCT FROM\r\n    (to_jsonb(old)-ARRAY['lead_applicability','variants','addons','recipe_revision']) THEN\r\n  RAISE EXCEPTION 'SOR_Recipie definitions and fixed Item Codes are immutable; new technical definitions need new Recipe codes';\r\n END IF;\r\n RETURN new;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_resolve_recipe_revision",
+      "arguments": "p_recipe_code text, p_year text",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_resolve_recipe_revision(p_recipe_code text, p_year text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE n integer; current_code text; r public.\"SOR_Recipie\"; successor public.\"SOR_Recipie\";\r\n queue text[]:=ARRAY[p_recipe_code]; path text[]:=ARRAY[]::text[]; blocked text[]:=ARRAY[]::text[];\r\n selected text[]:=ARRAY[]::text[]; targets text[]; result jsonb;\r\nBEGIN\r\n n:=public.sor_fiscal_start(p_year);\r\n IF n IS NULL THEN RAISE EXCEPTION 'Year is required'; END IF;\r\n IF NOT EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" WHERE recipe_code=p_recipe_code) THEN RAISE EXCEPTION 'Unknown or inaccessible Recipe code'; END IF;\r\n WHILE cardinality(queue)>0 LOOP\r\n  current_code:=queue[1]; queue:=queue[2:];\r\n  CONTINUE WHEN current_code=ANY(path);\r\n  path:=array_append(path,current_code);\r\n  SELECT * INTO r FROM public.\"SOR_Recipie\" WHERE recipe_code=current_code;\r\n  IF NOT FOUND THEN RAISE EXCEPTION 'Incomplete or inaccessible Recipe lineage'; END IF;\r\n  IF public.sor_revision_core(r.recipe_revision) IS NOT NULL AND public.sor_fiscal_start(r.recipe_revision->>'effective_from_year')>n THEN\r\n   SELECT array_agg(c ORDER BY c) INTO targets FROM jsonb_array_elements_text(public.sor_revision_previous(r.recipe_revision)) c;\r\n   IF r.recipe_revision->>'replacement_mode'='review_required' THEN blocked:=array_append(blocked,current_code); END IF;\r\n   queue:=queue||targets;\r\n  ELSE\r\n   SELECT * INTO successor FROM public.\"SOR_Recipie\" x WHERE public.sor_revision_previous(x.recipe_revision) ? current_code LIMIT 1;\r\n   IF FOUND AND public.sor_fiscal_start(successor.recipe_revision->>'effective_from_year')<=n THEN\r\n    SELECT array_agg(c ORDER BY c) INTO targets FROM jsonb_array_elements_text(public.sor_revision_replacements(successor.recipe_revision,successor.recipe_code)) c;\r\n    IF successor.recipe_revision->>'replacement_mode'='review_required' THEN blocked:=blocked||targets; END IF;\r\n    queue:=queue||targets;\r\n   ELSE selected:=array_append(selected,current_code);\r\n   END IF;\r\n  END IF;\r\n END LOOP;\r\n SELECT coalesce(array_agg(DISTINCT c ORDER BY c),ARRAY[]::text[]) INTO selected FROM unnest(selected) c;\r\n SELECT coalesce(array_agg(DISTINCT c ORDER BY c),ARRAY[]::text[]) INTO blocked FROM unnest(blocked) c;\r\n RETURN jsonb_build_object('requested_recipe_code',p_recipe_code,'recipe_code',CASE WHEN cardinality(selected)=1 THEN selected[1] ELSE NULL END,\r\n  'recipe_codes',to_jsonb(selected),'year',p_year,'revision_path',to_jsonb(path),\r\n  'requires_review',cardinality(blocked)>0 OR cardinality(selected)<>1,'review_boundaries',to_jsonb(blocked));\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_resolve_recipe_revision_v1",
+      "arguments": "p_recipe_code text, p_year text",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_resolve_recipe_revision_v1(p_recipe_code text, p_year text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE n integer; current_code text:=p_recipe_code; root_code text; r public.\"SOR_Recipie\";\r\n successor public.\"SOR_Recipie\"; path text[]; lineage text[]; blocked text[]:=ARRAY[]::text[]; a integer; b integer; i integer;\r\nBEGIN\r\n n:=public.sor_fiscal_start(p_year);\r\n IF n IS NULL THEN RAISE EXCEPTION 'Year is required'; END IF;\r\n SELECT * INTO r FROM public.\"SOR_Recipie\" WHERE recipe_code=current_code;\r\n IF NOT FOUND THEN RAISE EXCEPTION 'Unknown or inaccessible Recipe code'; END IF;\r\n LOOP\r\n  EXIT WHEN r.recipe_revision IS NULL;\r\n  current_code:=r.recipe_revision->>'previous_recipe_code';\r\n  SELECT * INTO r FROM public.\"SOR_Recipie\" WHERE recipe_code=current_code;\r\n  IF NOT FOUND THEN RAISE EXCEPTION 'Incomplete or inaccessible Recipe lineage'; END IF;\r\n END LOOP;\r\n root_code:=current_code; path:=ARRAY[root_code]; lineage:=path;\r\n LOOP\r\n  SELECT * INTO successor FROM public.\"SOR_Recipie\" WHERE recipe_revision->>'previous_recipe_code'=r.recipe_code;\r\n  EXIT WHEN NOT FOUND;\r\n  lineage:=array_append(lineage,successor.recipe_code);\r\n  IF public.sor_fiscal_start(successor.recipe_revision->>'effective_from_year')<=n THEN\r\n   current_code:=successor.recipe_code; path:=array_append(path,current_code);\r\n  END IF;\r\n  r:=successor;\r\n END LOOP;\r\n a:=least(array_position(lineage,p_recipe_code),array_position(lineage,current_code));\r\n b:=greatest(array_position(lineage,p_recipe_code),array_position(lineage,current_code));\r\n IF a<b THEN\r\n  FOR i IN a+1..b LOOP\r\n   SELECT * INTO r FROM public.\"SOR_Recipie\" WHERE recipe_code=lineage[i];\r\n   IF r.recipe_revision->>'replacement_mode'='review_required' THEN blocked:=array_append(blocked,r.recipe_code); END IF;\r\n  END LOOP;\r\n END IF;\r\n RETURN jsonb_build_object('requested_recipe_code',p_recipe_code,'recipe_code',current_code,'year',p_year,\r\n 'revision_path',to_jsonb(path),'requires_review',cardinality(blocked)>0,'review_boundaries',to_jsonb(blocked));\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_resolve_recipe_year",
+      "arguments": "p_recipe_code text, p_year text",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_resolve_recipe_year(p_recipe_code text, p_year text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE result jsonb; current_code text:=p_recipe_code; visited text[]:=ARRAY[]::text[];\r\n path jsonb:='[]'::jsonb; f jsonb; step jsonb; links jsonb; code text;\r\nBEGIN\r\n LOOP\r\n  result:=public.sor_resolve_recipe_revision(current_code,p_year);\r\n  result:=result||jsonb_build_object('requested_recipe_code',p_recipe_code,'fallback_used',jsonb_array_length(path)>0,'fallback_path',path);\r\n  IF (result->>'requires_review')::boolean THEN RETURN result; END IF;\r\n  code:=result->>'recipe_code';\r\n  IF code=ANY(visited) THEN RAISE EXCEPTION 'Historical fallback/revision cycle'; END IF;\r\n  visited:=array_append(visited,code);\r\n  -- Any existing annual row wins, including blank, held and other-zone rows.\r\n  IF EXISTS(SELECT 1 FROM public.\"SOR_Year\" WHERE recipe_code=code AND year=p_year) THEN RETURN result; END IF;\r\n  SELECT recipe_revision->'historical_fallbacks' INTO links FROM public.\"SOR_Recipie\" WHERE recipe_code=code;\r\n  SELECT value INTO f FROM jsonb_array_elements(coalesce(links,'[]'::jsonb)) v WHERE v.value->'years' ? p_year;\r\n  IF NOT FOUND THEN RETURN result; END IF;\r\n  step:=jsonb_build_object('relationship_type','historical_fallback','from_recipe_code',code,'to_recipe_code',f->>'target_recipe_code','year',p_year);\r\n  IF f->>'mode'='review_required' THEN RETURN result||jsonb_build_object('requires_review',true,\r\n   'status','fallback_review_required','fallback_candidate',step); END IF;\r\n  path:=path||jsonb_build_array(step);current_code:=f->>'target_recipe_code';\r\n END LOOP;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_resource_links_valid",
+      "arguments": "x jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_resource_links_valid(x jsonb)\n RETURNS boolean\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE k text;v jsonb;t text;c text;\r\nBEGIN\r\n IF x IS NULL OR jsonb_typeof(x) NOT IN('object','array') THEN RETURN true; END IF;\r\n IF jsonb_typeof(x)='array' THEN\r\n  FOR v IN SELECT value FROM jsonb_array_elements(x) LOOP IF NOT public.sor_resource_links_valid(v) THEN RETURN false; END IF; END LOOP;RETURN true;\r\n END IF;\r\n FOREACH k IN ARRAY ARRAY['table','source_table','identity_table','rate_table'] LOOP\r\n  t:=x->>k;\r\n  IF t IN('sor_dataset_release','sor_recipe_definition','sor_recipe_observation','sor_adjustment_rule','sor_reviewed_navigation_node','sor_reviewed_navigation_variant','sor_recipe_alias','sor_catalogue','sor_catalogue_item','sor_catalogue_rate','civil','civil_rate','plumbing','plumbing_rate','electrical','electrical_rate','electrical_item_version','material','material_rate','machinery','machinery_rate','labour','labour_rate','material_rate_monthly','material_rate_document','ssr_material_alias','pipe_lead_item','pipe_lead_rate','lead_charge','lead_rate','lead_note','lead_detail_item','lead_detail_year','conveyance_charge','conveyance_rate') THEN RETURN false; END IF;\r\n  c:=coalesce(x->>'recipe_code',x->>'resource_code',x->>'code',x->>'master_code');\r\n  IF t IN('SOR_Recipie','SOR_Year') AND c IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" WHERE recipe_code=c) THEN RETURN false; END IF;\r\n  IF t='analysis_resource' AND c IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.analysis_resource WHERE resource_code=c) THEN RETURN false; END IF;\r\n END LOOP;\r\n IF jsonb_typeof(x->'rate_tables')='array' AND EXISTS(SELECT 1 FROM jsonb_array_elements_text(x->'rate_tables') t(entry) WHERE t.entry NOT IN('SOR_Year','analysis_resource','morth')) THEN RETURN false; END IF;\r\n FOR k,v IN SELECT * FROM jsonb_each(x) LOOP IF NOT public.sor_resource_links_valid(v) THEN RETURN false; END IF; END LOOP;\r\n RETURN true;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_resource_quote",
+      "arguments": "p_recipe_code text, p_year text, p_zone text, p_component text, p_unit text",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_resource_quote(p_recipe_code text, p_year text, p_zone text DEFAULT NULL::text, p_component text DEFAULT 'rate'::text, p_unit text DEFAULT NULL::text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\r\r\r\nDECLARE revision jsonb;r public.\"SOR_Year\";n bigint;amount jsonb;detail jsonb;factor numeric:=1;u text;requested text;reference jsonb;result jsonb;\r\r\r\r\nBEGIN\r\r\r\r\n revision:=public.sor_resolve_recipe_year(p_recipe_code,p_year);\r\r\r\r\n IF (revision->>'requires_review')::boolean THEN RETURN revision||jsonb_build_object('status',coalesce(revision->>'status','revision_review_required'),'rate',NULL); END IF;\r\r\r\r\n SELECT count(*) INTO n FROM public.\"SOR_Year\" WHERE recipe_code=revision->>'recipe_code' AND year=p_year;\r\r\r\r\n IF n<>1 THEN RETURN revision||jsonb_build_object('status',CASE WHEN n=0 THEN 'selected_year_rate_missing' ELSE 'annual_scope_review_required' END,'rate',NULL); END IF;\r\r\r\r\n SELECT * INTO r FROM public.\"SOR_Year\" WHERE recipe_code=revision->>'recipe_code' AND year=p_year;\r\r\r\r\n IF r.rate->>'type'='morth_analysis' THEN\r\n  RETURN revision||jsonb_build_object('status','morth_analysis_review_required','rate',NULL,\r\n   'year',p_year,'year_row_code',r.year_row_code,'unit',r.unit,'cost_ready',false,\r\n   'analysis_rate',r.rate,'cost_review',r.metadata->'cost_review','to_be_printed',r.to_be_printed);\r\n END IF;\r\n IF r.metadata->>'cost_ready'='false' OR (r.metadata->'cost_review'->>'status' IS NOT NULL AND r.metadata->'cost_review'->>'status' NOT IN('priced','reference_only')) THEN RETURN revision||jsonb_build_object('status','source_review_required','rate',NULL,'cost_review',r.metadata->'cost_review'); END IF;\r\r\r\r\n reference:=r.metadata->'reference_review';\r\r\r\r\n IF r.rate IS NULL OR r.rate='null'::jsonb THEN\r\r\r\r\n  IF reference->>'status'='approved' AND r.metadata->'cost_review'->>'status'='reference_only' AND reference->>'rate_basis_factor'='1' AND lower(r.unit)='per hour' AND reference->>'target_recipe_code'<>r.recipe_code THEN\r\r\r\r\n   IF p_zone IS DISTINCT FROM reference->>'selected_zone' THEN RETURN revision||jsonb_build_object('status','pricing_zone_review_required','rate',NULL); END IF;\r\r\r\r\n   IF NOT EXISTS(SELECT 1 FROM public.\"SOR_Year\" y WHERE y.recipe_code=reference->>'target_recipe_code' AND y.year=p_year AND y.effective_from=r.effective_from AND y.table_code='P01-T08') THEN RETURN revision||jsonb_build_object('status','selected_year_reference_missing','rate',NULL); END IF;\r\r\r\r\n   result:=public.sor_resource_quote(reference->>'target_recipe_code',p_year,p_zone,p_component,p_unit);\r\r\r\r\n   RETURN result||jsonb_build_object('requested_recipe_code',p_recipe_code,'recipe_code',r.recipe_code,'price_recipe_code',reference->>'target_recipe_code','to_be_printed',r.to_be_printed);\r\r\r\r\n  END IF;\r\r\r\r\n  RETURN revision||jsonb_build_object('status','rate_unavailable','rate',NULL,'cost_review',r.metadata->'cost_review');\r\r\r\r\n END IF;\r\r\r\r\n IF jsonb_typeof(r.rate)='object' THEN\r\r\r\r\n  IF p_zone IS NULL OR p_zone NOT IN('zone_1','zone_2','zone_3') THEN RETURN revision||jsonb_build_object('status','zone_required','rate',NULL); END IF;\r\r\r\r\n  amount:=r.rate->p_zone;detail:=r.rate_detailed->p_zone;\r\r\r\r\n ELSE\r\r\r\r\n  IF coalesce(r.zone,'')<>'' AND r.zone IS DISTINCT FROM p_zone THEN RETURN revision||jsonb_build_object('status','pricing_zone_review_required','rate',NULL,'required_zone',r.zone); END IF;\r\r\r\r\n  amount:=r.rate;detail:=r.rate_detailed;\r\r\r\r\n END IF;\r\r\r\r\n IF p_component NOT IN('rate','total','hire_total') THEN amount:=detail->p_component; END IF;\r\r\r\r\n IF jsonb_typeof(amount) IS DISTINCT FROM 'number' THEN RETURN revision||jsonb_build_object('status','component_rate_unavailable','rate',NULL,'component',p_component); END IF;\r\r\r\r\n factor:=public.sor_unit_rate_factor(r.unit,p_unit);\r\r\n IF factor IS NULL THEN RETURN revision||jsonb_build_object('status','unit_conversion_review_required','rate',NULL,'source_unit',r.unit,'requested_unit',p_unit); END IF;\r\r\n RETURN revision||jsonb_build_object('status','priced','year_row_code',r.year_row_code,'year',p_year,'zone',p_zone,'component',p_component,'source_unit',r.unit,'unit',coalesce(p_unit,r.unit),'conversion_factor',factor,'rate',(amount#>>'{}')::numeric*factor,'rate_detailed',detail,'to_be_printed',r.to_be_printed);\r\r\r\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_revision_core",
+      "arguments": "r jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_revision_core(r jsonb)\n RETURNS jsonb\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\n SELECT CASE WHEN r IS NULL OR r->>'schema_version'='3' THEN NULL ELSE r-'historical_fallbacks' END\r\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_revision_previous",
+      "arguments": "r jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_revision_previous(r jsonb)\n RETURNS jsonb\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\n SELECT CASE WHEN public.sor_revision_core(r) IS NULL THEN '[]'::jsonb WHEN r->>'schema_version'='1'\r\n THEN jsonb_build_array(r->>'previous_recipe_code') ELSE r->'previous_recipe_codes' END\r\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_revision_replacements",
+      "arguments": "r jsonb, code text",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_revision_replacements(r jsonb, code text)\n RETURNS jsonb\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\n SELECT CASE WHEN public.sor_revision_core(r) IS NULL THEN '[]'::jsonb WHEN r->>'schema_version'='1'\r\n THEN jsonb_build_array(code) ELSE r->'replacement_recipe_codes' END\r\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_shared_lead_protect_revision",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_shared_lead_protect_revision()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\nBEGIN\r\n IF tg_op='UPDATE' AND to_jsonb(new) IS DISTINCT FROM to_jsonb(old) THEN\r\n  RAISE EXCEPTION 'Shared lead rule revisions are immutable; publish a new reviewed revision'; END IF;\r\n IF tg_op='DELETE' AND EXISTS(SELECT 1 FROM public.\"SOR_Year\" WHERE metadata->>'lead_rule_code'=old.rule_code) THEN\r\n  RAISE EXCEPTION 'Shared lead rule is referenced by an annual row'; END IF;\r\n IF tg_op='DELETE' THEN RETURN old; END IF;\r\n RETURN new;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_shared_lead_validate",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_shared_lead_validate()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE code text; term jsonb;\r\nBEGIN\r\n IF EXISTS(SELECT 1 FROM unnest(new.material_codes) AS x(material_code) LEFT JOIN public.\"SOR_Lead_Profile\" p ON p.material_code=x.material_code WHERE p.material_code IS NULL) THEN RAISE EXCEPTION 'Unknown lead material'; END IF;\r\n IF new.rules->>'schema_version'='3' THEN\r\n  IF new.material_codes<>ARRAY['PIPE']::text[] OR new.review->'reviewer'->>'kind' IS DISTINCT FROM 'ai' THEN RAISE EXCEPTION 'Pipe lead requires AI review'; END IF;\r\n  FOR code IN SELECT jsonb_array_elements_text(new.rules->'source_recipe_codes') LOOP\r\n   IF NOT EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" r WHERE r.recipe_code=code AND r.part_no=4 AND r.lead_applicability='PIPE' AND r.unit=new.rules->>'quantity_unit') THEN RAISE EXCEPTION 'Wrong pipe source or quantity'; END IF;\r\n  END LOOP;\r\n  FOR term IN SELECT jsonb_path_query(new.rules,'$.components.*.**.terms[*]') LOOP\r\n   IF NOT EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" r WHERE r.recipe_code=term->>'recipe_code' AND r.part_no=4 AND\r\n      (r.metadata->>'item_type'='conveyance_matrix_cell' OR\r\n       (new.rules->'source_recipe_codes' ? r.recipe_code AND term->'multiplier'='0.05'::jsonb))) THEN RAISE EXCEPTION 'Invalid pipe transport tariff reference'; END IF;\r\n  END LOOP;\r\n ELSE\r\n  IF EXISTS(SELECT 1 FROM public.sor_lead_rule_codes(new.rules) AS x(recipe_code) LEFT JOIN public.\"SOR_Recipie\" r ON r.recipe_code=x.recipe_code WHERE r.recipe_code IS NULL OR r.structure<>'MATRIX' OR r.metadata->>'item_type' IS DISTINCT FROM 'conveyance_matrix_cell') THEN RAISE EXCEPTION 'Shared rule must reference existing Conveyance cells'; END IF;\r\n END IF;\r\n RETURN NULL;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_single_machinery_details_valid",
+      "arguments": "totals jsonb, details jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_single_machinery_details_valid(totals jsonb, details jsonb)\n RETURNS boolean\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\nSELECT CASE WHEN jsonb_typeof(totals)='number' AND jsonb_typeof(details)='object' THEN\r\nCASE WHEN details ?& ARRAY['hire_charge','fuel_charge','crew_charge']\r\n AND details-ARRAY['hire_charge','fuel_charge','crew_charge']='{}'::jsonb\r\n AND jsonb_typeof(details->'hire_charge')='number'\r\n AND jsonb_typeof(details->'fuel_charge')='number'\r\n AND jsonb_typeof(details->'crew_charge')='number' THEN\r\n (totals #>> '{}')::numeric >= 0\r\n AND (details->>'hire_charge')::numeric>=0\r\n AND (details->>'fuel_charge')::numeric>=0\r\n AND (details->>'crew_charge')::numeric>=0\r\n AND (totals #>> '{}')::numeric=(details->>'hire_charge')::numeric\r\n   +(details->>'fuel_charge')::numeric+(details->>'crew_charge')::numeric\r\n ELSE false END ELSE false END;\r\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_unit_measure",
+      "arguments": "p_unit text",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_unit_measure(p_unit text)\n RETURNS jsonb\n LANGUAGE plpgsql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare u text; parts text[]; size numeric:=1; dimension text;\r\nbegin\r\n u:=lower(trim(p_unit));\r\n u:=replace(replace(u,'²','2'),'³','3');\r\n u:=regexp_replace(u,'^per\\s+','','i');\r\n u:=regexp_replace(regexp_replace(u,'\\s+',' ','g'),'\\.+$','');\r\n parts:=regexp_match(u,'^([0-9]+(?:\\.[0-9]+)?)\\s+(.+)$');\r\n if parts is not null then size:=parts[1]::numeric;u:=regexp_replace(parts[2],'\\.+$',''); end if;\r\n if size<=0 then return null; end if;\r\n if u in('kg','kgs','kilogram','kilograms') then dimension:='mass';\r\n elsif u in('tonne','tonnes','metric tonne','one metric tonne','mt') then dimension:='mass';size:=size*1000;\r\n elsif u in('ltr','liter','litre','liters','litres','l') then dimension:='liquid_volume';\r\n elsif u in('cum','m3','cu m') then dimension:='solid_volume';\r\n elsif u in('sqm','sqmt','m2','sq m','sq mtr','sq mtrs') then dimension:='area';\r\n elsif u in('sqft','sq ft') then dimension:='area';size:=size*0.09290304;\r\n elsif u in('rm','rmt','m','mtr','mtrs','meter','metre') then dimension:='length';\r\n elsif u in('km','k.m.') then dimension:='length';size:=size*1000;\r\n elsif u in('no','nos','each','number') then dimension:='count';\r\n elsif u in('doz','dozen') then dimension:='count';size:=size*12;\r\n elsif u in('hour','hours','hr','hrs') then dimension:='hour';\r\n elsif u in('day','days') then dimension:='day';\r\n elsif u in('pair','set','job','ls','bag','roll') then dimension:=u;\r\n else return null; end if;\r\n return jsonb_build_object('dimension',dimension,'size',size);\r\nend $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_unit_rate_factor",
+      "arguments": "p_source_unit text, p_requested_unit text",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_unit_rate_factor(p_source_unit text, p_requested_unit text)\n RETURNS numeric\n LANGUAGE plpgsql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare source jsonb;requested jsonb;\r\nbegin\r\n if p_source_unit is null then return null; end if;\r\n if p_requested_unit is null or lower(trim(p_source_unit))=lower(trim(p_requested_unit)) then return 1; end if;\r\n source:=public.sor_unit_measure(p_source_unit);requested:=public.sor_unit_measure(p_requested_unit);\r\n if source is null or requested is null or source->>'dimension'<>requested->>'dimension' then return null; end if;\r\n return (requested->>'size')::numeric/(source->>'size')::numeric;\r\nend $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "sor_year_reference_valid",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_year_reference_valid()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE r public.\"SOR_Recipie\"; code text;\r\nBEGIN\r\n SELECT * INTO r FROM public.\"SOR_Recipie\" WHERE recipe_code=new.recipe_code;\r\n IF new.metadata->>'fixed_rb_item_code'='true' AND new.item_code IS DISTINCT FROM r.item_code THEN\r\n  RAISE EXCEPTION 'R&B yearly Item Code must carry the fixed Recipe Item Code'; END IF;\r\n code:=new.metadata->>'lead_rule_code';\r\n IF code IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.\"SOR_Lead_Rule\" l WHERE l.rule_code=code\r\n  AND l.year=new.year AND l.effective_from=new.effective_from AND r.lead_applicability=ANY(l.material_codes)) THEN\r\n  RAISE EXCEPTION 'Annual lead binding must match the material, year and effective date'; END IF;\r\n RETURN new;\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_annotate_addon_rates",
+      "arguments": "p_ssr_code text, p_year text, p_addon_rates jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_annotate_addon_rates(p_ssr_code text, p_year text, p_addon_rates jsonb)\n RETURNS jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\n  select coalesce(\n    jsonb_agg(\n      addon.value || jsonb_build_object(\n        'rates', jsonb_build_object(\n          'materials', public.ssr_annotate_resource_lines(\n            p_ssr_code, 'addon:' || (addon.value ->> 'id') || ':materials', p_year, addon.value -> 'rates' -> 'materials'\n          ),\n          'machinery', public.ssr_annotate_resource_lines(\n            p_ssr_code, 'addon:' || (addon.value ->> 'id') || ':machinery', p_year, addon.value -> 'rates' -> 'machinery'\n          ),\n          'labour', public.ssr_annotate_resource_lines(\n            p_ssr_code, 'addon:' || (addon.value ->> 'id') || ':labour', p_year, addon.value -> 'rates' -> 'labour'\n          )\n        )\n      ) order by addon.ordinality\n    ),\n    '[]'::jsonb\n  )\n  from jsonb_array_elements(public.ssr_resource_line_array(p_addon_rates)) with ordinality as addon(value, ordinality)\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_annotate_addon_table",
+      "arguments": "p_ssr_code text, p_addon_table jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_annotate_addon_table(p_ssr_code text, p_addon_table jsonb)\n RETURNS jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\n  select coalesce(\n    jsonb_agg(\n      addon.value || jsonb_build_object(\n        'materials', public.ssr_annotate_resource_lines(\n          p_ssr_code, 'addon:' || (addon.value ->> 'id') || ':materials', null, addon.value -> 'materials'\n        ),\n        'machinery', public.ssr_annotate_resource_lines(\n          p_ssr_code, 'addon:' || (addon.value ->> 'id') || ':machinery', null, addon.value -> 'machinery'\n        ),\n        'labour', public.ssr_annotate_resource_lines(\n          p_ssr_code, 'addon:' || (addon.value ->> 'id') || ':labour', null, addon.value -> 'labour'\n        )\n      ) order by addon.ordinality\n    ),\n    '[]'::jsonb\n  )\n  from jsonb_array_elements(public.ssr_resource_line_array(p_addon_table)) with ordinality as addon(value, ordinality)\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_annotate_resource_lines",
+      "arguments": "p_ssr_code text, p_analysis_scope text, p_year text, p_lines jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_annotate_resource_lines(p_ssr_code text, p_analysis_scope text, p_year text, p_lines jsonb)\n RETURNS jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\n  select coalesce(jsonb_agg(\n    line.value || jsonb_build_object('resource_identity',\n      case when jsonb_typeof(line.value->'resource_identity')='object'\n        and (\n          (nullif(resolved.identity->>'master_code','') is not null\n           and line.value->'resource_identity'->>'source_table'\n               is not distinct from resolved.identity->>'source_table'\n           and line.value->'resource_identity'->>'master_code'\n               is not distinct from resolved.identity->>'master_code'\n           and line.value->'resource_identity'->>'rate_component'\n               is not distinct from resolved.identity->>'rate_component')\n          or (nullif(resolved.identity->>'resource_key','') is not null\n           and nullif(resolved.identity->>'master_code','') is null\n           and nullif(line.value->'resource_identity'->>'master_code','') is null\n           and line.value->'resource_identity'->>'resource_key'\n               = resolved.identity->>'resource_key')\n        )\n      then (line.value->'resource_identity') || case when resolved.identity->>'source_table'='analysis_resource' and not (line.value->'resource_identity' ? 'recipe_code') then resolved.identity-'recipe_code' else resolved.identity end || case when line.value->'resource_identity'->>'resolution'='master_code' and resolved.identity->>'resolution' in ('recipe_code','source_resource') then jsonb_build_object('resolution','master_code') else '{}'::jsonb end\n      else resolved.identity end\n    ) order by line.ordinality\n  ),'[]'::jsonb)\n  from jsonb_array_elements(public.ssr_resource_line_array(p_lines))\n    with ordinality as line(value,ordinality)\n  cross join lateral (\n    select case\n      when nullif(line.value->'resource_identity'->>'master_code','') is null\n       and (line.value->'resource_identity'->>'resource_key') ~ '^ssr:[a-z0-9-]+:[a-z0-9-]+:[a-z0-9-]+-[a-f0-9]{12}$'\n       and nullif(candidate.identity->>'master_code','') is null\n       and nullif(candidate.identity->>'resource_key','') is not null\n      then public.ssr_curated_resource_identity(line.value->'resource_identity'->>'resource_key')\n      else candidate.identity end as identity\n    from (select public.ssr_resolve_resource_identity(\n      p_ssr_code,p_analysis_scope,p_year,line.value\n    ) as identity offset 0) candidate\n    offset 0\n  ) resolved;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_annotate_ssr_item_resource_identities",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_annotate_ssr_item_resource_identities()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public'\nAS $function$\nbegin\n  new.materials := public.ssr_annotate_resource_lines(new.recipe_code, 'materials', null, new.materials);\n  new.machinery := public.ssr_annotate_resource_lines(new.recipe_code, 'machinery', null, new.machinery);\n  new.labour := public.ssr_annotate_resource_lines(new.recipe_code, 'labour', null, new.labour);\n  new.addon_table := public.ssr_annotate_addon_table(new.recipe_code, new.addon_table);\n  return new;\nend;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_annotate_ssr_year_resource_identities",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_annotate_ssr_year_resource_identities()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public'\nAS $function$\nbegin\n  new.rates := jsonb_build_object(\n    'materials', public.ssr_annotate_resource_lines(new.recipe_code, 'materials', new.year, new.rates -> 'materials'),\n    'machinery', public.ssr_annotate_resource_lines(new.recipe_code, 'machinery', new.year, new.rates -> 'machinery'),\n    'labour', public.ssr_annotate_resource_lines(new.recipe_code, 'labour', new.year, new.rates -> 'labour')\n  );\n  new.addon_rates := public.ssr_annotate_addon_rates(new.recipe_code, new.year, new.addon_rates);\n  return new;\nend;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_annual_recipe_binding_valid",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_annual_recipe_binding_valid()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\ndeclare resolved jsonb;\nbegin\n perform public.sor_fiscal_start(new.year);\n resolved:=public.ssr_resolve_recipe_revision(new.recipe_code,new.year);\n if not (resolved->'recipe_codes' ? new.recipe_code) then\n  raise exception 'SSR annual row uses a recipe version superseded or not yet introduced in year %',new.year;\n end if;\n return new;\nend $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_curated_resource_identity",
+      "arguments": "p_resource_key text",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_curated_resource_identity(p_resource_key text)\n RETURNS jsonb\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\n SET search_path TO 'public'\nAS $function$\n  select jsonb_build_object(\n    'version', 1,\n    'source_table', null,\n    'master_code', null,\n    'rate_component', null,\n    'resource_key', p_resource_key,\n    'resolution', 'resource_key',\n    'master_resource_resolved', false,\n    'unresolved', false\n  )\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_definition_without_links",
+      "arguments": "x jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_definition_without_links(x jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\ndeclare result jsonb; k text; v jsonb;\nbegin\n if jsonb_typeof(x)='object' then\n  result:='{}'::jsonb;\n  for k,v in select key,value from jsonb_each(x) loop\n   if k not in ('resource_identity','sor_ref') then result:=result||jsonb_build_object(k,public.ssr_definition_without_links(v)); end if;\n  end loop;\n  return result;\n elsif jsonb_typeof(x)='array' then\n  select coalesce(jsonb_agg(public.ssr_definition_without_links(value) order by ord),'[]'::jsonb)\n  into result from jsonb_array_elements(x) with ordinality a(value,ord);\n  return result;\n end if;\n return x;\nend $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_description_unit_identity",
+      "arguments": "p_line jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_description_unit_identity(p_line jsonb)\n RETURNS jsonb\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\n SET search_path TO 'public'\nAS $function$\n  select jsonb_build_object(\n    'version', 1,\n    'source_table', null,\n    'master_code', null,\n    'rate_component', null,\n    'resource_key', null,\n    'resolution', 'description_unit',\n    'fallback_key', 'description_unit:' || md5(\n      public.ssr_normalize_resource_text(p_line ->> 'desc') || '|' ||\n      public.ssr_normalize_resource_text(p_line ->> 'unit')\n    ),\n    'master_resource_resolved', false,\n    'unresolved', true\n  )\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_identity_from_description_alias",
+      "arguments": "p_ssr_code text, p_analysis_scope text, p_line jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_identity_from_description_alias(p_ssr_code text, p_analysis_scope text, p_line jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'public'\nAS $function$\ndeclare\n  v_aliases jsonb;\nbegin\n  select jsonb_agg(identity)\n  into v_aliases\n  from (\n    select distinct case\n      when resource_key is not null then public.ssr_curated_resource_identity(resource_key)\n      else public.ssr_master_resource_identity(source_table, master_code, rate_component)\n    end as identity\n    from public.ssr_resource_identity_alias\n    where ssr_code = p_ssr_code\n      and analysis_scope = p_analysis_scope\n      and description_key = public.ssr_normalize_resource_text(p_line ->> 'desc')\n  ) candidates;\n\n  if jsonb_array_length(coalesce(v_aliases, '[]'::jsonb)) = 1 then\n    return v_aliases -> 0;\n  end if;\n  return null;\nend;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_identity_from_explicit_alias",
+      "arguments": "p_ssr_code text, p_analysis_scope text, p_line jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_identity_from_explicit_alias(p_ssr_code text, p_analysis_scope text, p_line jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'public'\nAS $function$\ndeclare\n  v_alias public.ssr_resource_identity_alias%rowtype;\nbegin\n  select * into v_alias\n  from public.ssr_resource_identity_alias\n  where ssr_code = p_ssr_code\n    and analysis_scope = p_analysis_scope\n    and description_key = public.ssr_normalize_resource_text(p_line ->> 'desc')\n    and unit_key = public.ssr_normalize_resource_text(p_line ->> 'unit');\n\n  if not found then return null; end if;\n  if v_alias.resource_key is not null then\n    return public.ssr_curated_resource_identity(v_alias.resource_key);\n  end if;\n  return public.ssr_master_resource_identity(\n    v_alias.source_table, v_alias.master_code, v_alias.rate_component\n  );\nend;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_identity_from_fixed_master",
+      "arguments": "p_ssr_code text, p_analysis_scope text, p_line jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_identity_from_fixed_master(p_ssr_code text, p_analysis_scope text, p_line jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'public'\nAS $function$\ndeclare\n  v_identities jsonb;\nbegin\n  select jsonb_agg(identity)\n  into v_identities\n  from (\n    select distinct static_line -> 'resource_identity' as identity\n    from public.ssr_static_resource_lines(p_ssr_code, p_analysis_scope) static_line\n    where public.ssr_normalize_resource_text(static_line ->> 'desc') = public.ssr_normalize_resource_text(p_line ->> 'desc')\n      and public.ssr_normalize_resource_text(static_line ->> 'unit') = public.ssr_normalize_resource_text(p_line ->> 'unit')\n      and coalesce(static_line -> 'resource_identity' ->> 'source_table', '') <> ''\n      and coalesce(static_line -> 'resource_identity' ->> 'master_code', '') <> ''\n  ) candidates;\n\n  if jsonb_array_length(coalesce(v_identities, '[]'::jsonb)) = 1 then\n    return v_identities -> 0;\n  end if;\n  return null;\nend;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_identity_from_resource_key",
+      "arguments": "p_ssr_code text, p_analysis_scope text, p_line jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_identity_from_resource_key(p_ssr_code text, p_analysis_scope text, p_line jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'public'\nAS $function$\ndeclare\n  v_resource_key text;\nbegin\n  select resource_key\n  into v_resource_key\n  from public.ssr_resource_key\n  where ssr_code = p_ssr_code\n    and analysis_scope = p_analysis_scope\n    and description_key = public.ssr_normalize_resource_text(p_line ->> 'desc')\n    and unit_key = public.ssr_normalize_resource_text(p_line ->> 'unit');\n  if v_resource_key is null then\n    return null;\n  end if;\n  return public.ssr_curated_resource_identity(v_resource_key);\nend;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_identity_from_sor_ref",
+      "arguments": "p_line jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_identity_from_sor_ref(p_line jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE ref jsonb:=p_line->'sor_ref';t text;\r\nBEGIN\r\n IF ref IS NULL OR coalesce(ref->>'code',ref->>'recipe_code',ref->>'resource_code','')='' THEN RETURN NULL; END IF;\r\n t:=CASE WHEN ref->>'table'='SOR_Recipie' THEN 'SOR_Year' ELSE ref->>'table' END;\r\n RETURN public.ssr_master_resource_identity(t,coalesce(ref->>'recipe_code',ref->>'resource_code',ref->>'code'),nullif(ref->>'component',''));\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_linked_resource_quote",
+      "arguments": "p_recipe_code text, p_analysis_scope text, p_line_index integer, p_year text, p_zone text",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_linked_resource_quote(p_recipe_code text, p_analysis_scope text, p_line_index integer, p_year text, p_zone text DEFAULT NULL::text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\ndeclare revision jsonb;line jsonb;identity jsonb;profile jsonb;quote jsonb;factor numeric;precision integer;\nbegin\n if p_line_index<0 then raise exception 'Line index must be nonnegative'; end if;\n revision:=public.ssr_resolve_recipe_year(p_recipe_code,p_year);\n if coalesce((revision->>'requires_review')::boolean,false) or revision->>'recipe_code' is null then\n  return revision||jsonb_build_object('rate',null);\n end if;\n select l.value into line from public.ssr_static_resource_lines(revision->>'recipe_code',p_analysis_scope)\n  with ordinality l(value,ordinality) where l.ordinality=p_line_index+1;\n if line is null then return jsonb_build_object('status','resource_line_missing','rate',null); end if;\n identity:=line->'resource_identity';profile:=identity->'link_review';\n if identity->>'source_table' is distinct from 'SOR_Year' or nullif(identity->>'master_code','') is null then\n  return jsonb_build_object('status','resource_link_required','rate',null,'resource_identity',identity);\n end if;\n if profile->>'method'='two_edition_price_tracking' then\n  factor:=(profile->>'rate_basis_multiplier')::numeric;\n  precision:=(profile->>'rate_rounding_decimals')::integer;\n  if profile->>'status' is distinct from 'approved' or factor is null or factor<=0 or precision is null or precision not between 0 and 8 then\n   return jsonb_build_object('status','rate_basis_review_required','rate',null);\n  end if;\n  -- Quote in the verified SOR basis, even if a future edition changes its printed unit.\n  -- The stored multiplier converts that reference basis to the SSR use basis.\n  quote:=public.sor_resource_quote(identity->>'master_code',p_year,p_zone,coalesce(identity->>'rate_component','rate'),profile->>'reference_sor_unit');\n  if quote->>'status'='priced' then\n   quote:=quote||jsonb_build_object('sor_rate',quote->'rate','rate',round((quote->>'rate')::numeric*factor,precision),\n    'source_unit',quote->>'source_unit','unit',line->>'unit','rate_basis_multiplier',factor,\n    'rate_rounding_decimals',precision,'rate_basis_evidence',profile->'two_year_evidence');\n  end if;\n else\n  quote:=public.sor_resource_quote(identity->>'master_code',p_year,p_zone,coalesce(identity->>'rate_component','rate'),line->>'unit');\n end if;\n return quote||jsonb_build_object('ssr_recipe_code',revision->>'recipe_code','analysis_scope',p_analysis_scope,\n  'line_index',p_line_index,'resource_identity',identity);\nend $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_master_resource_identity",
+      "arguments": "p_source_table text, p_master_code text, p_rate_component text",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_master_resource_identity(p_source_table text, p_master_code text, p_rate_component text DEFAULT NULL::text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\nBEGIN\r\n IF p_source_table='SOR_Year' THEN\r\n  IF NOT EXISTS(SELECT 1 FROM public.\"SOR_Recipie\" WHERE recipe_code=p_master_code) THEN RAISE EXCEPTION 'Unknown or inaccessible SOR Recipe'; END IF;\r\n ELSIF p_source_table='analysis_resource' THEN\r\n  IF NOT EXISTS(SELECT 1 FROM public.analysis_resource WHERE resource_code=p_master_code) THEN RAISE EXCEPTION 'Unknown or inaccessible analysis resource'; END IF;\r\n ELSE RAISE EXCEPTION 'Retired resource store: %. Use SOR_Recipie/SOR_Year reviewed links.',p_source_table;\r\n END IF;\r\n RETURN jsonb_build_object('version',2,'source_table',p_source_table,'master_code',p_master_code,'recipe_code',CASE WHEN p_source_table='SOR_Year' THEN p_master_code END,'rate_component',p_rate_component,'resource_key',NULL,'resolution',CASE WHEN p_source_table='SOR_Year' THEN 'recipe_code' ELSE 'source_resource' END,'master_resource_resolved',true,'unresolved',false);\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_normalize_resource_text",
+      "arguments": "p_value text",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_normalize_resource_text(p_value text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\n SET search_path TO 'public'\nAS $function$\n  select lower(trim(regexp_replace(regexp_replace(coalesce(p_value, ''), '[^[:alnum:]]+', ' ', 'g'), '\\s+', ' ', 'g')))\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_recipe_immutable",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_recipe_immutable()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\nbegin\n if TG_OP='DELETE' then raise exception 'Permanent SSR recipes cannot be deleted'; end if;\n if public.ssr_definition_without_links(to_jsonb(new)-array['updated_at','lead_applicability','lead_policy','seigniorage_applicability','description_quantity_policy'])\n is distinct from public.ssr_definition_without_links(to_jsonb(old)-array['updated_at','lead_applicability','lead_policy','seigniorage_applicability','description_quantity_policy'])\n then raise exception 'SSR technical definitions are immutable. Insert a new recipe_code with a reviewed ssr_recipe_link.'; end if;\n return new;\nend $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_recipe_link_chain_valid",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_recipe_link_chain_valid()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\nBEGIN\n -- This is deferred so all siblings can be inserted in one transaction.\n IF EXISTS(SELECT 1 FROM public.\"SSR_Recipe\" child,\n  LATERAL jsonb_array_elements_text(public.ssr_recipe_replacements(child.ssr_recipe_link,child.recipe_code)) c\n  LEFT JOIN public.\"SSR_Recipe\" sibling ON sibling.recipe_code=c\n  WHERE child.ssr_recipe_link->>'schema_version'='2'\n  AND (sibling.recipe_code IS NULL OR sibling.ssr_recipe_link IS DISTINCT FROM child.ssr_recipe_link)) THEN\n  RAISE EXCEPTION 'Every split/merge successor must carry the identical complete revision group'; END IF;\n IF EXISTS(SELECT 1 FROM public.\"SSR_Recipe\" child,\n  LATERAL jsonb_array_elements_text(public.ssr_recipe_previous(child.ssr_recipe_link)) c\n  JOIN public.\"SSR_Recipe\" parent ON parent.recipe_code=c\n  WHERE parent.ssr_recipe_link IS NOT NULL AND public.sor_fiscal_start(parent.ssr_recipe_link->>'effective_from_year')\n   >=public.sor_fiscal_start(child.ssr_recipe_link->>'effective_from_year')) THEN\n  RAISE EXCEPTION 'Revision chain boundaries must strictly increase; cycles are prohibited'; END IF;\n IF EXISTS(SELECT 1 FROM public.\"SSR_Recipe\" a JOIN public.\"SSR_Recipe\" b ON a.recipe_code<b.recipe_code\n  AND public.ssr_recipe_previous(a.ssr_recipe_link) ?| ARRAY(SELECT jsonb_array_elements_text(public.ssr_recipe_previous(b.ssr_recipe_link)))\n  WHERE a.ssr_recipe_link IS NOT NULL AND b.ssr_recipe_link IS NOT NULL\n  AND (a.ssr_recipe_link->>'schema_version'<>'2' OR b.ssr_recipe_link IS DISTINCT FROM a.ssr_recipe_link)) THEN\n  RAISE EXCEPTION 'Conflicting revision branches; author one complete reviewed replacement group'; END IF;\n RETURN NULL;\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_recipe_link_valid",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_recipe_link_valid()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog'\nAS $function$\nDECLARE r jsonb; prior public.\"SSR_Recipe\"; source jsonb; source_key text; n integer;\n before_codes jsonb; after_codes jsonb; c text; cardinality_kind text;\nBEGIN\n IF TG_OP='DELETE' THEN\n  PERFORM pg_advisory_xact_lock(hashtextextended('public.SSR_Recipe.ssr_recipe_link',0));\n  IF EXISTS(SELECT 1 FROM public.\"SSR_Recipe\" x WHERE\n    public.ssr_recipe_previous(x.ssr_recipe_link) ? old.recipe_code\n    OR (x.recipe_code<>old.recipe_code AND public.ssr_recipe_replacements(x.ssr_recipe_link,x.recipe_code) ? old.recipe_code)) THEN\n   \n   RAISE EXCEPTION 'Recipe is referenced by a revision predecessor or replacement group'; END IF;\n  RETURN old;\n END IF;\n IF TG_OP='UPDATE' AND new.ssr_recipe_link IS NOT DISTINCT FROM old.ssr_recipe_link THEN RETURN new; END IF;\n PERFORM pg_advisory_xact_lock(hashtextextended('public.SSR_Recipe.ssr_recipe_link',0));\n r:=new.ssr_recipe_link;\n IF r IS NULL THEN\n  IF TG_OP='INSERT' AND EXISTS(SELECT 1 FROM public.\"SSR_Recipe\" x WHERE x.source_code=new.source_code) THEN\n   RAISE EXCEPTION 'An existing printed SSR code requires a new version with a reviewed ssr_recipe_link';\n  END IF;\n  RETURN new;\n END IF;\n IF jsonb_typeof(r) IS DISTINCT FROM 'object' OR r->'schema_version' NOT IN ('1'::jsonb,'2'::jsonb)\n OR r->'schema_version' IS NULL THEN RAISE EXCEPTION 'Recipe revision needs reviewed schema 1 or 2'; END IF;\n IF r->>'schema_version'='1' THEN\n  IF (SELECT count(*) FROM jsonb_object_keys(r))<>7 OR NOT r ?& ARRAY['schema_version','previous_recipe_code','effective_from_year','change_kind','replacement_mode','reason','review']\n   OR jsonb_typeof(r->'previous_recipe_code') IS DISTINCT FROM 'string' THEN RAISE EXCEPTION 'Invalid v1 revision fields'; END IF;\n ELSE\n  IF (SELECT count(*) FROM jsonb_object_keys(r))<>8 OR NOT r ?& ARRAY['schema_version','previous_recipe_codes','replacement_recipe_codes','effective_from_year','change_kind','replacement_mode','reason','review']\n   OR jsonb_typeof(r->'previous_recipe_codes') IS DISTINCT FROM 'array'\n   OR jsonb_typeof(r->'replacement_recipe_codes') IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'Invalid v2 revision fields'; END IF;\n END IF;\n before_codes:=public.ssr_recipe_previous(r); after_codes:=public.ssr_recipe_replacements(r,new.recipe_code);\n IF jsonb_array_length(before_codes)=0 OR jsonb_array_length(after_codes)=0\n OR EXISTS(SELECT 1 FROM jsonb_array_elements(before_codes||after_codes) x WHERE jsonb_typeof(x) IS DISTINCT FROM 'string' OR btrim(x#>>'{}')='')\n OR (SELECT count(DISTINCT x) FROM jsonb_array_elements(before_codes) x)<>jsonb_array_length(before_codes)\n OR (SELECT count(DISTINCT x) FROM jsonb_array_elements(after_codes) x)<>jsonb_array_length(after_codes)\n OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(before_codes) x WHERE after_codes ? x)\n OR NOT after_codes ? new.recipe_code THEN RAISE EXCEPTION 'Distinct predecessor and replacement codes required'; END IF;\n IF jsonb_array_length(before_codes)=1 AND jsonb_array_length(after_codes)=1 THEN\n  IF coalesce(r->>'change_kind','') NOT IN ('definition_change','reference_change') THEN RAISE EXCEPTION 'Invalid one-to-one revision kind'; END IF;\n ELSE\n  cardinality_kind:=CASE WHEN jsonb_array_length(before_codes)=1 THEN 'split_definition'\n   WHEN jsonb_array_length(after_codes)=1 THEN 'merged_definition' ELSE NULL END;\n  IF cardinality_kind IS NULL OR r->>'change_kind' IS DISTINCT FROM cardinality_kind\n   OR r->>'replacement_mode' IS DISTINCT FROM 'review_required' THEN\n   RAISE EXCEPTION 'Splits and merges require explicit estimate review'; END IF;\n END IF;\n IF coalesce(r->>'replacement_mode','') NOT IN ('automatic','review_required')\n OR jsonb_typeof(r->'reason') IS DISTINCT FROM 'string' OR btrim(r->>'reason')=''\n OR jsonb_typeof(r->'review') IS DISTINCT FROM 'object'\n OR (SELECT count(*) FROM jsonb_object_keys(r->'review'))<>4\n OR NOT (r->'review') ?& ARRAY['status','reviewer','previous_source','replacement_source']\n OR r->'review'->>'status' IS DISTINCT FROM 'approved'\n OR r->'review'->'reviewer'->>'kind' IS DISTINCT FROM 'ai'\n OR coalesce(r->'review'->'reviewer'->>'model','')='' THEN RAISE EXCEPTION 'Explicit AI revision approval required'; END IF;\n n:=public.sor_fiscal_start(r->>'effective_from_year');\n IF n IS NULL THEN RAISE EXCEPTION 'Revision needs a financial year boundary'; END IF;\n FOREACH source_key IN ARRAY ARRAY['previous_source','replacement_source'] LOOP\n  source:=r->'review'->source_key;\n  IF jsonb_typeof(source) IS DISTINCT FROM 'object'\n  OR (SELECT count(*) FROM jsonb_object_keys(source))<>3\n  OR NOT source ?& ARRAY['year','pdf_sha256','pdf_pages']\n  OR coalesce(source->>'pdf_sha256','')!~'^[0-9a-f]{64}$'\n  OR jsonb_typeof(source->'pdf_pages') IS DISTINCT FROM 'array'\n  OR jsonb_array_length(source->'pdf_pages')=0 THEN RAISE EXCEPTION 'Revision source needs PDF hash and pages'; END IF;\n  IF EXISTS(SELECT 1 FROM jsonb_array_elements(source->'pdf_pages') p WHERE jsonb_typeof(p) IS DISTINCT FROM 'number' OR p::text !~ '^[1-9][0-9]*$')\n  OR (SELECT count(DISTINCT p) FROM jsonb_array_elements(source->'pdf_pages') p)<>jsonb_array_length(source->'pdf_pages')\n  OR public.sor_fiscal_start(source->>'year') IS NULL THEN RAISE EXCEPTION 'Invalid revision source pages/year'; END IF;\n END LOOP;\n IF public.sor_fiscal_start(r->'review'->'previous_source'->>'year')>=n\n OR r->'review'->'replacement_source'->>'year' IS DISTINCT FROM r->>'effective_from_year' THEN RAISE EXCEPTION 'Invalid chronological revision boundary'; END IF;\n FOR c IN SELECT jsonb_array_elements_text(before_codes) LOOP\n  SELECT * INTO prior FROM public.\"SSR_Recipe\" WHERE recipe_code=c FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'Missing predecessor Recipe'; END IF;\n  IF r->>'replacement_mode'='automatic' AND new.unit IS DISTINCT FROM prior.unit THEN RAISE EXCEPTION 'Automatic replacement requires the same quantity basis'; END IF;\n END LOOP;\n RETURN new;\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_recipe_previous",
+      "arguments": "r jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_recipe_previous(r jsonb)\n RETURNS jsonb\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\n SELECT CASE WHEN r IS NULL THEN '[]'::jsonb WHEN r->>'schema_version'='1'\n THEN jsonb_build_array(r->>'previous_recipe_code') ELSE r->'previous_recipe_codes' END\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_recipe_replacements",
+      "arguments": "r jsonb, code text",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_recipe_replacements(r jsonb, code text)\n RETURNS jsonb\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\n SELECT CASE WHEN r IS NULL THEN '[]'::jsonb WHEN r->>'schema_version'='1'\n THEN jsonb_build_array(code) ELSE r->'replacement_recipe_codes' END\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_refresh_yearly_resource_identities",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_refresh_yearly_resource_identities()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public'\nAS $function$\nbegin\n  update public.ssr_year\n  set rates = rates,\n      addon_rates = addon_rates\n  where code = new.recipe_code;\n  return new;\nend;\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_resolve_recipe_revision",
+      "arguments": "p_recipe_code text, p_year text",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_resolve_recipe_revision(p_recipe_code text, p_year text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\nDECLARE n integer; current_code text; r public.\"SSR_Recipe\"; successor public.\"SSR_Recipe\";\n queue text[]:=ARRAY[p_recipe_code]; path text[]:=ARRAY[]::text[]; blocked text[]:=ARRAY[]::text[];\n selected text[]:=ARRAY[]::text[]; targets text[]; result jsonb;\nBEGIN\n n:=public.sor_fiscal_start(p_year);\n IF n IS NULL THEN RAISE EXCEPTION 'Year is required'; END IF;\n IF NOT EXISTS(SELECT 1 FROM public.\"SSR_Recipe\" WHERE recipe_code=p_recipe_code) THEN RAISE EXCEPTION 'Unknown or inaccessible Recipe code'; END IF;\n WHILE cardinality(queue)>0 LOOP\n  current_code:=queue[1]; queue:=queue[2:];\n  CONTINUE WHEN current_code=ANY(path);\n  path:=array_append(path,current_code);\n  SELECT * INTO r FROM public.\"SSR_Recipe\" WHERE recipe_code=current_code;\n  IF NOT FOUND THEN RAISE EXCEPTION 'Incomplete or inaccessible Recipe lineage'; END IF;\n  IF r.ssr_recipe_link IS NOT NULL AND public.sor_fiscal_start(r.ssr_recipe_link->>'effective_from_year')>n THEN\n   SELECT array_agg(c ORDER BY c) INTO targets FROM jsonb_array_elements_text(public.ssr_recipe_previous(r.ssr_recipe_link)) c;\n   IF r.ssr_recipe_link->>'replacement_mode'='review_required' THEN blocked:=array_append(blocked,current_code); END IF;\n   queue:=queue||targets;\n  ELSE\n   SELECT * INTO successor FROM public.\"SSR_Recipe\" x WHERE public.ssr_recipe_previous(x.ssr_recipe_link) ? current_code LIMIT 1;\n   IF FOUND AND public.sor_fiscal_start(successor.ssr_recipe_link->>'effective_from_year')<=n THEN\n    SELECT array_agg(c ORDER BY c) INTO targets FROM jsonb_array_elements_text(public.ssr_recipe_replacements(successor.ssr_recipe_link,successor.recipe_code)) c;\n    IF successor.ssr_recipe_link->>'replacement_mode'='review_required' THEN blocked:=blocked||targets; END IF;\n    queue:=queue||targets;\n   ELSE selected:=array_append(selected,current_code);\n   END IF;\n  END IF;\n END LOOP;\n SELECT coalesce(array_agg(DISTINCT c ORDER BY c),ARRAY[]::text[]) INTO selected FROM unnest(selected) c;\n SELECT coalesce(array_agg(DISTINCT c ORDER BY c),ARRAY[]::text[]) INTO blocked FROM unnest(blocked) c;\n RETURN jsonb_build_object('requested_recipe_code',p_recipe_code,'recipe_code',CASE WHEN cardinality(selected)=1 THEN selected[1] ELSE NULL END,\n  'recipe_codes',to_jsonb(selected),'year',p_year,'revision_path',to_jsonb(path),\n  'requires_review',cardinality(blocked)>0 OR cardinality(selected)<>1,'review_boundaries',to_jsonb(blocked));\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_resolve_recipe_year",
+      "arguments": "p_recipe_code text, p_year text",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_resolve_recipe_year(p_recipe_code text, p_year text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\ndeclare result jsonb; annual public.\"SSR_Year\"; definition public.\"SSR_Recipe\";\nbegin\n result:=public.ssr_resolve_recipe_revision(p_recipe_code,p_year);\n if (result->>'requires_review')::boolean then return result||jsonb_build_object('status','recipe_review_required','year_row_code',null); end if;\n select * into definition from public.\"SSR_Recipe\" where recipe_code=result->>'recipe_code';\n result:=result||jsonb_build_object('recipe',to_jsonb(definition));\n select * into annual from public.\"SSR_Year\" where recipe_code=result->>'recipe_code' and year=p_year;\n if not found then return result||jsonb_build_object('status','selected_year_rate_missing','year_row_code',null); end if;\n return result||jsonb_build_object('status',case when annual.base_rate is null then 'rate_unavailable' else 'available' end,\n 'year_row_code',annual.year_row_code,'annual',to_jsonb(annual));\nend $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_resolve_resource_identity",
+      "arguments": "p_ssr_code text, p_analysis_scope text, p_year text, p_line jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_resolve_resource_identity(p_ssr_code text, p_analysis_scope text, p_year text, p_line jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\nDECLARE identity jsonb;\r\nBEGIN\r\n identity:=public.ssr_identity_from_sor_ref(p_line);IF identity IS NOT NULL THEN RETURN identity; END IF;\r\n IF p_line->'resource_identity'->>'source_table' IN('SOR_Year','analysis_resource') AND p_line->'resource_identity'->>'master_code' IS NOT NULL THEN RETURN public.ssr_master_resource_identity(p_line->'resource_identity'->>'source_table',p_line->'resource_identity'->>'master_code',p_line->'resource_identity'->>'rate_component'); END IF;\r\n identity:=public.ssr_identity_from_explicit_alias(p_ssr_code,p_analysis_scope,p_line);IF identity IS NOT NULL THEN RETURN identity; END IF;\r\n identity:=public.ssr_identity_from_description_alias(p_ssr_code,p_analysis_scope,p_line);IF identity IS NOT NULL THEN RETURN identity; END IF;\r\n IF p_year IS NOT NULL THEN identity:=public.ssr_identity_from_fixed_master(p_ssr_code,p_analysis_scope,p_line);IF identity IS NOT NULL THEN RETURN identity; END IF; END IF;\r\n IF coalesce(p_line->'resource_identity'->>'resource_key','') ~ '^ssr:[a-z0-9-]+:[a-z0-9-]+:[a-z0-9-]+-[a-f0-9]{12}$' THEN RETURN public.ssr_curated_resource_identity(p_line->'resource_identity'->>'resource_key'); END IF;\r\n identity:=public.ssr_identity_from_resource_key(p_ssr_code,p_analysis_scope,p_line);IF identity IS NOT NULL THEN RETURN identity; END IF;\r\n RETURN public.ssr_description_unit_identity(p_line);\r\nEND $function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_resource_line_array",
+      "arguments": "p_value jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_resource_line_array(p_value jsonb)\n RETURNS jsonb\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\n SET search_path TO 'public'\nAS $function$\n  select case when jsonb_typeof(p_value) = 'array' then p_value else '[]'::jsonb end\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_resource_slug",
+      "arguments": "p_value text, p_fallback text",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_resource_slug(p_value text, p_fallback text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\n SET search_path TO 'public'\nAS $function$\n  select coalesce(nullif(trim(both '-' from regexp_replace(lower(coalesce(p_value, '')), '[^a-z0-9]+', '-', 'g')), ''), p_fallback)\n$function$\n"
+    },
+    {
+      "schema": "public",
+      "name": "ssr_static_resource_lines",
+      "arguments": "p_ssr_code text, p_analysis_scope text",
+      "definition": "CREATE OR REPLACE FUNCTION public.ssr_static_resource_lines(p_ssr_code text, p_analysis_scope text)\n RETURNS SETOF jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'public'\nAS $function$\ndeclare\n  v_scope text[];\nbegin\n  if p_analysis_scope = 'materials' then\n    return query\n      select line.value from public.ssr_item item\n      cross join lateral jsonb_array_elements(public.ssr_resource_line_array(item.materials)) line\n      where item.code = p_ssr_code;\n  elsif p_analysis_scope = 'machinery' then\n    return query\n      select line.value from public.ssr_item item\n      cross join lateral jsonb_array_elements(public.ssr_resource_line_array(item.machinery)) line\n      where item.code = p_ssr_code;\n  elsif p_analysis_scope = 'labour' then\n    return query\n      select line.value from public.ssr_item item\n      cross join lateral jsonb_array_elements(public.ssr_resource_line_array(item.labour)) line\n      where item.code = p_ssr_code;\n  end if;\n\n  v_scope := regexp_match(p_analysis_scope, '^addon:([^:]+):(materials|machinery|labour)$');\n  if v_scope is not null then\n    return query\n      select line.value from public.ssr_item item\n      cross join lateral jsonb_array_elements(public.ssr_resource_line_array(item.addon_table)) addon\n      cross join lateral jsonb_array_elements(public.ssr_resource_line_array(addon.value -> v_scope[2])) line\n      where item.code = p_ssr_code\n        and addon.value ->> 'id' = v_scope[1];\n  end if;\nend;\n$function$\n"
+    }
+  ],
+  "trigger_bindings": [
+    {
+      "table_name": "SOR_Lead_Rule",
+      "trigger_name": "sor_shared_lead_revision",
+      "function_name": "sor_shared_lead_protect_revision",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SOR_Lead_Rule",
+      "trigger_name": "sor_shared_lead_targets",
+      "function_name": "sor_shared_lead_validate",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SOR_Recipie",
+      "trigger_name": "sor_public_health_recipe_valid",
+      "function_name": "sor_public_health_recipe_valid",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SOR_Recipie",
+      "trigger_name": "sor_recipe_lead_target_delete_guard",
+      "function_name": "sor_recipe_protect_lead_target",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SOR_Recipie",
+      "trigger_name": "sor_recipe_relationships",
+      "function_name": "sor_recipe_relationships_valid",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SOR_Recipie",
+      "trigger_name": "sor_recipe_revision_before_write",
+      "function_name": "sor_recipe_revision_valid",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SOR_Recipie",
+      "trigger_name": "sor_recipe_revision_chain_after_write",
+      "function_name": "sor_recipe_revision_chain_valid",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SOR_Recipie",
+      "trigger_name": "sor_recipie_definition_immutable",
+      "function_name": "sor_recipie_prevent_definition_update",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SOR_Year",
+      "trigger_name": "sor_electrical_year_review_valid",
+      "function_name": "sor_electrical_year_review_valid",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SOR_Year",
+      "trigger_name": "sor_morth_analysis_link_guard",
+      "function_name": "sor_morth_analysis_link_guard",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SOR_Year",
+      "trigger_name": "sor_public_health_year_valid",
+      "function_name": "sor_public_health_year_valid",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SOR_Year",
+      "trigger_name": "sor_year_reviewed_references",
+      "function_name": "sor_year_reference_valid",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SSR_Recipe",
+      "trigger_name": "ssr_item_resource_identity_before_write",
+      "function_name": "ssr_annotate_ssr_item_resource_identities",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SSR_Recipe",
+      "trigger_name": "ssr_item_resource_identity_refresh_years",
+      "function_name": "ssr_refresh_yearly_resource_identities",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SSR_Recipe",
+      "trigger_name": "ssr_item_seigniorage_policy_description_check",
+      "function_name": "mark_ssr_seigniorage_policy_stale",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SSR_Recipe",
+      "trigger_name": "ssr_recipe_link_after_write",
+      "function_name": "ssr_recipe_link_chain_valid",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SSR_Recipe",
+      "trigger_name": "ssr_recipe_link_before_write",
+      "function_name": "ssr_recipe_link_valid",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SSR_Recipe",
+      "trigger_name": "zz_ssr_recipe_immutable",
+      "function_name": "ssr_recipe_immutable",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SSR_Year",
+      "trigger_name": "ssr_annual_recipe_binding_before_write",
+      "function_name": "ssr_annual_recipe_binding_valid",
+      "enabled": "O"
+    },
+    {
+      "table_name": "SSR_Year",
+      "trigger_name": "ssr_year_resource_identity_before_write",
+      "function_name": "ssr_annotate_ssr_year_resource_identities",
+      "enabled": "O"
+    }
+  ],
+  "unit_and_rule_checks": [
+    {
+      "checks": {
+        "unit_checks": [
+          {
+            "factor": 0.001,
+            "source": "tonne",
+            "requested": "kg"
+          },
+          {
+            "factor": 0.001,
+            "source": "1000 litres",
+            "requested": "litre"
+          },
+          {
+            "factor": 0.09290304,
+            "source": "Sqm",
+            "requested": "sqft"
+          },
+          {
+            "factor": null,
+            "source": "day",
+            "requested": "hour"
+          }
+        ],
+        "stored_rule_checks": [
+          {
+            "type": "centering height",
+            "valid": true,
+            "recipe_code": "SOR-P03-T02-MA-R01-CE"
+          },
+          {
+            "type": "electrical",
+            "valid": true,
+            "recipe_code": "SOR-P03-T04-R0063"
+          },
+          {
+            "type": "porcelain colour",
+            "valid": true,
+            "recipe_code": "SOR-P03-T03-R0258"
+          },
+          {
+            "type": "public health",
+            "valid": true,
+            "recipe_code": "SOR-P04-T00-R0151"
+          }
+        ]
+      }
+    }
+  ],
+  "batch_quote_check": [
+    {
+      "result": {
+        "year": "2026-27",
+        "zone": "zone_3",
+        "quotes": [
+          {
+            "rate": 845,
+            "unit": "day",
+            "status": "priced",
+            "resolved_code": "SOR-P01-T07-R0001",
+            "requested_code": "SOR-P01-T07-R0111"
+          },
+          {
+            "rate": 52,
+            "unit": "m",
+            "status": "priced",
+            "resolved_code": "SOR-P04-T15-M0013",
+            "requested_code": "SOR-P04-T15-M0013"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -16,7 +16,7 @@ import type {
   ProjectNode
 } from '../types/project'
 import type { RateAnalysisRecipe, RateAnalysisSummary } from '../types/rateAnalysis'
-import { calculateRateAnalysis } from './rateAnalysis'
+import { calculateRateAnalysis, recalculateRateAnalysis } from './rateAnalysis'
 
 /** One resolved code sheet, exactly as the individual DATA dashboard renders it. */
 export interface DataSheet {
@@ -45,9 +45,10 @@ export interface DataSheet {
  */
 export async function calculateDataSheets(sheets: DataSheet[]): Promise<DataSheet[]> {
   return Promise.all(sheets.map(async (sheet) => {
-    if (sheet.recipe.itemSource === 'SOR' || sheet.calculatedSummary) return sheet
+    if (sheet.recipe.itemSource === 'SOR' || (sheet.calculatedSummary && !sheet.recipe.calculationStale)) return sheet
     try {
-      return { ...sheet, calculatedSummary: await calculateRateAnalysis(sheet.recipe) }
+      const recipe=sheet.recipe.itemSource==='SSR' && sheet.recipe.calculationStale ? await recalculateRateAnalysis(sheet.recipe) : sheet.recipe
+      return { ...sheet, recipe, calculatedSummary: await calculateRateAnalysis(recipe) }
     } catch (reason: unknown) {
       const code = sheet.recipe.itemCode?.trim() || sheet.itemKey || 'DATA'
       const detail = reason instanceof Error ? reason.message : String(reason)

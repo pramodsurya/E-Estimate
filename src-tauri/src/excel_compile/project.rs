@@ -56,6 +56,8 @@ pub fn generate_excel_project_workbook(
     taken.insert("Lead Statement".to_string());
     taken.insert("Seigniorage Statement".to_string());
     taken.insert("SSR Items".to_string());
+    if !req.morth.is_empty(){taken.insert("MoRTH Items".to_string());}
+    if !req.morth_appendices.is_empty(){taken.insert("MoRTH Appendix".to_string());}
     if !req.sor.is_empty() {
         taken.insert("SOR Items".to_string());
     }

@@ -1,10 +1,7 @@
 import { Calculator, FilePlus2, Search, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import {
-  fetchSorItems,
-  SOR_CATEGORIES,
-  type MasterItem
-} from '../../lib/masterData'
+import type { MasterItem } from '../../lib/masterData'
+import SorPicker from '../sor/SorPicker'
 import {
   PROJECT_DATA_LEAD_MATERIALS,
   projectDataLeadMaterialFor,
@@ -12,7 +9,6 @@ import {
   projectSsrFormulaReferences,
   resolveProjectSsrSections
 } from '../../lib/projectData'
-import { fetchItemRate } from '../../lib/rateAnalysis'
 import { projectDataRowCanRefresh, projectDataRowTimely, withProjectDataRowTimely } from '../../lib/projectDataRateLinks'
 import { useStore } from '../../store/useStore'
 import {
@@ -204,16 +200,16 @@ export default function ProjectSsrDataEditor({
         ...newProjectDataLine(lines.length, sectionKey),
         description: item.description,
         unit: item.unit ?? '',
-        quantity: 1,
+        quantity: item.sorCatalogue?.quantity ?? 1,
         rate,
-        amount: rate,
+        amount: rate * (item.sorCatalogue?.quantity ?? 1),
         resourceCode: item.code,
-        // Direct Material-table rows carry the monthly master code. Other SOR
-        // resources still resolve through their description alias where available.
-        materialCode: sectionKey === 'materials' && item.category === 'material'
+        // Preserve the current SOR identity for exact project rate overrides.
+        materialCode: sectionKey === 'materials' && item.category === 'SOR_Recipie'
           ? item.code
           : undefined,
-        rateSource: `SOR ${item.category} · ${year}`,
+        resourceIdentity:{sourceTable:'SOR_Year',masterCode:item.sorCatalogue?.resolvedRecipeCode ?? item.code,rateComponent:'rate'},
+        rateSource: `SOR_Year · ${year}`,
         sorRateLink: { itemSource: 'SOR', categoryKey: item.category, itemCode: item.code, sorCatalogue: item.sorCatalogue },
         timelyRates: Boolean(value.timelyRates || pickerLineId),
         userAdded: false,
@@ -553,116 +549,9 @@ function SorResourcePicker({
   onClose: () => void
   onPick: (item: MasterItem, rate: number) => void
 }): JSX.Element {
-  const defaultCategory = section === 'materials' ? 'material' : section === 'machinery' ? 'machinery' : 'labour'
-  const materialRateOverrides = useStore(
-    (state) => state.project?.meta.materialRateOverrides
-  )
-  const [category, setCategory] = useState(defaultCategory)
-  const [items, setItems] = useState<MasterItem[]>([])
-  const [query, setQuery] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [addingCode, setAddingCode] = useState('')
-
-  const [prevCategory, setPrevCategory] = useState(category)
-  if (category !== prevCategory) {
-    setPrevCategory(category)
-    setLoading(true)
-    setError('')
-  }
-
-  useEffect(() => {
-    let active = true
-    void fetchSorItems(category)
-      .then((rows) => {
-        if (active) setItems(rows)
-      })
-      .catch((reason: unknown) => {
-        if (active) setError(reason instanceof Error ? reason.message : 'Unable to load SOR resources.')
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
-    return () => { active = false }
-  }, [category])
-
-  const matches = (() => {
-    const normalized = query.trim().toLowerCase()
-    const rows = normalized
-      ? items.filter((item) => `${item.code} ${item.description}`.toLowerCase().includes(normalized))
-      : items
-    return rows.slice(0, 150)
-  })()
-
-  const choose = async (item: MasterItem): Promise<void> => {
-    if (addingCode) return
-    setAddingCode(item.code)
-    setError('')
-    try {
-      const rate = await fetchItemRate(resourceNode(item), year, {
-        zone,
-        materialRateOverrides
-      })
-      if (rate === null) throw new Error(`No current SOR rate is available for ${item.code}.`)
-      onPick(item, rate)
-    } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : 'Unable to apply this SOR rate.')
-    } finally {
-      setAddingCode('')
-    }
-  }
-
-  return (
-    <Modal
-      title={`Add SOR resource to ${sectionLabels[section]}`}
-      size="lg"
-      onClose={onClose}
-      footer={<button className="btn ghost" onClick={onClose}>Close</button>}
-    >
-      <div className="project-ssr-resource-toolbar">
-        <select className="text-input" value={category} onChange={(event) => setCategory(event.target.value)}>
-          {SOR_CATEGORIES.map((candidate) => <option key={candidate.key} value={candidate.key}>{candidate.label}</option>)}
-        </select>
-        <label>
-          <Search size={14} />
-          <input
-            value={query}
-            autoFocus
-            placeholder="Search code or description"
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
-      </div>
-      {error ? <div className="rate-warning project-ssr-resource-error">{error}</div> : null}
-      <div className="project-ssr-resource-list">
-        {loading ? <div className="list-empty">Loading SOR resources…</div> : null}
-        {!loading && matches.length === 0 ? <div className="list-empty">No SOR resource found.</div> : null}
-        {matches.map((item) => (
-          <button type="button" key={item.code} onClick={() => void choose(item)} disabled={Boolean(addingCode)}>
-            <span>
-              <strong>{item.code}</strong>
-              <small>{item.description}</small>
-            </span>
-            <em>{addingCode === item.code ? 'Applying rate…' : item.unit || 'No unit'}</em>
-          </button>
-        ))}
-      </div>
-    </Modal>
-  )
-}
-
-function resourceNode(item: MasterItem): ProjectNode {
-  return {
-    id: `project-data-resource-${item.code}`,
-    kind: 'item',
-    name: item.description,
-    children: [],
-    itemSource: 'SOR',
-    itemCode: item.code,
-    itemDescription: item.description,
-    unit: item.unit,
-    categoryKey: item.category
-  }
+  return <Modal title={`Add SOR resource to ${sectionLabels[section]}`} size="lg" onClose={onClose}>
+    <SorPicker year={year} zone={zone} mode="single" onPick={item=>{if(item.sorCatalogue)onPick(item,item.sorCatalogue.rate)}}/>
+  </Modal>
 }
 
 function newProjectDataLine(index: number, sectionKey: RateAnalysisSectionKey): RateAnalysisLine {

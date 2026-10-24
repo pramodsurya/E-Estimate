@@ -1,0 +1,868 @@
+{
+  "code": "MORTH-2019-12.01-I-A-i-medium",
+  "hash": "d1040d7092d4272afdeb36eb26a968c48faa78476b5cfe9249dbe9f62db4b915",
+  "links": [
+    {
+      "kind": "labour",
+      "unit": "day",
+      "status": "linked",
+      "candidates": [],
+      "description": "Mate",
+      "price_lookup": {
+        "code": "SOR-P01-T07-R0130",
+        "unit": "day",
+        "table": "SOR_Year",
+        "filters": [
+          "year",
+          "zone",
+          "effective_from"
+        ],
+        "join_key": "recipe_code",
+        "join_keys": [
+          "recipe_code"
+        ],
+        "link_review": {
+          "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+          "status": "approved",
+          "reviewer": {
+            "kind": "ai",
+            "model": "GPT-6"
+          },
+          "legacy_code": "LAB_SS_10",
+          "legacy_table": "labour_rate"
+        },
+        "pricing_rpc": "sor_resource_quote",
+        "recipe_code": "SOR-P01-T07-R0130",
+        "identity_table": "SOR_Recipie_View",
+        "rate_component": "rate",
+        "annual_quote_check": {
+          "year": "2026-27",
+          "zone": "zone_3",
+          "status": "priced",
+          "available": true,
+          "check_only": true,
+          "evidence_file": "Morth/source_evidence/final_annual_quote_probes.json",
+          "zone_is_not_a_project_default": true
+        },
+        "require_priced_status": true,
+        "allow_cross_year_fallback": false,
+        "published_component_label": "rate",
+        "require_priced_rpc_result": true,
+        "require_selected_year_rate": true,
+        "allow_cross_region_fallback": false,
+        "require_region_compatibility": true
+      },
+      "resource_key": "morth:mate",
+      "approved_links": [
+        {
+          "name": "Gang man / Head / Survey mazdoor",
+          "table": "SOR_Recipie_View",
+          "reason": "Mate interpreted as gang/head mazdoor supervising a labour gang; generic MoRTH role, not an exact printed-name match.",
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_SS_10",
+            "legacy_table": "labour"
+          },
+          "master_code": "SOR-P01-T07-R0130",
+          "match_basis": "role_equivalence",
+          "recipe_code": "SOR-P01-T07-R0130"
+        }
+      ],
+      "interpretation": "Mate interpreted as gang/head mazdoor supervising a labour gang; generic MoRTH role, not an exact printed-name match.",
+      "specifications": {},
+      "identity_origin": "existing_sor",
+      "selected_year_available": true
+    },
+    {
+      "kind": "labour",
+      "unit": "day",
+      "status": "linked",
+      "candidates": [],
+      "description": "Mazdoor",
+      "price_lookup": {
+        "code": "SOR-P01-T07-R0089",
+        "unit": "day",
+        "table": "SOR_Year",
+        "filters": [
+          "year",
+          "zone",
+          "effective_from"
+        ],
+        "join_key": "recipe_code",
+        "join_keys": [
+          "recipe_code"
+        ],
+        "link_review": {
+          "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+          "status": "approved",
+          "reviewer": {
+            "kind": "ai",
+            "model": "GPT-6"
+          },
+          "legacy_code": "LAB_U_03",
+          "legacy_table": "labour_rate"
+        },
+        "pricing_rpc": "sor_resource_quote",
+        "recipe_code": "SOR-P01-T07-R0089",
+        "identity_table": "SOR_Recipie_View",
+        "rate_component": "rate",
+        "annual_quote_check": {
+          "year": "2026-27",
+          "zone": "zone_3",
+          "status": "priced",
+          "available": true,
+          "check_only": true,
+          "evidence_file": "Morth/source_evidence/final_annual_quote_probes.json",
+          "zone_is_not_a_project_default": true
+        },
+        "require_priced_status": true,
+        "allow_cross_year_fallback": false,
+        "published_component_label": "rate",
+        "require_priced_rpc_result": true,
+        "require_selected_year_rate": true,
+        "allow_cross_region_fallback": false,
+        "require_region_compatibility": true
+      },
+      "resource_key": "morth:mazdoor",
+      "approved_links": [
+        {
+          "name": "Man mazdoor",
+          "table": "SOR_Recipie_View",
+          "reason": "Generic manual Mazdoor mapped to existing unskilled Man mazdoor master; source does not specify gender.",
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_U_03",
+            "legacy_table": "labour"
+          },
+          "master_code": "SOR-P01-T07-R0089",
+          "match_basis": "role_equivalence",
+          "recipe_code": "SOR-P01-T07-R0089"
+        }
+      ],
+      "interpretation": "Generic manual Mazdoor mapped to existing unskilled Man mazdoor master; source does not specify gender.",
+      "specifications": {},
+      "identity_origin": "existing_sor",
+      "selected_year_available": true
+    }
+  ],
+  "recipe": {
+    "code": "MORTH-2019-12.01-I-A-i-medium",
+    "unit": "cum",
+    "notes": [
+      "Surplus excavation reused locally; no off-site disposal included except separate marshy-soil analysis."
+    ],
+    "labour": [
+      {
+        "desc": "Mate",
+        "sign": 1,
+        "unit": "day",
+        "source": {
+          "printed_page": 409,
+          "chapter_pdf_page": 9,
+          "original_pdf_page": 429
+        },
+        "sor_ref": {
+          "table": "SOR_Recipie_View",
+          "component": "rate",
+          "recipe_code": "SOR-P01-T07-R0130",
+          "review_status": "approved"
+        },
+        "quantity": 0.14,
+        "price_lookup": {
+          "code": "SOR-P01-T07-R0130",
+          "unit": "day",
+          "table": "SOR_Year",
+          "filters": [
+            "year",
+            "zone",
+            "effective_from"
+          ],
+          "join_key": "recipe_code",
+          "join_keys": [
+            "recipe_code"
+          ],
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_SS_10",
+            "legacy_table": "labour_rate"
+          },
+          "pricing_rpc": "sor_resource_quote",
+          "recipe_code": "SOR-P01-T07-R0130",
+          "identity_table": "SOR_Recipie_View",
+          "rate_component": "rate",
+          "annual_quote_check": {
+            "year": "2026-27",
+            "zone": "zone_3",
+            "status": "priced",
+            "available": true,
+            "check_only": true,
+            "evidence_file": "Morth/source_evidence/final_annual_quote_probes.json",
+            "zone_is_not_a_project_default": true
+          },
+          "require_priced_status": true,
+          "allow_cross_year_fallback": false,
+          "published_component_label": "rate",
+          "require_priced_rpc_result": true,
+          "require_selected_year_rate": true,
+          "allow_cross_region_fallback": false,
+          "require_region_compatibility": true
+        },
+        "quantity_raw": "0.140",
+        "resource_key": "morth:mate",
+        "sor_link_ref": "morth:mate",
+        "resource_identity": {
+          "version": 3,
+          "resolution": "linked",
+          "unresolved": false,
+          "recipe_code": "SOR-P01-T07-R0130",
+          "source_table": "SOR_Recipie_View",
+          "pricing_review_required": false
+        },
+        "source_quantity_column": "medium",
+        "source_quantities_by_project_category": {
+          "large": 0.14,
+          "small": 0.14,
+          "medium": 0.14
+        }
+      },
+      {
+        "desc": "Mazdoor",
+        "sign": 1,
+        "unit": "day",
+        "source": {
+          "printed_page": 409,
+          "chapter_pdf_page": 9,
+          "original_pdf_page": 429
+        },
+        "sor_ref": {
+          "table": "SOR_Recipie_View",
+          "component": "rate",
+          "recipe_code": "SOR-P01-T07-R0089",
+          "review_status": "approved"
+        },
+        "quantity": 3.5,
+        "price_lookup": {
+          "code": "SOR-P01-T07-R0089",
+          "unit": "day",
+          "table": "SOR_Year",
+          "filters": [
+            "year",
+            "zone",
+            "effective_from"
+          ],
+          "join_key": "recipe_code",
+          "join_keys": [
+            "recipe_code"
+          ],
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_U_03",
+            "legacy_table": "labour_rate"
+          },
+          "pricing_rpc": "sor_resource_quote",
+          "recipe_code": "SOR-P01-T07-R0089",
+          "identity_table": "SOR_Recipie_View",
+          "rate_component": "rate",
+          "annual_quote_check": {
+            "year": "2026-27",
+            "zone": "zone_3",
+            "status": "priced",
+            "available": true,
+            "check_only": true,
+            "evidence_file": "Morth/source_evidence/final_annual_quote_probes.json",
+            "zone_is_not_a_project_default": true
+          },
+          "require_priced_status": true,
+          "allow_cross_year_fallback": false,
+          "published_component_label": "rate",
+          "require_priced_rpc_result": true,
+          "require_selected_year_rate": true,
+          "allow_cross_region_fallback": false,
+          "require_region_compatibility": true
+        },
+        "quantity_raw": "3.500",
+        "resource_key": "morth:mazdoor",
+        "sor_link_ref": "morth:mazdoor",
+        "resource_identity": {
+          "version": 3,
+          "resolution": "linked",
+          "unresolved": false,
+          "recipe_code": "SOR-P01-T07-R0089",
+          "source_table": "SOR_Recipie_View",
+          "pricing_review_required": false
+        },
+        "source_quantity_column": "medium",
+        "source_quantities_by_project_category": {
+          "large": 3.5,
+          "small": 3.5,
+          "medium": 3.5
+        }
+      }
+    ],
+    "chapter": "12",
+    "ref_to_m": "304",
+    "machinery": [],
+    "materials": [],
+    "cost_ready": false,
+    "calculation": {
+      "profit_base": "eligible_direct_cost_plus_overheads",
+      "overhead_base": "labour_plus_machinery_plus_materials_plus_percentage_allowances_excluding_marked_dependencies",
+      "overhead_default": null,
+      "overhead_percent": null,
+      "direct_cost_sections": [
+        "labour"
+      ],
+      "unit_rate_expression": "(direct_cost + percentage_allowances + overheads + contractor_profit)/rate_divisor",
+      "parent_markup_applied": true,
+      "percentage_allowances": [
+        {
+          "base": "labour_cost",
+          "default": null,
+          "percent": 10,
+          "source_note": "Up to printed allowance; actual site assessment",
+          "printed_page": 409,
+          "percent_is_maximum": true,
+          "condition_parameter": "dewatering_required",
+          "require_explicit_project_selection": true
+        },
+        {
+          "base": "foundation_excavation_cost",
+          "default": null,
+          "percent": 1,
+          "source_note": "Shoring/strutting where needed; review adopted excavation-cost base to prevent circular/double markup",
+          "printed_page": 409,
+          "percent_is_maximum": true,
+          "condition_parameter": "shoring_strutting_required",
+          "require_explicit_project_selection": true
+        }
+      ],
+      "direct_cost_definition": "Sum physical component costs before percentage allowances, overheads and profit",
+      "component_cost_expression": "sign * evaluated_quantity * selected_year_unit_rate",
+      "contractor_profit_percent": 10,
+      "profit_source_printed_page": 404,
+      "calculation_review_required": false,
+      "overhead_selection_parameter": "bridge_project_type",
+      "overhead_source_printed_page": 403,
+      "markup_excluded_resource_keys": [],
+      "percentage_allowance_evaluation": "Apply once to the named cost base before overheads; review supplied tax/transport and dependency boundaries",
+      "overhead_percent_by_project_type": {
+        "rehabilitation": 30,
+        "new_or_widening": 20
+      }
+    },
+    "description": "Ordinary-soil foundation excavation, manual, depth up to 3 m",
+    "printed_item": "12.01",
+    "rate_divisor": 10,
+    "review_flags": [
+      {
+        "type": "project_parameter_required",
+        "parameter": "dewatering_required"
+      },
+      {
+        "type": "project_parameter_required",
+        "parameter": "shoring_strutting_required"
+      },
+      {
+        "type": "approved_design_required",
+        "parameter": "approved_design_and_material_specifications"
+      },
+      {
+        "type": "project_parameter_required",
+        "parameter": "bridge_project_type"
+      },
+      {
+        "type": "rate_zone_and_effective_date_selection_required",
+        "parameter": "selected_project_zone",
+        "recipe_code": "SOR-P01-T07-R0130"
+      },
+      {
+        "type": "rate_zone_and_effective_date_selection_required",
+        "parameter": "selected_project_zone",
+        "recipe_code": "SOR-P01-T07-R0089"
+      }
+    ],
+    "source_pages": [
+      {
+        "printed_page": 409,
+        "chapter_pdf_page": 9,
+        "original_pdf_page": 429
+      }
+    ],
+    "source_issues": [],
+    "source_edition": "MoRTH Standard Data Book, Second Revision 2019, Volume I",
+    "design_required": true,
+    "section_heading": "Foundations",
+    "analysis_variant": "12.01-I-A-i",
+    "project_category": "medium",
+    "sor_recipe_links": {
+      "key": "recipe_code",
+      "table": "SOR_Recipie_View",
+      "reason": "No confirmed complete SOR work definition equivalent; verified ingredients are linked independently.",
+      "status": "no_confirmed_scope_equivalent",
+      "approved_links": []
+    },
+    "analysis_quantity": 10,
+    "extraction_method": "direct_visual_reading_no_ocr",
+    "rate_availability": {
+      "selected_sor_year": "2026-27",
+      "selected_year_complete": true,
+      "allow_cross_year_fallback": false,
+      "allow_cross_region_fallback": false
+    },
+    "annual_rate_lookup": {
+      "pricing_rpc": "sor_resource_quote",
+      "rate_tables": [
+        "SOR_Year"
+      ],
+      "identity_view": "SOR_Recipie_View",
+      "lookup_filters": [
+        "recipe_code",
+        "year",
+        "zone",
+        "effective_from"
+      ],
+      "allow_cross_year_fallback": false,
+      "require_selected_year_rate": true,
+      "allow_cross_region_fallback": false,
+      "require_region_compatibility": true
+    },
+    "description_detail": "",
+    "sor_mapping_status": "review_required",
+    "calculation_overrides": {
+      "overhead_default": null,
+      "overhead_percent": null,
+      "contractor_profit_percent": 10,
+      "profit_source_printed_page": 404,
+      "overhead_selection_parameter": "bridge_project_type",
+      "overhead_source_printed_page": 403,
+      "overhead_percent_by_project_type": {
+        "rehabilitation": 30,
+        "new_or_widening": 20
+      }
+    },
+    "percentage_allowances": [
+      {
+        "base": "labour_cost",
+        "default": null,
+        "percent": 10,
+        "source_note": "Up to printed allowance; actual site assessment",
+        "printed_page": 409,
+        "percent_is_maximum": true,
+        "condition_parameter": "dewatering_required",
+        "require_explicit_project_selection": true
+      },
+      {
+        "base": "foundation_excavation_cost",
+        "default": null,
+        "percent": 1,
+        "source_note": "Shoring/strutting where needed; review adopted excavation-cost base to prevent circular/double markup",
+        "printed_page": 409,
+        "percent_is_maximum": true,
+        "condition_parameter": "shoring_strutting_required",
+        "require_explicit_project_selection": true
+      }
+    ],
+    "identity_links_resolved": true,
+    "required_project_parameters": [
+      "approved_design_and_material_specifications",
+      "bridge_project_type",
+      "dewatering_required",
+      "selected_project_zone",
+      "shoring_strutting_required"
+    ],
+    "additional_required_parameters": [
+      "dewatering_required",
+      "shoring_strutting_required"
+    ]
+  },
+  "context": {
+    "source": {
+      "file": "Morth/mort_sdb_2019_chapters/12_Foundations.pdf",
+      "method": "direct_visual_reading_no_ocr",
+      "sha256": "9ddd7e7049accc817b4014bad58aed2cc560f58307fce791a9a705d799085901",
+      "printed_pages": [
+        401,
+        548
+      ],
+      "chapter_pdf_pages": 148,
+      "original_pdf_pages": [
+        421,
+        568
+      ],
+      "reviewed_chapter_pdf_pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118,
+        119,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125,
+        126,
+        127,
+        128,
+        129,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        136,
+        137,
+        138,
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145,
+        146,
+        147,
+        148
+      ]
+    },
+    "chapter": "Foundations",
+    "preamble": [
+      "Bridge general conditions pp403–405: overhead 20% for new/widening bridge/structure work, 30% for rehabilitation; profit 10% including overhead. This project-type choice is independent of large/medium/small quantity columns and requires explicit selection.",
+      "Bridge overhead includes site setup/access, administration/supervision/as-built documentation, mobilization, camps/worker transport, quality-control testing, minor tools/survey/setting out, temporary diversion, watch/ward, traffic management, environment, sundries, finance and insurance/compensation.",
+      "Materials priced at site including crushing/source cost, loading, carriage, unloading and stacking. Where analysis separately includes haul, check its scope to prevent duplication.",
+      "Highly skilled bridge labour includes first-class mason, carpenter, first-class blacksmith, welder, plumber, first-class electrician and mechanics. One mate per 25 labourers.",
+      "Bridge bearings and expansion joints use approved manufacturer quotations; normal/compound curing covered, steam curing within precast PSC analysis.",
+      "Special structures/erection techniques and changed sizes/specifications require project-specific analyses. Floating barges for deep/wide water crossings provided separately.",
+      "Well sinking covers 6–12 m diameter and 12x6 m Twin-D wells; other geometry requires approved proportional/project analysis.",
+      "Concrete well-staining lifts 2–2.5 m, free fall at most 1.5 m, layers 450 mm.",
+      "Manual/mechanical foundation excavation alternatives; backfill and use surplus locally except marshy soil disposal. Rock excavation considered to 3 m depth.",
+      "Dewatering where needed; site conditions may omit it. No dewatering during open-foundation placement and 24 hours after, or within 7 days of bottom-plug casting.",
+      "Concrete batching plant generally within 1 km; longer lead priced in tonne-km. Coarse/fine aggregate per printed IS383 reference, approved mix design required.",
+      "Pneumatic well sinking specialized; source restricts depth to 30 m below normal water level and calls for medical supervision.",
+      "Pile-driving rigs include power units/accessories; retained driven-pile steel casing priced separately. Pile concrete includes 600 mm sacrificial head allowance.",
+      "Pile-cap levelling M15, open-foundation levelling 100 mm M10. Foundation-rock embedment protection M15 to 0.6 m hard/1.5 m soft rock, then cement-grouted boulders.",
+      "Well-curb concrete at least M25, reinforcement minimum 72 kg/cum excluding bond rods; steel protection plate at least 10 mm through curb, 6 mm above limited to 3 m.",
+      "Bottom-plug mix minimum cement 330 kg/cum and about 150 mm slump; plug top at least 300 mm above curb.",
+      "Pile concrete at least M35, cement minimum 400 kg/cum; pile embeds 50 mm into cap with full anchorage. Cap thickness at least max(0.6 m,1.5 pile diameters)."
+    ],
+    "schema_version": 2,
+    "annual_rate_table": "SOR_Year",
+    "annual_rate_policy": {
+      "year_selection": "at_costing_time",
+      "zone_selection": "selected_project_zone",
+      "selected_sor_year": "2026-27",
+      "allow_cross_year_fallback": false,
+      "allow_cross_region_fallback": false
+    },
+    "context_only_items": [
+      {
+        "code": "part_B_title",
+        "description": "Bridge Works divider",
+        "printed_page": 401
+      },
+      {
+        "code": "blank_page_402",
+        "printed_page": 402
+      },
+      {
+        "code": "blank_page_406",
+        "printed_page": 406
+      }
+    ],
+    "extraction_complete": true,
+    "mapping_identity_view": "SOR_Recipie_View",
+    "source_resource_table": "analysis_resource",
+    "quantity_column_policy": "Large/medium/small are alternative project categories, independent of SOR geographic zone.",
+    "dependency_costing_policy": "Resolve referenced sub-analysis directly; review markup and carriage boundaries to prevent duplicate charges.",
+    "source_lead_symbol_policy": "Preserve printed L1; actual water and material/plant leads are independent project parameters with no defaults."
+  },
+  "candidates": {
+    "morth:mate": {
+      "kind": "labour",
+      "unit": "day",
+      "status": "linked",
+      "candidates": [],
+      "description": "Mate",
+      "price_lookup": {
+        "code": "SOR-P01-T07-R0130",
+        "unit": "day",
+        "table": "SOR_Year",
+        "filters": [
+          "year",
+          "zone",
+          "effective_from"
+        ],
+        "join_key": "recipe_code",
+        "join_keys": [
+          "recipe_code"
+        ],
+        "link_review": {
+          "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+          "status": "approved",
+          "reviewer": {
+            "kind": "ai",
+            "model": "GPT-6"
+          },
+          "legacy_code": "LAB_SS_10",
+          "legacy_table": "labour_rate"
+        },
+        "pricing_rpc": "sor_resource_quote",
+        "recipe_code": "SOR-P01-T07-R0130",
+        "identity_table": "SOR_Recipie_View",
+        "rate_component": "rate",
+        "annual_quote_check": {
+          "year": "2026-27",
+          "zone": "zone_3",
+          "status": "priced",
+          "available": true,
+          "check_only": true,
+          "evidence_file": "Morth/source_evidence/final_annual_quote_probes.json",
+          "zone_is_not_a_project_default": true
+        },
+        "require_priced_status": true,
+        "allow_cross_year_fallback": false,
+        "published_component_label": "rate",
+        "require_priced_rpc_result": true,
+        "require_selected_year_rate": true,
+        "allow_cross_region_fallback": false,
+        "require_region_compatibility": true
+      },
+      "resource_key": "morth:mate",
+      "approved_links": [
+        {
+          "name": "Gang man / Head / Survey mazdoor",
+          "table": "SOR_Recipie_View",
+          "reason": "Mate interpreted as gang/head mazdoor supervising a labour gang; generic MoRTH role, not an exact printed-name match.",
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_SS_10",
+            "legacy_table": "labour"
+          },
+          "master_code": "SOR-P01-T07-R0130",
+          "match_basis": "role_equivalence",
+          "recipe_code": "SOR-P01-T07-R0130"
+        }
+      ],
+      "interpretation": "Mate interpreted as gang/head mazdoor supervising a labour gang; generic MoRTH role, not an exact printed-name match.",
+      "specifications": {},
+      "identity_origin": "existing_sor",
+      "selected_year_available": true
+    },
+    "morth:mazdoor": {
+      "kind": "labour",
+      "unit": "day",
+      "status": "linked",
+      "candidates": [],
+      "description": "Mazdoor",
+      "price_lookup": {
+        "code": "SOR-P01-T07-R0089",
+        "unit": "day",
+        "table": "SOR_Year",
+        "filters": [
+          "year",
+          "zone",
+          "effective_from"
+        ],
+        "join_key": "recipe_code",
+        "join_keys": [
+          "recipe_code"
+        ],
+        "link_review": {
+          "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+          "status": "approved",
+          "reviewer": {
+            "kind": "ai",
+            "model": "GPT-6"
+          },
+          "legacy_code": "LAB_U_03",
+          "legacy_table": "labour_rate"
+        },
+        "pricing_rpc": "sor_resource_quote",
+        "recipe_code": "SOR-P01-T07-R0089",
+        "identity_table": "SOR_Recipie_View",
+        "rate_component": "rate",
+        "annual_quote_check": {
+          "year": "2026-27",
+          "zone": "zone_3",
+          "status": "priced",
+          "available": true,
+          "check_only": true,
+          "evidence_file": "Morth/source_evidence/final_annual_quote_probes.json",
+          "zone_is_not_a_project_default": true
+        },
+        "require_priced_status": true,
+        "allow_cross_year_fallback": false,
+        "published_component_label": "rate",
+        "require_priced_rpc_result": true,
+        "require_selected_year_rate": true,
+        "allow_cross_region_fallback": false,
+        "require_region_compatibility": true
+      },
+      "resource_key": "morth:mazdoor",
+      "approved_links": [
+        {
+          "name": "Man mazdoor",
+          "table": "SOR_Recipie_View",
+          "reason": "Generic manual Mazdoor mapped to existing unskilled Man mazdoor master; source does not specify gender.",
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_U_03",
+            "legacy_table": "labour"
+          },
+          "master_code": "SOR-P01-T07-R0089",
+          "match_basis": "role_equivalence",
+          "recipe_code": "SOR-P01-T07-R0089"
+        }
+      ],
+      "interpretation": "Generic manual Mazdoor mapped to existing unskilled Man mazdoor master; source does not specify gender.",
+      "specifications": {},
+      "identity_origin": "existing_sor",
+      "selected_year_available": true
+    }
+  }
+}

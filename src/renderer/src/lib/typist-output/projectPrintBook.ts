@@ -1,3 +1,4 @@
+import {upgradeBuiltInDataTemplate} from "./dataTemplateUpgrade"
 /**
  * Assembles the project estimate book from each studio's own Typst.
  *
@@ -455,7 +456,7 @@ export function collectProjectTypstParts(
     id: 'data-dashboard',
     label: 'DATA',
     kind: 'data',
-    source: project.printStudioDocuments?.['data-dashboard'] ?? resolvedDataTypstSource(project),
+    source: project.printStudioDocuments?.['data-dashboard'] === undefined ? resolvedDataTypstSource(project) : upgradeBuiltInDataTemplate(project.printStudioDocuments['data-dashboard'], resolvedDataTypstSource(project)),
     prelude: '',
     inputs: dataSheetsCompileInputs(dataSheets, {
       projectName: project.meta.name,

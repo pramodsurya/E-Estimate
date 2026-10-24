@@ -88,7 +88,7 @@ export function preparePrintAudit(inputs: Record<string, string> = {}) {
       if (data.map?.available) add(data.map, `${p}.map`, 'Saved lead route map')
     } else if (data.recipes || data.sor) {
       collection(data, 'sor', p, 'SOR item')
-      collection(data, 'recipes', p, 'Rate analysis', (r, rp) => {
+      for(const key of ['recipes','appendices']) collection(data, key, p, key==='appendices'?'MoRTH appendix':'Rate analysis', (r, rp) => {
         // The data adapter's visibility flags are intentional frontend print selections.
         const visible = r.visible ?? r.visibility ?? {}
         for (const key of ['materials', 'machinery', 'labour', 'leads']) {

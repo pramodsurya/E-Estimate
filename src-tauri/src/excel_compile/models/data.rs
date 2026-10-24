@@ -3,6 +3,16 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct CostTableLine {
     #[serde(default)]
+    pub appendix_key: Option<String>,
+    #[serde(default)]
+    pub appendix_name: Option<String>,
+    #[serde(default)]
+    pub appendix_direct: bool,
+    #[serde(default)]
+    pub appendix_multiplier: Option<f64>,
+    #[serde(default)]
+    pub markup_excluded: bool,
+    #[serde(default)]
     pub sl: Option<serde_json::Value>,
     #[serde(default)]
     pub description: Option<String>,
@@ -181,6 +191,12 @@ pub struct MultiRateNote {
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ExcelRecipe {
+    #[serde(default)]
+    pub appendix_key: Option<String>,
+    #[serde(default)]
+    pub appendix_name: Option<String>,
+    #[serde(default)]
+    pub morth_abstract: Vec<MorthAbstractRow>,
     #[serde(default, alias = "excelKey")]
     pub excel_key: String,
     pub code: String,
@@ -248,4 +264,21 @@ pub struct SorLeadLink {
     pub lead_key: String,
     #[serde(default)]
     pub quantity: Option<f64>,
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct MorthAbstractRow {
+    #[serde(default)]
+    pub basis_label: Option<String>,
+    pub id: String,
+    pub label: String,
+    pub amount: f64,
+    #[serde(default)]
+    pub percent: Option<f64>,
+    #[serde(default)]
+    pub basis_amount: Option<f64>,
+    #[serde(default)]
+    pub base: Option<String>,
+    pub formula_kind: String,
 }

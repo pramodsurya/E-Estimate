@@ -17,7 +17,7 @@ function loadTs(filePath, mocks = {}) {
   const loaded = new Module(filePath, module);
   loaded.filename = filePath;
   loaded.paths = Module._nodeModulePaths(path.dirname(filePath));
-  loaded.require = (request) => request in mocks ? mocks[request] : Module.createRequire(filePath)(request);
+  loaded.require = (request) => request in mocks ? mocks[request] : /(?:morthMaterialLead|morthLeadMaterials)$/.test(request) ? loadTs(path.resolve(path.dirname(filePath), request + '.ts'), mocks) : Module.createRequire(filePath)(request);
   loaded._compile(outputText, filePath);
   return loaded.exports;
 }
@@ -86,6 +86,7 @@ const dataPresentation = loadTs(path.join(root, 'src/renderer/src/lib/dataPresen
 });
 
 const dataTypst = loadTs(path.join(root, 'src/renderer/src/lib/typist-output/dataTypst.ts'), {
+  '../morthAppendices': loadTs(path.join(root,'src/renderer/src/lib/morthAppendices.ts')),
   '../rateAnalysisVisibility': visibilityMock,
   '../dataPresentation': dataPresentation,
   './documentSettings': documentSettings,
@@ -98,6 +99,7 @@ const dataTypst = loadTs(path.join(root, 'src/renderer/src/lib/typist-output/dat
 });
 
 const dataExcel = loadTs(path.join(root, 'src/renderer/src/lib/excel-output/dataExcel.ts'), {
+  '../morthAppendices': loadTs(path.join(root,'src/renderer/src/lib/morthAppendices.ts')),
   '../typist-output/dataTypst': dataTypst,
   '../dataSheets': { calculateDataSheets: async (sheets) => sheets },
   './excelDocumentSettings': {
@@ -399,6 +401,19 @@ async function runTest() {
   console.log('Fast-path wiring verified (studio + 5 Excel sites + 3 Rust commands).');
 
   const jsonPath = path.join(root, 'scratch/test-input.json');
+  const morthSheet = structuredClone(sampleSheets[0]);
+  morthSheet.id='morth-foundation';
+  morthSheet.recipe={...morthSheet.recipe,itemSource:'MORTH',itemCode:'MORTH-2019-internal-test',documentTitle:'MoRTH 2019',description:'Foundation excavation',morth:{printedItem:'12.01',pending:[]},storedValues:{labourExtract:[],abstract:[{label:'Contractor profit',value:'',unit:'',basis:'',percent:'',amount:'278.21'}]}};
+  morthSheet.calculatedSummary={sectionTotals:{materials:0,machinery:0,labour:2318.4},labourBaseCost:2318.4,baseCost:2318.4,overheadAmount:463.68,profitAmount:278.21,totalCost:3060.29,ratePerUnit:306.03,areaAllowanceAmount:0,areaAllowancePercent:0,labourCostWithAreaAllowance:2318.4,labourUnitBase:231.84,labourUnitProfit:0,labourUnitTotal:231.84,costReady:true};
+  const morthFixture=JSON.parse(fs.readFileSync(path.join(root,'scripts/fixtures/morth-slab-appendix.json'),'utf8'));
+  morthSheet.recipe=morthFixture;
+  morthSheet.calculatedSummary=morthFixture.morth.startingSummary;
+  const morthPayload=dataExcel.buildDataExcelPayload(mockProject,[morthSheet]);
+  assert.equal(morthPayload.recipes.length,0,'MoRTH must not be exported as SSR');
+  assert.equal(morthPayload.morth.length,1);
+  assert.equal(morthPayload.morth[0].code,'14.01','The internal MoRTH identity must not print');
+  payload.morth=morthPayload.morth;
+  payload.morthAppendices=morthPayload.morthAppendices;
   const testFilePath = path.join(root, 'scratch/test-workbook-output.xlsx');
   fs.writeFileSync(jsonPath, JSON.stringify(payload, null, 2));
 
@@ -411,6 +426,8 @@ async function runTest() {
   console.log('Native Rust Excel compilation:', compileOut.trim());
   assert(fs.existsSync(testFilePath), 'Output XLSX must be produced by native Rust engine');
   const bytes = fs.readFileSync(testFilePath);
+  const workbook=require('xlsx').read(bytes,{type:'buffer'});
+  assert(workbook.SheetNames.includes('MoRTH Items'),'Native export must give MoRTH its own DATA sheet');
   assert(bytes.length > 1000);
   console.log('Native rust_xlsxwriter workbook built successfully, byte size:', bytes.length);
 

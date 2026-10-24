@@ -4,4 +4,5 @@
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub mod canal;
+pub mod canal_engine;
 pub mod rate_analysis;

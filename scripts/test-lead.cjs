@@ -22,6 +22,8 @@ function loadTsModule(filePath, mocks = {}) {
   loadedModule.paths = Module._nodeModulePaths(path.dirname(filePath))
   loadedModule.require = (request) => {
     if (request in mocks) return mocks[request]
+    if (request === './morthMaterialLead' || request === './morthLeadMaterials')
+      return loadTsModule(path.resolve(path.dirname(filePath), `${request}.ts`), mocks)
     return require(request)
   }
   loadedModule._compile(outputText, filePath)
@@ -29,13 +31,8 @@ function loadTsModule(filePath, mocks = {}) {
 }
 
 const leadPath = path.join(root, 'src/renderer/src/lib/lead.ts')
-const leadSource = fs.readFileSync(leadPath, 'utf8')
-assert.match(leadSource, /rate,zone_rates/,
-  'Lead rates must fetch the zoned rate map from Supabase')
-assert.match(leadSource, /normalizeLeadRateRow\(row, zone\)/,
-  'Lead rows must be normalized for the selected project zone')
-assert.match(leadSource, /zoneRates\?\.\[zone\]/,
-  'Lead calculations must adopt the selected zone value')
+// Published-source loading, year/zone isolation and reviewed rule execution
+// are exercised behaviorally in test-reviewed-lead.cjs.
 const leadExports = loadTsModule(leadPath, {
   './supabase': { supabase: {} }
 })

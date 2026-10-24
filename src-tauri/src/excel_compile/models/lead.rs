@@ -108,6 +108,8 @@ pub struct LeadCalcPayload {
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct LeadWeightedRateCurvePayload {
+    #[serde(default, alias = "continuousBeyond5Km")]
+    pub continuous_beyond_5km: bool,
     #[serde(default, alias = "head100m")]
     pub head_100m: Option<f64>,
     #[serde(default, alias = "head150m")]

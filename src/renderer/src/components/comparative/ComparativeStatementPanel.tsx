@@ -577,7 +577,7 @@ export default function ComparativeStatementPanel({
   useEffect(() => {
     let cancelled = false
     const load = async (year: string): Promise<Map<string, number>> =>
-      year ? fetchYearlyMaterialRates(year) : new Map<string, number>()
+      year ? fetchYearlyMaterialRates(year, project.meta.sorZone ?? 'zone_3') : new Map<string, number>()
     void Promise.all([load(leftYear), load(rightYear)])
       .then(([left, right]) => {
         if (!cancelled) setYearlyRates({ left, right })
@@ -586,7 +586,7 @@ export default function ComparativeStatementPanel({
     return () => {
       cancelled = true
     }
-  }, [leftYear, rightYear])
+  }, [leftYear, rightYear, project.meta.sorZone])
 
   /** The circulars available to adopt, newest first. */
   const circulars = useMemo(

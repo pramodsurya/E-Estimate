@@ -1,0 +1,232 @@
+{
+  "auditedAt": "2026-10-24",
+  "catalogueRecipes": 3345,
+  "missingMainQuantities": 1830,
+  "leadDependentMainRows": 1824,
+  "affectedLeadRecipes": 1170,
+  "resourceGroups": [
+    {
+      "resource": "morth:tipper_18_cum_transport_tkm",
+      "description": "Tipper 18 cum capacity for transportation; lead from component quantity",
+      "unit": "tonne-km",
+      "occurrences": 95,
+      "recipes": 89,
+      "parameters": [
+        "fresh_fill_material_lead_km",
+        "hot_mix_plant_haul_lead_km",
+        "steel_transport_lead_km",
+        "reinforcement_transport_lead_km",
+        "borrow_lead_km",
+        "material_haul_lead_km",
+        "hot_mix_haul_lead_km",
+        "aggregate_haul_lead_km",
+        "reclaimed_material_haul_lead_km",
+        "fresh_mix_haul_lead_km",
+        "concrete_haul_lead_km",
+        "reinforcement_haul_lead_km"
+      ],
+      "examples": [
+        "MORTH-2019-10.01-large",
+        "MORTH-2019-10.02-large",
+        "MORTH-2019-10.04-large"
+      ]
+    },
+    {
+      "resource": "morth:tipper_14_cum_transport_tkm",
+      "description": "Tipper 14 cum capacity for transportation; lead from component quantity",
+      "unit": "tonne-km",
+      "occurrences": 98,
+      "recipes": 92,
+      "parameters": [
+        "fresh_fill_material_lead_km",
+        "hot_mix_plant_haul_lead_km",
+        "steel_transport_lead_km",
+        "reinforcement_transport_lead_km",
+        "reinforcement_yard_to_site_lead_km",
+        "borrow_lead_km",
+        "material_haul_lead_km",
+        "hot_mix_haul_lead_km",
+        "aggregate_haul_lead_km",
+        "reclaimed_material_haul_lead_km",
+        "fresh_mix_haul_lead_km",
+        "concrete_haul_lead_km",
+        "reinforcement_haul_lead_km"
+      ],
+      "examples": [
+        "MORTH-2019-10.01-medium",
+        "MORTH-2019-10.02-medium",
+        "MORTH-2019-10.04-medium"
+      ]
+    },
+    {
+      "resource": "morth:tipper_10_cum_transport_tkm",
+      "description": "Tipper 10 cum capacity for transportation; lead from component quantity",
+      "unit": "tonne-km",
+      "occurrences": 95,
+      "recipes": 89,
+      "parameters": [
+        "fresh_fill_material_lead_km",
+        "hot_mix_plant_haul_lead_km",
+        "steel_transport_lead_km",
+        "reinforcement_transport_lead_km",
+        "borrow_lead_km",
+        "material_haul_lead_km",
+        "hot_mix_haul_lead_km",
+        "aggregate_haul_lead_km",
+        "reclaimed_material_haul_lead_km",
+        "fresh_mix_haul_lead_km",
+        "concrete_haul_lead_km",
+        "reinforcement_haul_lead_km"
+      ],
+      "examples": [
+        "MORTH-2019-10.01-small",
+        "MORTH-2019-10.02-small",
+        "MORTH-2019-10.04-small"
+      ]
+    },
+    {
+      "resource": "morth:water_tanker_16_kl",
+      "description": "Water tanker 16 KL",
+      "unit": "hour",
+      "occurrences": 270,
+      "recipes": 270,
+      "parameters": [
+        "water_supply_lead_km",
+        "water_lead_km",
+        "water_haul_lead_km"
+      ],
+      "examples": [
+        "MORTH-2019-12.03-large",
+        "MORTH-2019-12.04-large",
+        "MORTH-2019-12.05-large"
+      ]
+    },
+    {
+      "resource": "morth:water_tanker_12_kl",
+      "description": "Water tanker 12 KL",
+      "unit": "hour",
+      "occurrences": 300,
+      "recipes": 300,
+      "parameters": [
+        "water_supply_lead_km",
+        "water_lead_km",
+        "water_haul_lead_km"
+      ],
+      "examples": [
+        "MORTH-2019-12.03-medium",
+        "MORTH-2019-12.04-medium",
+        "MORTH-2019-12.05-medium"
+      ]
+    },
+    {
+      "resource": "morth:water_tanker_6_kl",
+      "description": "Water tanker 6 kL",
+      "unit": "hour",
+      "occurrences": 270,
+      "recipes": 270,
+      "parameters": [
+        "water_supply_lead_km",
+        "water_lead_km",
+        "water_haul_lead_km"
+      ],
+      "examples": [
+        "MORTH-2019-12.03-small",
+        "MORTH-2019-12.04-small",
+        "MORTH-2019-12.05-small"
+      ]
+    },
+    {
+      "resource": "morth:transit_truck_agitator_6_cum_transport_tkm",
+      "description": "Transit truck agitator, 6 cum; carriage in tonne-km",
+      "unit": "tonne-km",
+      "occurrences": 681,
+      "recipes": 681,
+      "parameters": [
+        "concrete_plant_haul_lead_km",
+        "shotcrete_plant_haul_lead_km",
+        "concrete_haul_lead_km"
+      ],
+      "examples": [
+        "MORTH-2019-12.08-A-I-large",
+        "MORTH-2019-12.08-A-I-medium",
+        "MORTH-2019-12.08-A-I-small"
+      ]
+    },
+    {
+      "resource": "morth:trailer_30_tonne_structural_hours",
+      "description": "Trailer30tonne for structural-steel haul to site",
+      "unit": "hour",
+      "occurrences": 6,
+      "recipes": 6,
+      "parameters": [
+        "steel_transport_lead_km"
+      ],
+      "examples": [
+        "MORTH-2019-13.20-large",
+        "MORTH-2019-13.20-medium",
+        "MORTH-2019-13.20-small"
+      ]
+    },
+    {
+      "resource": "morth:trailer_30_tonne_transport_tkm",
+      "description": "30tonne trailer for girder transport, tonne-km charging unit",
+      "unit": "tonne-km",
+      "occurrences": 6,
+      "recipes": 6,
+      "parameters": [
+        "girder_transport_lead_km",
+        "fascia_haul_lead_km"
+      ],
+      "examples": [
+        "MORTH-2019-14.13-large",
+        "MORTH-2019-14.13-medium",
+        "MORTH-2019-14.13-small"
+      ]
+    },
+    {
+      "resource": "morth:tipper_10_cum_transport_tkm_tunnel",
+      "description": "Tipper10cum capacity transportation, tonne-km charging basis",
+      "unit": "tonne-km",
+      "occurrences": 3,
+      "recipes": 3,
+      "parameters": [
+        "tunnel_muck_disposal_lead_km"
+      ],
+      "examples": [
+        "MORTH-2019-18.04-large",
+        "MORTH-2019-18.04-medium",
+        "MORTH-2019-18.04-small"
+      ]
+    },
+    {
+      "resource": "morth:hard_rock_excavation_dependency",
+      "description": "Relevant Chapter 3 hard-rock excavation analysis",
+      "unit": "cum",
+      "occurrences": 3,
+      "recipes": 3,
+      "parameters": [
+        "hard_rock_volume_cum_per_metre"
+      ],
+      "examples": [
+        "MORTH-2019-3.27-large",
+        "MORTH-2019-3.27-medium",
+        "MORTH-2019-3.27-small"
+      ]
+    },
+    {
+      "resource": "morth:smooth_steel_tandem_roller_static_vibratory",
+      "description": "smooth steel tandem roller static vibratory",
+      "unit": "hour",
+      "occurrences": 3,
+      "recipes": 3,
+      "parameters": [
+        "missing_recycled_bc_I_roller_hours"
+      ],
+      "examples": [
+        "MORTH-2019-5.13-C-i-large",
+        "MORTH-2019-5.13-C-i-medium",
+        "MORTH-2019-5.13-C-i-small"
+      ]
+    }
+  ]
+}

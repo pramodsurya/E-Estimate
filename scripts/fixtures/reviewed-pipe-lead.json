@@ -1,0 +1,308 @@
+{
+  "captured_on": "2026-10-23",
+  "source": "Live selected-year PIPE binding and exact RCC conveyance quotes",
+  "recipe": [
+    {
+      "recipe_code": "SOR-P04-T01-M0061",
+      "section": "R.C.C. Plain Ended Pipes",
+      "unit": "m",
+      "cell": {
+        "row": {
+          "id": "1800 mm dia",
+          "label": "1800 mm dia"
+        },
+        "group": "Plain ended pipe supply",
+        "column": {
+          "id": "NP2",
+          "unit": "m",
+          "label": "NP2"
+        },
+        "row_axis": "item_size",
+        "column_axis": "class",
+        "schema_version": 1
+      }
+    }
+  ],
+  "annual": [
+    {
+      "year": "2025-26",
+      "recipe_code": "SOR-P04-T01-M0061",
+      "year_row_code": "SOR-Y-98f8f4ff2a49f3319b86ae7b5bc7fe0507102c958f3af8c5ca8d1177fd9f9291",
+      "lead_rule_code": "LEAD-PIPE-2025-26-B5E65D75EA3C5D1A7633"
+    },
+    {
+      "year": "2026-27",
+      "recipe_code": "SOR-P04-T01-M0061",
+      "year_row_code": "SOR-Y-8e226d58117fbf9b3f780536c284451da3631346b0996617a53324120d345b27",
+      "lead_rule_code": "LEAD-PIPE-2026-27-B5E65D75EA3C5D1A7633"
+    }
+  ],
+  "rules": [
+    {
+      "rule_code": "LEAD-PIPE-2025-26-B5E65D75EA3C5D1A7633",
+      "year": "2025-26",
+      "scope_label": "PIPE · m · Up to 5 km base plus each started kilometre above 5 km; loading/unloading/stacking included.",
+      "rules": {
+        "lift_unit": "m",
+        "components": {
+          "lead": {
+            "cases": [],
+            "otherwise": {
+              "terms": [
+                {
+                  "multiplier": 1,
+                  "recipe_code": "SOR-P04-T06-M0081"
+                },
+                {
+                  "multiplier": {
+                    "op": "ceil",
+                    "value": {
+                      "op": "max",
+                      "left": 0,
+                      "right": {
+                        "op": "subtract",
+                        "left": {
+                          "input": "lead_km"
+                        },
+                        "right": 5
+                      }
+                    }
+                  },
+                  "recipe_code": "SOR-P04-T06-M0082"
+                }
+              ],
+              "reason": "Up to 5 km base plus each started kilometre above 5 km; loading/unloading/stacking included.",
+              "status": "priced"
+            }
+          },
+          "lift": {
+            "cases": [],
+            "otherwise": {
+              "terms": [],
+              "reason": "Pipe lead tariff does not authorize vertical lift. Use the independently reviewed lift scope, if applicable.",
+              "status": "review_required"
+            }
+          },
+          "loading": {
+            "cases": [],
+            "otherwise": {
+              "terms": [],
+              "reason": "Loading is included in this published conveyance/supply tariff.",
+              "status": "included_in_item_rate"
+            }
+          },
+          "unloading": {
+            "cases": [],
+            "otherwise": {
+              "terms": [],
+              "reason": "Unloading/stacking is included in this published conveyance/supply tariff.",
+              "status": "included_in_item_rate"
+            }
+          }
+        },
+        "distance_unit": "km",
+        "quantity_unit": "m",
+        "schema_version": 3,
+        "source_recipe_codes": [
+          "SOR-P04-T01-M0061"
+        ]
+      },
+      "review": {
+        "reviewer": {
+          "kind": "ai",
+          "model": "GPT-6"
+        },
+        "review_reason": "AI confirmed actual 2025 pipe destination/handling, quantity and exact current conveyance Recipe; no later tariff fallback.",
+        "source_pdf_sha256": "8d14c454f7017823b8ad1d2341847493495cca6183e1204483fa8b8da1983777"
+      }
+    },
+    {
+      "rule_code": "LEAD-PIPE-2026-27-B5E65D75EA3C5D1A7633",
+      "year": "2026-27",
+      "scope_label": "PIPE · m · Up to 5 km base plus each started kilometre above 5 km; loading/unloading/stacking included.",
+      "rules": {
+        "lift_unit": "m",
+        "components": {
+          "lead": {
+            "cases": [],
+            "otherwise": {
+              "terms": [
+                {
+                  "multiplier": 1,
+                  "recipe_code": "SOR-P04-T06-M0081"
+                },
+                {
+                  "multiplier": {
+                    "op": "ceil",
+                    "value": {
+                      "op": "max",
+                      "left": 0,
+                      "right": {
+                        "op": "subtract",
+                        "left": {
+                          "input": "lead_km"
+                        },
+                        "right": 5
+                      }
+                    }
+                  },
+                  "recipe_code": "SOR-P04-T06-M0082"
+                }
+              ],
+              "reason": "Up to 5 km base plus each started kilometre above 5 km; loading/unloading/stacking included.",
+              "status": "priced"
+            }
+          },
+          "lift": {
+            "cases": [],
+            "otherwise": {
+              "terms": [],
+              "reason": "Pipe lead tariff does not authorize vertical lift. Use the independently reviewed lift scope, if applicable.",
+              "status": "review_required"
+            }
+          },
+          "loading": {
+            "cases": [],
+            "otherwise": {
+              "terms": [],
+              "reason": "Loading is included in this published conveyance/supply tariff.",
+              "status": "included_in_item_rate"
+            }
+          },
+          "unloading": {
+            "cases": [],
+            "otherwise": {
+              "terms": [],
+              "reason": "Unloading/stacking is included in this published conveyance/supply tariff.",
+              "status": "included_in_item_rate"
+            }
+          }
+        },
+        "distance_unit": "km",
+        "quantity_unit": "m",
+        "schema_version": 3,
+        "source_recipe_codes": [
+          "SOR-P04-T01-M0061"
+        ]
+      },
+      "review": {
+        "reviewer": {
+          "kind": "ai",
+          "model": "GPT-6"
+        },
+        "review_reason": "AI bound exact pipe/end/class/diameter/quantity and source transport inclusion. No previous-year fallback.",
+        "source_pdf_sha256": "16f4b7912e130a975d55e86263db9175597b65759e2c7eebeaef86852d74eb33"
+      }
+    }
+  ],
+  "quotes": [
+    {
+      "year": "2025-26",
+      "code": "SOR-P04-T06-M0081",
+      "quote": {
+        "rate": 349.12,
+        "unit": "m",
+        "year": "2025-26",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P04-T06-M0081",
+        "source_unit": "m",
+        "recipe_codes": [
+          "SOR-P04-T06-M0081"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "revision_path": [
+          "SOR-P04-T06-M0081"
+        ],
+        "year_row_code": "SOR-Y-e6a053c01cd822f9885bd09199ec33bf2314adef8a07b05a4602900d6fa6de84",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P04-T06-M0081"
+      }
+    },
+    {
+      "year": "2025-26",
+      "code": "SOR-P04-T06-M0082",
+      "quote": {
+        "rate": 13.87,
+        "unit": "m",
+        "year": "2025-26",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P04-T06-M0082",
+        "source_unit": "m",
+        "recipe_codes": [
+          "SOR-P04-T06-M0082"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "revision_path": [
+          "SOR-P04-T06-M0082"
+        ],
+        "year_row_code": "SOR-Y-eb2a01574b36e58d88cebe086c97a4177862c39ca86c4e3e8b6114488489a05d",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P04-T06-M0082"
+      }
+    },
+    {
+      "year": "2026-27",
+      "code": "SOR-P04-T06-M0081",
+      "quote": {
+        "rate": 366.58,
+        "unit": "m",
+        "year": "2026-27",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P04-T06-M0081",
+        "source_unit": "m",
+        "recipe_codes": [
+          "SOR-P04-T06-M0081"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "revision_path": [
+          "SOR-P04-T06-M0081"
+        ],
+        "year_row_code": "SOR-Y-000b71d72b06822ac56f096de89d9290c5b10dca50b998feb4dfad0b9027fcf3",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P04-T06-M0081"
+      }
+    },
+    {
+      "year": "2026-27",
+      "code": "SOR-P04-T06-M0082",
+      "quote": {
+        "rate": 14.56,
+        "unit": "m",
+        "year": "2026-27",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P04-T06-M0082",
+        "source_unit": "m",
+        "recipe_codes": [
+          "SOR-P04-T06-M0082"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "revision_path": [
+          "SOR-P04-T06-M0082"
+        ],
+        "year_row_code": "SOR-Y-b828847d315c161aaa0eef6b92089d1da0a44980f1ef02b81db142b00cc21e14",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P04-T06-M0082"
+      }
+    }
+  ]
+}

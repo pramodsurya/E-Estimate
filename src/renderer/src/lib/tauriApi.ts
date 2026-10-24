@@ -68,7 +68,13 @@ export function createTauriApi(): EestimateApi {
       onProgress: (cb) => subscribe('bund:simulation-progress', cb)
     },
     canal: {
-      calculateQuantities: (data) => invoke('canal_calculate_quantities', { data })
+      calculateQuantities: (data) => invoke('canal_calculate_quantities', { data }),
+      calculateCutting: (payload) => invoke('canal_engine_calculate_cutting', { payload }),
+      exportCuttingExcel: (payload, preferPath = true) =>
+        invoke('canal_engine_export_cutting_excel', { payload, preferPath }),
+      calculateEmbankment: (payload) => invoke('canal_engine_calculate_embankment', { payload }),
+      exportEmbankmentExcel: (payload, preferPath = true) =>
+        invoke('canal_engine_export_embankment_excel', { payload, preferPath })
     },
     rateAnalysis: {
       calculate: (recipe) => invoke('rate_analysis_calculate', { recipe }),

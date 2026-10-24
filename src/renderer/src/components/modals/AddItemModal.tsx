@@ -1,3 +1,4 @@
+import MorthPicker from '../morth/MorthPicker'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   ArrowDownAZ,
@@ -18,16 +19,14 @@ import { collectSharedGroups } from '../../lib/sharedSheet'
 import { projectDataRate } from '../../lib/projectData'
 import { projectDataRatesReady } from '../../lib/projectDataDefaults'
 import {
-  SOR_CATEGORIES,
   SSR_CATEGORIES,
-  fetchSorItems,
   fetchSsrItems,
   type MasterItem
 } from '../../lib/masterData'
 import type { DataVariantSelection, ProjectDataDefinition } from '../../types/project'
 import SsrCode from '../templates/SsrCode'
-import SorCatalogueColumn from './SorCatalogueColumn'
-import ReviewedSorColumn from './ReviewedSorColumn'
+import SorPicker from '../sor/SorPicker'
+import { refreshSorSelection, sorMasterItem } from '../../lib/sorSource'
 import {
   fetchDataVariantSpecs,
   type DataVariantOption,
@@ -47,8 +46,7 @@ import {
 } from '../../lib/semanticMasterSearch'
 
 function itemKey(m: MasterItem): string {
-  const rules = m.sorCatalogue?.reviewed?.selectedRuleIds
-  return `${m.side}:${m.category}:${m.code}${rules?.length ? `:rules:${[...rules].sort().join(',')}` : ''}`
+  return `${m.side}:${m.category}:${m.code}${m.sorCatalogue ? `:${m.sorCatalogue.selectionKey}` : ''}`
 }
 
 type SortDir = 'asc' | 'desc'
@@ -76,7 +74,28 @@ export default function AddItemModal(): JSX.Element {
   const [variantSelections, setVariantSelections] = useState<Record<string, DataVariantSelection>>({})
   const [preparingVariants, setPreparingVariants] = useState(false)
   const [variantError, setVariantError] = useState<string | null>(null)
+  const projectYear=project?.meta.sorYear ?? ''
+  const projectZone=project?.meta.sorZone ?? 'zone_3'
+  const staleSelections=[...selected.values()].filter(item=>item.sorCatalogue && (item.sorCatalogue.year!==projectYear||item.sorCatalogue.zone!==projectZone))
+  useEffect(()=>{
+    const pending=[...selected.values()].filter(item=>item.sorCatalogue && (item.sorCatalogue.year!==projectYear||item.sorCatalogue.zone!==projectZone))
+    if(!pending.length)return
+    let active=true
+    void Promise.allSettled(pending.map(async item=>({before:item,after:sorMasterItem(await refreshSorSelection(item.sorCatalogue!,projectYear,projectZone))}))).then(results=>{
+      if(!active)return
+      const updated=results.flatMap(result=>result.status==='fulfilled'?[result.value]:[])
+      if(updated.length)setSelected(current=>{
+        const next=new Map(current)
+        for(const {before,after} of updated)if(next.get(itemKey(before))===before){next.delete(itemKey(before));next.set(itemKey(after),after)}
+        return next
+      })
+      const failure=results.find(result=>result.status==='rejected')
+      setVariantError(failure?.status==='rejected'?`SOR selection needs attention: ${failure.reason instanceof Error?failure.reason.message:String(failure.reason)}`:null)
+    })
+    return()=>{active=false}
+  },[selected,projectYear,projectZone])
   // Storage step: separate sheet per item (legacy) vs one shared sheet.
+  const [catalogueSource,setCatalogueSource]=useState<'existing'|'MORTH'>('existing')
   const [storageStep, setStorageStep] = useState(false)
   const [storageMode, setStorageMode] = useState<'separate' | 'new-shared' | 'existing-shared'>('separate')
   const [sharedName, setSharedName] = useState('')
@@ -176,8 +195,8 @@ export default function AddItemModal(): JSX.Element {
 
   const confirm = async (): Promise<void> => {
     if (selected.size + selectedProjectData.size === 0 || !project) return
-    if (Array.from(selected.values()).some(item => item.sorCatalogue?.reviewed && item.sorCatalogue.reviewed.year !== project.meta.sorYear)) {
-      setVariantError('The project SOR year changed. Remove the old reviewed selections and choose variants from the project edition.')
+    if (Array.from(selected.values()).some(item => item.sorCatalogue && (item.sorCatalogue.year !== project.meta.sorYear || item.sorCatalogue.zone !== (project.meta.sorZone ?? 'zone_3')))) {
+      setVariantError('The project SOR year changed. Remove the stale selections and choose variants from the current project year and zone.')
       return
     }
     if (selected.size === 0) {
@@ -269,7 +288,7 @@ export default function AddItemModal(): JSX.Element {
           <button
             className="btn"
             data-tour="add-item-confirm"
-            disabled={selectedCount === 0 || preparingVariants}
+            disabled={selectedCount === 0 || preparingVariants || staleSelections.length>0}
             onClick={() => void confirm()}
           >
             <Plus size={15} />
@@ -317,7 +336,8 @@ export default function AddItemModal(): JSX.Element {
         />
       ) : (
         <>
-          <div className="additem-cols">
+          <div className="backend-data-source-tabs"><button aria-pressed={catalogueSource==='existing'} onClick={()=>setCatalogueSource('existing')}>SSR / SOR / Project DATA</button><button aria-pressed={catalogueSource==='MORTH'} onClick={()=>setCatalogueSource('MORTH')}>MoRTH catalogue</button></div>
+          {catalogueSource==='MORTH'?<div style={{height:440}}><MorthPicker selected={selected} onPick={add}/></div>:<div className="additem-cols">
             <Column
               side="SSR"
               tag="Unified SSR / TAW DAW CAW GAW CCDW PMW"
@@ -349,6 +369,7 @@ export default function AddItemModal(): JSX.Element {
               }
             />
           </div>
+          }
           {variantError && (
             <div className="data-variant-error">Could not read DATA variants: {variantError}</div>
           )}
@@ -680,7 +701,7 @@ export function BackendDataSelectionColumns({
           onClick={() => setSource('SOR')}
         >
           SOR DATA
-          <small>Rates &amp; catalogue</small>
+          <small>Parts, specifications &amp; variants</small>
         </button>
       </div>
       <div className="backend-data-code-list">
@@ -721,7 +742,7 @@ function SorSelectionColumn({
   sorZone,
   selected,
   onAdd,
-  onRemove
+  onRemove,
 }: {
   sorYear: string
   sorZone: 'zone_1' | 'zone_2' | 'zone_3'
@@ -729,57 +750,7 @@ function SorSelectionColumn({
   onAdd: (item: MasterItem) => void
   onRemove: (key: string) => void
 }): JSX.Element {
-  const [mode, setMode] = useState<'reviewed' | 'catalogue' | 'basic'>('reviewed')
-  const [reviewedCatalogue, setReviewedCatalogue] = useState<string | null>(null)
-
-  if (mode === 'reviewed') {
-    return <ReviewedSorColumn sorYear={sorYear} sorZone={sorZone} selected={selected} onAdd={onAdd} initialCatalogue={reviewedCatalogue}
-      onShowBasicRates={() => setMode('basic')} />
-  }
-
-  if (mode === 'basic') {
-    return (
-      <Column
-        side="SOR"
-        tag="Basic item tables"
-        categories={SOR_CATEGORIES.filter(category => ['material', 'labour', 'machinery'].includes(category.key))}
-        fetcher={fetchSorItems}
-        selected={selected}
-        onAdd={onAdd}
-        onRemove={onRemove}
-        trailingCategory={
-          <div className="cat-group sor-others-group">
-            {(['PLUMBING', 'ELECTRICAL', 'CIVIL'] as const).map(catalogue => <button key={catalogue} type="button" className="cat-head sor-others-head"
-              onClick={() => { setReviewedCatalogue(catalogue); setMode('reviewed') }}>
-              <ChevronRight size={14} /> {catalogue[0] + catalogue.slice(1).toLowerCase()} <span className="cat-count sor-others-count">Book sections</span>
-            </button>)}
-            <button type="button" className="cat-head sor-others-head" onClick={() => { setReviewedCatalogue(null); setMode('reviewed') }}>
-              <ChevronRight size={14} /> SOR book index
-            </button>
-            <button
-              type="button"
-              className="cat-head sor-others-head"
-              onClick={() => setMode('catalogue')}
-            >
-              <ChevronRight size={14} />
-              Legacy catalogues
-              <span className="cat-count sor-others-count">Catalogue</span>
-            </button>
-          </div>
-        }
-      />
-    )
-  }
-
-  return (
-    <SorCatalogueColumn
-      sorYear={sorYear}
-      selected={selected}
-      onAdd={onAdd}
-      onRemove={onRemove}
-      onShowBasicRates={() => setMode('basic')}
-    />
-  )
+  return <div className="additem-col"><SorPicker year={sorYear} zone={sorZone} selected={selected} onPick={onAdd} onRemove={onRemove}/></div>
 }
 
 function Column({
@@ -1085,7 +1056,7 @@ function SelectedBar({
           {entries.map(([k, m]) => (
             <span className="selected-chip" key={k} title={m.description}>
               <span className="sc-side">{m.side}</span>
-              {m.side === 'SOR' ? (
+              {m.side !== 'SSR' ? (
                 <span className="sc-label">{m.description}</span>
               ) : (
                 <SsrCode

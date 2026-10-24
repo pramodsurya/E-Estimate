@@ -76,7 +76,7 @@ export default function MaterialRatesPanel(): JSX.Element | null {
         const [nextMaterials, nextPeriods, nextYearly, nextUsage] = await Promise.all([
           fetchMonthlyMaterials(),
           fetchMaterialRatePeriods(),
-          fetchYearlyMaterialRates(current.meta.sorYear ?? ''),
+          fetchYearlyMaterialRates(current.meta.sorYear ?? '', current.meta.sorZone ?? 'zone_3'),
           materialUsageForProject(current)
         ])
         setMaterials(nextMaterials)
@@ -99,7 +99,7 @@ export default function MaterialRatesPanel(): JSX.Element | null {
 
   useEffect(() => {
     void loadRef.current(false)
-  }, [sorYear, project?.id])
+  }, [sorYear, project?.meta.sorZone, project?.id])
 
   /** Effective view = saved overrides with the staged edits laid over them. */
   const overrides = useMemo(() => {

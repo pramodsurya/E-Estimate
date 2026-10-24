@@ -1,0 +1,3576 @@
+{
+  "captured_on": "2026-10-23",
+  "project": "hqddsxnykndgcmxwqwmn",
+  "year": "2026-27",
+  "part_labels": {
+    "1": "Irrigation & CAD",
+    "2": "Roads & Bridges",
+    "3": "Buildings",
+    "4": "Public Health"
+  },
+  "paths": [
+    {
+      "part_no": 1,
+      "heading": "Conveyance Charges of Materials",
+      "section": "COM-LDLFT-1\nA. (Lead) Conveyance Charges for materials by head load",
+      "sub_section": null,
+      "annual_rows": 9
+    },
+    {
+      "part_no": 1,
+      "heading": "Conveyance Charges of Materials",
+      "section": "COM-LDLFT-2\nB. (Lead) Conveyance charges for machinery per kilometer for transporting materials by\ntippers and trucks excluding loading, unloading and idle hire charges of machinery.",
+      "sub_section": null,
+      "annual_rows": 42
+    },
+    {
+      "part_no": 1,
+      "heading": "Conveyance Charges of Materials",
+      "section": "COM-LDLFT-3\nC. LOADING AND UNLOADING CHARGES BY MANUAL MEANS (idle hire charges of trucks are\nnot added)",
+      "sub_section": null,
+      "annual_rows": 10
+    },
+    {
+      "part_no": 1,
+      "heading": "Conveyance Charges of Materials",
+      "section": "COM-LDLFT-4\nD. LOADING AND UNLOADING CHARGES BY MANUAL MEANS (including idle hire charges of\ntrucks)",
+      "sub_section": null,
+      "annual_rows": 10
+    },
+    {
+      "part_no": 1,
+      "heading": "Conveyance Charges of Materials",
+      "section": "COM-LDLFT-5\nE. LOADING AND UNLOADING CHARGES BY MECHANICAL MEANS (including idle hire charges\nof trucks)",
+      "sub_section": null,
+      "annual_rows": 4
+    },
+    {
+      "part_no": 1,
+      "heading": "Conveyance Charges of Materials",
+      "section": "COM-LDLFT-6\nF. LIFT CHARGES FOR MATERIALS BY HEAD LOAD",
+      "sub_section": null,
+      "annual_rows": 6
+    },
+    {
+      "part_no": 1,
+      "heading": "Hire Charges of Machinery",
+      "section": "Machinery",
+      "sub_section": null,
+      "annual_rows": 73
+    },
+    {
+      "part_no": 1,
+      "heading": "Irrigation Work Items",
+      "section": "Accessories to Machinery / Equipment",
+      "sub_section": null,
+      "annual_rows": 16
+    },
+    {
+      "part_no": 1,
+      "heading": "Irrigation Work Items",
+      "section": "Capital Cost of Machinery / Equipment",
+      "sub_section": null,
+      "annual_rows": 73
+    },
+    {
+      "part_no": 1,
+      "heading": "Irrigation Work Items",
+      "section": "Electric Materials for Gates and Hoists",
+      "sub_section": null,
+      "annual_rows": 13
+    },
+    {
+      "part_no": 1,
+      "heading": "Irrigation Work Items",
+      "section": "Irrigation Materials",
+      "sub_section": null,
+      "annual_rows": 109
+    },
+    {
+      "part_no": 1,
+      "heading": "Irrigation Work Items",
+      "section": "Materials for Gates & Hoists",
+      "sub_section": null,
+      "annual_rows": 33
+    },
+    {
+      "part_no": 1,
+      "heading": "Irrigation Work Items",
+      "section": "Other Costs on Material / Machinery / Equipment",
+      "sub_section": null,
+      "annual_rows": 27
+    },
+    {
+      "part_no": 1,
+      "heading": "Labour Rates",
+      "section": "Other Categories",
+      "sub_section": null,
+      "annual_rows": 17
+    },
+    {
+      "part_no": 1,
+      "heading": "Labour Rates",
+      "section": "Semi Skilled Category",
+      "sub_section": null,
+      "annual_rows": 43
+    },
+    {
+      "part_no": 1,
+      "heading": "Labour Rates",
+      "section": "Skilled Category",
+      "sub_section": null,
+      "annual_rows": 45
+    },
+    {
+      "part_no": 1,
+      "heading": "Labour Rates",
+      "section": "Unskilled Category",
+      "sub_section": null,
+      "annual_rows": 5
+    },
+    {
+      "part_no": 2,
+      "heading": "Hire Charges for Machinery",
+      "section": "Machinery",
+      "sub_section": null,
+      "annual_rows": 61
+    },
+    {
+      "part_no": 2,
+      "heading": "Labour Rates",
+      "section": "Other Categories",
+      "sub_section": null,
+      "annual_rows": 1
+    },
+    {
+      "part_no": 2,
+      "heading": "Labour Rates",
+      "section": "Skilled Category",
+      "sub_section": null,
+      "annual_rows": 2
+    },
+    {
+      "part_no": 2,
+      "heading": "Labour Rates",
+      "section": "Unskilled Category",
+      "sub_section": null,
+      "annual_rows": 2
+    },
+    {
+      "part_no": 2,
+      "heading": "Material Rates",
+      "section": "(A) Stone and Road Materials",
+      "sub_section": "Coursed rubble stone quarried, wedged, broken, burnt and split for SS first-sort works",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 2,
+      "heading": "Material Rates",
+      "section": "(A) Stone and Road Materials",
+      "sub_section": "Dressed stones and stone lettering",
+      "annual_rows": 8
+    },
+    {
+      "part_no": 2,
+      "heading": "Material Rates",
+      "section": "(A) Stone and Road Materials",
+      "sub_section": "Hard broken Granite, Trap and Dolerite stone, dust-free, obtained by quarrying, wedging, breaking, burning and splitting",
+      "annual_rows": 13
+    },
+    {
+      "part_no": 2,
+      "heading": "Material Rates",
+      "section": "(A) Stone and Road Materials",
+      "sub_section": "Hard broken Granite, Trap, Dolerite and Dolamite stone; Quartzite/Basalt with aggregate impact below 20; dust-free, obtained by quarrying, wedging, breaking, burning and splitting",
+      "annual_rows": 13
+    },
+    {
+      "part_no": 2,
+      "heading": "Material Rates",
+      "section": "(A) Stone and Road Materials",
+      "sub_section": "Hard broken stone other than Granite, including Quartz, Quartz-Napa and Basalt, screened and free from dust",
+      "annual_rows": 17
+    },
+    {
+      "part_no": 2,
+      "heading": "Material Rates",
+      "section": "(A) Stone and Road Materials",
+      "sub_section": "Other stone and road materials",
+      "annual_rows": 21
+    },
+    {
+      "part_no": 2,
+      "heading": "Material Rates",
+      "section": "(A) Stone and Road Materials",
+      "sub_section": "Rough stone quarried including wedging, breaking, burning and splitting",
+      "annual_rows": 13
+    },
+    {
+      "part_no": 2,
+      "heading": "Material Rates",
+      "section": "(A) Stone and Road Materials",
+      "sub_section": "Soft broken stone, screened and free from dust",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 2,
+      "heading": "Material Rates",
+      "section": "(C) Lime and Cement",
+      "sub_section": "Lime and cement materials",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 2,
+      "heading": "Material Rates",
+      "section": "(C) Lime and Cement",
+      "sub_section": "Mortar preparation and lime processing",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 2,
+      "heading": "Material Rates",
+      "section": "(E) Metal and Iron Works",
+      "sub_section": "Steel products",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 2,
+      "heading": "Road Safety Interventions Item Rates",
+      "section": "Road Safety Interventions",
+      "sub_section": null,
+      "annual_rows": 28
+    },
+    {
+      "part_no": 2,
+      "heading": "Roads & Bridges Work Items",
+      "section": "Cement Concrete Pavement",
+      "sub_section": null,
+      "annual_rows": 2
+    },
+    {
+      "part_no": 2,
+      "heading": "Roads & Bridges Work Items",
+      "section": "Clearing Site",
+      "sub_section": null,
+      "annual_rows": 28
+    },
+    {
+      "part_no": 2,
+      "heading": "Roads & Bridges Work Items",
+      "section": "Concrete and Stone Masonry",
+      "sub_section": null,
+      "annual_rows": 24
+    },
+    {
+      "part_no": 2,
+      "heading": "Roads & Bridges Work Items",
+      "section": "Dismantling",
+      "sub_section": null,
+      "annual_rows": 1
+    },
+    {
+      "part_no": 2,
+      "heading": "Roads & Bridges Work Items",
+      "section": "Earth Work",
+      "sub_section": null,
+      "annual_rows": 53
+    },
+    {
+      "part_no": 2,
+      "heading": "Roads & Bridges Work Items",
+      "section": "Quarrying and Blasting",
+      "sub_section": null,
+      "annual_rows": 10
+    },
+    {
+      "part_no": 2,
+      "heading": "Roads & Bridges Work Items",
+      "section": "Road Work Items",
+      "sub_section": null,
+      "annual_rows": 49
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "BARRICADING & STATE FUNCTIONS",
+      "sub_section": null,
+      "annual_rows": 106
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "BRICKS & BUILDING BLOCKS",
+      "sub_section": "AUTOCLAVED CONCRETE BLOCKS",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "BRICKS & BUILDING BLOCKS",
+      "sub_section": "FLY-ASH CEMENT/LIME SOLID BLOCKS",
+      "annual_rows": 18
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "BRICKS & BUILDING BLOCKS",
+      "sub_section": "HOLLOW/ PERFORATED BLOCKS",
+      "annual_rows": 8
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "BRICKS & BUILDING BLOCKS",
+      "sub_section": "ORDINARY CLAY BRICKS",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "CEILINGS, WALL PARTITIONS & WALL LININGS",
+      "sub_section": "FALSE CEILINGs - SECTIONS & ACCESSORIES",
+      "annual_rows": 24
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "CEILINGS, WALL PARTITIONS & WALL LININGS",
+      "sub_section": "FALSE CEILINGs - TILES/ SHEETS",
+      "annual_rows": 60
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "CEILINGS, WALL PARTITIONS & WALL LININGS",
+      "sub_section": "PARTITIONS",
+      "annual_rows": 33
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "CEILINGS, WALL PARTITIONS & WALL LININGS",
+      "sub_section": "WALL LINING & PANELLING",
+      "annual_rows": 27
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "Centering & Scaffolding",
+      "sub_section": "Casuarina ballies, bamboos, wooden reapers, runners, wood posts, wall plates and steel centering plates",
+      "annual_rows": 196
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "Centering & Scaffolding",
+      "sub_section": "HIRE CHARGES FOR ACCESS SCAFFOLDING - up to 3.66 M using Casuarinas Ballies, Bamboos, Wooden Reapers, Runners, Wood Posts, Wall Plates etc., for BRICK MASONRY/ STONE MASONRY - 1 sqm (Wall Area)",
+      "annual_rows": 15
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "Centering & Scaffolding",
+      "sub_section": "HIRE CHARGES FOR ACCESS SCAFFOLDING - up to 3.66 M using Casuarinas Ballies, Bamboos, Wooden Reapers, Runners, Wood Posts, Wall Plates etc., for PLASTERING to WALLS - 1 sqm",
+      "annual_rows": 15
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "Centering & Scaffolding",
+      "sub_section": "HIRE CHARGES FOR ACCESS SCAFFOLDING - up to 3.66 M using MS Jack Prop Cup lock Pipe Scaffolds for BRICK MASONRY/ STONE MASONRY - 1 sqm (Wall Area)",
+      "annual_rows": 15
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "Centering & Scaffolding",
+      "sub_section": "HIRE CHARGES FOR ACCESS SCAFFOLDING - up to 3.66 M using MS Jack Prop Cup lock Pipe Scaffolds., for PLASTERING/ PAINTING/ TEXTURE to WALLS - 1 sqm",
+      "annual_rows": 15
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "Centering & Scaffolding",
+      "sub_section": "HIRE CHARGES FOR STAGE SCAFFOLDING - up to 3.66 M using Casuarinas Ballies, Bamboos, Wooden Reapers, Runners, Wood Posts, Wall Plates etc., for CEILING PLASTERING - 1 sqm",
+      "annual_rows": 15
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "Centering & Scaffolding",
+      "sub_section": "HIRE CHARGES FOR STAGE SCAFFOLDING - up to 3.66 M using MS Jack Prop Cup lock Scaffolds, Staging Boards, for CEILING PLASTERING - 1 sqm",
+      "annual_rows": 15
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "Centering & Scaffolding",
+      "sub_section": "MS cuplock system with 9-ply 19 mm IS 303 BWR plywood shuttering (source heading: Marine Grade Plywood)",
+      "annual_rows": 214
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "Centering & Scaffolding",
+      "sub_section": "MS cuplock system with aluminium anodized sheets and sections conforming to IS 11857-1986",
+      "annual_rows": 214
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "Centering & Scaffolding",
+      "sub_section": "MS cuplock system with MS steel plate formwork",
+      "annual_rows": 214
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "Centering & Scaffolding",
+      "sub_section": "Steel scaffolding pipes, jack props, wallers, foot plates, brackets and steel centering plates",
+      "annual_rows": 214
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "CONSTRUCTION CHEMICALS & ADMIXTURES",
+      "sub_section": "ANTI-CORROSIVE AGENTS",
+      "annual_rows": 8
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "CONSTRUCTION CHEMICALS & ADMIXTURES",
+      "sub_section": "BONDING AGENTS/ADHESIVES/ADMIXTURES",
+      "annual_rows": 14
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "CONSTRUCTION CHEMICALS & ADMIXTURES",
+      "sub_section": "EXPANSION JOINTS",
+      "annual_rows": 31
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "CONSTRUCTION CHEMICALS & ADMIXTURES",
+      "sub_section": "GROUTS",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "CONSTRUCTION CHEMICALS & ADMIXTURES",
+      "sub_section": "MISCELLANEOUS CHEMICALS",
+      "annual_rows": 23
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "CONSTRUCTION CHEMICALS & ADMIXTURES",
+      "sub_section": "PLASTICIZERS",
+      "annual_rows": 7
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "CONSTRUCTION CHEMICALS & ADMIXTURES",
+      "sub_section": "REPAIRING & TREATMENT WORKS",
+      "annual_rows": 22
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "CONSTRUCTION CHEMICALS & ADMIXTURES",
+      "sub_section": "WATER PROOFING COMPOUNDS",
+      "annual_rows": 48
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "DISMANTLING",
+      "sub_section": null,
+      "annual_rows": 15
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "DOORS, SHUTTERS & FRAMES",
+      "sub_section": "CUP-BOARD DOORS",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "DOORS, SHUTTERS & FRAMES",
+      "sub_section": "DOOR FRAMES",
+      "annual_rows": 19
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "DOORS, SHUTTERS & FRAMES",
+      "sub_section": "DOOR SHUTTERS WITHOUT FRAMES",
+      "annual_rows": 29
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "DOORS, SHUTTERS & FRAMES",
+      "sub_section": "DOORS WITH SHUTTERS & FRAMES",
+      "annual_rows": 79
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "FIXTURES FOR DOORS & WINDOWS",
+      "sub_section": "ALDROPS",
+      "annual_rows": 12
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "FIXTURES FOR DOORS & WINDOWS",
+      "sub_section": "DOOR CLOSURES",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "FIXTURES FOR DOORS & WINDOWS",
+      "sub_section": "DOOR HANDLES",
+      "annual_rows": 18
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "FIXTURES FOR DOORS & WINDOWS",
+      "sub_section": "FLOOR SPRINGS",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "FIXTURES FOR DOORS & WINDOWS",
+      "sub_section": "HINGES",
+      "annual_rows": 22
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "FIXTURES FOR DOORS & WINDOWS",
+      "sub_section": "LATCHES",
+      "annual_rows": 8
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "FIXTURES FOR DOORS & WINDOWS",
+      "sub_section": "MORTICE LOCKS",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "FIXTURES FOR DOORS & WINDOWS",
+      "sub_section": "OTHER ACCESSORIES",
+      "annual_rows": 20
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "FIXTURES FOR DOORS & WINDOWS",
+      "sub_section": "TOWER BOLTS",
+      "annual_rows": 24
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "GLASS MATERIALS",
+      "sub_section": "FIRE RATED GLASS",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "GLASS MATERIALS",
+      "sub_section": "FROSTED/ GROUND GLASS PANES",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "GLASS MATERIALS",
+      "sub_section": "HERMETICALLY SEALED PANES",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "GLASS MATERIALS",
+      "sub_section": "PERFORMANCE GLASS",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "GLASS MATERIALS",
+      "sub_section": "PIN HEADED GLASS PANES",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "GLASS MATERIALS",
+      "sub_section": "PLAIN GLASS PANES",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "GLASS MATERIALS",
+      "sub_section": "TINTED GLASS PANES",
+      "annual_rows": 12
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "GLASS MATERIALS",
+      "sub_section": "TOUGHENED GLASS PANES",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "GYPSUM PLASTER",
+      "sub_section": null,
+      "annual_rows": 2
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "LABOUR CHARGES",
+      "sub_section": null,
+      "annual_rows": 55
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "MACHINERY & OTHER HIRE CHARGES",
+      "sub_section": null,
+      "annual_rows": 14
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "MISCELLANEOUS ITEMS",
+      "sub_section": "ACRYLIC SOLID SURFACES",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "MISCELLANEOUS ITEMS",
+      "sub_section": "ANCHOR FASTENERS - CHEMICAL BONDING",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "MISCELLANEOUS ITEMS",
+      "sub_section": "ANCHOR FASTENERS - WEDGE/ EXPANSION/ SLEEVE",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "MISCELLANEOUS ITEMS",
+      "sub_section": "COUPLERS",
+      "annual_rows": 12
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "MISCELLANEOUS ITEMS",
+      "sub_section": "GARBAGE BINS",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "MISCELLANEOUS ITEMS",
+      "sub_section": "NYLON CARPETS",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "MISCELLANEOUS ITEMS",
+      "sub_section": "PASSIVE FIRE STOP SYSTEM",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "MISCELLANEOUS ITEMS",
+      "sub_section": "WALL GUARD & RAIL ITEMS",
+      "annual_rows": 14
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "MISCELLANEOUS ITEMS",
+      "sub_section": null,
+      "annual_rows": 85
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "NATURAL FLOORING STONES",
+      "sub_section": "LOCALLY AVAILABLE FLOORING STONES",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "NATURAL FLOORING STONES",
+      "sub_section": "NATURAL FLOORING STONES - GRANITE",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "NATURAL FLOORING STONES",
+      "sub_section": "NATURAL FLOORING STONES - MARBLE",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PAINTS & POLISHES",
+      "sub_section": "EMULSION BASED PAINTS",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PAINTS & POLISHES",
+      "sub_section": "LIME, DISTEMPERS & CEMENT PAINTS",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PAINTS & POLISHES",
+      "sub_section": "OIL BASED ENAMEL PAINTS",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PAINTS & POLISHES",
+      "sub_section": "PRIMERS, FILLERS & BASES",
+      "annual_rows": 22
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PAINTS & POLISHES",
+      "sub_section": "SOLVENT BASED PAINTS",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PAINTS & POLISHES",
+      "sub_section": "SPECIAL PAINTS",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PAINTS & POLISHES",
+      "sub_section": "TEXTURE PAINTS",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PANELS",
+      "sub_section": null,
+      "annual_rows": 5
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PARTICLE BOARDS",
+      "sub_section": "CEMENT BONDED PLAIN &PARTICLE BOARDS",
+      "annual_rows": 25
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PARTICLE BOARDS",
+      "sub_section": "INSULATING PARTICLE BOARDS",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PARTICLE BOARDS",
+      "sub_section": "MEDIUM DENSITY FIBRE BOARDS",
+      "annual_rows": 52
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PARTICLE BOARDS",
+      "sub_section": "MELAMINE FACED PLAIN PARTICLE BOARD",
+      "annual_rows": 10
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PLYWOODS, LAMINATES & VENEERS",
+      "sub_section": "BOILING WATER RESISTANT (BWR) GRADE",
+      "annual_rows": 7
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PLYWOODS, LAMINATES & VENEERS",
+      "sub_section": "COMMERCIAL VENEERS",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PLYWOODS, LAMINATES & VENEERS",
+      "sub_section": "LAMINATES",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PLYWOODS, LAMINATES & VENEERS",
+      "sub_section": "MOISTURE RESISTANT (MR) GRADE",
+      "annual_rows": 7
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PLYWOODS, LAMINATES & VENEERS",
+      "sub_section": "NATURAL FIBRE COMPOSITE BOARDS",
+      "annual_rows": 18
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "PLYWOODS, LAMINATES & VENEERS",
+      "sub_section": "VENEERED DECORATIVE PLYWOOD",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "POST-TENSIONING WORKS",
+      "sub_section": null,
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "SPECIAL WORKS& ITEMS",
+      "sub_section": null,
+      "annual_rows": 7
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "STEEL MATERIALS",
+      "sub_section": "GALVANIZED STEEL MATERIALS",
+      "annual_rows": 11
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "STEEL MATERIALS",
+      "sub_section": "MILD STEEL MATERIALS",
+      "annual_rows": 21
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "STEEL MATERIALS",
+      "sub_section": "STAINLESS STEEL MATERIALS",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "STRUCTURAL GLAZING & CURTAIN WALLING",
+      "sub_section": "CURTAIN WALLING",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "STRUCTURAL GLAZING & CURTAIN WALLING",
+      "sub_section": "FIRE CURTAINS",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "STRUCTURAL GLAZING & CURTAIN WALLING",
+      "sub_section": "FIXED GLAZING",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "STRUCTURAL GLAZING & CURTAIN WALLING",
+      "sub_section": "STRUCTURAL GLAING",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "TIMBER & ROOFING MATERIALS",
+      "sub_section": "ASSAM TEAK WOOD",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "TIMBER & ROOFING MATERIALS",
+      "sub_section": "BEST TEAK WOOD",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "TIMBER & ROOFING MATERIALS",
+      "sub_section": "BURMA TEAK WOOD",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "TIMBER & ROOFING MATERIALS",
+      "sub_section": "MEDIUM TEAK WOOD",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "TIMBER & ROOFING MATERIALS",
+      "sub_section": "ROOFING MATERIAL",
+      "annual_rows": 23
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "TIMBER & ROOFING MATERIALS",
+      "sub_section": "SAL/ COUNTRY WOOD",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "WALL & FLOOR TILES",
+      "sub_section": "CEMENT CONRETE FLOOR TILES (PLAIN & CHEQUERED)",
+      "annual_rows": 11
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "WALL & FLOOR TILES",
+      "sub_section": "CERAMIC WALL TILES",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "WALL & FLOOR TILES",
+      "sub_section": "GLASS MOSAIC TILES",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "WALL & FLOOR TILES",
+      "sub_section": "NON-PORCELAIN CERAMIC FLOOR TILES",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "WALL & FLOOR TILES",
+      "sub_section": "PORCELAIN VITRIFIED FLOOR TILES",
+      "annual_rows": 32
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "WALL & FLOOR TILES",
+      "sub_section": "PORCELAIN WALL TILES",
+      "annual_rows": 17
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "WALL & FLOOR TILES",
+      "sub_section": "PRE-CAST CONCRETE BLOCKS FOR PAVING",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "WALL & FLOOR TILES",
+      "sub_section": "TERRAZZO FLOOR TILES (PLAIN & CHEQURED)",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "WALL & FLOOR TILES",
+      "sub_section": "VINYL FLOORING",
+      "annual_rows": 23
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "WALL & FLOOR TILES",
+      "sub_section": "WALL CLADDING TILES",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "WINDOWS",
+      "sub_section": "OPENABLE WINDOWS",
+      "annual_rows": 66
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "WINDOWS",
+      "sub_section": "SLIDING WINDOWS",
+      "annual_rows": 18
+    },
+    {
+      "part_no": 3,
+      "heading": "Civil Items",
+      "section": "WINDOWS",
+      "sub_section": "VENTILLATORS",
+      "annual_rows": 13
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Air conditioning and ventilation",
+      "sub_section": "AIR HANDLING UNITS",
+      "annual_rows": 29
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Air conditioning and ventilation",
+      "sub_section": "CHILLED WATER CASSETTE UNITS",
+      "annual_rows": 13
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Air conditioning and ventilation",
+      "sub_section": "CHILLED WATER PIPING",
+      "annual_rows": 27
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Air conditioning and ventilation",
+      "sub_section": "EVAPORATIVE AIR COOLING SYSTEM",
+      "annual_rows": 36
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Air conditioning and ventilation",
+      "sub_section": "INVERTER CASSETTE TYPE AC UNITS",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Air conditioning and ventilation",
+      "sub_section": "INVERTER SPLIT AC UNITS (COOLING ONLY)",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Air conditioning and ventilation",
+      "sub_section": "REPAIRS TO AIR CONDITIONERS",
+      "annual_rows": 34
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Air conditioning and ventilation",
+      "sub_section": "STABILIZERS",
+      "annual_rows": 10
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Air conditioning and ventilation",
+      "sub_section": "Storage Water coolers:",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Air conditioning and ventilation",
+      "sub_section": "TOWER MODEL TYPE AC UNITS",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Air conditioning and ventilation",
+      "sub_section": "VRF / VRV HVAC SYSTEM",
+      "annual_rows": 35
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Air conditioning and ventilation",
+      "sub_section": "VRV / VRF DUCTABLE UNITS",
+      "annual_rows": 47
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Cables and cable accessories",
+      "sub_section": "11 KV 3 CORE HT CABLE STRAIGHT THROUGH JOINTS",
+      "annual_rows": 8
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Cables and cable accessories",
+      "sub_section": "11 KV H.T. XLPE CABLES",
+      "annual_rows": 16
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Cables and cable accessories",
+      "sub_section": "CABLE FAULT DETECTION",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Cables and cable accessories",
+      "sub_section": "CABLE GLANDS",
+      "annual_rows": 38
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Cables and cable accessories",
+      "sub_section": "CABLE TRAYS",
+      "annual_rows": 21
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Cables and cable accessories",
+      "sub_section": "DOUBLE WALLED CORRUGATED HDPE PIPE",
+      "annual_rows": 8
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Cables and cable accessories",
+      "sub_section": "HEAT SHRINKABLE LT CABLE JOINTS",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Cables and cable accessories",
+      "sub_section": "HT END TERMINATION KITS",
+      "annual_rows": 16
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Cables and cable accessories",
+      "sub_section": "LUGS",
+      "annual_rows": 24
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Cables and cable accessories",
+      "sub_section": "U.G. CABLES",
+      "annual_rows": 34
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "CCTV and access control",
+      "sub_section": "CCTV and ACCESS CONTROL SYSTEM",
+      "annual_rows": 28
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Conduits, wires, switches and accessories",
+      "sub_section": "COPPER FLEXIBLE CABLES (AS PER IS:694)",
+      "annual_rows": 139
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Conduits, wires, switches and accessories",
+      "sub_section": "FLUSH TYPE SWITCHES AND ACCESSORIES",
+      "annual_rows": 26
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Conduits, wires, switches and accessories",
+      "sub_section": "HOT DIP GALVANIZED METAL BOXES (MODULAR)",
+      "annual_rows": 42
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Conduits, wires, switches and accessories",
+      "sub_section": "M.S. CONDUIT PIPES",
+      "annual_rows": 62
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Conduits, wires, switches and accessories",
+      "sub_section": "MINI MODULAR SWITCHES AND ACCESSORIES",
+      "annual_rows": 15
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Conduits, wires, switches and accessories",
+      "sub_section": "MODULAR SWITCHES AND ACCESSORIES",
+      "annual_rows": 54
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Conduits, wires, switches and accessories",
+      "sub_section": "PVC CONDUIT PIPES & CASING AND CAPING",
+      "annual_rows": 51
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Conduits, wires, switches and accessories",
+      "sub_section": "SERVICE MAINS AND FLAT CABLE",
+      "annual_rows": 16
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Conduits, wires, switches and accessories",
+      "sub_section": "WOODEN BOARDS",
+      "annual_rows": 25
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Diesel generator sets",
+      "sub_section": "DG SET WITH AMF PANEL",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Diesel generator sets",
+      "sub_section": "DG SET WITH STANDARD CONTROL PANEL",
+      "annual_rows": 22
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fans, water heaters, pumps and motors",
+      "sub_section": "ACCESSORIES FOR WATER HEATERS",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fans, water heaters, pumps and motors",
+      "sub_section": "ACCESSORIES OF MOTORS",
+      "annual_rows": 26
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fans, water heaters, pumps and motors",
+      "sub_section": "BOOSTER PUMPS",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fans, water heaters, pumps and motors",
+      "sub_section": "CONTROL PANEL BOARD FOR MOTORS",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fans, water heaters, pumps and motors",
+      "sub_section": "FANS",
+      "annual_rows": 43
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fans, water heaters, pumps and motors",
+      "sub_section": "HEAT PUMPS",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fans, water heaters, pumps and motors",
+      "sub_section": "REPAIRS TO MOTORS",
+      "annual_rows": 24
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fans, water heaters, pumps and motors",
+      "sub_section": "SINGLE PHASE MONO BLOCK MOTOR PUMP SETS.",
+      "annual_rows": 22
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fans, water heaters, pumps and motors",
+      "sub_section": "SINGLE PHASE OPEN WELL SUBMERSIBLE MOTOR PUMP SETS.",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fans, water heaters, pumps and motors",
+      "sub_section": "SINGLE PHASE SUBMERSIBLE MOTOR PUMP SETS",
+      "annual_rows": 10
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fans, water heaters, pumps and motors",
+      "sub_section": "STARTERS FOR MOTORS",
+      "annual_rows": 11
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fans, water heaters, pumps and motors",
+      "sub_section": "THREE PHASE OPEN WELL SUBMERSIBLE PUMP SETS.",
+      "annual_rows": 8
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fans, water heaters, pumps and motors",
+      "sub_section": "THREE PHASE SUBMERSIBLE MOTOR PUMP SETS.",
+      "annual_rows": 26
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fans, water heaters, pumps and motors",
+      "sub_section": "UPVC PIPES AND FITTINGS",
+      "annual_rows": 17
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fans, water heaters, pumps and motors",
+      "sub_section": "WATER HEATERS / SOLAR HOT WATER SYSTEM",
+      "annual_rows": 15
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fire protection systems",
+      "sub_section": "ADDRESSABLE - FIRE ALARM SYSTEM",
+      "annual_rows": 30
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fire protection systems",
+      "sub_section": "CONVENTIONAL - FIRE ALARM SYSTEM (Approved by LPCB / UL Listed)",
+      "annual_rows": 16
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fire protection systems",
+      "sub_section": "FIRE EXTINGUISHERS",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fire protection systems",
+      "sub_section": "FIRE HYDRANT AND SPRINKLER SYSTEM",
+      "annual_rows": 174
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fire protection systems",
+      "sub_section": "POWDER BASED FIRE EXTINGUISHERS",
+      "annual_rows": 21
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fire protection systems",
+      "sub_section": "WATER MIST FIRE EXTINGUISHERS",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Fire protection systems",
+      "sub_section": "WIRELESS FIRE ALARAM SYSTEM",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Hire charges",
+      "sub_section": "HIRE CHARGES",
+      "annual_rows": 25
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Lifts and lift maintenance",
+      "sub_section": "Passenger / Goods Gearless & Machine Room less Lifts",
+      "annual_rows": 17
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Lighting",
+      "sub_section": "AUTOMATIC STREET LIGHT CONTROL SYSTEMS",
+      "annual_rows": 29
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Lighting",
+      "sub_section": "INTEGRATED STREET LIGHTING with ABS Body ( SOLAR)",
+      "annual_rows": 11
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Lighting",
+      "sub_section": "LED DRIVERS",
+      "annual_rows": 14
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Lighting",
+      "sub_section": "LED INDOOR LAMPS",
+      "annual_rows": 12
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Lighting",
+      "sub_section": "LED LUMINAIRES INDOOR",
+      "annual_rows": 46
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Lighting",
+      "sub_section": "LED STREET LIGHTS",
+      "annual_rows": 63
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Lighting",
+      "sub_section": "POST TOP LED LUMINAIRES",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Miscellaneous electrical materials",
+      "sub_section": "COPPER / ALUMINIUM / G.I. ITEMS (PER KG)",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Miscellaneous electrical materials",
+      "sub_section": "DMC/ SMC TYPE SUPPORTS FOR THE BUSBARS",
+      "annual_rows": 60
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Miscellaneous electrical materials",
+      "sub_section": "LEGEND PLATES",
+      "annual_rows": 12
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Miscellaneous electrical materials",
+      "sub_section": "MISSILLANEOUS ITEMS",
+      "annual_rows": 35
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Networking and EPABX",
+      "sub_section": "LARGE SYSTEM",
+      "annual_rows": 20
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Networking and EPABX",
+      "sub_section": "NET WORKING",
+      "annual_rows": 71
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Networking and EPABX",
+      "sub_section": "RACEWAYS AND JUNCTION BOXES",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Networking and EPABX",
+      "sub_section": "SMALL SYSTEM",
+      "annual_rows": 12
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Old materials and dismantling",
+      "sub_section": "OLD MATERIAL RATES",
+      "annual_rows": 52
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "BRACKETS",
+      "annual_rows": 12
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "BRACKETS FOR MIXED DESIGN ( CASTED CONICAL) POLES",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "CONICAL POLES",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "CONTROL PANEL BOARD",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "DECORATIVE DRAGON TYPE BRACKET WITH POLE",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "DECORATIVE MIXED DESIGN ( CASTED CONICAL) POLES",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "DECORATIVE SQUARE POLES with Z-type / L-type Bracket",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "ERRECTION OF HIGH MAST POLES",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "FEEDER PILLER BOX",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "FOUNDATION AND ERRECTION CHARGES OF POLES",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "G R P POLES",
+      "annual_rows": 10
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "HIGH MAST POLES",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "L.T. LINE MATERIALS AND LIGHTENING PROTECTION SYSTEM",
+      "annual_rows": 52
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "M S POLES FOR GARDEN POSTS",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "METERING EQUIPMENT",
+      "annual_rows": 47
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "OCTOGONAL POLES",
+      "annual_rows": 8
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "SUB STATION EQUIPMENT / SERVICING",
+      "annual_rows": 44
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "SWAGED POLES",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "THERMO PLASTIC POLE BOXES",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Poles, panels, transformers and line materials",
+      "sub_section": "TRANSFORMERS",
+      "annual_rows": 38
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Public address systems",
+      "sub_section": "PUBLIC ADDRESSING SYSTEM",
+      "annual_rows": 10
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "Arc Fault Detection Device (AFDD)",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "CHANGEOVER SWITCHES",
+      "annual_rows": 37
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "HRC FUSE LINKS (BOLTED TYPE)",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "ISOLATORS CONFIRMING TO IEC 60947 PART-III",
+      "annual_rows": 22
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "MCBs (AS PER IS:60898-1:2002)",
+      "annual_rows": 36
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "PANEL MOUNTING ACBs (Microprocessor Based)",
+      "annual_rows": 37
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "PANEL MOUNTING MCCBs",
+      "annual_rows": 28
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "PANEL MOUNTING SWITCH DISCONNECTOR FUSE UNITS (SDFU) AS PER IS: 13947",
+      "annual_rows": 14
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "PORCELAIN REWIRABLE FUSE UNITS.",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "RAISING MAINS",
+      "annual_rows": 17
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "RCBOs CONFIRMS to IEC:61008 AND",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "RCCBs CONFIRMS TO IEC : 61008 AND IS : 12640",
+      "annual_rows": 16
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "REWIRABLE / DOUBLE BREAK SWITCHES IN SS ENCLOSURE AS PER IS:13947",
+      "annual_rows": 12
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "SANDWITCH BUSDUCT / RAISING MAIN",
+      "annual_rows": 61
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "SPN DISTRIBUTION BOARDS (AS PER IS:13032)",
+      "annual_rows": 18
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "TPN / VTPN DISTRIBUTION BOARDS",
+      "annual_rows": 37
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "Switchgear and distribution boards",
+      "sub_section": "VOLTAGE SURGE PROTECTORS",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "UPS, batteries and stabilizers",
+      "sub_section": "SERVO STABILIZERS",
+      "annual_rows": 28
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "UPS, batteries and stabilizers",
+      "sub_section": "UPS BATTERY RACKS AND WIRE LEADS",
+      "annual_rows": 10
+    },
+    {
+      "part_no": 3,
+      "heading": "Electrical Items",
+      "section": "UPS, batteries and stabilizers",
+      "sub_section": "UPS SYSTEMS",
+      "annual_rows": 10
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "CENTRIFUGAL CI PIPES & FITTINGS - IS:3989-1984",
+      "sub_section": "SUPPLY OF C.I. SPUN FITTINGS",
+      "annual_rows": 95
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "CENTRIFUGAL CI PIPES & FITTINGS - IS:3989-1984",
+      "sub_section": "SUPPLY OF CENTRIFUGAL CI PIPES",
+      "annual_rows": 20
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "CI PIPES & FITTINGS - IS:1729-1979",
+      "sub_section": "LABOUR CHARGES FOR CI PIPE WORKS",
+      "annual_rows": 8
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "CI PIPES & FITTINGS - IS:1729-1979",
+      "sub_section": "SUPPLY & LAYING OF CAST IRON PIPES",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "CI PIPES & FITTINGS - IS:1729-1979",
+      "sub_section": "SUPPLYING & LAYING OF C.I. FITTINGS",
+      "annual_rows": 33
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "CP FITTINGS - TAPS, FAUCETS & ACCESSORIES",
+      "sub_section": "COMBINATION FAUCETS",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "CP FITTINGS - TAPS, FAUCETS & ACCESSORIES",
+      "sub_section": "LABOUR CHARGES",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "CP FITTINGS - TAPS, FAUCETS & ACCESSORIES",
+      "sub_section": "MISCELLANEOUS CP FITTINGS",
+      "annual_rows": 41
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "CP FITTINGS - TAPS, FAUCETS & ACCESSORIES",
+      "sub_section": "SHOWER ROSES & FITTINGS",
+      "annual_rows": 8
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "CP FITTINGS - TAPS, FAUCETS & ACCESSORIES",
+      "sub_section": "STOP & ANGLE VALVES",
+      "annual_rows": 7
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "CP FITTINGS - TAPS, FAUCETS & ACCESSORIES",
+      "sub_section": "TAPS & FAUCETS - BIB TAPS",
+      "annual_rows": 8
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "CP FITTINGS - TAPS, FAUCETS & ACCESSORIES",
+      "sub_section": "TAPS & FAUCETS - OTHER TAPS & SPOUTS",
+      "annual_rows": 7
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "CP FITTINGS - TAPS, FAUCETS & ACCESSORIES",
+      "sub_section": "TAPS & FAUCETS - PILLAR TAPS",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "G.I. PIPES & FITTINGS",
+      "sub_section": "BRONZE (COPPER ALLOY) VALVES",
+      "annual_rows": 27
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "G.I. PIPES & FITTINGS",
+      "sub_section": "G.I. FITTINGS",
+      "annual_rows": 24
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "G.I. PIPES & FITTINGS",
+      "sub_section": "G.I. PIPES",
+      "annual_rows": 13
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "G.I. PIPES & FITTINGS",
+      "sub_section": "LABOUR CHARGES FOR G.I PLUMBING",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "MANHOLES & INSPECTION CHAMBERS",
+      "sub_section": "INSPECTION CHAMBERS & COVERS",
+      "annual_rows": 13
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "MANHOLES & INSPECTION CHAMBERS",
+      "sub_section": "LABOUR CHARGES FOR IC WORKS",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "MANHOLES & INSPECTION CHAMBERS",
+      "sub_section": "MANHOLES",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "MISCELLANEOUS ITEMS",
+      "sub_section": "CPVC pipe along with fittings",
+      "annual_rows": 29
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "MISCELLANEOUS ITEMS",
+      "sub_section": "MISCELLANEOUS PLUMBING WORK ITEMS",
+      "annual_rows": 42
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "MISCELLANEOUS ITEMS",
+      "sub_section": "OTHER VARIETIES OF PIPES",
+      "annual_rows": 218
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "MISCELLANEOUS ITEMS",
+      "sub_section": "POLYETHYLENE-ALUMINIUM-POLYETHYLENE COMPOSITE PIPES",
+      "annual_rows": 17
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "PVC PIPES & FITTINGS",
+      "sub_section": "LABOUR CHARGES FOR PVC PLUMBING",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "PVC PIPES & FITTINGS",
+      "sub_section": "PVC FITTINGS",
+      "annual_rows": 100
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "PVC PIPES & FITTINGS",
+      "sub_section": "PVC PIPES",
+      "annual_rows": 65
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "PVC PIPES & FITTINGS",
+      "sub_section": "PVC PLUMBING ACCESSORIES",
+      "annual_rows": 10
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "S.W.G. PIPES & FITTINGS",
+      "sub_section": "LABOUR CHARGES FOR SWG WORKS",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "S.W.G. PIPES & FITTINGS",
+      "sub_section": "S.W.G. PIPES FITTINGS",
+      "annual_rows": 63
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "S.W.G. PIPES & FITTINGS",
+      "sub_section": "SUPPLY & LAYING OF SWG PIPES",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "VITREOUS CHINAWARE - SANITARY APPLIANCES",
+      "sub_section": "CISTERNS FOR WATER CLOSETS",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "VITREOUS CHINAWARE - SANITARY APPLIANCES",
+      "sub_section": "FLOOR MOUNTED EWC",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "VITREOUS CHINAWARE - SANITARY APPLIANCES",
+      "sub_section": "INDIAN WATER CLOSETS",
+      "annual_rows": 7
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "VITREOUS CHINAWARE - SANITARY APPLIANCES",
+      "sub_section": "LABOUR CHARGES FOR SANITARY WARE",
+      "annual_rows": 12
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "VITREOUS CHINAWARE - SANITARY APPLIANCES",
+      "sub_section": "PLASTIC SEATS FOR WATER CLOSETS",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "VITREOUS CHINAWARE - SANITARY APPLIANCES",
+      "sub_section": "URINALS",
+      "annual_rows": 8
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "VITREOUS CHINAWARE - SANITARY APPLIANCES",
+      "sub_section": "WALL MOUNTED EWC",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 3,
+      "heading": "Plumbing Items",
+      "section": "VITREOUS CHINAWARE - SANITARY APPLIANCES",
+      "sub_section": "WASH HAND BASINS",
+      "annual_rows": 16
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "A.C. Couplings",
+      "sub_section": "AC coupling supply",
+      "annual_rows": 54
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "A.C. Pressure Pipes",
+      "sub_section": "AC pipe conveyance percentage",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "A.C. Pressure Pipes",
+      "sub_section": "AC pipe lowering, laying and jointing",
+      "annual_rows": 54
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "A.C. Pressure Pipes",
+      "sub_section": "AC pressure pipe supply",
+      "annual_rows": 54
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Bar Wrapped Steel Cylinder Pipes",
+      "sub_section": "BWSC conveyance",
+      "annual_rows": 130
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Bar Wrapped Steel Cylinder Pipes",
+      "sub_section": "BWSC laying and jointing",
+      "annual_rows": 130
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Bar Wrapped Steel Cylinder Pipes",
+      "sub_section": "BWSC pipe supply",
+      "annual_rows": 130
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "BWSC Pipeline Leakage",
+      "sub_section": "BWSC Pipeline Leakage",
+      "annual_rows": 13
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Cast Steel Valves",
+      "sub_section": "Cast steel bolted cover NRV",
+      "annual_rows": 30
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Cast Steel Valves",
+      "sub_section": "Cast steel double flange butterfly valve",
+      "annual_rows": 38
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Cast Steel Valves",
+      "sub_section": "Cast steel multi-door NRV",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Cast Steel Valves",
+      "sub_section": "Cast steel sluice valve — enclosed spur gear",
+      "annual_rows": 30
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Cast Steel Valves",
+      "sub_section": "Cast steel sluice valve — standard actuation",
+      "annual_rows": 44
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Cast Steel Valves",
+      "sub_section": "Cast steel valve conveyance percentage",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Centrifugally Cast Spun Iron Pressure Pipes",
+      "sub_section": "CI pipe conveyance",
+      "annual_rows": 51
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Centrifugally Cast Spun Iron Pressure Pipes",
+      "sub_section": "CI socket/spigot pipe supply",
+      "annual_rows": 51
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "CI and MS Dismantling Joints",
+      "sub_section": "CI dismantling joint",
+      "annual_rows": 8
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "CI and MS Dismantling Joints",
+      "sub_section": "Dismantling joint conveyance percentage",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "CI and MS Dismantling Joints",
+      "sub_section": "MS dismantling joint",
+      "annual_rows": 17
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "CI Pipes and Specials",
+      "sub_section": "CI fittings and specials supply",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Conveyance of R.C.C. Plain Ended Pipes",
+      "sub_section": "Plain ended pipe conveyance",
+      "annual_rows": 96
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Conveyance of R.C.C. Socket and Spigot Pipes",
+      "sub_section": "Socket/spigot pipe conveyance",
+      "annual_rows": 84
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Conveyance of R.C.C. Socket and Spigot Pipes",
+      "sub_section": "Socket/spigot pressure pipe conveyance",
+      "annual_rows": 64
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "DI Double Flanged Valves",
+      "sub_section": "DI air release, vacuum break and surge valve",
+      "annual_rows": 18
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "DI Double Flanged Valves",
+      "sub_section": "DI double eccentric butterfly valve",
+      "annual_rows": 80
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "DI Double Flanged Valves",
+      "sub_section": "DI metal seated gate valve with bypass and gear",
+      "annual_rows": 12
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "DI Double Flanged Valves",
+      "sub_section": "DI single chamber air valve",
+      "annual_rows": 27
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "DI Double Flanged Valves",
+      "sub_section": "DI soft seated gate valve",
+      "annual_rows": 27
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "DI Double Flanged Valves",
+      "sub_section": "DI soft seated gate valve with bypass and gear",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "DI Double Flanged Valves",
+      "sub_section": "DI swing check valve",
+      "annual_rows": 44
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "DI Double Flanged Valves",
+      "sub_section": "DI wafer butterfly valve",
+      "annual_rows": 22
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "DI Pipeline Leakage",
+      "sub_section": "DI Pipeline Leakage",
+      "annual_rows": 15
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Double Chambered Restrained Joint DI K9 Pipes",
+      "sub_section": "Restrained DI K9 pipe supply and installation",
+      "annual_rows": 18
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Double Chambered Restrained Joint DI Specials",
+      "sub_section": "Restrained DI K12 specials supply and fitting",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Ductile Iron Fittings",
+      "sub_section": "DI fitting supply",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Ductile Iron Pressure Pipes",
+      "sub_section": "DI K9 welded double flanged pipe supply",
+      "annual_rows": 80
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Ductile Iron Pressure Pipes",
+      "sub_section": "DI pipe conveyance",
+      "annual_rows": 54
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Ductile Iron Pressure Pipes",
+      "sub_section": "DI plain ended pipe supply",
+      "annual_rows": 34
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Ductile Iron Pressure Pipes",
+      "sub_section": "DI socket/spigot pipe supply",
+      "annual_rows": 36
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Ductile Iron Pressure Pipes",
+      "sub_section": "HAC lining additional price",
+      "annual_rows": 17
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Ductile Iron Pressure Pipes",
+      "sub_section": "PE corrosion protection sleeve",
+      "annual_rows": 16
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "DWC HDPE Pipes",
+      "sub_section": "DWC SN8 lowering and laying",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "DWC HDPE Pipes",
+      "sub_section": "DWC SN8 pipe supply",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Flow Control Cum Non-return Valve",
+      "sub_section": "Household flow-control non-return valve",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "Composite strap saddles for DI/CI",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "Compression threaded adapters",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "Compression threaded elbows",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "Double compression elbows",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "Electrofusion 45 degree elbows",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "Electrofusion 90 degree elbows",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "Electrofusion couplers",
+      "annual_rows": 18
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "Electrofusion end caps",
+      "annual_rows": 11
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "Electrofusion equal tees",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "Electrofusion reducers",
+      "annual_rows": 16
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "Electrofusion tapping saddles",
+      "annual_rows": 54
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "HDPE bends",
+      "annual_rows": 18
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "HDPE end caps",
+      "annual_rows": 18
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "HDPE reducers",
+      "annual_rows": 17
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "HDPE tees",
+      "annual_rows": 18
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "MS flanges for HDPE",
+      "annual_rows": 18
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "Pipe ends — long neck",
+      "annual_rows": 18
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "PP clamp saddles",
+      "annual_rows": 27
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Fittings and House Service Connections",
+      "sub_section": "Regulating brass ferrules",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE PE-100 Water Supply Pipes",
+      "sub_section": "HDPE PE100 pipe supply",
+      "annual_rows": 140
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Pipeline Leakage — Butt Fusion",
+      "sub_section": "HDPE Pipeline Leakage — Butt Fusion",
+      "annual_rows": 14
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "HDPE Pipeline Leakage — Fittings and Collars",
+      "sub_section": "HDPE Pipeline Leakage — Fittings and Collars",
+      "annual_rows": 14
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Instrumentation",
+      "sub_section": "Conduit pipe and laying",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Instrumentation",
+      "sub_section": "Fixed clamp-on ultrasonic flow meter",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Instrumentation",
+      "sub_section": "Fixed insertion ultrasonic flow meter",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Instrumentation",
+      "sub_section": "Optional GSM monitoring system",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Instrumentation",
+      "sub_section": "Optional laptop with software",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Instrumentation",
+      "sub_section": "Optional portable logger download device",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Instrumentation",
+      "sub_section": "Optional pressure transducer",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Instrumentation",
+      "sub_section": "Optional RF module / Cyble",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Instrumentation",
+      "sub_section": "Optional RTU",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Instrumentation",
+      "sub_section": "Optional transmitter panel cabinet",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Instrumentation",
+      "sub_section": "Portable clamp-on ultrasonic flow meter",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Instrumentation",
+      "sub_section": "Pressure transmitter",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Instrumentation",
+      "sub_section": "Sensor/transmitter cable",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Instrumentation",
+      "sub_section": "Ultrasonic level transmitter",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "1. Labour — 1. Caulkar",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "1. Labour — 10. Light Vehicle Driver",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "1. Labour — 2. Plumber 1st Class",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "1. Labour — 3. Plumber 2nd Class",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "1. Labour — 4. Sewer Cleaner",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "1. Labour — 5. Well Sinker",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "1. Labour — 6. Pipe line Fitter 1st Class",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "1. Labour — 7. Pipe line Fitter 2nd Class",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "1. Labour — 8. Pump Operator",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "1. Labour — 9. Bore Mechanic",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "10. Jointing CI/DI flanged pipes and valves",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "11a. RCC plain ended pipe laying and cement jointing",
+      "annual_rows": 20
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "11b. RCC socket/spigot laying and rubber-ring jointing",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "12a. GI pipe lowering and jointing",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "12b. PVC/HDPE/MDPE pipe installation with excavation",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "13. Stoneware pipe laying and jointing",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "14. UPVC pressure pipe installation",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "15. HDPE butt-fusion pipe laying and testing",
+      "annual_rows": 16
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "16. Fixing CI/DI sluice and reflex valves",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "17. Fixing air valves",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "18. Fixing double air/kinetic/air cushion valves",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "19. Uprooting CI/DI pipes",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "20. Uprooting RCC pipes",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "21. Removing old GI pipes",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "22. Cutting dry CI/DI mains",
+      "annual_rows": 8
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "23. Cutting dry AC mains",
+      "annual_rows": 12
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "24. Drilling and tapping CI/DI/GI mains",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "25a. Road cutting for pipe trenches",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "25b. Vacuum dewatering concrete floor",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "25c. Mechanical trowelling concrete floor",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "26. Bailing water from pipe trenches",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "27. Shoring and strutting trenches",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "28. Barricading and protection of trenches",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "29. Underwater excavation for infiltration galleries",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "29d. Extra underwater excavation beyond 5 m",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "2a. Earth excavation — deep narrow trench",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "2b. Earth excavation — shallow wide trench",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "2c. Earth excavation — open trenches and pits",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "30. Perforated RCC infiltration pipe laying",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "31a. Conical slab thickness extra above 300 mm",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "31a. Reservoir centering — staging up to 15 m",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "31a. Slab thickness extra above 300 mm",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "31b. Water-retaining ground/below-ground centering",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "31b. Water-retaining walls and dome centering",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "31c. Storm/sullage culvert and drain wall centering",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "32a. Concrete lifting beyond initial 3 m",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "32b. Concrete/stone delifting beyond initial 4 m",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "33. Fixing ventilation shafts",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "34. Fixing water closets",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "35. Fixing flushing cistern",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "36. Fixing wash basin",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "37. Fixing urinal",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "38. Trench backfill",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "39a. Isolated scattered maintenance allowance",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "39b. Main repair/interconnection allowance",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "3a. Rock blasting — deep narrow trench",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "3b. Rock blasting — shallow wide trench",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "3c. Hand cutting rock — deep narrow trench",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "3d. Hand cutting rock — shallow wide trench",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "3e. Hand cutting rock — other work",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "3f. Controlled blasting in restricted places",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "4. Pipe handling — below 300 mm, up to 4 m",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "40. Wet silt and sludge removal",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "41. Well sinking extra below 10 m",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "41. Well sinking in loose soils under water",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "42. Well sinking in hard strata excluding rock",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "43. Large ELSR/OHSR — 15 m staging, fixtures included",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "44. Small ELSR/OHSR — 12 m staging, pipe/valve costs excluded",
+      "annual_rows": 12
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "45. Rapid gravity filtration plant",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "46. SBR sewage treatment plant",
+      "annual_rows": 24
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "47. MBBR sewage treatment plant",
+      "annual_rows": 10
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "5. Pipe handling — 300 to 600 mm, up to 4 m",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "6. Pipe handling — below 300 mm, over 4 m",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "7. Pipe handling — 300 to 600 mm, over 4 m",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "8a. Lowering and laying CI/DI socket/spigot",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "8b. Lowering and laying CI/DI flanged pipes",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "9a. Lead jointing CI/DI socket/spigot",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Labour and Public Health Work Items",
+      "sub_section": "9b. Rubber gasket push-on jointing CI/DI",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "M.S. Pipes",
+      "sub_section": "MS laying, jointing and field testing",
+      "annual_rows": 226
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "M.S. Pipes",
+      "sub_section": "MS lined pipe supply",
+      "annual_rows": 226
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "MDPE Pipes",
+      "sub_section": "MDPE PE80 / SDR11 / PN12.5 pipe supply",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "MS Pipeline Leakage",
+      "sub_section": "MS Pipeline Leakage",
+      "annual_rows": 28
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Non-pressure PVC-U Pipes — Rubber Ring Joints",
+      "sub_section": "PVC-U S16.5 pipe supply",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Non-pressure PVC-U Pipes — Rubber Ring Joints",
+      "sub_section": "PVC-U S20 pipe supply",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Non-pressure PVC-U Pipes — Rubber Ring Joints",
+      "sub_section": "PVC-U S25 pipe supply",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Non-pressure PVC-U Pipes — Solvent Joints",
+      "sub_section": "PVC-U S16.5 pipe supply",
+      "annual_rows": 6
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Non-pressure PVC-U Pipes — Solvent Joints",
+      "sub_section": "PVC-U S20 pipe supply",
+      "annual_rows": 5
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Non-pressure PVC-U Pipes — Solvent Joints",
+      "sub_section": "PVC-U S25 pipe supply",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Other Public Health Materials",
+      "sub_section": "Bolts, nuts and double washers",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Other Public Health Materials",
+      "sub_section": "Jointing materials",
+      "annual_rows": 3
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Other Public Health Materials",
+      "sub_section": "Rubber packing",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Pre-stressed Cylinder Concrete Pipes",
+      "sub_section": "PSC cylinder conveyance",
+      "annual_rows": 162
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Pre-stressed Cylinder Concrete Pipes",
+      "sub_section": "PSC cylinder laying and jointing",
+      "annual_rows": 162
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Pre-stressed Cylinder Concrete Pipes",
+      "sub_section": "PSC cylinder pipe supply",
+      "annual_rows": 162
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Pre-stressed Non-cylinder Concrete Pipes",
+      "sub_section": "MS flange supply",
+      "annual_rows": 20
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Pre-stressed Non-cylinder Concrete Pipes",
+      "sub_section": "PSC non-cylinder conveyance",
+      "annual_rows": 114
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Pre-stressed Non-cylinder Concrete Pipes",
+      "sub_section": "PSC non-cylinder laying and jointing",
+      "annual_rows": 114
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Pre-stressed Non-cylinder Concrete Pipes",
+      "sub_section": "PSC non-cylinder machine end pair",
+      "annual_rows": 114
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Pre-stressed Non-cylinder Concrete Pipes",
+      "sub_section": "PSC non-cylinder pipe supply",
+      "annual_rows": 114
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "PVC Pipeline Leakage — 4 kg/sq.cm",
+      "sub_section": "PVC Pipeline Leakage — 4 kg/sq.cm",
+      "annual_rows": 13
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "PVC Pipeline Leakage — 6 kg/sq.cm",
+      "sub_section": "PVC Pipeline Leakage — 6 kg/sq.cm",
+      "annual_rows": 13
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "PVC Pressure Pipes",
+      "sub_section": "PVC pressure pipe supply",
+      "annual_rows": 60
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "R.C.C. Collars",
+      "sub_section": "Collar supply",
+      "annual_rows": 63
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "R.C.C. Plain Ended Pipes",
+      "sub_section": "Plain ended pipe supply",
+      "annual_rows": 72
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "R.C.C. Socket and Spigot Pipes — Non-pressure",
+      "sub_section": "Socket/spigot non-pressure pipe supply",
+      "annual_rows": 72
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "R.C.C. Socket and Spigot Pipes — Pressure",
+      "sub_section": "Socket/spigot pressure pipe supply",
+      "annual_rows": 54
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Rubber Gaskets for CI/DI Socket and Spigot Pipes",
+      "sub_section": "CI/DI rubber gasket supply",
+      "annual_rows": 17
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Rubber Rings for A.C. Couplings",
+      "sub_section": "AC rubber ring set supply",
+      "annual_rows": 18
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Rubber Rings for R.C.C. Socket and Spigot Pipes",
+      "sub_section": "Non-pressure rubber rings",
+      "annual_rows": 72
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Rubber Rings for R.C.C. Socket and Spigot Pipes",
+      "sub_section": "Pressure rubber rings",
+      "annual_rows": 54
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "SFRC Manhole Frames and Covers",
+      "sub_section": "Encapsulated plastic manhole steps",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "SFRC Manhole Frames and Covers",
+      "sub_section": "SFRC manhole covers and frames",
+      "annual_rows": 9
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Trenchless Technology with Pipe Jacking",
+      "sub_section": "Trenchless pipe jacking",
+      "annual_rows": 10
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Ultrasonic AMR Meters Using LoRaWAN",
+      "sub_section": "LoRaWAN ultrasonic AMR meter supply and installation",
+      "annual_rows": 16
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Water Hammer Control Devices",
+      "sub_section": "Air cushion / QRDA valve",
+      "annual_rows": 12
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Water Hammer Control Devices",
+      "sub_section": "CI flanged zero velocity valve",
+      "annual_rows": 16
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Water Hammer Control Devices",
+      "sub_section": "Flanged ends extra for MS zero velocity valves",
+      "annual_rows": 18
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Water Hammer Control Devices",
+      "sub_section": "MS plain ended zero velocity valve",
+      "annual_rows": 72
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Water Hammer Control Devices",
+      "sub_section": "Valve conveyance percentage",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Water Meters",
+      "sub_section": "Domestic meter installation",
+      "annual_rows": 1
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Water Meters",
+      "sub_section": "Electromagnetic bulk meter supply",
+      "annual_rows": 15
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Water Meters",
+      "sub_section": "Mechanical domestic meter supply",
+      "annual_rows": 2
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Water Meters",
+      "sub_section": "Multijet domestic AMR supply and installation",
+      "annual_rows": 4
+    },
+    {
+      "part_no": 4,
+      "heading": "Public Health Items",
+      "section": "Water Meters",
+      "sub_section": "Woltman bulk AMR supply and installation",
+      "annual_rows": 7
+    }
+  ]
+}

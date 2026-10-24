@@ -1,0 +1,1465 @@
+{
+  "auditedAt": "2026-10-24",
+  "projectId": "hqddsxnykndgcmxwqwmn",
+  "catalogueRecipes": 3345,
+  "rawProjectionMismatches": 0,
+  "mainRows": {
+    "materials": 7260,
+    "machinery": 8128,
+    "labour": 8928
+  },
+  "missingMainQuantities": 1830,
+  "leadDependentMainRows": 1824,
+  "leadAffectedRecipes": 1170,
+  "leadAffectedResourceKeys": 10,
+  "nonLeadMissingMainQuantities": 6,
+  "nestedAlternatives": {
+    "eightKilolitreHourExpressions": 939,
+    "recipes": 936,
+    "fiveHorsepowerHourExpressions": 4,
+    "recipesForFiveHorsepower": 4
+  },
+  "leadScopes": [
+    {
+      "material_codes": [
+        "STEEL"
+      ],
+      "scope_label": "BULK_STEEL"
+    },
+    {
+      "material_codes": [
+        "CEMENT"
+      ],
+      "scope_label": "CEMENT"
+    },
+    {
+      "material_codes": [
+        "CEMENT"
+      ],
+      "scope_label": "CEMENT_AT_SITE"
+    },
+    {
+      "material_codes": [
+        "EARTH"
+      ],
+      "scope_label": "EARTH"
+    },
+    {
+      "material_codes": [
+        "EARTH"
+      ],
+      "scope_label": "EARTH_INCLUDED_LOADING"
+    },
+    {
+      "material_codes": [
+        "STEEL"
+      ],
+      "scope_label": "FABRICATED_STEEL"
+    },
+    {
+      "material_codes": [
+        "STONE"
+      ],
+      "scope_label": "QUARRIED_STONE"
+    },
+    {
+      "material_codes": [
+        "SAND"
+      ],
+      "scope_label": "SAND"
+    },
+    {
+      "material_codes": [
+        "STONE",
+        "WOOD"
+      ],
+      "scope_label": "SLABS_WOOD_INCLUDED_LOADING"
+    },
+    {
+      "material_codes": [
+        "STONE"
+      ],
+      "scope_label": "STONE_INCLUDED_BOTH"
+    },
+    {
+      "material_codes": [
+        "STONE"
+      ],
+      "scope_label": "STONE_INCLUDED_LOADING"
+    }
+  ],
+  "haulageAnalyses": [
+    {
+      "code": "MORTH-2019-1.04-i-A",
+      "printed_item": "1.04",
+      "description": "Cost of Haulage Excluding Loading and Unloading - Case-I: Surfaced Road",
+      "unit": "tonne-km",
+      "rate_divisor": "100",
+      "transport": {
+        "lead_km": 10,
+        "road_case": "i",
+        "payload_tonnes": 10,
+        "empty_speed_kmph": 35,
+        "loaded_speed_kmph": 25,
+        "loading_unloading_stacking_excluded": true
+      },
+      "machinery_summary": [
+        {
+          "desc": "Time taken for onward haulage with load",
+          "unit": "hour",
+          "quantity": 0.4,
+          "resource": "MORTH_SB_8B346E863CD06C97"
+        },
+        {
+          "desc": "Time taken for empty return trip",
+          "unit": "hour",
+          "quantity": 0.286,
+          "resource": "MORTH_SB_8B346E863CD06C97"
+        }
+      ],
+      "calculation": {
+        "profit_base": "direct_cost_plus_overheads",
+        "overhead_base": "direct_cost",
+        "section_letters": {
+          "a": "machinery"
+        },
+        "direct_cost_sections": [
+          "machinery"
+        ],
+        "unit_rate_expression": "(direct_cost + overheads + contractor_profit) / rate_divisor",
+        "profit_percent_parameter": "road_works_contractor_profit",
+        "overhead_percent_parameter": "road_works_overheads_by_project_category"
+      }
+    },
+    {
+      "code": "MORTH-2019-1.04-i-B",
+      "printed_item": "1.04",
+      "description": "Cost of Haulage Excluding Loading and Unloading - Case-I: Surfaced Road",
+      "unit": "tonne-km",
+      "rate_divisor": "180",
+      "transport": {
+        "lead_km": 10,
+        "road_case": "i",
+        "payload_tonnes": 18,
+        "empty_speed_kmph": 35,
+        "loaded_speed_kmph": 25,
+        "loading_unloading_stacking_excluded": true
+      },
+      "machinery_summary": [
+        {
+          "desc": "Time taken for onward haulage with load",
+          "unit": "hour",
+          "quantity": 0.4,
+          "resource": "MORTH_SRC_0F769B000B65410F4EDB"
+        },
+        {
+          "desc": "Time taken for empty return trip",
+          "unit": "hour",
+          "quantity": 0.286,
+          "resource": "MORTH_SRC_0F769B000B65410F4EDB"
+        }
+      ],
+      "calculation": {
+        "profit_base": "direct_cost_plus_overheads",
+        "overhead_base": "direct_cost",
+        "section_letters": {
+          "a": "machinery"
+        },
+        "direct_cost_sections": [
+          "machinery"
+        ],
+        "unit_rate_expression": "(direct_cost + overheads + contractor_profit) / rate_divisor",
+        "profit_percent_parameter": "road_works_contractor_profit",
+        "overhead_percent_parameter": "road_works_overheads_by_project_category"
+      }
+    },
+    {
+      "code": "MORTH-2019-1.04-i-C",
+      "printed_item": "1.04",
+      "description": "Cost of Haulage Excluding Loading and Unloading - Case-I: Surfaced Road",
+      "unit": "tonne-km",
+      "rate_divisor": "250",
+      "transport": {
+        "lead_km": 10,
+        "road_case": "i",
+        "payload_tonnes": 25,
+        "empty_speed_kmph": 35,
+        "loaded_speed_kmph": 25,
+        "loading_unloading_stacking_excluded": true
+      },
+      "machinery_summary": [
+        {
+          "desc": "Time taken for onward haulage with load",
+          "unit": "hour",
+          "quantity": 0.4,
+          "resource": "MORTH_SRC_7B411FFB4F07F4734D81"
+        },
+        {
+          "desc": "Time taken for empty return trip",
+          "unit": "hour",
+          "quantity": 0.286,
+          "resource": "MORTH_SRC_7B411FFB4F07F4734D81"
+        }
+      ],
+      "calculation": {
+        "profit_base": "direct_cost_plus_overheads",
+        "overhead_base": "direct_cost",
+        "section_letters": {
+          "a": "machinery"
+        },
+        "direct_cost_sections": [
+          "machinery"
+        ],
+        "unit_rate_expression": "(direct_cost + overheads + contractor_profit) / rate_divisor",
+        "profit_percent_parameter": "road_works_contractor_profit",
+        "overhead_percent_parameter": "road_works_overheads_by_project_category"
+      }
+    },
+    {
+      "code": "MORTH-2019-1.04-i-D",
+      "printed_item": "1.04",
+      "description": "Cost of Haulage Excluding Loading and Unloading - Case-I: Surfaced Road",
+      "unit": "tonne-km",
+      "rate_divisor": "320",
+      "transport": {
+        "lead_km": 10,
+        "road_case": "i",
+        "payload_tonnes": 32,
+        "empty_speed_kmph": 35,
+        "loaded_speed_kmph": 25,
+        "loading_unloading_stacking_excluded": true
+      },
+      "machinery_summary": [
+        {
+          "desc": "Time taken for onward haulage with load",
+          "unit": "hour",
+          "quantity": 0.4,
+          "resource": "MORTH_SRC_C505D49DD33DB9444138"
+        },
+        {
+          "desc": "Time taken for empty return trip",
+          "unit": "hour",
+          "quantity": 0.286,
+          "resource": "MORTH_SRC_C505D49DD33DB9444138"
+        }
+      ],
+      "calculation": {
+        "profit_base": "direct_cost_plus_overheads",
+        "overhead_base": "direct_cost",
+        "section_letters": {
+          "a": "machinery"
+        },
+        "direct_cost_sections": [
+          "machinery"
+        ],
+        "unit_rate_expression": "(direct_cost + overheads + contractor_profit) / rate_divisor",
+        "profit_percent_parameter": "road_works_contractor_profit",
+        "overhead_percent_parameter": "road_works_overheads_by_project_category"
+      }
+    },
+    {
+      "code": "MORTH-2019-1.04-ii-A",
+      "printed_item": "1.04",
+      "description": "Cost of Haulage Excluding Loading and Unloading - Case-II: Unsurfaced Gravelled Road",
+      "unit": "tonne-km",
+      "rate_divisor": "100",
+      "transport": {
+        "lead_km": 10,
+        "road_case": "ii",
+        "payload_tonnes": 10,
+        "empty_speed_kmph": 30,
+        "loaded_speed_kmph": 20,
+        "loading_unloading_stacking_excluded": true
+      },
+      "machinery_summary": [
+        {
+          "desc": "Time taken for onward haulage with load",
+          "unit": "hour",
+          "quantity": 0.5,
+          "resource": "MORTH_SB_8B346E863CD06C97"
+        },
+        {
+          "desc": "Time taken for empty return trip",
+          "unit": "hour",
+          "quantity": 0.333,
+          "resource": "MORTH_SB_8B346E863CD06C97"
+        }
+      ],
+      "calculation": {
+        "profit_base": "direct_cost_plus_overheads",
+        "overhead_base": "direct_cost",
+        "section_letters": {
+          "a": "machinery"
+        },
+        "direct_cost_sections": [
+          "machinery"
+        ],
+        "unit_rate_expression": "(direct_cost + overheads + contractor_profit) / rate_divisor",
+        "profit_percent_parameter": "road_works_contractor_profit",
+        "overhead_percent_parameter": "road_works_overheads_by_project_category"
+      }
+    },
+    {
+      "code": "MORTH-2019-1.04-ii-B",
+      "printed_item": "1.04",
+      "description": "Cost of Haulage Excluding Loading and Unloading - Case-II: Unsurfaced Gravelled Road",
+      "unit": "tonne-km",
+      "rate_divisor": "180",
+      "transport": {
+        "lead_km": 10,
+        "road_case": "ii",
+        "payload_tonnes": 18,
+        "empty_speed_kmph": 30,
+        "loaded_speed_kmph": 20,
+        "loading_unloading_stacking_excluded": true
+      },
+      "machinery_summary": [
+        {
+          "desc": "Time taken for onward haulage with load",
+          "unit": "hour",
+          "quantity": 0.5,
+          "resource": "MORTH_SRC_0F769B000B65410F4EDB"
+        },
+        {
+          "desc": "Time taken for empty return trip",
+          "unit": "hour",
+          "quantity": 0.333,
+          "resource": "MORTH_SRC_0F769B000B65410F4EDB"
+        }
+      ],
+      "calculation": {
+        "profit_base": "direct_cost_plus_overheads",
+        "overhead_base": "direct_cost",
+        "section_letters": {
+          "a": "machinery"
+        },
+        "direct_cost_sections": [
+          "machinery"
+        ],
+        "unit_rate_expression": "(direct_cost + overheads + contractor_profit) / rate_divisor",
+        "profit_percent_parameter": "road_works_contractor_profit",
+        "overhead_percent_parameter": "road_works_overheads_by_project_category"
+      }
+    },
+    {
+      "code": "MORTH-2019-1.04-ii-C",
+      "printed_item": "1.04",
+      "description": "Cost of Haulage Excluding Loading and Unloading - Case-II: Unsurfaced Gravelled Road",
+      "unit": "tonne-km",
+      "rate_divisor": "250",
+      "transport": {
+        "lead_km": 10,
+        "road_case": "ii",
+        "payload_tonnes": 25,
+        "empty_speed_kmph": 30,
+        "loaded_speed_kmph": 20,
+        "loading_unloading_stacking_excluded": true
+      },
+      "machinery_summary": [
+        {
+          "desc": "Time taken for onward haulage with load",
+          "unit": "hour",
+          "quantity": 0.5,
+          "resource": "MORTH_SRC_7B411FFB4F07F4734D81"
+        },
+        {
+          "desc": "Time taken for empty return trip",
+          "unit": "hour",
+          "quantity": 0.333,
+          "resource": "MORTH_SRC_7B411FFB4F07F4734D81"
+        }
+      ],
+      "calculation": {
+        "profit_base": "direct_cost_plus_overheads",
+        "overhead_base": "direct_cost",
+        "section_letters": {
+          "a": "machinery"
+        },
+        "direct_cost_sections": [
+          "machinery"
+        ],
+        "unit_rate_expression": "(direct_cost + overheads + contractor_profit) / rate_divisor",
+        "profit_percent_parameter": "road_works_contractor_profit",
+        "overhead_percent_parameter": "road_works_overheads_by_project_category"
+      }
+    },
+    {
+      "code": "MORTH-2019-1.04-ii-D",
+      "printed_item": "1.04",
+      "description": "Cost of Haulage Excluding Loading and Unloading - Case-II: Unsurfaced Gravelled Road",
+      "unit": "tonne-km",
+      "rate_divisor": "320",
+      "transport": {
+        "lead_km": 10,
+        "road_case": "ii",
+        "payload_tonnes": 32,
+        "empty_speed_kmph": 30,
+        "loaded_speed_kmph": 20,
+        "loading_unloading_stacking_excluded": true
+      },
+      "machinery_summary": [
+        {
+          "desc": "Time taken for onward haulage with load",
+          "unit": "hour",
+          "quantity": 0.5,
+          "resource": "MORTH_SRC_C505D49DD33DB9444138"
+        },
+        {
+          "desc": "Time taken for empty return trip",
+          "unit": "hour",
+          "quantity": 0.333,
+          "resource": "MORTH_SRC_C505D49DD33DB9444138"
+        }
+      ],
+      "calculation": {
+        "profit_base": "direct_cost_plus_overheads",
+        "overhead_base": "direct_cost",
+        "section_letters": {
+          "a": "machinery"
+        },
+        "direct_cost_sections": [
+          "machinery"
+        ],
+        "unit_rate_expression": "(direct_cost + overheads + contractor_profit) / rate_divisor",
+        "profit_percent_parameter": "road_works_contractor_profit",
+        "overhead_percent_parameter": "road_works_overheads_by_project_category"
+      }
+    },
+    {
+      "code": "MORTH-2019-1.04-iii-A",
+      "printed_item": "1.04",
+      "description": "Cost of Haulage Excluding Loading and Unloading - Case-III: Katcha Track and Track in river bed / nallah bed and choe bed.",
+      "unit": "tonne-km",
+      "rate_divisor": "100",
+      "transport": {
+        "lead_km": 10,
+        "road_case": "iii",
+        "payload_tonnes": 10,
+        "empty_speed_kmph": 15,
+        "loaded_speed_kmph": 10,
+        "loading_unloading_stacking_excluded": true
+      },
+      "machinery_summary": [
+        {
+          "desc": "Time taken for onward haulage with load",
+          "unit": "hour",
+          "quantity": 1,
+          "resource": "MORTH_SB_8B346E863CD06C97"
+        },
+        {
+          "desc": "Time taken for empty return trip",
+          "unit": "hour",
+          "quantity": 0.667,
+          "resource": "MORTH_SB_8B346E863CD06C97"
+        }
+      ],
+      "calculation": {
+        "profit_base": "direct_cost_plus_overheads",
+        "overhead_base": "direct_cost",
+        "section_letters": {
+          "a": "machinery"
+        },
+        "direct_cost_sections": [
+          "machinery"
+        ],
+        "unit_rate_expression": "(direct_cost + overheads + contractor_profit) / rate_divisor",
+        "profit_percent_parameter": "road_works_contractor_profit",
+        "overhead_percent_parameter": "road_works_overheads_by_project_category"
+      }
+    },
+    {
+      "code": "MORTH-2019-1.04-iii-B",
+      "printed_item": "1.04",
+      "description": "Cost of Haulage Excluding Loading and Unloading - Case-III: Katcha Track and Track in river bed / nallah bed and choe bed.",
+      "unit": "tonne-km",
+      "rate_divisor": "180",
+      "transport": {
+        "lead_km": 10,
+        "road_case": "iii",
+        "payload_tonnes": 18,
+        "empty_speed_kmph": 15,
+        "loaded_speed_kmph": 10,
+        "loading_unloading_stacking_excluded": true
+      },
+      "machinery_summary": [
+        {
+          "desc": "Time taken for onward haulage with load",
+          "unit": "hour",
+          "quantity": 1,
+          "resource": "MORTH_SRC_0F769B000B65410F4EDB"
+        },
+        {
+          "desc": "Time taken for empty return trip",
+          "unit": "hour",
+          "quantity": 0.667,
+          "resource": "MORTH_SRC_0F769B000B65410F4EDB"
+        }
+      ],
+      "calculation": {
+        "profit_base": "direct_cost_plus_overheads",
+        "overhead_base": "direct_cost",
+        "section_letters": {
+          "a": "machinery"
+        },
+        "direct_cost_sections": [
+          "machinery"
+        ],
+        "unit_rate_expression": "(direct_cost + overheads + contractor_profit) / rate_divisor",
+        "profit_percent_parameter": "road_works_contractor_profit",
+        "overhead_percent_parameter": "road_works_overheads_by_project_category"
+      }
+    },
+    {
+      "code": "MORTH-2019-1.04-iii-C",
+      "printed_item": "1.04",
+      "description": "Cost of Haulage Excluding Loading and Unloading - Case-III: Katcha Track and Track in river bed / nallah bed and choe bed.",
+      "unit": "tonne-km",
+      "rate_divisor": "250",
+      "transport": {
+        "lead_km": 10,
+        "road_case": "iii",
+        "payload_tonnes": 25,
+        "empty_speed_kmph": 15,
+        "loaded_speed_kmph": 10,
+        "loading_unloading_stacking_excluded": true
+      },
+      "machinery_summary": [
+        {
+          "desc": "Time taken for onward haulage with load",
+          "unit": "hour",
+          "quantity": 1,
+          "resource": "MORTH_SRC_7B411FFB4F07F4734D81"
+        },
+        {
+          "desc": "Time taken for empty return trip",
+          "unit": "hour",
+          "quantity": 0.667,
+          "resource": "MORTH_SRC_7B411FFB4F07F4734D81"
+        }
+      ],
+      "calculation": {
+        "profit_base": "direct_cost_plus_overheads",
+        "overhead_base": "direct_cost",
+        "section_letters": {
+          "a": "machinery"
+        },
+        "direct_cost_sections": [
+          "machinery"
+        ],
+        "unit_rate_expression": "(direct_cost + overheads + contractor_profit) / rate_divisor",
+        "profit_percent_parameter": "road_works_contractor_profit",
+        "overhead_percent_parameter": "road_works_overheads_by_project_category"
+      }
+    },
+    {
+      "code": "MORTH-2019-1.04-iii-D",
+      "printed_item": "1.04",
+      "description": "Cost of Haulage Excluding Loading and Unloading - Case-III: Katcha Track and Track in river bed / nallah bed and choe bed.",
+      "unit": "tonne-km",
+      "rate_divisor": "320",
+      "transport": {
+        "lead_km": 10,
+        "road_case": "iii",
+        "payload_tonnes": 32,
+        "empty_speed_kmph": 15,
+        "loaded_speed_kmph": 10,
+        "loading_unloading_stacking_excluded": true
+      },
+      "machinery_summary": [
+        {
+          "desc": "Time taken for onward haulage with load",
+          "unit": "hour",
+          "quantity": 1,
+          "resource": "MORTH_SRC_C505D49DD33DB9444138"
+        },
+        {
+          "desc": "Time taken for empty return trip",
+          "unit": "hour",
+          "quantity": 0.667,
+          "resource": "MORTH_SRC_C505D49DD33DB9444138"
+        }
+      ],
+      "calculation": {
+        "profit_base": "direct_cost_plus_overheads",
+        "overhead_base": "direct_cost",
+        "section_letters": {
+          "a": "machinery"
+        },
+        "direct_cost_sections": [
+          "machinery"
+        ],
+        "unit_rate_expression": "(direct_cost + overheads + contractor_profit) / rate_divisor",
+        "profit_percent_parameter": "road_works_contractor_profit",
+        "overhead_percent_parameter": "road_works_overheads_by_project_category"
+      }
+    },
+    {
+      "code": "MORTH-2019-1.04-iv",
+      "printed_item": "1.04",
+      "description": "Cost of Haulage Excluding Loading and Unloading - Case-IV: Katcha Track in hilly area.",
+      "unit": "tonne-km",
+      "rate_divisor": "100",
+      "transport": {
+        "lead_km": 10,
+        "road_case": "iv",
+        "payload_tonnes": 10,
+        "empty_speed_kmph": 7,
+        "loaded_speed_kmph": 5,
+        "loading_unloading_stacking_excluded": true
+      },
+      "machinery_summary": [
+        {
+          "desc": "Time taken for onward haulage with load",
+          "unit": "hour",
+          "quantity": 2,
+          "resource": "MORTH_SB_8B346E863CD06C97"
+        },
+        {
+          "desc": "Time taken for empty return trip",
+          "unit": "hour",
+          "quantity": 1.429,
+          "resource": "MORTH_SB_8B346E863CD06C97"
+        }
+      ],
+      "calculation": {
+        "profit_base": "direct_cost_plus_overheads",
+        "overhead_base": "direct_cost",
+        "section_letters": {
+          "a": "machinery"
+        },
+        "direct_cost_sections": [
+          "machinery"
+        ],
+        "unit_rate_expression": "(direct_cost + overheads + contractor_profit) / rate_divisor",
+        "profit_percent_parameter": "road_works_contractor_profit",
+        "overhead_percent_parameter": "road_works_overheads_by_project_category"
+      }
+    },
+    {
+      "code": "MORTH-2019-1.04-v",
+      "printed_item": "1.04",
+      "description": "Cost of Haulage Excluding Loading and Unloading - Case-V: Transit Mixture",
+      "unit": "tonne-km",
+      "rate_divisor": "150",
+      "transport": {
+        "lead_km": 10,
+        "road_case": "v",
+        "payload_tonnes": 15,
+        "empty_speed_kmph": 30,
+        "loaded_speed_kmph": 20,
+        "loading_unloading_stacking_excluded": true
+      },
+      "machinery_summary": [
+        {
+          "desc": "Time taken for onward haulage with load",
+          "unit": "hour",
+          "quantity": 0.5,
+          "resource": "MORTH_SRC_54D3FBDD6D7E38FA2AB3"
+        },
+        {
+          "desc": "Time taken for empty return trip",
+          "unit": "hour",
+          "quantity": 0.333,
+          "resource": "MORTH_SRC_54D3FBDD6D7E38FA2AB3"
+        }
+      ],
+      "calculation": {
+        "profit_base": "direct_cost_plus_overheads",
+        "overhead_base": "direct_cost",
+        "section_letters": {
+          "a": "machinery"
+        },
+        "direct_cost_sections": [
+          "machinery"
+        ],
+        "unit_rate_expression": "(direct_cost + overheads + contractor_profit) / rate_divisor",
+        "profit_percent_parameter": "road_works_contractor_profit",
+        "overhead_percent_parameter": "road_works_overheads_by_project_category"
+      }
+    }
+  ],
+  "annualQuoteProbes": [
+    {
+      "year": "2025-26",
+      "zone": "zone_3",
+      "code": "SOR-P01-T09-M0002-R0005-C0001",
+      "quote": {
+        "rate": 119.7,
+        "unit": "cum",
+        "year": "2025-26",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P01-T09-M0002-R0005-C0001",
+        "source_unit": "cum",
+        "recipe_codes": [
+          "SOR-P01-T09-M0002-R0005-C0001"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "rate_detailed": null,
+        "revision_path": [
+          "SOR-P01-T09-M0002-R0005-C0001"
+        ],
+        "to_be_printed": {
+          "description": "(Lead) charges for trucks and tippers for Earth / Sand /Gravel / Murrum/ Lime/ Surki/ per cu.meter - Lead upto 5 km - Conveyance Charges of Materials - COM-LDLFT-2 B. (Lead) Conveyance charges for machinery per kilometer for transporting materials by tippers and trucks excluding loading, unloading and idle hire charges of machinery. - Item Code: COM-LDLFT-2",
+          "extra_columns": [],
+          "schema_version": 1
+        },
+        "year_row_code": "SOR-Y-3e4a16b3788152341da4083a32f8b312619b30f93fa26e28c4e8553dc0172749",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P01-T09-M0002-R0005-C0001"
+      }
+    },
+    {
+      "year": "2026-27",
+      "zone": "zone_3",
+      "code": "SOR-P01-T09-M0002-R0005-C0001",
+      "quote": {
+        "rate": 128.6,
+        "unit": "cum",
+        "year": "2026-27",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P01-T09-M0002-R0005-C0001",
+        "source_unit": "cum",
+        "recipe_codes": [
+          "SOR-P01-T09-M0002-R0005-C0001"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "rate_detailed": null,
+        "revision_path": [
+          "SOR-P01-T09-M0002-R0005-C0001"
+        ],
+        "to_be_printed": {
+          "description": "Conveyance charges for transporting materials by trucks and tippers, excluding loading, unloading and idle hire charges - Earth / Sand / Gravel / Murrum / Lime / Surki - Lead up to 5 km - COM-LDLFT-2 - Sl. No. 5",
+          "extra_columns": [],
+          "schema_version": 1
+        },
+        "year_row_code": "SOR-2026-27-P01-T09-M0002-R0005-C0001",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P01-T09-M0002-R0005-C0001"
+      }
+    },
+    {
+      "year": "2025-26",
+      "zone": "zone_3",
+      "code": "SOR-P01-T09-M0002-R0005-C0002",
+      "quote": {
+        "rate": 119.7,
+        "unit": "cum",
+        "year": "2025-26",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P01-T09-M0002-R0005-C0002",
+        "source_unit": "cum",
+        "recipe_codes": [
+          "SOR-P01-T09-M0002-R0005-C0002"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "rate_detailed": null,
+        "revision_path": [
+          "SOR-P01-T09-M0002-R0005-C0002"
+        ],
+        "to_be_printed": {
+          "description": "(Lead) charges for trucks and tippers for Rubble/Size stones/ Cut Stones/ Coarse aggregate per cu.meter - Lead upto 5 km - Conveyance Charges of Materials - COM-LDLFT-2 B. (Lead) Conveyance charges for machinery per kilometer for transporting materials by tippers and trucks excluding loading, unloading and idle hire charges of machinery. - Item Code: COM-LDLFT-2",
+          "extra_columns": [],
+          "schema_version": 1
+        },
+        "year_row_code": "SOR-Y-2d7823c098f4ca98db3e34b610c7f891183d9e16a37a145c8e51bc1d40342cad",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P01-T09-M0002-R0005-C0002"
+      }
+    },
+    {
+      "year": "2026-27",
+      "zone": "zone_3",
+      "code": "SOR-P01-T09-M0002-R0005-C0002",
+      "quote": {
+        "rate": 128.6,
+        "unit": "cum",
+        "year": "2026-27",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P01-T09-M0002-R0005-C0002",
+        "source_unit": "cum",
+        "recipe_codes": [
+          "SOR-P01-T09-M0002-R0005-C0002"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "rate_detailed": null,
+        "revision_path": [
+          "SOR-P01-T09-M0002-R0005-C0002"
+        ],
+        "to_be_printed": {
+          "description": "Conveyance charges for transporting materials by trucks and tippers, excluding loading, unloading and idle hire charges - Rubble / Size stones / Cut stones / Coarse aggregate - Lead up to 5 km - COM-LDLFT-2 - Sl. No. 5",
+          "extra_columns": [],
+          "schema_version": 1
+        },
+        "year_row_code": "SOR-2026-27-P01-T09-M0002-R0005-C0002",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P01-T09-M0002-R0005-C0002"
+      }
+    },
+    {
+      "year": "2025-26",
+      "zone": "zone_3",
+      "code": "SOR-P01-T09-M0002-R0005-C0003",
+      "quote": {
+        "rate": 74.8,
+        "unit": "tonne",
+        "year": "2025-26",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P01-T09-M0002-R0005-C0003",
+        "source_unit": "tonne",
+        "recipe_codes": [
+          "SOR-P01-T09-M0002-R0005-C0003"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "rate_detailed": null,
+        "revision_path": [
+          "SOR-P01-T09-M0002-R0005-C0003"
+        ],
+        "to_be_printed": {
+          "description": "(Lead) charges for trucks and tippers for Cement/ Steel/ RCC poles/ AC & GI sheets/ Packed materials/ tonne - Lead upto 5 km - Conveyance Charges of Materials - COM-LDLFT-2 B. (Lead) Conveyance charges for machinery per kilometer for transporting materials by tippers and trucks excluding loading, unloading and idle hire charges of machinery. - Item Code: COM-LDLFT-2",
+          "extra_columns": [],
+          "schema_version": 1
+        },
+        "year_row_code": "SOR-Y-20f553ffab9ef8501504f36ef3c0fb1dbeba3aecac54a4790c82f5b63a22ea2c",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P01-T09-M0002-R0005-C0003"
+      }
+    },
+    {
+      "year": "2026-27",
+      "zone": "zone_3",
+      "code": "SOR-P01-T09-M0002-R0005-C0003",
+      "quote": {
+        "rate": 80.3,
+        "unit": "tonne",
+        "year": "2026-27",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P01-T09-M0002-R0005-C0003",
+        "source_unit": "tonne",
+        "recipe_codes": [
+          "SOR-P01-T09-M0002-R0005-C0003"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "rate_detailed": null,
+        "revision_path": [
+          "SOR-P01-T09-M0002-R0005-C0003"
+        ],
+        "to_be_printed": {
+          "description": "Conveyance charges for transporting materials by trucks and tippers, excluding loading, unloading and idle hire charges - Cement / Steel / RCC poles / AC & GI sheets / Packed materials - Lead up to 5 km - COM-LDLFT-2 - Sl. No. 5",
+          "extra_columns": [],
+          "schema_version": 1
+        },
+        "year_row_code": "SOR-2026-27-P01-T09-M0002-R0005-C0003",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P01-T09-M0002-R0005-C0003"
+      }
+    },
+    {
+      "year": "2025-26",
+      "zone": "zone_3",
+      "code": "SOR-P01-T09-M0002-R0005-C0005",
+      "quote": {
+        "rate": 70.3,
+        "unit": "cum",
+        "year": "2025-26",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P01-T09-M0002-R0005-C0005",
+        "source_unit": "cum",
+        "recipe_codes": [
+          "SOR-P01-T09-M0002-R0005-C0005"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "rate_detailed": null,
+        "revision_path": [
+          "SOR-P01-T09-M0002-R0005-C0005"
+        ],
+        "to_be_printed": {
+          "description": "(Lead) charges for trucks and tippers per cu.meter for water/ 1000 litres - Lead upto 5 km - Conveyance Charges of Materials - COM-LDLFT-2 B. (Lead) Conveyance charges for machinery per kilometer for transporting materials by tippers and trucks excluding loading, unloading and idle hire charges of machinery. - Item Code: COM-LDLFT-2",
+          "extra_columns": [],
+          "schema_version": 1
+        },
+        "year_row_code": "SOR-Y-5e1708b78163252c62357720cc49d2b2d840d6231c73eaa1c06ec747e9811aec",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P01-T09-M0002-R0005-C0005"
+      }
+    },
+    {
+      "year": "2026-27",
+      "zone": "zone_3",
+      "code": "SOR-P01-T09-M0002-R0005-C0005",
+      "quote": {
+        "rate": 75.5,
+        "unit": "cum",
+        "year": "2026-27",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P01-T09-M0002-R0005-C0005",
+        "source_unit": "cum",
+        "recipe_codes": [
+          "SOR-P01-T09-M0002-R0005-C0005"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "rate_detailed": null,
+        "revision_path": [
+          "SOR-P01-T09-M0002-R0005-C0005"
+        ],
+        "to_be_printed": {
+          "description": "Conveyance charges for transporting materials by trucks and tippers, excluding loading, unloading and idle hire charges - Water (per cubic metre / 1000 litres) - Lead up to 5 km - COM-LDLFT-2 - Sl. No. 5",
+          "extra_columns": [],
+          "schema_version": 1
+        },
+        "year_row_code": "SOR-2026-27-P01-T09-M0002-R0005-C0005",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P01-T09-M0002-R0005-C0005"
+      }
+    },
+    {
+      "year": "2025-26",
+      "zone": "zone_3",
+      "code": "SOR-P01-T08-R0054",
+      "quote": {
+        "rate": 1317.1,
+        "unit": "hour",
+        "year": "2025-26",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P01-T08-R0054",
+        "source_unit": "Hour",
+        "recipe_codes": [
+          "SOR-P01-T08-R0054"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "rate_detailed": {
+          "crew_charge": 278.9,
+          "fuel_charge": 497.4,
+          "hire_charge": 540.8
+        },
+        "revision_path": [
+          "SOR-P01-T08-R0054"
+        ],
+        "to_be_printed": {
+          "description": "Tipper 5 cum - Hire Charges of Machinery - Machinery - Sl. No. 54",
+          "extra_columns": [
+            {
+              "key": "hire_charge",
+              "path": "rate_detailed.hire_charge",
+              "label": "Hire charge (Rs.)"
+            },
+            {
+              "key": "fuel_charge",
+              "path": "rate_detailed.fuel_charge",
+              "label": "Fuel charge (Rs.)"
+            },
+            {
+              "key": "crew_charge",
+              "path": "rate_detailed.crew_charge",
+              "label": "Crew charge (Rs.)"
+            }
+          ],
+          "schema_version": 1
+        },
+        "year_row_code": "SOR-Y-2943f39373011da0b7f975d49f82e39fbee5d1f15476827f8edf57016820829c",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P01-T08-R0054"
+      }
+    },
+    {
+      "year": "2026-27",
+      "zone": "zone_3",
+      "code": "SOR-P01-T08-R0054",
+      "quote": {
+        "rate": 1414.4,
+        "unit": "hour",
+        "year": "2026-27",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P01-T08-R0054",
+        "source_unit": "Hour",
+        "recipe_codes": [
+          "SOR-P01-T08-R0054"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "rate_detailed": {
+          "crew_charge": 293.5,
+          "fuel_charge": 539.6,
+          "hire_charge": 581.3
+        },
+        "revision_path": [
+          "SOR-P01-T08-R0054"
+        ],
+        "to_be_printed": {
+          "description": "Tipper 5 cum - Hire Charges of Machinery - Sl. No. 54",
+          "extra_columns": [
+            {
+              "key": "hire_charge",
+              "path": "rate_detailed.{zone}.hire_charge",
+              "label": "Hire charge (Rs.)"
+            },
+            {
+              "key": "fuel_charge",
+              "path": "rate_detailed.{zone}.fuel_charge",
+              "label": "Fuel charge (Rs.)"
+            },
+            {
+              "key": "crew_charge",
+              "path": "rate_detailed.{zone}.crew_charge",
+              "label": "Crew charge (Rs.)"
+            }
+          ],
+          "schema_version": 1
+        },
+        "year_row_code": "SOR-Y-fa03e355329f155ba916dcdb72736b869896239a1fdcf1237737d22d6b6948db",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P01-T08-R0054"
+      }
+    },
+    {
+      "year": "2025-26",
+      "zone": "zone_3",
+      "code": "SOR-P02-T04-R0011",
+      "quote": {
+        "rate": 769,
+        "unit": "hour",
+        "year": "2025-26",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P02-T04-R0011",
+        "source_unit": "Per Hour",
+        "recipe_codes": [
+          "SOR-P02-T04-R0011"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "rate_detailed": null,
+        "revision_path": [
+          "SOR-P02-T04-R0011"
+        ],
+        "to_be_printed": {
+          "description": "Water tanker 6 Kilolitre — Water transport - Roads & Bridges - Hire Charges for Machinery - Sl. No. 10",
+          "extra_columns": [],
+          "schema_version": 1
+        },
+        "year_row_code": "SOR-Y-40da573f269ca486f09ff299fe5abbcf1aa331909a6d44dc94539d952c4b88d3",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P02-T04-R0011"
+      }
+    },
+    {
+      "year": "2026-27",
+      "zone": "zone_3",
+      "code": "SOR-P02-T04-R0011",
+      "quote": {
+        "rate": 790,
+        "unit": "hour",
+        "year": "2026-27",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P02-T04-R0011",
+        "source_unit": "Per Hour",
+        "recipe_codes": [
+          "SOR-P02-T04-R0011"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "rate_detailed": null,
+        "revision_path": [
+          "SOR-P02-T04-R0011"
+        ],
+        "to_be_printed": {
+          "description": "Water tanker 6 kilolitre — Water transport - Roads & Bridges - Hire Charges for Machinery - Sl. No. 10",
+          "extra_columns": [],
+          "schema_version": 1
+        },
+        "year_row_code": "SOR-Y-756a1a1450d5511ed6b21917696e62616bd827bf9b87063b560e34b1e63d6d01",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P02-T04-R0011"
+      }
+    },
+    {
+      "year": "2025-26",
+      "zone": "zone_3",
+      "code": "SOR-P02-T04-R0033",
+      "quote": {
+        "rate": 2779.5,
+        "unit": "hour",
+        "year": "2025-26",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P02-T04-R0033",
+        "source_unit": "Per Hour",
+        "recipe_codes": [
+          "SOR-P02-T04-R0033"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "rate_detailed": null,
+        "revision_path": [
+          "SOR-P02-T04-R0033"
+        ],
+        "to_be_printed": {
+          "description": "Transit mixer — Transportation of concrete mix - Roads & Bridges - Hire Charges for Machinery - Sl. No. 29",
+          "extra_columns": [],
+          "schema_version": 1
+        },
+        "year_row_code": "SOR-Y-eb30f7d0f3e154aab62b26e3b49a1370744a713f7730611a47673ccb9891803f",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P02-T04-R0033"
+      }
+    },
+    {
+      "year": "2026-27",
+      "zone": "zone_3",
+      "code": "SOR-P02-T04-R0033",
+      "quote": {
+        "rate": 2992.1,
+        "unit": "hour",
+        "year": "2026-27",
+        "zone": "zone_3",
+        "status": "priced",
+        "component": "rate",
+        "recipe_code": "SOR-P02-T04-R0033",
+        "source_unit": "Hour",
+        "recipe_codes": [
+          "SOR-P01-T08-R0001"
+        ],
+        "fallback_path": [],
+        "fallback_used": false,
+        "rate_detailed": {
+          "crew_charge": 469.6,
+          "fuel_charge": 1570.3,
+          "hire_charge": 952.2
+        },
+        "revision_path": [
+          "SOR-P01-T08-R0001"
+        ],
+        "to_be_printed": {
+          "description": "Transit mixer — Transportation of concrete mix - Roads & Bridges - Hire Charges for Machinery - Sl. No. 31",
+          "extra_columns": [],
+          "schema_version": 1
+        },
+        "year_row_code": "SOR-Y-652f41f81f031473b3679c516b3ffa8da71ca2f8869c19ef4a5ada1f0cb27214",
+        "requires_review": false,
+        "conversion_factor": 1,
+        "price_recipe_code": "SOR-P01-T08-R0001",
+        "review_boundaries": [],
+        "requested_recipe_code": "SOR-P02-T04-R0033"
+      }
+    }
+  ],
+  "otherTransportRows": [
+    {
+      "resource_key": "morth:water_tanker_6_kl",
+      "unit": "hour",
+      "sample": "Water tanker 6 kL",
+      "occurrences": 81,
+      "recipes": 78
+    },
+    {
+      "resource_key": "morth:transit_truck_agitator_6_cum",
+      "unit": "hour",
+      "sample": "Transit mixer6cum: loading/unloading only; excludes plant-to-work haul",
+      "occurrences": 66,
+      "recipes": 66
+    },
+    {
+      "resource_key": "morth:tipper_14_cum_transport_tkm",
+      "unit": "tonne-km",
+      "sample": "Tipper 14 cum capacity for transportation within 1 km",
+      "occurrences": 59,
+      "recipes": 59
+    },
+    {
+      "resource_key": "morth:tipper_10_cum_transport_tkm",
+      "unit": "tonne-km",
+      "sample": "Tipper 10 cum capacity for transportation within 1 km",
+      "occurrences": 57,
+      "recipes": 57
+    },
+    {
+      "resource_key": "morth:tipper_18_cum_transport_tkm",
+      "unit": "tonne-km",
+      "sample": "Tipper 18 cum capacity for transportation within 1 km",
+      "occurrences": 57,
+      "recipes": 57
+    },
+    {
+      "resource_key": "morth:audit_transport_site_head_office_trip",
+      "unit": "trip",
+      "sample": "Transportation at site and head office for audit",
+      "occurrences": 18,
+      "recipes": 18
+    },
+    {
+      "resource_key": "morth:water_tanker_12_kl",
+      "unit": "hour",
+      "sample": "Water tanker 12 KL",
+      "occurrences": 15,
+      "recipes": 15
+    },
+    {
+      "resource_key": "morth:tipper_10_cum_transport_tkm_tunnel",
+      "unit": "tonne-km",
+      "sample": "Tipper10cum capacity transportation, tonne-km charging basis",
+      "occurrences": 9,
+      "recipes": 9
+    },
+    {
+      "resource_key": "morth:tipper_10_tonne",
+      "unit": "hour",
+      "sample": "Time taken for empty return trip",
+      "occurrences": 8,
+      "recipes": 4
+    },
+    {
+      "resource_key": "morth:brick_second_class_delivered",
+      "unit": "each",
+      "sample": "Second-class brick including carriage",
+      "occurrences": 6,
+      "recipes": 6
+    },
+    {
+      "resource_key": "morth:tipper_18_tonne",
+      "unit": "hour",
+      "sample": "Time taken for empty return trip",
+      "occurrences": 6,
+      "recipes": 3
+    },
+    {
+      "resource_key": "morth:tipper_25_tonne",
+      "unit": "hour",
+      "sample": "Time taken for empty return trip",
+      "occurrences": 6,
+      "recipes": 3
+    },
+    {
+      "resource_key": "morth:tipper_32_tonne",
+      "unit": "hour",
+      "sample": "Time taken for empty return trip",
+      "occurrences": 6,
+      "recipes": 3
+    },
+    {
+      "resource_key": "morth:trailer_30_tonne_structural_hours",
+      "unit": "hour",
+      "sample": "Trailer30tonne for structural-steel haul to site",
+      "occurrences": 6,
+      "recipes": 3
+    },
+    {
+      "resource_key": "morth:deoiled_neem_cake_delivered",
+      "unit": "quintal",
+      "sample": "De-oiled neem cake packed in used gunny bags, including carriage/loading/unloading/stacking at site/store",
+      "occurrences": 3,
+      "recipes": 3
+    },
+    {
+      "resource_key": "morth:sludge_delivered_stacked",
+      "unit": "cum",
+      "sample": "Sludge including carriage, loading, unloading and stacking at site/store",
+      "occurrences": 3,
+      "recipes": 3
+    },
+    {
+      "resource_key": "morth:screened_farmyard_manure_delivered",
+      "unit": "cum",
+      "sample": "Well-decayed screened farmyard manure including loading, carriage, unloading and stacking at site",
+      "occurrences": 3,
+      "recipes": 3
+    },
+    {
+      "resource_key": "morth:transit_mixer_6_cum",
+      "unit": "hour",
+      "sample": "Time taken for empty return trip",
+      "occurrences": 2,
+      "recipes": 1
+    },
+    {
+      "resource_key": "morth:catalogue20_035",
+      "unit": "hour",
+      "sample": "Water tanker16KL",
+      "occurrences": 1,
+      "recipes": 1
+    },
+    {
+      "resource_key": "morth:catalogue20_037",
+      "unit": "hour",
+      "sample": "Water tanker6KL",
+      "occurrences": 1,
+      "recipes": 1
+    },
+    {
+      "resource_key": "morth:catalogue20_036",
+      "unit": "hour",
+      "sample": "Water tanker12KL",
+      "occurrences": 1,
+      "recipes": 1
+    }
+  ],
+  "fixedHaulPolicies": [
+    {
+      "scope": "Roadway-excavated hard rock fragments <=300 mm; layers <=500 mm; stone-spall void filling and granular top blinding.",
+      "fixed_haul": 5,
+      "recipes": 3
+    }
+  ],
+  "sourceParameterCounts": [
+    {
+      "parameter": "aggregate_haul_lead_km",
+      "recipes": 18
+    },
+    {
+      "parameter": "borrow_lead_km",
+      "recipes": 12
+    },
+    {
+      "parameter": "concrete_haul_lead_km",
+      "recipes": 18
+    },
+    {
+      "parameter": "concrete_plant_haul_lead_km",
+      "recipes": 663
+    },
+    {
+      "parameter": "fascia_haul_lead_km",
+      "recipes": 3
+    },
+    {
+      "parameter": "fly_ash_free_supply_and_haul_allocation",
+      "recipes": 3
+    },
+    {
+      "parameter": "fresh_fill_material_lead_km",
+      "recipes": 6
+    },
+    {
+      "parameter": "fresh_mix_haul_lead_km",
+      "recipes": 6
+    },
+    {
+      "parameter": "girder_transport_lead_km",
+      "recipes": 3
+    },
+    {
+      "parameter": "haul_road_case",
+      "recipes": 441
+    },
+    {
+      "parameter": "hot_mix_haul_lead_km",
+      "recipes": 78
+    },
+    {
+      "parameter": "hot_mix_plant_haul_lead_km",
+      "recipes": 9
+    },
+    {
+      "parameter": "material_haul_lead_km",
+      "recipes": 108
+    },
+    {
+      "parameter": "reclaimed_material_haul_lead_km",
+      "recipes": 18
+    },
+    {
+      "parameter": "reinforcement_haul_lead_km",
+      "recipes": 3
+    },
+    {
+      "parameter": "reinforcement_transport_lead_km",
+      "recipes": 18
+    },
+    {
+      "parameter": "reinforcement_yard_to_site_lead_km",
+      "recipes": 3
+    },
+    {
+      "parameter": "shotcrete_plant_haul_lead_km",
+      "recipes": 6
+    },
+    {
+      "parameter": "steel_transport_lead_km",
+      "recipes": 9
+    },
+    {
+      "parameter": "tunnel_muck_disposal_lead_km",
+      "recipes": 3
+    },
+    {
+      "parameter": "water_haul_lead_km",
+      "recipes": 54
+    },
+    {
+      "parameter": "water_lead_km",
+      "recipes": 276
+    },
+    {
+      "parameter": "water_supply_lead_km",
+      "recipes": 510
+    }
+  ],
+  "functions": [
+    {
+      "definition": "CREATE OR REPLACE FUNCTION public.individual_cost_choices(p_row jsonb)\n RETURNS jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\n with refs as(\r\n select coalesce(x.v->>'recipe_code',x.v->>'code',x.v#>>'{}') code,x.n::bigint n,coalesce(x.v->>'component',p_row->'price_lookup'->>'rate_component',p_row->'resource_identity'->>'rate_component','rate') component\r\n from jsonb_array_elements(coalesce(p_row->'sor_refs','[]'))with ordinality x(v,n)\r\n union all select coalesce(v->>'recipe_code',v->>'code'),1000,coalesce(v->>'component',p_row->'price_lookup'->>'rate_component','rate') from (select p_row->'sor_ref' v)s\r\n union all select coalesce(v->>'recipe_code',v->>'master_code'),1001,coalesce(v->>'rate_component',p_row->'price_lookup'->>'rate_component','rate') from (select p_row->'resource_identity' v)s\r\n union all select v#>>'{}',2000+n,coalesce(p_row->'price_lookup'->>'rate_component','rate') from jsonb_path_query(coalesce(p_row->'price_lookup','{}'),'strict $.**.recipe_code')with ordinality x(v,n)\r\n union all select coalesce(v->>'recipe_code',v->>'master_code',v#>>'{}'),3000+n,coalesce(v->>'component','rate') from jsonb_array_elements(coalesce(p_row->'_candidates','[]'))with ordinality x(v,n)\r\n ), ranked as(select code,min(n) n,(array_agg(component order by n))[1] component from refs where code like 'SOR-%' group by code)\r\n select coalesce(jsonb_agg(jsonb_build_object('code',r.recipe_code,'description',r.description,'unit',r.unit,'component',a.component,'medium',lower(coalesce(r.variants->>'value',''))='medium') order by a.n,r.recipe_code),'[]')\r\n from ranked a join public.\"SOR_Recipie\"r on r.recipe_code=a.code\r\n where coalesce(r.metadata->>'item_type','') not in('conveyance_matrix','conveyance_matrix_cell');\r\n$function$\n"
+    },
+    {
+      "definition": "CREATE OR REPLACE FUNCTION public.morth_resource_defaults(p_resource_codes text[])\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\nbegin\n if coalesce(cardinality(p_resource_codes),0)>1000 then raise exception 'Too many resources';end if;\n return (select coalesce(jsonb_agg(jsonb_build_object(\n   'resource_code',a.resource_code,'unit',a.unit,'status',a.status,'pricing_records',a.pricing_records,\n   'candidates',coalesce((select jsonb_agg(jsonb_build_object(\n      'recipe_code',c->>'recipe_code','description',c->>'description','unit',c->>'unit',\n      'component',coalesce(c->'allowed_components'->>0,'rate'),'review_status',c->>'review_status'\n    ) order by n) from jsonb_array_elements(coalesce(a.source_definition#>'{pricing_resolution_review,sor_candidates}','[]'))with ordinality x(c,n)\n    where (a.source_definition#>'{pricing_resolution_review,pricing_source_plan,sor_choices}') ? (c->>'recipe_code')),'[]')\n )),'[]') from public.analysis_resource a where a.resource_code=any(coalesce(p_resource_codes,'{}')));\nend $function$\n"
+    },
+    {
+      "definition": "CREATE OR REPLACE FUNCTION public.sor_morth_analysis_options(p_recipe_code text, p_year text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare resolved jsonb; y public.\"SOR_Year\"; n bigint; options jsonb;\r\nbegin\r\n resolved:=public.sor_resolve_recipe_year(p_recipe_code,p_year);\r\n if coalesce((resolved->>'requires_review')::boolean,false) then return resolved; end if;\r\n select count(*) into n from public.\"SOR_Year\" where recipe_code=resolved->>'recipe_code' and year=p_year;\r\n if n<>1 then return resolved||jsonb_build_object('status',case when n=0 then 'selected_year_rate_missing' else 'annual_scope_review_required' end,'rate',null); end if;\r\n select * into y from public.\"SOR_Year\" where recipe_code=resolved->>'recipe_code' and year=p_year;\r\n if y.rate->>'type' is distinct from 'morth_analysis' then return resolved||jsonb_build_object('status','not_morth_analysis_reference','rate',null); end if;\r\n select coalesce(jsonb_agg(o.value||jsonb_build_object('description',m.description,\r\n  'description_detail',m.description_detail,'project_category',m.project_category,'unit',m.unit,\r\n  'analysis_quantity',m.analysis_quantity,'rate_divisor',m.rate_divisor,'analysis',m.recipe,\r\n  'can_auto_price',false) order by o.n),'[]'::jsonb) into options\r\n from jsonb_array_elements(y.rate->'options') with ordinality o(value,n)\r\n join public.morth m on m.code=o.value->>'morth_code';\r\n return resolved||jsonb_build_object('year',p_year,'year_row_code',y.year_row_code,'unit',y.unit,'status',y.rate->>'status',\r\n  'rate',null,'cost_ready',false,'options',options,'requirements',y.rate->'requirements','reason',y.rate->>'reason',\r\n  'review',y.metadata->'morth_link_review','to_be_printed',y.to_be_printed);\r\nend $function$\n"
+    }
+  ]
+}

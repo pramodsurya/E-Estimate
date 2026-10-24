@@ -51,7 +51,7 @@ export function projectItemDisplayName(
   if (node.kind !== 'item') return node.name
   if (node.projectDataId) return node.itemCode?.trim() || node.name
   if (node.splitFromItemKey) return node.name
-  if (node.itemSource === 'SOR') {
+  if ((node.itemSource === 'SOR' || node.itemSource === 'MORTH')) {
     return node.itemDescription?.trim() || node.name
   }
   if (node.itemCode) {
@@ -71,8 +71,8 @@ export function projectItemKey(node: ProjectNode): string {
   const variant = node.dataVariant
     ? `:${node.dataVariant.kind}:${node.dataVariant.key}`
     : ''
-  const reviewedRules = node.sorCatalogue?.reviewed?.selectedRuleIds
-  const extras = reviewedRules?.length ? `:rules:${[...reviewedRules].sort().join(',')}` : ''
+  const configuration = node.morth ? JSON.stringify(node.morth) : node.sorCatalogue?.selectionKey
+  const extras = configuration ? `:${configuration}` : ''
   return `${source}:${category}:${code}${variant}${extras}`
 }
 

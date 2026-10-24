@@ -1,4 +1,6 @@
+import type { IndividualCosts, MorthSelection } from './individualCosts'
 // E-Estimate project model. Serialized as JSON into a `.eestimate` file.
+import type { SorLeadRateSource, SorLeadRule } from './sorLead'
 
 import type {
   RateAnalysisRecipe,
@@ -7,11 +9,11 @@ import type {
 } from './rateAnalysis'
 import type { IDocumentData, IWorkbookData } from '@univerjs/core'
 import type { DocumentFontFamily } from '../lib/typist-output/documentSettings'
-import type { ReviewedSorSelection } from './sorReviewed'
+import type { SorItemSelection } from './sor'
 
 export type NodeKind = 'title' | 'page' | 'component' | 'subcomponent' | 'item'
 
-export type ItemSource = 'SSR' | 'SOR' | 'PROJECT_DATA' | 'OTHERS'
+export type ItemSource = 'SSR' | 'SOR' | 'MORTH' | 'PROJECT_DATA' | 'OTHERS'
 export type ItemEditorType = 'spreadsheet' | 'document'
 
 export type DataVariantKind = 'upto' | 'type' | 'optional_addition' | 'quantity_band'
@@ -33,6 +35,7 @@ export interface ProjectDataRateSource {
   itemSource: 'SOR' | 'SSR'
   itemCode: string
   categoryKey: string
+  morth?: MorthSelection
   sorCatalogue?: SorCatalogueItemSelection
   dataVariant?: DataVariantSelection
 }
@@ -92,20 +95,7 @@ export interface ProjectSsrDataDefinition extends ProjectDataDefinitionBase {
   sections: RateAnalysisSection[]
   /** Whether the profit/overhead follows the saved SSR source. */
   timelyOverhead?: boolean
-  /** Built-in DATA uses the ordinary editor, with annual SSR input-rate refresh. */
-  builtIn?: {
-    key: 'm25-wearing-coat'
-    sourceItemCode: string
-    mixItemCode: string
-    initialized: boolean
-    rateStatus: 'pending' | 'ready' | 'error'
-    resolvedYear?: string
-    resolvedZone?: SorZone
-    quantitySourceYear?: string
-    sourceOverheadPercent?: number
-    sourceLeadApplicability?: unknown
-    error?: string
-  }
+
 }
 
 export type ProjectDataDefinition = ProjectSorDataDefinition | ProjectSsrDataDefinition
@@ -123,13 +113,16 @@ export interface SorCatalogueCommercialTerms {
 }
 
 /**
- * Exact RCC pipe-conveyance cell linked by `get_sor_catalogue_price`.
+ * Saved RCC pipe-conveyance table, diameter and class selection.
  *
  * These rates come from Public Health Tables 6/7 and deliberately remain
- * separate from both the ordinary SOR catalogue and the common Lead chart.
+ * separate from SSR's payable-work policy and the common Lead chart. Tariffs
+ * resolve against the selected year/zone in the current SOR tables.
  */
 export interface PipeLeadSource {
   materialItemCode: string
+  /** Exact annual source-rule binding for current SOR pipe supply. */
+  leadRuleCode?: string
   pipeLeadItemCode: string
   pipeLeadCatalogueCode: string
   catalogueName?: string
@@ -166,6 +159,7 @@ export interface PipeLeadQuote {
   selectedZone: string | null
   sourcePage: number | null
   handlingIncluded: string[]
+  calculation?: LeadRateCalculationDetail
 }
 
 /**
@@ -182,26 +176,7 @@ export interface SorPublishedReference {
   columnLabel?: string
 }
 
-export interface SorCatalogueItemSelection {
-  reviewed?: ReviewedSorSelection
-  catalogueCode: string
-  catalogueName: string
-  part: string
-  section: string
-  dimensions: Record<string, SorCatalogueDimensionValue>
-  selectedYear: string
-  publishedRate: number | null
-  rateText: string | null
-  effectiveFrom: string | null
-  source: string | null
-  sourcePage: number | null
-  sourceTitle?: string | null
-  /** Printed table/row reference; item_code remains the stable lookup identifier. */
-  publishedReference?: SorPublishedReference
-  commercialTerms?: SorCatalogueCommercialTerms
-  /** Automatic Public Health Table 6/7 conveyance link, when this is an RCC pipe. */
-  pipeLead?: PipeLeadSource
-}
+export type SorCatalogueItemSelection = SorItemSelection
 
 /**
  * A document item's final quantity. `startIndex`/`endIndex` point into the
@@ -403,6 +378,7 @@ export interface TemplateMaterialRef {
   /** Published DATA variant/add-on selected when this SSR code was attached. */
   dataVariant?: DataVariantSelection
   /** Exact SOR catalogue cell selected through the unified code picker. */
+  morth?: MorthSelection
   sorCatalogue?: SorCatalogueItemSelection
 }
 
@@ -1890,6 +1866,7 @@ export interface ProjectNode {
   /** SSR DATA choice made before insertion when its annual recipe has variants. */
   dataVariant?: DataVariantSelection
   /** Logical catalogue cell and source audit captured by the SOR catalogue picker. */
+  morth?: MorthSelection
   sorCatalogue?: SorCatalogueItemSelection
 
   /** Per-node layout settings (inherited from parent when unset). */
@@ -2196,6 +2173,8 @@ export interface LeadVariant {
 }
 
 export interface LeadApplication {
+  /** Pricing/source inputs adopted for a MoRTH material Lead application. */
+  morthLeadVariantSignature?: string
   id: string
   variantId: string
   /** Original route Lead retained when a weighted Lead becomes the adopted rate. */
@@ -2249,6 +2228,7 @@ export interface LeadRateCalculationDetail {
   deductedLeadRate: number
   netLeadRate: number
   unit: string
+  evidence?: { ruleCode?: string; policySource?: 'SSR' | 'SOR'; year: string; zone: string; tariffs: SorLeadRateSource[] }
 }
 
 export interface LeadChart {
@@ -2300,6 +2280,9 @@ export interface ProjectMeta {
   /** GST selection. Automatic mode resolves the live Supabase slab. */
   taxSettings?: ProjectTaxSettings
   /** Per-project cement/steel/PH rates, keyed by material_code. Never global. */
+  miscellaneousCosts?: import('../lib/miscellaneousCosts').MiscellaneousCosts
+  individualCosts?: IndividualCosts
+  morthParameters?: Record<string, string | number | boolean>
   materialRateOverrides?: Record<string, MaterialRateOverride>
   /**
    * Date the project prices monthly materials at. Defaults to today when unset, so a
@@ -2500,6 +2483,8 @@ export interface DashboardDataSnapshot {
     range_unit: string | null
     rate: number
     selectedZone: SorZone
+    source?: SorLeadRateSource
+    reviewedRules?: SorLeadRule[]
   }>
 }
 

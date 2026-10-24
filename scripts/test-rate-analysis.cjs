@@ -80,7 +80,7 @@ function loadTsModule(filePath, mocks = {}) {
   const loadedModule = new Module(filePath, module)
   loadedModule.filename = filePath
   loadedModule.paths = Module._nodeModulePaths(path.dirname(filePath))
-  loadedModule.require = (request) => request in mocks ? mocks[request] : require(request)
+  loadedModule.require = (request) => request in mocks ? mocks[request] : /(?:morthMaterialLead|morthLeadMaterials)$/.test(request) ? loadTsModule(path.resolve(path.dirname(filePath), request + '.ts'), mocks) : request === './miscellaneousCosts' ? loadTsModule(path.join(root,'src/renderer/src/lib/miscellaneousCosts.ts'), {'./morthAppendices':loadTsModule(path.join(root,'src/renderer/src/lib/morthAppendices.ts'))}) : require(request)
   loadedModule._compile(outputText, filePath)
   return loadedModule.exports
 }
@@ -99,8 +99,8 @@ const {
     './supabase': { supabase: {} },
     './dataVariants': { applyDataVariantToRecipe: (recipe) => recipe, buildDataVariantSpec: () => ({}) },
     './pipeLead': { pipeLeadSourceFromContext: () => undefined },
-    './sorReviewed': {},
-    './reviewedSorEstimate': {},
+    './individualCosts':{applyIndividualCosts:async r=>r}, './morthEstimate':{}, './sorSource': {},
+    './sorEstimate': {},
     './materialRates': {
       applyMaterialRateOverrides: (recipe) => ({ recipe, applications: [] }),
       fetchMaterialAliases: async () => new Map(),
@@ -109,12 +109,6 @@ const {
     './projectItems': { projectItemKey: () => 'test' },
     './rateAnalysisVisibility': { parseRateAnalysisVisibility: () => ({}) },
     './seigniorageClassification': { canonicalSeigniorageCode: (code) => code },
-    './sorCatalogue': {
-      SOR_CATALOGUE_CATEGORY: 'sor_catalogue',
-      fetchSorCataloguePrice: async () => [],
-      sorCommercialTerms: () => undefined,
-      sourceContextTitle: () => null
-    }
   }
 )
 
@@ -701,6 +695,24 @@ assert.equal(adoptedCaw.totalCost, 42300.85)
 assert.equal(adoptedCaw.ratePerUnit, 423.01)
 assert.notEqual(adoptedCaw.ratePerUnit, 423, 'historical combined CAW rate must not be adopted')
 
+{
+  const misc = loadTsModule(path.join(root,'src/renderer/src/lib/miscellaneousCosts.ts'),{'./morthAppendices':loadTsModule(path.join(root,'src/renderer/src/lib/morthAppendices.ts'))})
+  const merge = loadTsModule(path.join(root,'src/renderer/src/lib/recipeMerge.ts'))
+  const storedRow=(label,amount,percent='')=>({label,amount:String(amount),percent,value:'',unit:'',basis:''})
+  const base={schemaVersion:1,itemSource:'SSR',itemKey:'SSR:percentage',itemCode:'SSR:percentage',description:'Published percentage test',year:'2026-27',unit:'cum',outputQuantity:1,overheadPercent:14,publishedRate:114,sections:[{key:'materials',label:'Materials',lines:[{id:'cement',slNo:'1',description:'Cement',unit:'kg',quantity:1,rate:100,amount:100,sourceValues:{quantity:'1',rate:'100',amount:'100'}}]},{key:'machinery',label:'Machinery',lines:[]},{key:'labour',label:'Labour',lines:[]}],storedValues:{sectionTotals:{materials:'100',machinery:'0',labour:'0'},labourExtract:[],abstract:[storedRow('A. Cost of materials',100),storedRow('B. Hire charges of machinery',0),storedRow('C. Cost of Labour',0),storedRow('Total',100),storedRow('Add contractor profit and overheads',14,'14%'),storedRow('Total cost for',114),storedRow('Rate per cum',114)]}}
+  const key=misc.miscellaneousDefinitions(base)[0].key
+  const source=await recalculateRateAnalysis(misc.applyMiscellaneousCosts(base,{[key]:{percent:12,updatedAt:''}}))
+  assert.equal((await calculateRateAnalysis(source)).ratePerUnit,112,'Percentage-only changes must bypass the published-rate shortcut')
+  assert.equal(source.recalculation.abstract.find(r=>r.label.includes('contractor')).percent,'12%')
+  const saved=structuredClone(base);saved.sections[0].lines[0]={...saved.sections[0].lines[0],quantity:2,amount:200,editedFields:['quantity']};saved.recalculation={sectionTotals:{materials:'200',machinery:'0',labour:'0'},subtotal:'200',finalCost:'228',calculatedRate:'228',abstract:[],trace:[],warnings:[]}
+  const merged=merge.mergeSavedRecipe(source,saved);assert.equal(merged.calculationStale,true);assert.equal(merged.recalculation,undefined)
+  assert.equal((await calculateRateAnalysis(merged)).ratePerUnit,224,'A saved local quantity must retain its edit and use the new shared percentage')
+  const sheetsApi=loadTsModule(path.join(root,'src/renderer/src/lib/dataSheets.ts'),{'./recipeMerge':merge,'./projectItems':{},'./dashboardSync':{},'./tree':{},'./rateAnalysis':{calculateRateAnalysis,recalculateRateAnalysis}})
+  const [sheet]=await sheetsApi.calculateDataSheets([{recipe:merged,calculatedSummary:{ratePerUnit:228}}]);assert.equal(sheet.calculatedSummary.ratePerUnit,224);assert.equal(sheet.recipe.recalculation.abstract.find(r=>r.label.includes('contractor')).percent,'12%','Export must use the refreshed abstract rather than a stale saved cache')
+  const exported=await recalculateRateAnalysis(merged);assert.equal(exported.recalculation.abstract.find(r=>r.label.includes('contractor')).percent,'12%')
+  assert.equal((await calculateRateAnalysis(merge.mergeSavedRecipe(base,{...saved,overheadPercent:12,miscellaneousDefaults:{overheadPercent:14}}))).ratePerUnit,228,'Restoring the source percentage must refresh saved edits too')
+  console.log('SSR shared percentages passed: published source, saved local quantity, abstract refresh and source restore')
+}
 console.log('Rate-analysis published-first, audit, and dual-measurement tests passed.')
 
 // DATA layouts are fixed .typ assets; changing JSON must never regenerate source.
@@ -733,6 +745,7 @@ console.log('Rate-analysis published-first, audit, and dual-measurement tests pa
   const dataOutput = loadTsModule(path.join(root, 'src/renderer/src/lib/typist-output/dataTypst.ts'), {
     './data.typ?raw': template,
     '../rateAnalysis': { calculateRateAnalysis },
+    '../morthAppendices': loadTsModule(path.join(root,'src/renderer/src/lib/morthAppendices.ts')),
     '../rateAnalysisVisibility': visibilityMock,
     '../dataPresentation': dataPresentation,
     './documentSettings': documentSettingsModule,

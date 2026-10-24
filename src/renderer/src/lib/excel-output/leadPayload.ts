@@ -25,7 +25,8 @@ function weightedRateCurve(project: EestimateProject, variantId: string) {
     perKm5To30: rate('COM-LDLFT-2', 'per_km_5_30'),
     perKmBeyond30: rate('COM-LDLFT-2', 'per_km_beyond_30')
   }
-  return Object.values(values).every((value) => typeof value === 'number') ? values : null
+  return Object.values(values).every((value) => typeof value === 'number')
+    ? { ...values, continuousBeyond5Km: rows.some(row => row.source) } : null
 }
 
 /**

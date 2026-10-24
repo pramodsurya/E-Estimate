@@ -1,17 +1,14 @@
+import {applyMiscellaneousCosts, type MiscellaneousCosts} from "./miscellaneousCosts"
+import { applyIndividualCosts } from './individualCosts'
+import { fetchMorthRecipe, prepareMorthRecipe } from './morthEstimate'
+import type { IndividualCosts } from '../types/individualCosts'
 import { supabase } from './supabase'
 import { applyDataVariantToRecipe, buildDataVariantSpec } from './dataVariants'
 import { projectItemKey } from './projectItems'
 import { parseRateAnalysisVisibility } from './rateAnalysisVisibility'
 import { canonicalSeigniorageCode } from './seigniorageClassification'
-import {
-  SOR_CATALOGUE_CATEGORY,
-  fetchSorCataloguePrice,
-  sorCommercialTerms,
-  sourceContextTitle
-} from './sorCatalogue'
-import { pipeLeadSourceFromContext } from './pipeLead'
-import { resolveReviewedSelection } from './sorReviewed'
-import { reviewedSorRecipe } from './reviewedSorEstimate'
+import { refreshSorSelection } from './sorSource'
+import { sorRecipe } from './sorEstimate'
 import {
   applyMaterialRateOverrides,
   fetchMaterialAliases,
@@ -37,14 +34,12 @@ import type {
 
 type JsonRecord = Record<string, unknown>
 type SorZone = 'zone_1' | 'zone_2' | 'zone_3'
-type SorRef = {
-  table: 'labour_rate' | 'machinery_rate'
-  code: string
-  component?: string
-}
 
 interface RateAnalysisFetchOptions {
   /** Only an explicit source refresh may replace a reviewed insertion snapshot. */
+  miscellaneousCosts?: MiscellaneousCosts
+  individualCosts?: IndividualCosts
+  morthParameters?: Record<string,string|number|boolean>
   refreshReviewedSnapshot?: boolean
   zone?: SorZone
   areaAllowancePercent?: number
@@ -78,63 +73,6 @@ const SSR_DOCUMENT_TITLES: Record<string, string> = {
 }
 
 const DEFAULT_ZONE: SorZone = 'zone_3'
-
-const SOR_CONFIG: Record<
-  string,
-  { codeCol: string; nameCol: string; rateTable: string; rateFields: string[] }
-> = {
-  material: {
-    codeCol: 'material_code',
-    nameCol: 'name',
-    rateTable: 'material_rate',
-    rateFields: ['rate']
-  },
-  labour: {
-    codeCol: 'labour_code',
-    nameCol: 'name',
-    rateTable: 'labour_rate',
-    rateFields: ['rate']
-  },
-  machinery: {
-    codeCol: 'machinery_code',
-    nameCol: 'name',
-    rateTable: 'machinery_rate',
-    rateFields: ['hire_total', 'hire_charge']
-  },
-  plumbing: {
-    codeCol: 'plumbing_code',
-    nameCol: 'name',
-    rateTable: 'plumbing_rate',
-    rateFields: ['rate']
-  },
-  electrical: {
-    codeCol: 'elec_code',
-    nameCol: 'name',
-    rateTable: 'electrical_rate',
-    rateFields: ['rate']
-  },
-  civil: {
-    codeCol: 'civil_code',
-    nameCol: 'name',
-    rateTable: 'civil_rate',
-    rateFields: ['rate']
-  }
-}
-
-const RATE_TABLE_CODE_COLUMNS: Record<string, string> = {
-  material_rate: 'material_code',
-  machinery_rate: 'machinery_code',
-  labour_rate: 'labour_code',
-  plumbing_rate: 'plumbing_code',
-  electrical_rate: 'elec_code',
-  civil_rate: 'civil_code',
-  taw_rates: 'taw_code',
-  daw_rates: 'daw_code',
-  caw_rates: 'caw_code',
-  gaw_rates: 'gaw_code',
-  ccdw_rates: 'ccdw_code',
-  pmw_rates: 'pmw_code'
-}
 
 function numberValue(value: unknown, fallback = 0): number {
   if (value === null || value === undefined || value === '') return fallback
@@ -213,11 +151,17 @@ export interface CalculatedOptionalAddition {
  * No JavaScript fallback calculation is permitted.
  */
 export async function calculateRateAnalysis(recipe: RateAnalysisRecipe): Promise<RateAnalysisSummary> {
-  return window.api.rateAnalysis.calculate(recipe);
+  if(recipe.itemSource==='SSR' && recipe.calculationStale) recipe=await recalculateRateAnalysis(recipe)
+  const result = await window.api.rateAnalysis.calculate(recipe)
+  if(recipe.itemSource==='MORTH' && typeof result.costReady!=='boolean')throw new Error('The updated native MoRTH calculator is required. Restart the desktop app after building it.')
+  if(result.costReady===false) throw new Error(`MoRTH starting cost pending: ${(result.missing ?? recipe.morth?.pending ?? []).join('; ')}`)
+  return result
 }
 
 export async function calculateBaseRateAnalysis(recipe: RateAnalysisRecipe): Promise<RateAnalysisSummary> {
-  return window.api.rateAnalysis.calculateBase(recipe)
+  const result=await window.api.rateAnalysis.calculateBase(recipe)
+  if(result.costReady===false)throw new Error(`MoRTH starting cost pending: ${(result.missing ?? []).join('; ')}`)
+  return result
 }
 
 interface StructuredSectionResult {
@@ -452,6 +396,7 @@ export function updateRateAnalysisLine(
       lines: section.lines.map((line) => {
         if (line.id !== lineId) return line
         const next = { ...line, ...patch }
+        if(patch.rate!==undefined && patch.rate!==line.rate){next.individualCost=undefined;next.rateOverride=undefined}
         const directlyEdited = editableFields.flatMap((field) => {
           if (patch[field] === undefined || patch[field] === line[field]) return []
           const storedField = field === 'slNo' ? 'sl_no' : field
@@ -473,6 +418,7 @@ export function invalidateRateAnalysisCalculation(recipe: RateAnalysisRecipe): R
 }
 
 export async function recalculateRateAnalysis(recipe: RateAnalysisRecipe): Promise<RateAnalysisRecipe> {
+  if(recipe.itemSource==='MORTH') return prepareMorthRecipe(recipe)
   if (recipe.itemSource === 'SOR') {
     return {
       ...recipe,
@@ -596,7 +542,7 @@ export async function recalculateRateAnalysis(recipe: RateAnalysisRecipe): Promi
     recalculation: undefined
   })
 
-  if (financiallyChangedSections.size === 0 && !allowanceApplied) {
+  if (financiallyChangedSections.size === 0 && !allowanceApplied && !recipe.miscellaneousDefaults) {
     const calculatedVariantBase =
       recipe.dataVariant?.postRate ||
       (recipe.dataVariant?.kind === 'optional_addition' &&
@@ -626,7 +572,7 @@ export async function recalculateRateAnalysis(recipe: RateAnalysisRecipe): Promi
   }
 
   const labourSummary =
-    financiallyChangedSections.has('labour') || allowanceApplied
+    financiallyChangedSections.has('labour') || allowanceApplied || recipe.miscellaneousDefaults
       ? buildRecalculatedLabourSummary(recipe, sectionTotals.labour, sectionTotals)
       : {
           rows: recipe.storedValues?.labourExtract ?? [],
@@ -677,7 +623,9 @@ export async function recalculateRateAnalysis(recipe: RateAnalysisRecipe): Promi
     let status: RateAnalysisCalculationTrace['status'] = 'recorded'
     let formula: string | undefined
     let contributes = false
-    const rowPercent = percentageFromRow(row)
+    const projectPercentage=Boolean(recipe.miscellaneousDefaults)&&/profit|overhead/.test(text)
+    const rowPercent = projectPercentage ? recipe.overheadPercent : percentageFromRow(row)
+    if(projectPercentage){row.percent=String(recipe.overheadPercent)+'%';row.label=row.label.replace(/[0-9.,]+\s*%/g,row.percent)}
     const stepAdditionRow =
       hasStepwiseDepth &&
       stepwiseDepthRate !== null &&
@@ -1021,7 +969,7 @@ function buildRecalculatedLabourSummary(
     const source = sourceRows[index]
     const row = { ...source }
     const text = rowText(row)
-    const percent = percentageFromRow(row) ?? followingPercent(sourceRows, index)
+    const percent = recipe.miscellaneousDefaults && isContractorLabourRow(text) ? recipe.overheadPercent : percentageFromRow(row) ?? followingPercent(sourceRows, index)
     const totalsForFormula = lineSectionTotals ?? {
       materials: 0,
       machinery: 0,
@@ -1071,6 +1019,7 @@ function buildRecalculatedLabourSummary(
       unitProfit = roundRate((unitBase * contractorPercent) / 100)
       unitTotal = roundRate(unitBase + unitProfit)
       row.amount = formatCalculated(unitProfit)
+      if(recipe.miscellaneousDefaults){row.percent=String(contractorPercent)+'%';row.label=row.label.replace(/[0-9.,]+\s*%/g,row.percent)}
       if (!row.percent && contractorPercent) row.percent = `${formatPercentValue(contractorPercent)}%`
       rows.push(row)
       continue
@@ -1425,17 +1374,6 @@ function roundToPrintedGrid(rawRate: number, recorded: number | null): number {
   return roundMoney(rawRate)
 }
 
-function sectionForSor(category: string): RateAnalysisSectionKey {
-  if (category === 'machinery') return 'machinery'
-  if (category === 'labour') return 'labour'
-  return 'materials'
-}
-
-function resourceCode(line: JsonRecord, table: string): string {
-  const codeColumn = RATE_TABLE_CODE_COLUMNS[table]
-  return codeColumn ? textValue(line[codeColumn]) : ''
-}
-
 /**
  * The extractor's own name for the resource a row is.
  *
@@ -1455,280 +1393,6 @@ function parseResourceIdentity(raw: unknown): RateAnalysisLine['resourceIdentity
   const named =
     (identity.sourceTable && identity.masterCode) || identity.resourceKey
   return named ? identity : undefined
-}
-
-function getRateSource(line: JsonRecord): string {
-  const direct = textValue(line.rate_source)
-  if (direct && direct !== 'formula') return direct
-  const formula = line.rate_formula as JsonRecord | undefined
-  return formula ? textValue(formula.source) : ''
-}
-
-function parseSorRef(value: unknown): SorRef | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
-  const ref = value as JsonRecord
-  const table = textValue(ref.table)
-  if (table !== 'labour_rate' && table !== 'machinery_rate') return null
-  const code = textValue(ref.code)
-  if (!code) return null
-  return {
-    table,
-    code,
-    component: textValue(ref.component) || undefined
-  }
-}
-
-function findSourceSorRef(row: JsonRecord, sourceRows: JsonRecord[], index: number): SorRef | null {
-  const direct = parseSorRef(row.sor_ref)
-  if (direct) return direct
-  const byIndex = parseSorRef(sourceRows[index]?.sor_ref)
-  if (byIndex) return byIndex
-
-  const sl = textValue(row.sl, textValue(row.sl_no)).trim()
-  const desc = textValue(row.desc, textValue(row.description)).trim().toLowerCase()
-  const matched = sourceRows.find((source) => {
-    const sourceSl = textValue(source.sl, textValue(source.sl_no)).trim()
-    const sourceDesc = textValue(source.desc, textValue(source.description)).trim().toLowerCase()
-    return (sl && sourceSl === sl) || (desc && sourceDesc === desc)
-  })
-  return parseSorRef(matched?.sor_ref)
-}
-
-function zoneRateValue(value: unknown, zone: SorZone): unknown {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
-  return (value as JsonRecord)[zone]
-}
-
-function resolveSorInputRate(ref: SorRef | null, row: JsonRecord | undefined, zone: SorZone): number | null {
-  if (!ref || !row) return null
-
-  if (ref.table === 'labour_rate') {
-    const zoned = numberValue(zoneRateValue(row.zone_rates, zone), Number.NaN)
-    if (Number.isFinite(zoned)) return zoned
-    const fallback = numberValue(row.rate, Number.NaN)
-    return Number.isFinite(fallback) ? fallback : null
-  }
-
-  if (ref.table === 'machinery_rate') {
-    const zoned = zoneRateValue(row.zone_rates, zone)
-    if (zoned && typeof zoned === 'object' && !Array.isArray(zoned)) {
-      const componentRate = numberValue((zoned as JsonRecord)[ref.component ?? ''], Number.NaN)
-      if (Number.isFinite(componentRate)) return componentRate
-    }
-    const fallback = numberValue(row[ref.component ?? ''], Number.NaN)
-    return Number.isFinite(fallback) ? fallback : null
-  }
-
-  return null
-}
-
-function zoneLabel(zone: SorZone): string {
-  if (zone === 'zone_1') return 'Zone I'
-  if (zone === 'zone_2') return 'Zone II'
-  return 'Zone III'
-}
-
-function correctionFor(
-  corrected: JsonRecord | null,
-  section: RateAnalysisSectionKey,
-  description: string
-): JsonRecord | null {
-  const sectionCorrections = corrected?.[section]
-  if (!sectionCorrections || typeof sectionCorrections !== 'object') return null
-  const value = (sectionCorrections as JsonRecord)[description]
-  return value && typeof value === 'object' ? (value as JsonRecord) : null
-}
-
-async function fetchCorrected(
-  category: string,
-  code: string,
-  year: string
-): Promise<JsonRecord | null> {
-  const table = `${category}_corrected`
-  const quotedCode = `"${code.replaceAll('"', '""')}"`
-  let response = await supabase.from(table).select(`year,${quotedCode}`).eq('year', year).maybeSingle()
-  if (response.error) {
-    response = await supabase.from(table).select('*').eq('year', year).maybeSingle()
-  }
-  if (response.error || !response.data) return null
-  const value = (response.data as unknown as JsonRecord)[code]
-  return value && typeof value === 'object' ? (value as JsonRecord) : null
-}
-
-async function fetchRateRows(
-  rawSections: Record<RateAnalysisSectionKey, JsonRecord[]>,
-  year: string
-): Promise<Map<string, JsonRecord>> {
-  const requests = new Map<string, Set<string>>()
-
-  const addRequest = (table: string, code: string): void => {
-    if (!table || !code || !RATE_TABLE_CODE_COLUMNS[table]) return
-    const codes = requests.get(table) ?? new Set<string>()
-    codes.add(code)
-    requests.set(table, codes)
-  }
-
-  for (const lines of Object.values(rawSections)) {
-    for (const line of lines) {
-      const source = getRateSource(line)
-      const table = source.split('.')[0]
-      addRequest(table, resourceCode(line, table))
-
-      const formula = line.rate_formula as JsonRecord | undefined
-      const formulaCodes = Array.isArray(formula?.codes) ? formula.codes : []
-      for (const code of formulaCodes) addRequest('material_rate', textValue(code))
-
-      const operands = Array.isArray(formula?.operands) ? formula.operands : []
-      for (const operand of operands) {
-        if (!operand || typeof operand !== 'object') continue
-        const item = operand as JsonRecord
-        addRequest(textValue(item.table), textValue(item.code))
-      }
-    }
-  }
-
-  const result = new Map<string, JsonRecord>()
-  await Promise.all(
-    Array.from(requests.entries()).map(async ([table, codes]) => {
-      const codeCol = RATE_TABLE_CODE_COLUMNS[table]
-      const sourceCategory = table.replace('_rates', '')
-      const yearCol = table.endsWith('_rates') && SSR_CATEGORIES.has(sourceCategory)
-        ? 'year'
-        : 'sor_year'
-      const { data, error } = await supabase
-        .from(table)
-        .select('*')
-        .eq(yearCol, year)
-        .in(codeCol, Array.from(codes))
-      if (error) return
-      for (const row of (data ?? []) as JsonRecord[]) {
-        result.set(`${table}:${textValue(row[codeCol])}`, row)
-      }
-    })
-  )
-  return result
-}
-
-function directRate(line: JsonRecord, rates: Map<string, JsonRecord>): number | null {
-  const source = getRateSource(line)
-  const [table, field] = source.split('.')
-  if (!table || !field) return null
-  const code = resourceCode(line, table)
-  const row = rates.get(`${table}:${code}`)
-  if (!row) return null
-  const value = numberValue(row[field], Number.NaN)
-  return Number.isFinite(value) ? value : null
-}
-
-function formulaRate(
-  line: JsonRecord,
-  rates: Map<string, JsonRecord>,
-  previousLine: RateAnalysisLine | null
-): { rate: number; amount?: number } | null {
-  const formula = line.rate_formula as JsonRecord | undefined
-  if (!formula) return null
-  const type = textValue(formula.type)
-
-  if (type === 'site_available_zero_rate' || type === 'display_zero_group_header') {
-    return { rate: 0, amount: numberValue(formula.amount) }
-  }
-  if (type === 'display_section_subtotal') return { rate: 0, amount: 0 }
-  if (type === 'percent_of_previous_line_amount') {
-    const amount = roundMoney(
-      (numberValue(previousLine?.amount) * numberValue(formula.percent)) / 100
-    )
-    const quantity = numberValue(line.quantity, 1) || 1
-    return { rate: roundMoney(amount / quantity), amount }
-  }
-  if (type === 'ref') {
-    const codes = Array.isArray(formula.codes)
-      ? formula.codes.map((value) => textValue(value))
-      : []
-    const rate = codes.reduce(
-      (total, code) => total + numberValue(rates.get(`material_rate:${code}`)?.rate),
-      0
-    )
-    return { rate }
-  }
-  if (type === 'item_rate_delta') {
-    const operands = Array.isArray(formula.operands) ? formula.operands : []
-    let rate = 0
-    for (const operand of operands) {
-      if (!operand || typeof operand !== 'object') continue
-      const value = operand as JsonRecord
-      const table = textValue(value.table)
-      const code = textValue(value.code)
-      const field = textValue(value.field, 'rate')
-      const operandRate = numberValue(rates.get(`${table}:${code}`)?.[field])
-      rate = textValue(value.op) === 'subtract' ? rate - operandRate : rate + operandRate
-    }
-    return { rate }
-  }
-
-  const base = directRate(line, rates)
-  if (base == null) return null
-  if (type === 'material_use_rate') {
-    return {
-      rate:
-        (base * numberValue(formula.count, 1) * numberValue(formula.length_m, 1)) /
-        (numberValue(formula.divisor_hours, 1) || 1)
-    }
-  }
-  if (type === 'accessory_use_rate' || type === 'unit_conversion') {
-    return { rate: base / (numberValue(formula.divisor, 1) || 1) }
-  }
-  return null
-}
-
-function buildSectionLines(
-  section: RateAnalysisSectionKey,
-  rawLines: JsonRecord[],
-  rates: Map<string, JsonRecord>,
-  corrected: JsonRecord | null
-): { lines: RateAnalysisLine[]; unresolved: number } {
-  let unresolved = 0
-  const lines: RateAnalysisLine[] = []
-  const sorted = [...rawLines].sort(
-    (a, b) => numberValue(a.display_order) - numberValue(b.display_order)
-  )
-
-  for (const [index, raw] of sorted.entries()) {
-    const description = textValue(raw.description, 'Unnamed item')
-    const quantity = numberValue(raw.quantity)
-    const formula = formulaRate(raw, rates, lines.at(-1) ?? null)
-    const direct = directRate(raw, rates)
-    const resolved = formula ?? (direct == null ? null : { rate: direct })
-    const correction = correctionFor(corrected, section, description)
-    const correctedRate = numberValue(correction?.printed_rate, Number.NaN)
-    const baseRate = resolved?.rate ?? numberValue(raw.rate, 0)
-    const rate = Number.isFinite(correctedRate) ? correctedRate : roundMoney(baseRate)
-    const calculationQuantity = numberValue(raw.calculation_quantity, Number.NaN)
-    const amount =
-      resolved?.amount ??
-      roundMoney(
-        Number.isFinite(calculationQuantity) && formula
-          ? calculationQuantity * baseRate
-          : quantity * rate
-      )
-    if (!resolved && !Number.isFinite(correctedRate) && quantity !== 0) unresolved += 1
-
-    const source = getRateSource(raw)
-    const table = source.split('.')[0]
-    lines.push({
-      id: `${section}-${textValue(raw.display_order, String(index))}-${index}`,
-      slNo: textValue(raw.sl_no),
-      description,
-      unit: textValue(raw.unit),
-      quantity,
-      rate: roundMoney(rate),
-      amount,
-      resourceCode: resourceCode(raw, table) || undefined,
-      resourceIdentity: parseResourceIdentity(raw.resource_identity),
-      rateSource: source || textValue((raw.rate_formula as JsonRecord | undefined)?.type) || undefined
-    })
-  }
-
-  return { lines, unresolved }
 }
 
 async function fetchOverheadPercent(year: string): Promise<number> {
@@ -1752,7 +1416,8 @@ function jsonRows(value: unknown): JsonRecord[] {
 function storedSsrLines(
   section: RateAnalysisSectionKey,
   value: unknown,
-  sourceValue: unknown
+  sourceValue: unknown,
+  context: string
 ): { lines: RateAnalysisLine[]; unresolved: number } {
   let unresolved = 0
   const sourceRows = jsonRows(sourceValue)
@@ -1760,7 +1425,7 @@ function storedSsrLines(
     const quantity = numberValue(row.quantity)
     const parsedRate = numberValue(row.rate, Number.NaN)
     const parsedAmount = numberValue(row.amount, Number.NaN)
-    const ref = findSourceSorRef(row, sourceRows, index)
+    const identity = parseResourceIdentity(row.resource_identity ?? sourceRows[index]?.resource_identity)
     const hasRate = Number.isFinite(parsedRate)
     const effectiveRate = hasRate ? parsedRate : Number.NaN
     const hasEffectiveRate = hasRate
@@ -1780,7 +1445,9 @@ function storedSsrLines(
       quantity,
       rate: hasEffectiveRate ? effectiveRate : 0,
       amount: hasAmount ? amount : 0,
-      resourceIdentity: parseResourceIdentity(row.resource_identity),
+      individualCostInput: {owner: 'SSR' as const, kind: section, raw: row, context: `${context}:base:${index}`},
+      resourceIdentity: identity,
+      materialCode: section === 'materials' && identity?.sourceTable === 'SOR_Year' ? identity.masterCode : undefined,
       groupId: textValue(row.group_id) || undefined,
       contributionFactor: numberOrNull(row.contribution_factor) ?? undefined,
       amountSource: textValue(row.amount_source) || undefined,
@@ -1789,11 +1456,8 @@ function storedSsrLines(
         rate: textValue(row.rate),
         amount: textValue(row.amount)
       },
-      sorRef: ref ?? undefined,
-      resourceCode: ref?.code,
-      rateSource: ref
-        ? `${ref.table}.${ref.component ?? (ref.table === 'labour_rate' ? 'rate' : '')}`
-        : undefined
+      resourceCode: identity?.masterCode,
+      rateSource: identity?.sourceTable ? `${identity.sourceTable}.${identity.rateComponent ?? 'rate'}` : undefined
     }
   })
   return { lines, unresolved }
@@ -2105,7 +1769,8 @@ async function fetchSsrRecipe(
     const built = storedSsrLines(
       key,
       storedRates[key] ?? row[key],
-      row[key]
+      row[key],
+      code
     )
     unresolvedLines += built.unresolved
     return { key, label: SECTION_LABELS[key], lines: built.lines }
@@ -2352,172 +2017,10 @@ async function fetchSorRecipe(
   year: string,
   options: RateAnalysisFetchOptions = {}
 ): Promise<RateAnalysisRecipe> {
-  const category = node.categoryKey ?? ''
-  if (node.sorCatalogue?.reviewed) {
-    return reviewedSorRecipe(node, await resolveReviewedSelection(node.sorCatalogue.reviewed, year, options.refreshReviewedSnapshot, options.zone ?? DEFAULT_ZONE))
-  }
-  const overheadPercent = await fetchOverheadPercent(year)
-  if (category === SOR_CATALOGUE_CATEGORY) {
-    const selection = node.sorCatalogue
-    if (!selection) throw new Error('This item does not contain a saved SOR catalogue selection.')
-    const code = node.itemCode ?? node.name
-    const matches = await fetchSorCataloguePrice(
-      selection.catalogueCode,
-      year,
-      selection.dimensions
-    )
-    const match =
-      matches.find((candidate) => candidate.item_code === code) ??
-      (matches.length === 1 ? matches[0] : null)
-    if (!match) {
-      throw new Error(
-        matches.length
-          ? `The saved catalogue dimensions match ${matches.length} cells for SOR ${year}.`
-          : `No ${year} rate exists for the saved ${selection.catalogueName} dimensions.`
-      )
-    }
-
-    const rate =
-      typeof match.rate === 'number' && Number.isFinite(match.rate) ? match.rate : null
-    const rateText = match.rate_text.trim()
-    const description = node.itemDescription ?? match.item_name ?? node.name
-    const unit = match.unit ?? node.unit ?? ''
-    const pipeLead = pipeLeadSourceFromContext(match.source_context, match.item_code)
-    const sectionKey = sectionForSor(category)
-    const sections = (Object.keys(SECTION_LABELS) as RateAnalysisSectionKey[]).map((key) => ({
-      key,
-      label: SECTION_LABELS[key],
-      lines:
-        key === sectionKey && rate !== null
-          ? [
-              {
-                id: `${key}-0`,
-                slNo: '1',
-                description,
-                unit,
-                quantity: 1,
-                rate: roundMoney(rate),
-                amount: roundMoney(rate),
-                resourceCode: code,
-                rateSource: 'sor_catalogue_rate.rate'
-              }
-            ]
-          : []
-    }))
-
-    return {
-      schemaVersion: 1,
-      itemKey: projectItemKey(node),
-      itemSource: 'SOR',
-      categoryKey: category,
-      itemCode: code,
-      documentTitle: `${selection.catalogueName} — SOR ${year}`,
-      description,
-      unit,
-      outputQuantity: 1,
-      year,
-      overheadPercent,
-      sections,
-      layout: parseRateAnalysisVisibility(undefined, description),
-      publishedRate: rate ?? undefined,
-      publishedRateText: rateText || undefined,
-      sorCatalogueSource: {
-        catalogueCode: selection.catalogueCode,
-        catalogueName: selection.catalogueName,
-        dimensions: selection.dimensions,
-        effectiveFrom: match.effective_from,
-        source: match.source,
-        sourcePage: match.source_page,
-        sourceTitle: sourceContextTitle(match.source_context),
-        commercialTerms: sorCommercialTerms(match.source_context),
-        ...(pipeLead ? { pipeLead } : {})
-      },
-      unresolvedLines: rate === null ? 1 : 0
-    }
-  }
-
-  const config = SOR_CONFIG[category]
-  if (!config) throw new Error(`Rate analysis is unavailable for ${category || 'this item'}`)
-  const code = node.itemCode ?? node.name
-  const zone = options.zone ?? DEFAULT_ZONE
-  const [{ data: source, error }, { data: rateRow }] = await Promise.all([
-    supabase.from(category).select('*').eq(config.codeCol, code).maybeSingle(),
-    supabase
-      .from(config.rateTable)
-      .select('*')
-      .eq(config.codeCol, code)
-      .eq('sor_year', year)
-      .maybeSingle()
-  ])
-  if (error || !source) throw new Error(error?.message || `Item not found for ${code}`)
-  const item = source as JsonRecord
-  const rates = rateRow as JsonRecord | null
-  const rate =
-    category === 'labour' || category === 'machinery'
-      ? resolveSorInputRate(
-          {
-            table: category === 'labour' ? 'labour_rate' : 'machinery_rate',
-            code,
-            component: category === 'machinery' ? config.rateFields[0] : undefined
-          },
-          rates ?? undefined,
-          zone
-        ) ?? 0
-      : config.rateFields
-          .map((field) => numberValue(rates?.[field], Number.NaN))
-          .find(Number.isFinite) ?? 0
-  const sectionKey = sectionForSor(category)
-  const sections = (Object.keys(SECTION_LABELS) as RateAnalysisSectionKey[]).map((key) => ({
-    key,
-    label: SECTION_LABELS[key],
-    lines:
-      key === sectionKey
-        ? [
-            {
-              id: `${key}-0`,
-              slNo: '1',
-              description: textValue(item[config.nameCol], node.itemDescription ?? node.name),
-              unit: textValue(item.unit, node.unit ?? ''),
-              quantity: 1,
-              rate: roundMoney(rate),
-              amount: roundMoney(rate),
-              resourceCode: code,
-              // Lets a per-project monthly rate reach a directly-added SOR material.
-              materialCode: category === 'material' ? code : undefined,
-              rateSource: `${config.rateTable}.${config.rateFields[0]}`,
-              linkedRate:
-                category === 'labour' || category === 'machinery'
-                  ? {
-                      rate,
-                      year,
-                      zone,
-                      source: textValue(rates?.source)
-                    }
-                  : undefined
-            }
-          ]
-        : []
-  }))
-
-  return {
-    schemaVersion: 1,
-    itemKey: projectItemKey(node),
-    // Project DATA is rendered as a local SOR-style recipe, not a separate
-    // published-rate source in the rate-analysis document schema.
-    itemSource: node.itemSource === 'PROJECT_DATA' ? 'SOR' : node.itemSource ?? 'SOR',
-    categoryKey: category,
-    itemCode: code,
-    description: textValue(item[config.nameCol], node.itemDescription ?? node.name),
-    unit: textValue(item.unit, node.unit ?? ''),
-    outputQuantity: 1,
-    year,
-    zone,
-    overheadPercent,
-    sections,
-    layout: parseRateAnalysisVisibility(item.visibility, textValue(item[config.nameCol])),
-    publishedRate: rate,
-    unresolvedLines: rate ? 0 : 1
-  }
+  const zone=options.zone ?? DEFAULT_ZONE
+  const saved=node.sorCatalogue
+  if (!saved) throw new Error('Choose this item from the current SOR selector before compiling DATA.')
+  return sorRecipe(node,await refreshSorSelection(saved,year,zone,options.refreshReviewedSnapshot))
 }
 
 export async function fetchRateAnalysis(
@@ -2529,20 +2032,23 @@ export async function fetchRateAnalysis(
     throw new Error('Custom items do not have a Supabase recipe yet.')
   }
   const recipe =
+    node.itemSource === 'MORTH' ? await fetchMorthRecipe(node,year,options.zone ?? DEFAULT_ZONE,options.individualCosts,options.morthParameters,[],options.miscellaneousCosts) :
     node.itemSource === 'SSR' ||
     node.categoryKey === SSR_ITEM_TABLE ||
     SSR_CATEGORIES.has(node.categoryKey)
       ? await fetchSsrRecipe(node, year, options)
       : await fetchSorRecipe(node, year, options)
-  const prepared = await withMaterialRateOverrides(recipe, options.materialRateOverrides)
+  const materials = recipe.itemSource==='MORTH'?recipe:await withMaterialRateOverrides(recipe, options.materialRateOverrides)
+  const adopted = await applyIndividualCosts(materials,options.individualCosts,options.zone ?? DEFAULT_ZONE)
+  const prepared = adopted.morth ? adopted : applyMiscellaneousCosts(adopted,options.miscellaneousCosts)
   // An overridden line changes quantity x rate, so the published abstract no longer
   // holds. Recalculating rebuilds the totals from the lines actually in force.
   const overridden = prepared.sections.some((section) =>
-    section.lines.some((line) => line.rateOverride)
+    section.lines.some((line) => line.rateOverride || line.individualCost)
   )
   const projectCalculated =
     prepared.itemSource === 'SSR' &&
-    (numberValue(prepared.areaAllowancePercent) > 0 || overridden)
+    (numberValue(prepared.areaAllowancePercent) > 0 || overridden || prepared.calculationStale)
       ? await recalculateRateAnalysis({ ...prepared, recalculation: undefined })
       : prepared
   return cloneRecipe(projectCalculated)

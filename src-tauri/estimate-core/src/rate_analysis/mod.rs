@@ -1,5 +1,6 @@
 pub mod calculator;
 pub mod models;
+pub mod morth;
 
 pub use calculator::*;
 pub use models::*;
@@ -87,6 +88,7 @@ mod tests {
             stored_values: None,
             published_rate_blocks: None,
             data_variant: None,
+            morth: None,
             post_rate_multiplier: None,
         };
 

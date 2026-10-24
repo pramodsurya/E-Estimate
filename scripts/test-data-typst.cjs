@@ -31,7 +31,7 @@ function loadTs(filePath, mocks = {}) {
   const loaded = new Module(filePath, module)
   loaded.filename = filePath
   loaded.paths = Module._nodeModulePaths(path.dirname(filePath))
-  loaded.require = (request) => request in mocks ? mocks[request] : Module.createRequire(filePath)(request)
+  loaded.require = (request) => request in mocks ? mocks[request] : /(?:morthMaterialLead|morthLeadMaterials)$/.test(request) ? loadTs(path.resolve(path.dirname(filePath), request + '.ts'), mocks) : Module.createRequire(filePath)(request)
   loaded._compile(outputText, filePath)
   return loaded.exports
 }
@@ -64,6 +64,7 @@ const dataPresentation = loadTs(path.join(root, 'src/renderer/src/lib/dataPresen
   './rateAnalysisVisibility': visibilityMock
 })
 const data = loadTs(path.join(root, 'src/renderer/src/lib/typist-output/dataTypst.ts'), {
+  '../morthAppendices': loadTs(path.join(root,'src/renderer/src/lib/morthAppendices.ts')),
   '../rateAnalysisVisibility': visibilityMock,
   '../dataPresentation': dataPresentation,
   './documentSettings': documentSettings,

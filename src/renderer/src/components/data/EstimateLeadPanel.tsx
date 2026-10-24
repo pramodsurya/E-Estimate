@@ -182,6 +182,8 @@ function activateGroupAddons(metadata: unknown, addonIds: Array<string | undefin
 }
 
 function leadAbstractClassLabel(name: string, conveyanceClass: ConveyanceClass): string {
+  if (['Concrete delivery', 'Hot mix delivery', 'Precast delivery', 'Disposal material', 'Material delivery'].includes(name))
+    return 'Material conveyance · per tonne'
   if (conveyanceClass === 'RCC_PIPE') {
     return 'Public Health RCC pipe conveyance · loading, unloading & stacking included'
   }
@@ -237,7 +239,7 @@ function buildLeadAbstract(
       }, row.pipeLead).dataCount += 1
       continue
     }
-    if (row.source !== 'SSR' && row.source !== 'PROJECT_DATA') continue
+    if (!['SSR','SOR','PROJECT_DATA','MORTH'].includes(row.source)) continue
     for (const ref of materialRefsForLeadInfo(parseLeadInfo(row.metadata), row.description)) {
       ensure(ref).dataCount += 1
     }

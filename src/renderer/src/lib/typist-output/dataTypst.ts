@@ -1,4 +1,6 @@
+import {collectMorthAppendices,appendixForRecipe,morthAbstract,calculationBasisLabel,type MorthAppendix} from "../morthAppendices"
 import defaultTemplate from './data.typ?raw'
+import { morthLeadIssues, morthFinalRate } from '../morthMaterialLead'
 /** DATA and rate-analysis data adapter. The complete layout is in data.typ. */
 
 import type { DataSheet } from '../dataSheets'
@@ -98,9 +100,11 @@ export function buildRateAnalysisRenderData(
   leadApplications: LeadApplication[] = [],
   leadVariants: LeadVariant[] = [],
   scopeContext?: ScopeContext,
-  calculatedSummary?: RateAnalysisSummary
+  calculatedSummary?: RateAnalysisSummary,
+  appendices: MorthAppendix[] = collectMorthAppendices([recipe]),
+  appendixOnly = false
 ) {
-  const code = recipe.itemCode?.trim() || recipe.itemKey || 'DATA'
+  const code = recipe.morth?.printedItem || recipe.itemCode?.trim() || recipe.itemKey || 'DATA'
   const unit = recipe.unit || 'cum'
   const outputQty = recipe.outputQuantity || 1
   const desc = recipe.description || ''
@@ -109,7 +113,12 @@ export function buildRateAnalysisRenderData(
   const scopeLabel = scopeContext?.usagePath || scopeContext?.scopeName || scopeContext?.scope || ''
 
   // This is the same semantic result consumed by the React DATA view.
-  const presentation = buildDataPresentation(recipe, leadApplications, leadVariants, calculatedSummary)
+  const presentation = buildDataPresentation(recipe, leadApplications, leadVariants, calculatedSummary ?? recipe.morth?.startingSummary)
+  if(recipe.morth && (recipe.morth.pending.length || (calculatedSummary ?? recipe.morth.startingSummary)?.costReady===false))throw new Error('Resolve the pending MoRTH inputs before exporting this DATA.')
+  if (recipe.morth && !appendixOnly) {
+    const missing = morthLeadIssues(recipe, leadApplications, leadVariants)
+    if (missing.length) throw new Error(`Resolve material Lead before exporting this DATA: ${missing.join('; ')}`)
+  }
   const calculated = presentation.summary
 
   const materialsSection = recipe.sections.find((s) => s.key === 'materials')
@@ -146,19 +155,25 @@ export function buildRateAnalysisRenderData(
 
   // External project Lead is presented after the DATA abstract, exactly as in React.
   const totalCost = calculated?.totalCost ?? baseCost + overheadAmt + areaAllowanceAmt
-  const ratePerUnit = outputQty > 0 ? totalCost / outputQty : totalCost
+  const ratePerUnit = recipe.morth ? calculated.ratePerUnit : outputQty > 0 ? totalCost / outputQty : totalCost
   const baseFinalAmount = presentation.adoptedSummary.totalCost + presentation.addonLeadTotal
   const layout = presentation.layout
   const calculatedAddon = presentation.calculatedAddon
   const addonLeadApplications = presentation.addonLeadApplications
   const regularLeadApplications = presentation.regularLeadApplications
-  const rows = (lines: RateAnalysisLine[]) => lines.map((line) => ({
+  const rows = (lines: RateAnalysisLine[]) => lines.map((line) => {
+    const input=recipe.morth?.inputs[line.id], dependency=input?.dependency, appendix=dependency?appendixForRecipe(appendices,dependency):undefined
+    const lookup=input?.raw.price_lookup as Record<string,unknown>|undefined
+    const exclusions=(recipe.morth?.source.calculation as Record<string,unknown>|undefined)?.markup_excluded_resource_keys
+    return ({
+    appendix_key: appendix?.key, appendix_name: appendix?.name, appendix_direct: lookup?.require_direct_cost_only===true, appendix_multiplier: Number(lookup?.rate_multiplier ?? 1),
+    markup_excluded: lookup?.parent_markup_excluded===true || (Array.isArray(exclusions)&&exclusions.includes(input?.raw.resource_key)),
     sl: line.slNo || '', description: line.description, unit: line.unit,
     quantity: line.quantity, rate: line.rate, amount: line.amount,
     qty_text: fmtQty(line.quantity), rate_text: fmtMoney(line.rate), amount_text: fmtMoney(line.amount),
     user_added: Boolean(line.userAdded), edited: editedMap(line),
     source: { rate: line.rateSource ?? '', resource_code: line.resourceCode ?? '', amount: line.amountSource ?? '' }
-  }))
+  })})
 
   const leadRows = (applications: LeadApplication[]) => applications.map((app) => {
     const variant = leadVariants.find((candidate) => candidate.id === app.variantId)
@@ -259,16 +274,19 @@ export function buildRateAnalysisRenderData(
     output_quantity: outputQty
   }
   return {
+    direct_rate_text:fmtMoney(calculated.baseCost/outputQty),
+    morth_abstract: morthAbstract(recipe,calculated).map(row=>({...row,basisLabel:calculationBasisLabel(row.base)})),
+    is_morth: Boolean(recipe.morth),
     code, unit, description: desc, description_runs: printableRuns(desc, layout.descriptionRuns),
     section_heading: sectionHeading, document_title: documentTitle, scope_label: scopeLabel,
     visibility: {
       code: layout.codeVisible, description: layout.descriptionVisible, unit_quantity: layout.unitQuantityVisible,
       materials: layout.sections.materials.visible, machinery: layout.sections.machinery.visible,
-      labour: layout.sections.labour.visible, labour_summary: layout.labourSummary.visible,
+      labour: layout.sections.labour.visible, labour_summary: !recipe.morth && layout.labourSummary.visible,
       abstract: layout.abstract.visible
     },
     labour_summary_rows: presentation.normalizedLabourRows,
-    abstract_rows: presentation.normalizedAbstractRows.map((row) => ({
+    abstract_rows: recipe.morth && morthAbstract(recipe,calculated).length ? morthAbstract(recipe,calculated).map(row=>({label:row.label,basis:row.percent===undefined?'':calculationBasisLabel(row.base),qualifier:row.percent===undefined?'':String(row.percent)+'%',amount:fmtMoney(row.amount),is_rate:row.formulaKind==='rate',is_total_cost:row.formulaKind==='total',is_total:row.formulaKind==='direct',is_caption:false})) : presentation.normalizedAbstractRows.map((row) => ({
       ...row,
       is_rate: /^rate per/i.test(row.label),
       is_total_cost: /^total cost for/i.test(row.label),
@@ -313,7 +331,7 @@ export function buildRateAnalysisRenderData(
       base_amount_text: fmtMoney(baseFinalAmount),
       lead_total_text: fmtMoney(regularLeadApplications.reduce((sum, app) => sum + app.grossAmount, 0)),
       final_amount_text: fmtMoney(baseFinalAmount + regularLeadApplications.reduce((sum, app) => sum + app.grossAmount, 0)),
-      final_rate_text: fmtMoney((baseFinalAmount + regularLeadApplications.reduce((sum, app) => sum + app.grossAmount, 0)) / outputQty),
+      final_rate_text: fmtMoney(recipe.morth ? morthFinalRate(recipe, baseFinalAmount, regularLeadApplications) : (baseFinalAmount + regularLeadApplications.reduce((sum, app) => sum + app.grossAmount, 0)) / outputQty),
       disposal_only: regularLeadApplications.length > 0 && regularLeadApplications.every((app) => isDisposalLead(leadVariants.find((v) => v.id === app.variantId)))
     },
     optional_addition: optionalAddition
@@ -326,9 +344,13 @@ export interface TypstDocumentOptions {
   figurePaths?: Record<string, Array<{ path: string; caption: string }>>
   signature?: SignatureFooterSettings
 }
+export function buildMorthAppendixRenderData(recipes:RateAnalysisRecipe[],appendices=collectMorthAppendices(recipes)) {
+  return appendices.map(a=>({...buildRateAnalysisRenderData(a.recipe,[],[],undefined,a.recipe.morth?.startingSummary,appendices,true),appendix_key:a.key,appendix_name:a.name,appendix_usages:a.usages}))
+}
 export function dataTypstTemplate(): string { return defaultTemplate }
 export function dataSheetsCompileInputs(sheets: DataSheet[], options: TypstDocumentOptions = {}): Record<string, string> {
   const signature = options.signature
+  const appendices=collectMorthAppendices(sheets.map(s=>s.recipe))
   return { 'ee-data': JSON.stringify({
     project: options.projectName || 'Detailed Estimate', year: options.sorYear || '', zone: options.sorZone || '',
     setup: { paper: options.pageSize === 'Letter' ? 'us-letter' : options.pageSize === 'Legal' ? 'us-legal' : (options.pageSize || 'A4').toLowerCase(), flipped: options.orientation === 'landscape', font_size: 9.5 * (options.fontScale || 1) },
@@ -337,12 +359,13 @@ export function dataSheetsCompileInputs(sheets: DataSheet[], options: TypstDocum
       rate: s.sorPrintRate?.hasNumericRate ? s.sorPrintRate.finalRate : null,
       rate_text: s.sorPrintRate?.hasNumericRate ? fmtMoney(s.sorPrintRate.finalRate) : s.sorPrintRate?.rateText || 'Rate not published'
     })),
+    appendices:buildMorthAppendixRenderData(sheets.map(s=>s.recipe),appendices),
     recipes: sheets.filter(s => s.recipe.itemSource !== 'SOR').map(s => ({
       ...buildRateAnalysisRenderData(s.recipe, s.leadApplications, s.leadVariants, {
         scopeName: s.scopeName,
         usagePath: s.usagePath,
         scope: s.scope
-      }, s.calculatedSummary),
+      }, s.calculatedSummary, appendices),
       figures: options.figurePaths?.[s.id] ?? []
     })),
     signature: signature?.enabled ? {
@@ -369,13 +392,16 @@ export async function rateAnalysisCompileInputs(
   variants: LeadVariant[] = [],
   scopeContext?: ScopeContext
 ): Promise<Record<string, string>> {
+  if(recipe.itemSource==='SSR' && recipe.calculationStale)recipe=await (await import('../rateAnalysis')).recalculateRateAnalysis(recipe)
   const summary = await window.api.rateAnalysis.calculate(recipe)
+  if(summary.costReady===false)throw new Error(`Resolve the pending MoRTH inputs before exporting: ${(summary.missing ?? []).join('; ')}`)
   return {
     'ee-data': JSON.stringify({
       project: project?.meta.name || 'Estimate',
       year: project?.meta.sorYear || '',
       setup: { paper: 'a4', flipped: false, font_size: 10 },
       sor: [],
+      appendices: buildMorthAppendixRenderData([recipe]),
       recipes: [buildRateAnalysisRenderData(recipe, applications, variants, scopeContext, summary)]
     })
   }

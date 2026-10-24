@@ -51,7 +51,7 @@ export default function CreateProjectDataModal({
   )
   const [timelyRates,setTimelyRates] = useState(Boolean(editingDefinition?.timelyRates))
   const [rateSource,setRateSource] = useState<ProjectDataRateSource | undefined>(editingDefinition?.rateSource ??
-    (prefillItem ? {itemSource:prefillItem.side,itemCode:prefillItem.code,categoryKey:prefillItem.category,sorCatalogue:prefillItem.sorCatalogue} : undefined))
+    (prefillItem && prefillItem.side!=='MORTH' ? {itemSource:prefillItem.side,itemCode:prefillItem.code,categoryKey:prefillItem.category,sorCatalogue:prefillItem.sorCatalogue} : undefined))
   const [ssrDraft, setSsrDraft] = useState<ProjectSsrDataDraft>(() =>
     editingDefinition ? draftFromProjectData(editingDefinition)
       : prefillRecipe?.itemSource === 'SSR' ? draftFromBackendSsr(prefillRecipe) : blankProjectSsrDataDraft()
@@ -187,25 +187,18 @@ export default function CreateProjectDataModal({
       >
         <div className="project-data-form project-ssr-create-form">
           <p className="project-data-form-note">
-            {editingDefinition?.kind === 'ssr' && editingDefinition.builtIn
-              ? 'Edit this DATA using the same Materials, Machinery and Labour builder.'
-              : editingDefinition
+            {editingDefinition
               ? 'Edit this independent project DATA. You may also use a backend SSR code to replace the current fields.'
               : 'Start blank, or select an SSR code to prefill the editable form. Enable Timely rates for the whole DATA or selected rows.'}
           </p>
-          {editingDefinition?.kind === 'ssr' && editingDefinition.builtIn ? (
-            <p className="project-data-form-note">
-              Built-in M25 wearing coat. Input rates refresh from SSR {project?.meta.sorYear} when
-              the project year or zone changes while Timely rates is checked. Edit quantities here; typing a rate turns its yearly update off.
-            </p>
-          ) : <BackendSsrPrefill
+          <BackendSsrPrefill
             year={project?.meta.sorYear ?? ''}
             zone={project?.meta.sorZone ?? 'zone_3'}
             onPrefilled={(draft) => {
               setSsrDraft(draft)
               setError('')
             }}
-          />}
+          />
           <ProjectSsrDataEditor
             value={ssrDraft}
             onChange={setSsrDraft}
@@ -290,12 +283,10 @@ function draftFromProjectData(definition?: ProjectDataDefinition): ProjectSsrDat
     overheadPercent: definition.overheadPercent,
     lead: definition.lead,
     timelyRates: definition.timelyRates,
-    timelyOverhead: definition.timelyOverhead ?? Boolean(definition.builtIn && definition.overheadPercent === definition.builtIn.sourceOverheadPercent),
-    rateSource: definition.rateSource ?? (definition.builtIn
-      ? {itemSource:'SSR',categoryKey:'ssr_item',itemCode:definition.builtIn.sourceItemCode} : undefined),
-    sections: structuredClone(definition.sections).map(section => ({...section,lines:section.lines.map(line => ({...line,
-      timelyRates: line.timelyRates ?? Boolean(definition.builtIn && !line.editedFields?.includes('rate'))
-    }))}))
+    timelyOverhead: definition.timelyOverhead,
+    rateSource: definition.rateSource,
+    sections: structuredClone(definition.sections)
+
   }
 }
 

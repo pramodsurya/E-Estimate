@@ -119,6 +119,8 @@ fn summary(
     let (area_allowance_amount, labour_cost_with_area_allowance) =
         area_allowance_for_labour(labour_base_cost, recipe.area_allowance_percent);
     RateAnalysisSummary {
+        cost_ready: None, missing: vec![], profit_amount: 0.0, allowance_amount: 0.0, computed_lines: None,
+        morth_abstract: None,
         section_totals,
         labour_base_cost,
         area_allowance_percent: recipe.area_allowance_percent.max(0.0),
@@ -137,6 +139,7 @@ fn summary(
 /// Published, edited and SOR recipes have different adoption rules. Never
 /// collapse them into a simple sum of detail lines.
 pub fn calculate_base_rate_analysis(recipe: &RateAnalysisRecipe) -> RateAnalysisSummary {
+    if recipe.item_source.as_deref() == Some("MORTH") { return super::morth::calculate(recipe); }
     if recipe.item_source.as_deref() == Some("SOR") {
         let base_rate = recipe.published_rate.unwrap_or_else(|| {
             recipe

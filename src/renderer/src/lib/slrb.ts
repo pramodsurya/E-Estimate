@@ -2,11 +2,20 @@
  * this model. It measures adopted geometry; it does not reuse the audited
  * spreadsheets' structural-safety labels or substitute a guessed missing value. */
 import type { ProjectNode } from '../types/project'
-import type { SlrbData, SlrbSolid, SlrbSpan, SlrbSupport, SlrbWork, SlrbMeasurement, SlrbOutputModel } from '../types/slrb'
+import type { SlrbData, SlrbSolid, SlrbSpan, SlrbSupport, SlrbWork, SlrbMeasurement, SlrbOutputModel, SlrbMaterial } from '../types/slrb'
 import { createNode, findNode, newId, patchNode } from './tree'
 import { resolveSlrbContext } from './slrbContext'
 
 export const SLRB_CALCULATION_VERSION = 'slrb-measurement/1.0.0'
+/** A reviewed ingredient price still cannot replace a completed bridge work item. */
+export function slrbItemCoversCompleteWork(material: SlrbMaterial | undefined): boolean {
+  if (['material','labour','machinery'].includes(material?.categoryKey ?? '')) return false
+  if (material?.categoryKey !== 'SOR_Recipie' && material?.side !== 'SOR') return true
+  const recipe = material.sorCatalogue?.recipe
+  if (!recipe || recipe.part_no === 1) return false
+  if (['Labour Rates','Material Rates','Hire Charges for Machinery','Hire Charges of Machinery'].includes(recipe.heading)) return false
+  return !['supply','material','adjustment','machinery_hire','rb_machinery_hire','labour'].includes(String(recipe.metadata.item_type))
+}
 export const slrbDetailId = (id: string): string => id + '::slrbdetail'
 export const parseSlrbDetailId = (id: string | null | undefined): string | null => id?.endsWith('::slrbdetail') ? id.slice(0,-12) : null
 export const slrbSolid = (): SlrbSolid => ({shape:'rectangle',length:null,width:null,bottomWidth:null,height:null,grade:'unknown'})
@@ -82,7 +91,7 @@ export function buildSlrbOutputModel(root: ProjectNode, node: ProjectNode): Slrb
     const gradeValid=specifiedGrade!=='unknown' && (!material||!knownGrades[material.code]||specifiedGrade===knownGrades[material.code])
     const excavationDepth=data.supports.find(s=>s.id===memberId)?.excavation.height
     const depthValid=material?.code!=='IRR-CCDW-1-2'||!(excavationDepth!==null&&excavationDepth!==undefined&&excavationDepth>3)
-    const completeWork=material?.categoryKey ? !['material','labour','machinery'].includes(material.categoryKey) : true
+    const completeWork=slrbItemCoversCompleteWork(material)
     const billable = Boolean(material?.reviewed && material.scopeNote.trim() && material.code && unitValid && gradeValid && depthValid && completeWork && data.estimateBasis!=='unknown')
     if (q !== null && !billable) issue(8,memberId,`${label}: ${!gradeValid?'the source concrete grade does not match or remains unknown':!depthValid?'this excavation item stops at 3 m depth':!completeWork?'a supply/ingredient price does not cover completed work':`choose and review a compatible ${unit} rate item (${mappingKey})`}.`)
     measurements.push({id,memberId,label,mappingKey,unit,quantity:q,expression,chapter,issue:message,material,billable})
@@ -178,7 +187,7 @@ export function syncSlrbItems(root: ProjectNode, componentId: string): ProjectNo
     const existing=id ? node.children.find(child=>child.id===id&&child.templateGenerated&&child.templateOwnerId===node.id) : undefined
     const patch: Partial<ProjectNode>={name:row.label,itemCode:ref.code,itemDescription:ref.description??row.label,
       itemSource:ref.side??'SSR',categoryKey:ref.categoryKey??'ssr_item',unit:row.unit,projectDataId:ref.projectDataId,
-      dataVariant:ref.dataVariant,sorCatalogue:ref.sorCatalogue,computedQuantity:row.quantity,templateGenerated:true,
+      dataVariant:ref.dataVariant,morth:ref.morth,sorCatalogue:ref.sorCatalogue,computedQuantity:row.quantity,templateGenerated:true,
       templateOwnerId:node.id,templateItemRole:'slrb',templateMeasurementKey:row.id,itemEditorType:'spreadsheet',spreadsheet:undefined,finalCell:undefined}
     const item=existing ? {...existing,...patch} : createNode('item',row.label,patch)
     generated.push(item);nextRegistry.push({key:row.id,itemNodeId:item.id})

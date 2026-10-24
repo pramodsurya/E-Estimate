@@ -36,7 +36,8 @@ import type {
   ProjectAreaAllowance
 } from '../types/project'
 import type { MasterItem } from '../lib/masterData'
-import { reviewedRecipeSnapshots, seedReviewedMeasurement, seedSharedReviewedMeasurements } from '../lib/reviewedSorEstimate'
+import { validateSorInsertion } from '../lib/sorSource'
+import { sorRecipeSnapshots, seedSorMeasurement, seedSharedSorMeasurements } from '../lib/sorEstimate'
 import {
   collectProjectItemGroups,
   projectItemKey
@@ -44,7 +45,7 @@ import {
 import { PROJECT_DATA_CATEGORY } from '../lib/projectData'
 import type { SlrbData } from '../types/slrb'
 import { defaultSlrbData, syncAllSlrbItems } from '../lib/slrb'
-import { ensureBuiltInProjectData, nextProjectDataCode } from '../lib/projectDataDefaults'
+import { retireDefaultCreatedData, nextProjectDataCode } from '../lib/projectDataDefaults'
 import { pendingProjectDataRates, projectDataUsesTimelyRates } from '../lib/projectDataRateLinks'
 import { canonicalLeadConveyanceClass } from '../lib/leadApplicability'
 import {
@@ -454,7 +455,7 @@ function normalizeLoaded(rawData: EestimateProject): EestimateProject {
   // maps back before anything reads the snapshot.
   const data = expandLoadedProject(rawData)
   const normalizedRoot = ensureTemplateComponentsSynced(normalizeNode(data.root))
-  return ensureBuiltInProjectData(ensureProjectHasCoverEmblem({
+  return retireDefaultCreatedData(ensureProjectHasCoverEmblem({
     ...data,
     meta: {
       ...data.meta,
@@ -488,7 +489,7 @@ export type ActivityView =
   | 'data'
   | 'sourcecontrol'
 
-export type DataDashboardSection = 'dashboard' | 'created' | 'catalogue' | 'rates'
+export type DataDashboardSection = 'dashboard' | 'created' | 'catalogue' | 'rates' | 'individual-costs'
 
 interface AddItemState {
   open: boolean
@@ -771,7 +772,6 @@ interface StoreState {
   attachItemToSharedSheet: (itemId: string, sharedSheetId: string, sharedSheetName?: string) => void
   detachItemFromSharedSheet: (itemId: string) => void
   createProjectData: (input: ProjectDataDefinitionInput) => ProjectDataDefinition | null
-  refreshBuiltInProjectData: () => Promise<void>
   refreshProjectDataRates: (force?: boolean) => Promise<void>
   updateProjectData: (id: string, input: ProjectDataDefinitionInput) => ProjectDataDefinition | null
   addProjectDataItems: (parentId: string, projectDataIds: string[]) => void
@@ -1063,7 +1063,7 @@ export const useStore = create<StoreState>((set, get) => {
 
     startNewProject: () => {
       if (!confirmProjectReplacementWhileSimulation('Starting a new project')) return
-      const draft = ensureBuiltInProjectData(ensureProjectHasCoverEmblem(createDraftProject()))
+      const draft = retireDefaultCreatedData(ensureProjectHasCoverEmblem(createDraftProject()))
       set({
         view: 'newproject',
         project: draft,
@@ -1916,9 +1916,10 @@ export const useStore = create<StoreState>((set, get) => {
     addItemsFromMaster: (parentId, items) => {
       const p = get().project
       if (!p) return
+      validateSorInsertion(items,p.meta.sorYear,p.meta.sorZone ?? 'zone_3')
       const parent = resolveItemParent(p.root, parentId)
       const nodes = items.map((m) =>
-        seedReviewedMeasurement(createNode('item', m.side === 'SOR' ? m.description : m.code, {
+        seedSorMeasurement(createNode('item', m.side !== 'SSR' ? m.description : m.code, {
           itemSource: m.side,
           itemCode: m.code,
           itemDescription: m.description,
@@ -1926,22 +1927,24 @@ export const useStore = create<StoreState>((set, get) => {
           unit: m.unit,
           categoryKey: m.category,
           dataVariant: m.dataVariant,
+          morth: m.morth,
           sorCatalogue: m.sorCatalogue
         }))
       )
       mutate((root) => addChildren(root, parent.id, nodes))
       set((s) => ({ expanded: { ...s.expanded, [parent.id]: true },
-        project: s.project ? { ...s.project, rateAnalysisOverrides: reviewedRecipeSnapshots(nodes, s.project.rateAnalysisOverrides) } : null }))
+        project: s.project ? { ...s.project, rateAnalysisOverrides: sorRecipeSnapshots(nodes, s.project.rateAnalysisOverrides) } : null }))
     },
 
     addSharedItemsFromMaster: (parentId, items, opts) => {
       const p = get().project
       if (!p || items.length === 0) return
+      validateSorInsertion(items,p.meta.sorYear,p.meta.sorZone ?? 'zone_3')
       const parent = resolveItemParent(p.root, parentId)
       const seed = findSharedOwner(p.root, opts.sharedSheetId)?.spreadsheet
       const print = findSharedPrintSource(p.root, opts.sharedSheetId)?.print
-      const nodes = seedSharedReviewedMeasurements(items.map((m) =>
-        createNode('item', m.side === 'SOR' ? m.description : m.code, {
+      const nodes = seedSharedSorMeasurements(items.map((m) =>
+        createNode('item', m.side !== 'SSR' ? m.description : m.code, {
           itemSource: m.side,
           itemCode: m.code,
           itemDescription: m.description,
@@ -1949,6 +1952,7 @@ export const useStore = create<StoreState>((set, get) => {
           unit: m.unit,
           categoryKey: m.category,
           dataVariant: m.dataVariant,
+          morth: m.morth,
           sorCatalogue: m.sorCatalogue,
           sharedSheetId: opts.sharedSheetId,
           sharedSheetName: opts.sharedSheetName,
@@ -1958,7 +1962,7 @@ export const useStore = create<StoreState>((set, get) => {
       ))
       mutate((root) => {
         let next = addChildren(root, parent.id, nodes)
-        if (nodes.some(node => node.sorCatalogue?.reviewed)) {
+        if (nodes.some(node => node.sorCatalogue)) {
           for (const member of collectSharedMembers(next, opts.sharedSheetId)) {
             next = patchNode(next, member.id, { spreadsheet: nodes[0].spreadsheet })
           }
@@ -1966,7 +1970,7 @@ export const useStore = create<StoreState>((set, get) => {
         return next
       })
       set((s) => ({ expanded: { ...s.expanded, [parent.id]: true },
-        project: s.project ? { ...s.project, rateAnalysisOverrides: reviewedRecipeSnapshots(nodes, s.project.rateAnalysisOverrides) } : null }))
+        project: s.project ? { ...s.project, rateAnalysisOverrides: sorRecipeSnapshots(nodes, s.project.rateAnalysisOverrides) } : null }))
     },
 
     addProjectDataItemsToSharedSheet: (parentId, projectDataIds, opts) => {
@@ -2027,13 +2031,11 @@ export const useStore = create<StoreState>((set, get) => {
       mutate((root) => patchNode(root, itemId, { sharedSheetId: undefined, sharedSheetName: undefined }))
     },
 
-    refreshBuiltInProjectData: async () => get().refreshProjectDataRates(true),
 
     refreshProjectDataRates: async (force = false) => {
       const current = get().project
       if (!current) return
-      const seeded = ensureBuiltInProjectData(current)
-      if (seeded !== current) set({ project: seeded, dirty: true })
+      const seeded = current
       const year = seeded.meta.sorYear
       const zone = seeded.meta.sorZone ?? 'zone_3'
       if (!year) return
@@ -2049,10 +2051,7 @@ export const useStore = create<StoreState>((set, get) => {
           return { original: definition, resolved: { ...definition,
             rateRefresh: { status: 'error' as const, year, zone,
               error: reason instanceof Error ? reason.message : 'Unable to refresh SOR/SSR rates.' },
-            ...(definition.kind === 'ssr' && definition.builtIn ? {
-              builtIn: { ...definition.builtIn, rateStatus: 'error' as const,
-                error: reason instanceof Error ? reason.message : 'Unable to refresh SSR rates.' }
-            } : {})
+
           } }
         }
       }))

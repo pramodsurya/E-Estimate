@@ -1,0 +1,322 @@
+.sor-picker {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  color: var(--text-primary, inherit);
+}
+.sor-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border, #ddd);
+}
+.sor-picker-header div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sor-picker-header small {
+  opacity: 0.65;
+}
+.sor-breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border, #ddd);
+  font-size: 11px;
+}
+.sor-breadcrumbs span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+}
+.sor-breadcrumbs button {
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  padding: 3px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sor-breadcrumbs button:hover {
+  color: var(--accent, #337dce);
+  text-decoration: underline;
+}
+.sor-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+}
+.sor-search input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border, #bbb);
+  border-radius: 7px;
+  background: var(--bg-input, transparent);
+  color: inherit;
+  padding: 9px;
+}
+.sor-node-list,
+.sor-leaf-list {
+  overflow: auto;
+  min-height: 0;
+}
+.sor-node {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border, #ddd);
+  color: inherit;
+  cursor: pointer;
+}
+.sor-node > span {
+  flex: 1;
+}
+.sor-node small {
+  opacity: 0.55;
+}
+.sor-node:hover,
+.sor-leaf:hover {
+  background: var(--bg-hover, rgba(75, 125, 180, 0.08));
+}
+.sor-leaf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border, #ddd);
+}
+.sor-leaf-description {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.sor-leaf-list {
+  flex: 1;
+}
+.sor-node > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sor-leaf-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+}
+.sor-leaf-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--border, #bbb);
+  border-radius: 5px;
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  cursor: pointer;
+}
+.sor-leaf-actions .sor-quick-add {
+  color: var(--accent, #337dce);
+}
+.sor-leaf-actions .sor-quick-add.selected {
+  background: var(--accent, #337dce);
+  color: white;
+}
+.sor-leaf-actions button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.sor-leaf-actions .sor-details-button {
+  border-color: transparent;
+  width: 21px;
+}
+.sor-leaf strong {
+  font-size: 12px;
+  line-height: 1.6;
+  font-weight: 500;
+}
+.sor-leaf small {
+  font-size: 10px;
+  opacity: 0.65;
+}
+.sor-leaf.unavailable {
+  opacity: 0.55;
+}
+.sor-matrix-axes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-secondary, rgba(75, 125, 180, 0.06));
+}
+.sor-matrix-axes label {
+  flex: 1;
+  min-width: 125px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+}
+.sor-matrix-axes select {
+  min-width: 0;
+  width: 100%;
+  padding: 7px;
+  border: 1px solid var(--border, #bbb);
+  background: var(--bg-input, transparent);
+  color: inherit;
+  border-radius: 5px;
+}
+.sor-notice,
+.sor-error {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  padding: 10px 16px;
+  margin: 0;
+}
+.sor-notice {
+  opacity: 0.7;
+}
+.sor-error {
+  background: rgba(200, 65, 50, 0.1);
+  color: var(--danger, #c34d45);
+  flex-wrap: wrap;
+}
+.sor-error button,
+.sor-notice button {
+  background: none;
+  border: 0;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.sor-variant-stage {
+  padding: 16px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.sor-variant-stage h3 {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+.sor-specification {
+  font-size: 12px;
+  line-height: 1.65;
+  margin: 0;
+  opacity: 0.8;
+  white-space: pre-wrap;
+}
+.sor-variant-options,
+.sor-addon-options {
+  border: 1px solid var(--border, #ddd);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 12px;
+}
+.sor-variant-options label,
+.sor-addon label {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+.sor-variant-options legend,
+.sor-addon-options legend {
+  padding: 0 5px;
+  font-weight: 600;
+}
+.sor-addon {
+  padding: 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.sor-addon small {
+  opacity: 0.6;
+}
+.sor-tariff,
+.sor-amount {
+  padding: 12px;
+  border-radius: 7px;
+  background: var(--bg-secondary, rgba(60, 120, 175, 0.07));
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 12px;
+}
+.sor-tariff strong {
+  font-size: 18px;
+}
+.sor-input {
+  display: flex !important;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.sor-input input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-input, transparent);
+  color: inherit;
+  border: 1px solid var(--border, #bbb);
+  border-radius: 5px;
+  padding: 8px;
+}
+.sor-amount span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sor-variant-stage details {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  opacity: 0.75;
+}
+.sor-apply {
+  width: 100%;
+  justify-content: center;
+  min-height: 36px;
+}
+.sor-variant-stage h3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.canal-unified-code-picker .sor-picker {
+  max-height: 650px;
+}
+.sor-data-table-browser > .sor-picker {
+  width: 100%;
+  max-height: 75vh;
+}

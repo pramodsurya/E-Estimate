@@ -9,8 +9,10 @@ pub(super) fn write_ssr_sheet(
     req: &ExcelCompileRequest,
     lead_rate_refs: &HashMap<String, String>,
     require_lead_refs: bool,
+    morth: bool,
 ) -> Result<HashMap<String, String>, XlsxError> {
     let mut data_rate_refs = HashMap::new();
+    let sheet_name=if morth {"MoRTH Items"} else {"SSR Items"};
 
     // Constant palette
     let highlight_color = Color::RGB(0xCFEFEB);
@@ -36,7 +38,7 @@ pub(super) fn write_ssr_sheet(
     // SHEET 1: SSR Items (Rate Analysis Recipes)
     // =========================================================================
     let ws_ssr = workbook.add_worksheet();
-    ws_ssr.set_name("SSR Items")?;
+    ws_ssr.set_name(sheet_name)?;
 
     // 1. Column widths: 6.71, 5.57, 42.71, 10.57, 10.57, 10.57, 12.43
     ws_ssr.set_column_width(0, 6.71)?;
@@ -69,7 +71,7 @@ pub(super) fn write_ssr_sheet(
 
     let mut r: u32 = 0;
 
-    for item_data in &req.recipes {
+    for item_data in if morth {&req.morth} else {&req.recipes} {
         let data_key = if item_data.excel_key.trim().is_empty() {
             item_data.code.clone()
         } else {
@@ -273,6 +275,7 @@ pub(super) fn write_ssr_sheet(
                 quantity: Some(serde_json::json!(0.0)),
                 rate: Some(serde_json::json!(0.0)),
                 amount: Some(serde_json::json!(0.0)),
+                ..Default::default()
             }];
             let effective_lines = if lines.is_empty() { &empty_vec } else { lines };
 
@@ -1088,7 +1091,7 @@ pub(super) fn write_ssr_sheet(
         }
 
         if let Some(rate_row) = adopted_rate_row {
-            data_rate_refs.insert(data_key, format!("'SSR Items'!$G${}", rate_row + 1));
+            data_rate_refs.insert(data_key, format!("'{}'!$G${}", sheet_name, rate_row + 1));
         }
 
         // Blank rows separation between DATA recipes
@@ -1098,7 +1101,7 @@ pub(super) fn write_ssr_sheet(
         r += 1;
     }
 
-    super::signature::apply_data_signature(ws_ssr, &mut r, req, req.sor.is_empty(), 1, 6)?;
+    super::signature::apply_data_signature(ws_ssr, &mut r, req, req.sor.is_empty() && req.morth.is_empty(), 1, 6)?;
     if r > 0 {
         ws_ssr.set_print_area(0, 0, r - 1, 6)?;
     }

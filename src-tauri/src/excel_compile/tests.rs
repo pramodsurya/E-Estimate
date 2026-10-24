@@ -480,6 +480,7 @@ fn test_excel_project_reuses_lead_and_data_templates() {
                     ..Default::default()
                 }),
                 weighted_rate_curve: Some(LeadWeightedRateCurvePayload {
+                    continuous_beyond_5km: false,
                     head_100m: Some(10.0),
                     head_150m: Some(15.0),
                     upto_1km: Some(20.0),

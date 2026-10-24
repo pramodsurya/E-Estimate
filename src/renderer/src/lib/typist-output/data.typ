@@ -76,21 +76,22 @@
 #if DataBook.at("year", default: "") != "" [#align(center)[Standard Schedule of Rates: #DataBook.year]]
 
 // Shared row layout is visible here so an AI can freely redesign it.
-#let cost-table(cost_rows, subtotal) = table(
+#let cost-table(cost_rows, subtotal, neutral: false, accent: rgb("#0b3d5c"), tint: rgb("#e8f2f8")) = table(
   columns: (12mm, 1fr, 16mm, 20mm, 24mm, 28mm),
   align: (center, left, center, right, right, right),
-  stroke: 0.5pt + luma(190),
-  fill: (_, row) => if row == 0 { rgb("#e8eff2") } else { none },
-  table.header(repeat: true, [*Sl No*], [*Description*], [*Unit*], [*Quantity*], [*Rate (Rs)*], [*Amount (Rs)*]),
+  inset: if neutral { (x: 3pt, y: 2pt) } else { 5pt },
+  stroke: 0.5pt + rgb("#b8cad7"),
+  fill: (_, row) => if row == 0 { if neutral { accent } else { rgb("#e8eff2") } } else if neutral and calc.even(row) { rgb("#f8fafc") } else { none },
+  table.header(repeat: true, ..("Sl No", "Description", "Unit", "Quantity", "Rate (Rs)", "Amount (Rs)").map(title => text(fill: if neutral { white } else { black }, weight: "bold", title))),
   ..cost_rows.map(cost_row => (
     [#edited-cell(cost_row.sl, edited: cost_row.edited.sl_no, user-added: cost_row.user_added)],
-    [#edited-cell(cost_row.description, edited: cost_row.edited.description, user-added: cost_row.user_added)],
+    [#edited-cell(cost_row.description, edited: cost_row.edited.description, user-added: cost_row.user_added) #if cost_row.at("appendix_key", default: none) != none [#linebreak() #text(size: 0.8em)[#link(label(cost_row.appendix_key))[#cost_row.appendix_name] #if cost_row.at("appendix_direct", default: false) [· direct rate]]]],
     [#edited-cell(cost_row.unit, edited: cost_row.edited.unit, user-added: cost_row.user_added)],
     [#metadata(cost_row.at("_ee_print_id", default: ""))#edited-cell(cost_row.qty_text, edited: cost_row.edited.quantity, user-added: cost_row.user_added)],
     [#edited-cell(cost_row.rate_text, edited: cost_row.edited.rate, user-added: cost_row.user_added)],
     [#edited-cell(cost_row.amount_text, edited: cost_row.edited.amount, user-added: cost_row.user_added)]
   )).flatten(),
-  table.cell(colspan: 5)[*Subtotal*], [*Rs. #subtotal*]
+  table.cell(colspan: 5, fill: if neutral { tint } else { none })[*Subtotal*], table.cell(fill: if neutral { tint } else { none })[*#if not neutral [Rs. ]#subtotal*]
 )
 
 #if DataBook.at("sor", default: ()).len() > 0 [
@@ -104,10 +105,21 @@
   )
 ]
 
-#for RateAnalysis in DataBook.at("recipes", default: ()) [
+#let main-recipes = DataBook.at("recipes", default: ())
+#let appendix-recipes = DataBook.at("appendices", default: ())
+#for (analysis-index, RateAnalysis) in (main-recipes + appendix-recipes).enumerate() [
+  #let morth = RateAnalysis.at("is_morth", default: false)
+  #if morth { set text(fill: rgb("#18324a")) }
+  #if morth and analysis-index > 0 and analysis-index < main-recipes.len() { pagebreak(weak: true) }
+  #if analysis-index >= main-recipes.len() [
+    #pagebreak(weak: true)
+    #if analysis-index == main-recipes.len() [#align(center)[#text(size: 14pt, weight: "bold")[MoRTH APPENDIX]] #v(5mm)]
+    #label(RateAnalysis.appendix_key)
+    #text(weight: "bold")[#RateAnalysis.appendix_name] #linebreak()
+  ]
   #metadata(RateAnalysis.at("_ee_print_id", default: ""))
   #let visible = RateAnalysis.at("visibility", default: (:))
-  #if visible.at("code", default: true) [
+  #if visible.at("code", default: true) and analysis-index < main-recipes.len() [
     #text(weight: "bold")[#RateAnalysis.code]
     #if RateAnalysis.at("scope_label", default: "") != "" [
       #h(6pt) #box(fill: rgb("#f1f5f9"), stroke: 0.5pt + rgb("#cbd5e1"), inset: (x: 4.5pt, y: 1.5pt), radius: 2pt)[#text(size: 0.78em, fill: rgb("#475569"), weight: "bold")[#RateAnalysis.scope_label]]
@@ -117,7 +129,15 @@
   #if RateAnalysis.document_title != "" [*#RateAnalysis.document_title* #linebreak()]
   #if RateAnalysis.section_heading != "" [#RateAnalysis.section_heading #linebreak()]
   #if visible.at("description", default: true) [#render-runs(RateAnalysis.at("description_runs", default: ())) #linebreak()]
-  #if visible.at("unit_quantity", default: true) [*Output quantity:* #RateAnalysis.display.output_quantity #RateAnalysis.unit]
+  #if visible.at("unit_quantity", default: true) [
+    #if morth [
+      #block(width: 100%, fill: rgb("#0b3d5c"), inset: 7pt, stroke: (bottom: 2pt + rgb("#087e8b")))[
+        #text(fill: white)[#grid(columns: (1fr, 1.4fr, 1.5fr), align: (left, center, right),
+          [#if analysis-index >= main-recipes.len() [APPENDIX:] else [DATA:]],
+          [*RATE ANALYSIS*], [UNIT: *#RateAnalysis.display.output_quantity* #RateAnalysis.unit])]
+      ]
+    ] else [*Output quantity:* #RateAnalysis.display.output_quantity #RateAnalysis.unit]
+  ]
 
   #if RateAnalysis.published_blocks.len() > 1 [
     #block(fill: rgb("#f3f7f9"), stroke: 0.5pt + rgb("#9dc7d8"), inset: 6pt, width: 100%)[
@@ -148,15 +168,15 @@
 
   #if visible.at("materials", default: true) and RateAnalysis.materials.len() > 0 [
     == A. MATERIALS
-    #cost-table(RateAnalysis.materials, RateAnalysis.display.material_total)
+    #cost-table(RateAnalysis.materials, RateAnalysis.display.material_total, neutral: morth, accent: rgb("#087e8b"), tint: rgb("#e8f5f0"))
   ]
   #if visible.at("machinery", default: true) and RateAnalysis.machinery.len() > 0 [
-    == B. MACHINERY
-    #cost-table(RateAnalysis.machinery, RateAnalysis.display.machinery_total)
+    #if morth [#heading(level: 2, text(fill: rgb("#0b3d5c"))[B. MACHINERY])] else [== B. MACHINERY]
+    #cost-table(RateAnalysis.machinery, RateAnalysis.display.machinery_total, neutral: morth)
   ]
   #if visible.at("labour", default: true) and RateAnalysis.labour.len() > 0 [
-    == C. LABOUR
-    #cost-table(RateAnalysis.labour, RateAnalysis.display.labour_total)
+    #if morth [#heading(level: 2, text(fill: rgb("#7451a6"))[C. LABOUR])] else [== C. LABOUR]
+    #cost-table(RateAnalysis.labour, RateAnalysis.display.labour_total, neutral: morth, accent: rgb("#7451a6"), tint: rgb("#f1edfa"))
     #if visible.at("labour_summary", default: true) [
       #if RateAnalysis.labour_summary_rows.len() > 0 [
         #table(
@@ -180,11 +200,25 @@
 
   #if visible.at("abstract", default: true) [
   == ABSTRACT
-  #if RateAnalysis.abstract_rows.len() > 0 [
+  #if morth and RateAnalysis.abstract_rows.len() > 0 [
+    #block(breakable: false, width: 100%)[
+      #table(
+        columns: (1fr, 23mm, 34mm), align: (left, right, right), inset: 2.5pt, stroke: 0.5pt + rgb("#b8cad7"),
+        fill: (_, row) => if row == 0 { rgb("#0b3d5c") } else if calc.even(row) { rgb("#edf8f6") } else { none },
+        table.header(repeat: true, ..("Description / calculation basis", "Percent", "Amount (Rs.)").map(title => text(fill: white, weight: "bold", title))),
+        ..RateAnalysis.abstract_rows.map(row => (
+          [#if row.is_rate or row.is_total or row.is_total_cost [*#row.label*] else [#row.label] #if row.basis != "" [#linebreak() #text(size: 0.8em, fill: luma(90))[#row.basis]]],
+          [#row.qualifier],
+          [#if row.is_rate or row.is_total or row.is_total_cost [*#row.amount*] else [#row.amount]]
+        )).flatten()
+      )
+      #if analysis-index >= main-recipes.len() [#v(3pt) #text(size: 0.85em)[Direct rate per #RateAnalysis.unit (before allowances and markup): *Rs. #RateAnalysis.direct_rate_text*]]
+    ]
+  ] else if RateAnalysis.abstract_rows.len() > 0 [
     #table(
       columns: (1fr, 30mm, 24mm, 12mm, 34mm), align: (left, right, center, center, right),
       stroke: 0.5pt + rgb("#c7dce5"),
-      fill: (_, row) => if calc.odd(row) { rgb("#edf8f6") } else { none },
+      fill: (_, row) => if not morth and calc.odd(row) { rgb("#edf8f6") } else { none },
       ..RateAnalysis.abstract_rows.map(row => (
         table.cell(colspan: if row.basis == "" and row.qualifier == "" { 3 } else { 1 })[
           #if row.is_rate or row.is_total [*#row.label*] else [#row.label]

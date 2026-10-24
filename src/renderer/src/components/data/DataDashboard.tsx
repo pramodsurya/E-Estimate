@@ -1,3 +1,6 @@
+import IndividualCostsPanel from './IndividualCostsPanel'
+import MorthPicker from '../morth/MorthPicker'
+import MorthDataPreview from './MorthDataPreview'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
@@ -262,7 +265,7 @@ export default function DataDashboard(): JSX.Element | null {
               ? 'DATA Dashboard'
               : dataDashboardSection === 'created'
                 ? 'Project DATA'
-                : 'SOR / SSR DATA'}
+                : dataDashboardSection === 'individual-costs' ? 'Individual Costs' : 'SOR / SSR / MoRTH DATA'}
           </h1>
           {isDashboard ? (
             <div className="aggregate-meta">
@@ -276,12 +279,12 @@ export default function DataDashboard(): JSX.Element | null {
             </div>
           ) : dataDashboardSection === 'created' ? (
             <div className="aggregate-meta">
-              <span>{projectData.length} built-in / created DATA definition(s)</span>
+              <span>{projectData.length} created DATA definition(s)</span>
               <span>Editable in this project</span>
             </div>
           ) : (
             <div className="aggregate-meta">
-              <span>Official SOR and SSR source DATA</span>
+              <span>SOR, SSR and MoRTH source DATA</span>
               <span>Read-only</span>
             </div>
           )}
@@ -446,6 +449,7 @@ export default function DataDashboard(): JSX.Element | null {
         }} />
       )}
       {dataDashboardSection === 'rates' && <MaterialRatesPanel />}
+      {dataDashboardSection === 'individual-costs' && <IndividualCostsPanel key={project.id} />}
       {(createDataOpen || editingData) && (
         <CreateProjectDataModal
           editingDefinition={editingData ?? undefined}
@@ -510,23 +514,17 @@ function CreatedDataLibrary({
         <div className="created-data-list">
           {definitions.map((definition) => {
             const ready = projectDataRatesReady(definition, year, zone)
-            const builtIn = definition.kind === 'ssr' ? definition.builtIn : undefined
             return (
             <article className="created-data-card" key={definition.id}>
               <div className="created-data-card-heading">
                 <span className={`created-data-kind ${definition.kind}`}>{definition.kind.toUpperCase()}</span>
                 <strong>{definition.code}</strong>
                 <small>{definition.unit}</small>
-                {builtIn && <small>Built-in · SSR {year || 'year pending'}</small>}
                 <small>{projectDataUsesTimelyRates(definition) ? `Timely rates · ${year || 'year pending'}` : 'Fixed rates'}</small>
               </div>
               <p>{definition.description}</p>
-              {builtIn && <p className="project-data-form-note">
-                Checked rows follow the selected SSR year and zone. Quantities and fixed rates are preserved.
-                The M20 production inputs are retained; review productivity for your work.
-              </p>}
               {!ready && <p className="rate-warning">
-                {definition.rateRefresh?.error || builtIn?.error || 'Rates pending for the selected year.'}
+                {definition.rateRefresh?.error || 'Rates pending for the selected year.'}
                 {year && <button className="btn-mini" onClick={onRefresh}>Retry rates</button>}
               </p>}
               <div className="created-data-card-footer">
@@ -534,7 +532,7 @@ function CreatedDataLibrary({
                   {ready ? <>Rate <b>₹ {money.format(projectDataRate(definition))}</b> / {definition.unit}</>
                     : <b>Rate pending</b>}
                 </span>
-                <button className="btn-mini" disabled={Boolean(builtIn && !builtIn.initialized)} onClick={() => onEdit(definition)}>
+                <button className="btn-mini" onClick={() => onEdit(definition)}>
                   Edit
                 </button>
               </div>
@@ -550,7 +548,7 @@ function BackendDataLibrary({ project,onCreateFromSource }: {
   project: EestimateProject
   onCreateFromSource: (item:MasterItem,recipe:RateAnalysisRecipe) => void
 }): JSX.Element {
-  const [source, setSource] = useState<'SSR' | 'SOR'>('SSR')
+  const [source, setSource] = useState<'SSR' | 'SOR' | 'MORTH'>('SSR')
   const [sorDetailOpen, setSorDetailOpen] = useState(false)
   const [selected, setSelected] = useState<MasterItem | null>(null)
   const [recipe, setRecipe] = useState<RateAnalysisRecipe | null>(null)
@@ -559,6 +557,7 @@ function BackendDataLibrary({ project,onCreateFromSource }: {
   const requestRef = useRef(0)
 
   const showBackendData = async (item: MasterItem): Promise<void> => {
+    const liveProject=useStore.getState().project ?? project
     const request = requestRef.current + 1
     requestRef.current = request
     setSelected(item)
@@ -566,9 +565,12 @@ function BackendDataLibrary({ project,onCreateFromSource }: {
     setError('')
     setLoadingCode(item.code)
     try {
-      const next = await fetchRateAnalysis(backendDataNode(item), project.meta.sorYear, {
-        zone: project.meta.sorZone ?? 'zone_3',
-        materialRateOverrides: project.meta.materialRateOverrides
+      const next = await fetchRateAnalysis(backendDataNode(item), liveProject.meta.sorYear, {
+        zone: liveProject.meta.sorZone ?? 'zone_3',
+        individualCosts: liveProject.meta.individualCosts,
+        morthParameters: liveProject.meta.morthParameters,
+        miscellaneousCosts: liveProject.meta.miscellaneousCosts,
+        materialRateOverrides: liveProject.meta.materialRateOverrides
       })
       if (request === requestRef.current) setRecipe(next)
     } catch (reason: unknown) {
@@ -594,12 +596,12 @@ function BackendDataLibrary({ project,onCreateFromSource }: {
   ) : loadingCode ? (
     <div className="backend-data-placeholder">
       <RefreshCw className="spin" size={25} />
-      <strong>Loading {loadingCode}…</strong>
+      <strong>Loading {selected?.side==='MORTH'?selected.description:loadingCode}…</strong>
       <span>Getting the published backend DATA.</span>
     </div>
   ) : error ? (
     <div className="rate-warning">Unable to load {selected.code}: {error}</div>
-  ) : recipe ? (
+  ) : recipe?.itemSource==='MORTH' ? <MorthDataPreview key={`${recipe.itemCode}:${project.meta.sorYear}`} recipe={recipe} onRefresh={()=>void showBackendData(selected!)} /> : recipe ? (
     <>
       <button type="button" className="btn compact" onClick={() => onCreateFromSource(selected,recipe)}>
         <Plus size={15} /> Create New DATA from {selected.code}
@@ -611,6 +613,7 @@ function BackendDataLibrary({ project,onCreateFromSource }: {
   return (
     <section className="backend-data-library">
       <div className="backend-data-library-tabs" role="tablist" aria-label="Published DATA source">
+        <button role="tab" aria-selected={source==='MORTH'} onClick={()=>{setSelected(null);setRecipe(null);setSource('MORTH')}}>MoRTH DATA<small>SOR ingredient rates</small></button>
         <button
           type="button"
           role="tab"
@@ -636,7 +639,7 @@ function BackendDataLibrary({ project,onCreateFromSource }: {
         </button>
       </div>
 
-      {source === 'SOR' && !sorDetailOpen ? (
+      {source==='MORTH'?<section className="backend-data-browser"><aside className="backend-data-picker"><MorthPicker onPick={item=>void showBackendData(item)}/></aside><main className="backend-data-detail">{detail}</main></section>:source === 'SOR' && !sorDetailOpen ? (
         <SorDataTableBrowser
           sorYear={project.meta.sorYear}
           zone={project.meta.sorZone ?? 'zone_3'}
@@ -683,7 +686,7 @@ function BackendDataPreview({
   source
 }: {
   recipe: RateAnalysisRecipe
-  source: 'SOR' | 'SSR'
+  source: 'SOR' | 'SSR' | 'MORTH'
 }): JSX.Element {
   const [summary, setSummary] = useState<RateAnalysisSummary | null>(null)
   useEffect(() => {
@@ -955,6 +958,7 @@ function backendDataNode(item: MasterItem): ProjectNode {
     itemDescription: item.description,
     unit: item.unit ?? undefined,
     categoryKey: item.category,
+    morth: item.morth,
     sorCatalogue: item.sorCatalogue
   }
 }

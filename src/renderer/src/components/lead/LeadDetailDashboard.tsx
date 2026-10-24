@@ -32,6 +32,7 @@ import {
   type LeadHandlingMode,
   type LeadRateRow
 } from '../../lib/lead'
+import { morthLeadVariantSignature } from '../../lib/morthMaterialLead'
 import {
   addonLeadRuleForVariant,
   basisForData,
@@ -331,6 +332,7 @@ function isDeliveryAtSiteMaterial(
   materialName = ''
 ): boolean {
   if (/^fabricated\s+parts?$/i.test(materialName.trim())) return false
+  if (['Concrete delivery', 'Hot mix delivery', 'Precast delivery', 'Disposal material', 'Material delivery'].includes(materialName)) return false
   return conveyanceClass === 'CEMENT' || conveyanceClass === 'STEEL'
 }
 
@@ -589,7 +591,7 @@ export default function LeadDetailDashboard(): JSX.Element {
         if (definition) map.set(group.code, projectDataLeadApplicability(definition))
         continue
       }
-      if (group.source === 'SSR' && Object.prototype.hasOwnProperty.call(stored, group.code)) {
+      if ((group.source === 'SSR' || group.source === 'MORTH') && Object.prototype.hasOwnProperty.call(stored, group.code)) {
         map.set(group.code, stored[group.code])
       }
     }
@@ -915,7 +917,8 @@ export default function LeadDetailDashboard(): JSX.Element {
             sorYear: project.meta.sorYear,
             distanceKm: variant.actualLeadKm ?? variant.leadKm,
             quantity: 1,
-            zone: null
+            zone: project.meta.sorZone ?? 'zone_3',
+            source: variant.pipeLead
           })
           return [
             variant.id,
@@ -985,7 +988,8 @@ export default function LeadDetailDashboard(): JSX.Element {
         sorYear: project.meta.sorYear,
         distanceKm: variant.actualLeadKm ?? variant.leadKm,
         quantity,
-        zone: null
+        zone: project.meta.sorZone ?? 'zone_3',
+        source: variant.pipeLead
       })
       if (quote.pipeLeadItemCode !== variant.pipeLead.pipeLeadItemCode) {
         throw new Error(
@@ -1030,7 +1034,8 @@ export default function LeadDetailDashboard(): JSX.Element {
         ),
         customGrossRate: variant.rateSource === 'chart' ? null : variant.customGrossRate ?? null,
         chargeCode: variant.chargeCode,
-        leadMultiplier: info.policy?.haulLegs ?? 1
+        leadMultiplier: info.policy?.haulLegs ?? 1,
+        leadRuleCode: info.sorRuleCode
       })
       quantitySource = quantity.source
     }
@@ -1079,6 +1084,7 @@ export default function LeadDetailDashboard(): JSX.Element {
       itemNodeId: preview.target.usage.node.id,
       quantity: preview.breakdown.quantity,
       quantitySource: preview.quantitySource,
+      morthLeadVariantSignature: preview.target.group.source === 'MORTH' ? morthLeadVariantSignature(variant) : undefined,
       unit: preview.breakdown.unit,
       leadRate: preview.breakdown.leadRate,
       loadingRate: preview.breakdown.loadingRate,
@@ -5262,7 +5268,7 @@ function materialInGroup(
   if (pipeLead) {
     return pipeLeadForGroup(group, recipes)?.pipeLeadItemCode === pipeLead.pipeLeadItemCode
   }
-  if (group.source !== 'SSR' && group.source !== 'PROJECT_DATA') return false
+  if (group.source !== 'SSR' && group.source !== 'PROJECT_DATA' && group.source !== 'MORTH') return false
   return materialRefsForLeadInfo(parseLeadInfo(metadata), group.description).some(
     (ref) =>
       (disposalLead || ref.conveyanceClass === conveyanceClass) &&

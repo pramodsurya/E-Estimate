@@ -42,8 +42,9 @@ export default function SideBar(): JSX.Element {
               className={`data-sidebar-link ${dataDashboardSection === 'catalogue' ? 'active' : ''}`}
               onClick={() => setDataDashboardSection('catalogue')}
             >
-              SOR / SSR DATA
+              SOR / SSR / MoRTH DATA
             </button>
+            <button type="button" className={`data-sidebar-link ${dataDashboardSection === 'individual-costs' ? 'active' : ''}`} onClick={() => setDataDashboardSection('individual-costs')}>Individual Costs</button>
             <button
               type="button"
               data-tour="data-section-rates"

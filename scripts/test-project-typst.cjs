@@ -171,6 +171,7 @@ function loadBookApi() {
   loaded.filename = filePath
   loaded.paths = Module._nodeModulePaths(path.dirname(filePath))
   const mocks = {
+    './dataTemplateUpgrade': { upgradeBuiltInDataTemplate: saved => saved },
     '../projectPrintInputs': {
       computeProjectPrintInputs: () => ({ recipes: {}, rateOf: () => undefined, seigniorage: { rows: [] } })
     },
