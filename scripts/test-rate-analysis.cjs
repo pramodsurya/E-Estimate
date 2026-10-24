@@ -80,7 +80,7 @@ function loadTsModule(filePath, mocks = {}) {
   const loadedModule = new Module(filePath, module)
   loadedModule.filename = filePath
   loadedModule.paths = Module._nodeModulePaths(path.dirname(filePath))
-  loadedModule.require = (request) => request in mocks ? mocks[request] : request === './miscellaneousCosts' ? loadTsModule(path.join(root,'src/renderer/src/lib/miscellaneousCosts.ts'), {'./morthAppendices':loadTsModule(path.join(root,'src/renderer/src/lib/morthAppendices.ts'))}) : require(request)
+  loadedModule.require = (request) => request in mocks ? mocks[request] : /(?:morthMaterialLead|morthLeadMaterials)$/.test(request) ? loadTsModule(path.resolve(path.dirname(filePath), request + '.ts'), mocks) : request === './miscellaneousCosts' ? loadTsModule(path.join(root,'src/renderer/src/lib/miscellaneousCosts.ts'), {'./morthAppendices':loadTsModule(path.join(root,'src/renderer/src/lib/morthAppendices.ts'))}) : require(request)
   loadedModule._compile(outputText, filePath)
   return loadedModule.exports
 }

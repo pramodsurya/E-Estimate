@@ -1,5 +1,9 @@
 # Continue the MoRTH material Lead implementation
 
+Cloud implementation is now available on `codex/morth-material-lead`; see
+`docs/morth-material-lead-implementation.md` for current behavior and validation.
+The remainder of this file records the original checkpoint handoff.
+
 Repository: pramodsurya/E-Estimate. Checkpoint branch: codex/sor-morth-checkpoint-20261024.
 
 ## Next task

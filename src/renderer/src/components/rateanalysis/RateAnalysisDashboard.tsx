@@ -609,7 +609,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
             leadVariants={leadVariants}
             onLeadApplicationQuantityChange={updateLeadApplicationQuantity}
           />}
-          {draft.itemSource==='MORTH' && <MorthDataPreview recipe={draft}/>}
+          {draft.itemSource==='MORTH' && <MorthDataPreview recipe={draft} leadApplications={leadApplications} leadVariants={leadVariants}/>}
           {draft.itemSource === 'SSR' && <RecalculationAudit recipe={draft} />}
           {!selection.recipeOnly && (
             <section className="rate-usages">

@@ -32,6 +32,7 @@ import {
   type LeadHandlingMode,
   type LeadRateRow
 } from '../../lib/lead'
+import { morthLeadVariantSignature } from '../../lib/morthMaterialLead'
 import {
   addonLeadRuleForVariant,
   basisForData,
@@ -331,6 +332,7 @@ function isDeliveryAtSiteMaterial(
   materialName = ''
 ): boolean {
   if (/^fabricated\s+parts?$/i.test(materialName.trim())) return false
+  if (['Concrete delivery', 'Hot mix delivery', 'Precast delivery', 'Disposal material', 'Material delivery'].includes(materialName)) return false
   return conveyanceClass === 'CEMENT' || conveyanceClass === 'STEEL'
 }
 
@@ -589,7 +591,7 @@ export default function LeadDetailDashboard(): JSX.Element {
         if (definition) map.set(group.code, projectDataLeadApplicability(definition))
         continue
       }
-      if (group.source === 'SSR' && Object.prototype.hasOwnProperty.call(stored, group.code)) {
+      if ((group.source === 'SSR' || group.source === 'MORTH') && Object.prototype.hasOwnProperty.call(stored, group.code)) {
         map.set(group.code, stored[group.code])
       }
     }
@@ -1082,6 +1084,7 @@ export default function LeadDetailDashboard(): JSX.Element {
       itemNodeId: preview.target.usage.node.id,
       quantity: preview.breakdown.quantity,
       quantitySource: preview.quantitySource,
+      morthLeadVariantSignature: preview.target.group.source === 'MORTH' ? morthLeadVariantSignature(variant) : undefined,
       unit: preview.breakdown.unit,
       leadRate: preview.breakdown.leadRate,
       loadingRate: preview.breakdown.loadingRate,
@@ -5265,7 +5268,7 @@ function materialInGroup(
   if (pipeLead) {
     return pipeLeadForGroup(group, recipes)?.pipeLeadItemCode === pipeLead.pipeLeadItemCode
   }
-  if (group.source !== 'SSR' && group.source !== 'PROJECT_DATA') return false
+  if (group.source !== 'SSR' && group.source !== 'PROJECT_DATA' && group.source !== 'MORTH') return false
   return materialRefsForLeadInfo(parseLeadInfo(metadata), group.description).some(
     (ref) =>
       (disposalLead || ref.conveyanceClass === conveyanceClass) &&

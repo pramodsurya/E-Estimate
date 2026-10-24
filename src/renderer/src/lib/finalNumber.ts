@@ -11,6 +11,7 @@ import {
   rateAnalysisOverrideForNode
 } from './projectItems'
 import { scopedLeadRateAddition } from './leadApplications'
+import { morthLeadIssues, morthFinalRate } from './morthMaterialLead'
 
 export function colLabel(index: number): string {
   let n = index
@@ -85,8 +86,13 @@ export function getItemLeadRate(project: EestimateProject | null, node: ProjectN
   // once for every item it prices.
   const group = projectItemGroupIndex(project.root).get(itemKey)
   const isLegacyTarget = group?.usages[0]?.node.id === node.id
-  const recipe = rateAnalysisOverrideForNode(project, node)
+  const recipe = rateAnalysisOverrideForNode(project, node) ?? (node.itemSource === 'MORTH' ? project.dashboardSnapshot?.recipes[node.id] : undefined)
   const outputQuantity = recipe?.outputQuantity || 0
+  if (node.itemSource === 'MORTH') {
+    return outputQuantity > 0 ? (project.leadChart?.applications ?? []).filter(app =>
+      app.itemKey === itemKey && (app.itemNodeId ? app.itemNodeId === node.id : isLegacyTarget))
+      .reduce((sum, app) => sum + app.grossAmount, 0) / outputQuantity : 0
+  }
 
   return scopedLeadRateAddition(
     project.leadChart?.applications ?? [],
@@ -124,6 +130,23 @@ export function getItemFinal(
       amount: qty != null && rate != null ? qty * rate : null,
       unit: node.unit ?? null
     }
+  }
+  if (project && node.itemSource === 'MORTH') {
+    const key = projectItemKey(node)
+    const recipe = rateAnalysisOverrideForNode(project, node) ?? project.dashboardSnapshot?.recipes[node.id]
+    const legacyTarget = projectItemGroupIndex(project.root).get(key)?.usages[0]?.node.id === node.id
+    const applications = (project.leadChart?.applications ?? []).filter(app =>
+      app.itemKey === key && (app.itemNodeId ? app.itemNodeId === node.id : legacyTarget))
+    if (!recipe || recipe.morth?.pending.length || recipe.morth?.startingSummary?.costReady === false ||
+        morthLeadIssues(recipe, applications, project.leadChart?.variants ?? []).length) {
+      return { qty, rate: null, amount: null, unit: node.unit ?? null }
+    }
+    const manual = typeof node.rate === 'number' && Number.isFinite(node.rate) ? node.rate : null
+    const summary = recipe.morth?.startingSummary
+    const baseAmount = manual !== null ? manual * recipe.outputQuantity : summary?.costReady === true ? summary.totalCost : null
+    if (baseAmount === null) return { qty, rate: null, amount: null, unit: node.unit ?? null }
+    const rate = morthFinalRate(recipe, baseAmount, applications)
+    return { qty, rate, amount: qty === null ? null : qty * rate, unit: node.unit ?? null }
   }
   // Priority: manual Item rate, then the applicable shared/component DATA
   // override, then the untouched Supabase rate.

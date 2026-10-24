@@ -22,6 +22,8 @@ function loadTsModule(filePath, mocks = {}) {
   loadedModule.paths = Module._nodeModulePaths(path.dirname(filePath))
   loadedModule.require = (request) => {
     if (request in mocks) return mocks[request]
+    if (request === './morthMaterialLead' || request === './morthLeadMaterials')
+      return loadTsModule(path.resolve(path.dirname(filePath), `${request}.ts`), mocks)
     return require(request)
   }
   loadedModule._compile(outputText, filePath)

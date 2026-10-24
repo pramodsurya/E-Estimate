@@ -613,7 +613,7 @@ pub(super) fn write_morth_sheets(
                             row,
                             6,
                             format!("=ROUND(({total}+{})/{divisor},2)", sum(&amounts)),
-                            (totals.total_cost.unwrap_or(0.0) + lead_total) / output,
+                            (((totals.total_cost.unwrap_or(0.0) + lead_total) / output) * 100.0).round() / 100.0,
                             &bold_number,
                         )?;
                         rate_row = row;

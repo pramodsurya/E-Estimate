@@ -14,6 +14,7 @@ import {
   preloadMorthResourceDefaults,
 } from "./individualCosts";
 import { projectItemKey } from "./projectItems";
+import { activeMorthRow, morthRowIsExcluded, morthTransportBinding, morthLeadApplicability, MORTH_LEAD_MODEL } from "./morthMaterialLead";
 import type { IndividualCosts } from "../types/individualCosts";
 import type { ProjectNode } from "../types/project";
 import type {
@@ -108,6 +109,13 @@ export async function fetchMorthRecipe(
       }
       for (const component of rows(option.components)) {
         const destination = String(component.section ?? kind);
+        const replacesCombined = morthTransportBinding(raw)?.mode === "fixed";
+        const revisedExpression = record(option.quantity_expression ?? raw.quantity_expression);
+        // An alternative machine needs its own revised fixed operation hours.
+        // Legacy whole-cycle hours must not overlap with the new material Lead.
+        const expression = replacesCombined && revisedExpression.type === "parameter"
+          ? { ...revisedExpression, parameter: `${revisedExpression.parameter}_fixed_operations` }
+          : option.quantity_expression ?? raw.quantity_expression;
         expanded[destination]?.push({
           ...raw,
           ...component,
@@ -115,8 +123,11 @@ export async function fetchMorthRecipe(
           resource_key:
             component.resource_key ?? `morth:option:${component.desc}`,
           unit: component.unit ?? raw.unit,
-          quantity_expression:
-            option.quantity_expression ?? raw.quantity_expression,
+          quantity_expression: expression,
+          ...(replacesCombined ? {
+            material_lead_source_key: raw.resource_key,
+            material_lead_fixed_operations: true,
+          } : {}),
         });
       }
     }
@@ -124,11 +135,12 @@ export async function fetchMorthRecipe(
     source[kind] = [
       ...expanded[kind],
       ...rows(record(source.pricing_additions)[kind]),
-    ];
+    ].map(activeMorthRow);
   const inputs: NonNullable<RateAnalysisRecipe["morth"]>["inputs"] = {};
   const pending: string[] = [];
   const resourceCodes = ["materials", "machinery", "labour"].flatMap((kind) =>
     rows(source[kind]).flatMap((raw) => {
+      if (morthRowIsExcluded(raw)) return [];
       const resourceCode = morthResourceCode(raw);
       return resourceCode ? [resourceCode] : [];
     }),
@@ -146,8 +158,8 @@ export async function fetchMorthRecipe(
         key: kind,
         label: kind[0].toUpperCase() + kind.slice(1),
         lines: await Promise.all(
-          rows(source[kind]).map(
-            async (raw, index): Promise<RateAnalysisLine> => {
+          rows(source[kind]).map((raw,index)=>({raw,index})).filter(({raw})=>!morthRowIsExcluded(raw)).map(
+            async ({raw, index}): Promise<RateAnalysisLine> => {
               const id = `${kind}-${index}`,
                 unit = String(raw.unit ?? ""),
                 description = String(raw.desc ?? raw.description ?? "");
@@ -261,6 +273,7 @@ export async function fetchMorthRecipe(
     overheadPercent: 0,
     sections,
     morth: {
+      costingBasis: MORTH_LEAD_MODEL,
       source,
       parameters: selectedParameters,
       inputs,
@@ -296,7 +309,18 @@ export async function prepareMorthRecipe(
   recipe: RateAnalysisRecipe,
 ): Promise<RateAnalysisRecipe> {
   if (!recipe.morth) return recipe;
+  const source = { ...recipe.morth.source };
+  for (const kind of ["materials", "machinery", "labour"])
+    source[kind] = rows(source[kind]).map(activeMorthRow);
   const inputs = { ...recipe.morth.inputs };
+  for (const [id, input] of Object.entries(inputs)) {
+    inputs[id] = { ...input, raw: activeMorthRow(input.raw),
+      ...(input.dependency ? { dependency: await prepareMorthRecipe(input.dependency) } : {}) };
+  }
+  const activeSections = recipe.sections.map(section=>({...section,lines:section.lines.filter(line=>!morthRowIsExcluded(inputs[line.id]?.raw ?? {})).map(line=>{
+    const binding=morthTransportBinding(inputs[line.id]?.raw ?? {});
+    return binding?.mode==='fixed' ? {...line,description:`${String(inputs[line.id].raw.desc ?? line.description)} · fixed operations`} : line;
+  })}));
   for (const section of recipe.sections)
     for (const line of section.lines) {
       if (
@@ -313,8 +337,11 @@ export async function prepareMorthRecipe(
     }
   const next = {
     ...recipe,
+    sections: activeSections,
     morth: {
       ...recipe.morth,
+      source,
+      costingBasis: MORTH_LEAD_MODEL,
       inputs,
       pending: recipe.morth.sourceErrors ?? [],
     },
@@ -325,15 +352,7 @@ export async function prepareMorthRecipe(
       "Restart the desktop app after its native build completes to enable the MoRTH calculator.",
     );
   }
-  const results =
-    (
-      summary as typeof summary & {
-        computedLines?: Record<
-          string,
-          { quantity: number; rate: number; amount: number }
-        >;
-      }
-    ).computedLines ?? {};
+  const results = summary.computedLines ?? {};
   const sections = next.sections.map((s) => ({
     ...s,
     lines: s.lines.map((l) => ({ ...l, ...results[l.id] })),
@@ -358,7 +377,7 @@ export async function prepareMorthRecipe(
       { label: "Total cost", amount: String(summary.totalCost) },
       { label: `Rate per ${recipe.unit}`, amount: String(summary.ratePerUnit) },
     ].map((r) => ({ ...r, value: "", unit: "", basis: "", percent: "" }));
-  return {
+  const prepared: RateAnalysisRecipe = {
     ...next,
     sections,
     overheadPercent:
@@ -387,4 +406,5 @@ export async function prepareMorthRecipe(
           },
     recalculation: undefined,
   };
+  return { ...prepared, leadApplicability: morthLeadApplicability(prepared) };
 }

@@ -1,5 +1,6 @@
 import type { ProjectItemGroup } from './projectItems'
 import { CONVEYANCE_CLASSES } from './lead'
+import { morthQuantityForLead, MORTH_LEAD_MODEL } from './morthMaterialLead'
 import type {
   ConveyanceClass,
   LeadHandlingMode,
@@ -12,6 +13,8 @@ import type {
 import type { RateAnalysisLine, RateAnalysisRecipe } from '../types/rateAnalysis'
 
 export interface LeadInfo {
+  materialLeadModel?: string
+  materialLeadHandlingIncluded?: string[]
   /** SOR-only source binding. SSR policy never populates this field. */
   sorRuleCode?: string
   classes: ConveyanceClass[]
@@ -113,6 +116,8 @@ export function parseLeadInfo(value: unknown): LeadInfo {
       })
     : []
   return {
+    materialLeadModel: typeof source.model === 'string' ? source.model : undefined,
+    materialLeadHandlingIncluded: Array.isArray(source.handling_included_materials) ? source.handling_included_materials.map(String) : undefined,
     sorRuleCode: typeof source.sor_rule_code === 'string' ? source.sor_rule_code : undefined,
     classes,
     materials,
@@ -261,6 +266,9 @@ export function handlingModeForData(
   variant: Pick<LeadVariant, 'materialName' | 'conveyanceClass'>,
   fallback: LeadHandlingMode
 ): LeadHandlingMode {
+  // Fixed filling, unloading and handling remain in DATA. Additional material
+  // Lead pays for conveyance only, avoiding overlapping operation charges.
+  if (info.materialLeadModel === MORTH_LEAD_MODEL && info.materialLeadHandlingIncluded?.includes(variant.materialName)) return 'none'
   const addonRule = addonLeadRuleForVariant(info, variant)
   if (addonRule && !addonRule.allowLoading && !addonRule.allowUnloading) return 'none'
   if (info.policy && !info.policy.allowLoading && !info.policy.allowUnloading) return 'none'
@@ -268,6 +276,10 @@ export function handlingModeForData(
 }
 
 export function materialNameFor(description: string, conveyanceClass: ConveyanceClass): string {
+  // These are material delivery scopes, each requiring its own explicit rate.
+  const scoped = ['Concrete delivery', 'Hot mix delivery', 'Precast delivery', 'Disposal material', 'Material delivery']
+    .find(name => name.toLowerCase() === description.trim().toLowerCase())
+  if (scoped) return scoped
   const text = normalizeDescription(description)
   if (/\bfabricated\s+parts?\b/.test(text)) return 'Fabricated Parts'
   // Murum remains a distinct recipe/pricing material, but Lead transport uses
@@ -297,7 +309,7 @@ export function materialNameFor(description: string, conveyanceClass: Conveyance
 }
 
 export function isEligibleForLead(group: ProjectItemGroup, variant: LeadVariant, info: LeadInfo): boolean {
-  if (group.source !== 'SSR' && group.source !== 'PROJECT_DATA') return false
+  if (group.source !== 'SSR' && group.source !== 'PROJECT_DATA' && group.source !== 'MORTH') return false
   if (info.allLeads) return false
   const variantName = variant.materialName.toLowerCase()
   const variantClass = canonicalLeadConveyanceClass(variant.materialName, variant.conveyanceClass)
@@ -314,6 +326,9 @@ export function basisForData(
   description = '',
   variant?: Pick<LeadVariant, 'materialName' | 'conveyanceClass'>
 ): LeadIncludedBasis {
+  // MoRTH transport has been removed from DATA; parent captions cannot deduct
+  // a legacy included distance from the new material Lead a second time.
+  if (info.materialLeadModel === MORTH_LEAD_MODEL) return 'none'
   const addonRule = variant ? addonLeadRuleForVariant(info, variant) : null
   if (addonRule) {
     if (addonRule.distanceRule === 'FULL_SOURCE_TO_SITE' || addonRule.includedLeadM <= 0) return 'none'
@@ -346,6 +361,7 @@ export function quantityForVariant(
   variant: LeadVariant,
   info: LeadInfo
 ): QuantityMatch {
+  if (recipe.itemSource === 'MORTH') return morthQuantityForLead(recipe, variant)
   if (recipe.itemSource === 'SOR') {
     const targetUnit = leadQuantityUnitForClass(variant.conveyanceClass)
     const quantity = convertQuantityToLeadUnit(recipe.outputQuantity || 1, recipe.unit, targetUnit)

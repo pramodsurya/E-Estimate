@@ -8,6 +8,8 @@ import {
   dashboardContextMatches,
 } from "../../lib/dashboardSync";
 import { fetchMorthRecipe } from "../../lib/morthEstimate";
+import { morthLeadIssues, morthTransportBinding, morthFinalRate } from "../../lib/morthMaterialLead";
+import type { LeadApplication, LeadVariant } from "../../types/project";
 import {
   record,
   rows,
@@ -36,9 +38,13 @@ type Parameters = Record<string, string | number | boolean>;
 export default function MorthAnalysisSheet({
   recipe: original,
   onRefresh,
+  leadApplications = [],
+  leadVariants = [],
 }: {
   recipe: RateAnalysisRecipe;
   onRefresh?: () => void;
+  leadApplications?: LeadApplication[];
+  leadVariants?: LeadVariant[];
 }): JSX.Element {
   const [local, setLocal] = useState<{
     base: RateAnalysisRecipe;
@@ -139,6 +145,8 @@ export default function MorthAnalysisSheet({
   };
   const abstract = morthAbstract(recipe, summary),
     missing = summary?.missing ?? recipe.morth?.pending ?? [];
+  const leadIssues = active ? [] : morthLeadIssues(root, leadApplications, leadVariants);
+  const leadAmount = leadApplications.reduce((sum, application) => sum + application.grossAmount, 0);
   return (
     <article className="rate-sheet morth-sheet">
       {appendices.length > 0 && (
@@ -189,6 +197,13 @@ export default function MorthAnalysisSheet({
         </div>
       </header>
       <div className="rate-description">{recipe.description}</div>
+      {!active && leadIssues.length > 0 && (
+        <details className="morth-sheet-warning" open>
+          <summary>Material Lead pending · final rate incomplete</summary>
+          <ul>{leadIssues.map(issue => <li key={issue}>{issue}</li>)}</ul>
+          <p>Apply the material Lead in the Lead workspace. An explicit zero-distance or included-delivery application can resolve a zero additional cost.</p>
+        </details>
+      )}
       <div className="rate-sheet-heading">
         <span>{active ? "APPENDIX:" : "DATA:"}</span>
         <strong>RATE ANALYSIS</strong>
@@ -276,7 +291,7 @@ export default function MorthAnalysisSheet({
                         ? appendixForRecipe(appendices, dependency)
                         : undefined;
                     const expression = record(input?.raw.quantity_expression),
-                      parameter = String(expression.parameter ?? "");
+                      parameter = morthTransportBinding(input?.raw ?? {})?.mode === 'fixed' ? '' : String(expression.parameter ?? "");
                     const noQuantity = Boolean(
                       parameter &&
                         (recipe.morth?.parameters[parameter] === undefined ||
@@ -444,6 +459,15 @@ export default function MorthAnalysisSheet({
                   </tr>
                 </>
               )}
+              {!active && summary && (
+                <>
+                  <tr><th colSpan={3}>Applied material Lead</th><td>{money.format(leadAmount)}</td></tr>
+                  <tr className="morth-abstract-total">
+                    <th colSpan={3}>Final rate per {recipe.unit} including Lead</th>
+                    <td>{leadIssues.length || missing.length ? 'Pending' : money.format(morthFinalRate(recipe, summary.totalCost, leadApplications))}</td>
+                  </tr>
+                </>
+              )}
             </tbody>
           </table>
         </div>
@@ -488,7 +512,7 @@ function MorthRowEditor({
   const project = useStore((s) => s.project)!,
     input = recipe.morth?.inputs[line.id],
     expression = record(input?.raw.quantity_expression);
-  const parameter = String(expression.parameter ?? "");
+  const parameter = morthTransportBinding(input?.raw ?? {})?.mode === 'fixed' ? '' : String(expression.parameter ?? "");
   const groups = line.id.startsWith("machinery")
     ? rows(recipe.morth?.source._options)
     : [];

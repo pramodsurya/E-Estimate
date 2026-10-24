@@ -27,6 +27,7 @@ import { fetchRateAnalysis } from "./rateAnalysis";
 import { mergeSavedRecipe } from "./recipeMerge";
 import { projectDataForNode, projectDataRecipe } from "./projectData";
 import { SorRequestCache } from "./sorCache";
+import { morthRowIsExcluded } from "./morthMaterialLead";
 
 export interface ProjectCostUsage {
   nodeId: string;
@@ -69,6 +70,7 @@ export function collectProjectIndividualCosts(
       const visited = new Set(ancestors).add(current);
       for (const section of current.sections)
         for (const line of section.lines) {
+          if (current.morth && morthRowIsExcluded(current.morth.inputs[line.id]?.raw ?? {})) continue;
           const dependency = current.morth?.inputs[line.id]?.dependency;
           const locked = Boolean(
             line.editedFields?.some((f) => f === "rate" || f === "amount") &&

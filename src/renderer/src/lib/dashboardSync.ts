@@ -9,6 +9,7 @@ import type {
 } from '../types/project'
 import type { RateAnalysisRecipe } from '../types/rateAnalysis'
 import { mergeSavedRecipe } from './recipeMerge'
+import { morthLeadIssues, morthLeadVariantSignature, morthFinalRate } from './morthMaterialLead'
 import {
   calculateLeadVariantChargeFromRows,
   fetchLeadRates,
@@ -136,7 +137,7 @@ export function dashboardItemSignature(item: ProjectNode): string {
     // Version 2 includes the published SSR `section_heading` in each compiled
     // recipe. This makes older snapshots refresh instead of silently retaining
     // a recipe that was saved before headings were available in DATA.
-    sourceShapeVersion: item.itemSource === 'SSR' ? 2 : item.itemSource === 'MORTH' ? 5 : 3,
+    sourceShapeVersion: item.itemSource === 'SSR' ? 2 : item.itemSource === 'MORTH' ? 6 : 3,
     projectDataId: item.projectDataId ?? '',
     itemCode: item.itemCode ?? '',
     categoryKey: item.categoryKey ?? '',
@@ -621,8 +622,15 @@ export function compileDataDashboardEntries(
         baseRate = Number(priced.recalculation.calculatedRate)
       }
     }
-    const rate = baseRate === null ? null : baseRate + leadRate
     const recipe = dashboardRecipeForNode(project, snapshot, item)
+    const leadPending = recipe?.morth && morthLeadIssues(recipe, linkedLeadApplications, project.leadChart?.variants ?? []).length > 0
+    const currentLeadRate = recipe?.morth && recipe.outputQuantity > 0
+      ? linkedLeadApplications.reduce((sum, app) => sum + app.grossAmount, 0) / recipe.outputQuantity
+      : leadRate
+    const rate = baseRate === null || leadPending ? null : recipe?.morth
+      ? morthFinalRate(recipe, !manualEdited && recipe.morth.startingSummary?.costReady === true
+        ? recipe.morth.startingSummary.totalCost : baseRate * recipe.outputQuantity, linkedLeadApplications)
+      : baseRate + currentLeadRate
     const path = structuralPathLabel(project, item)
     const code = item.itemCode?.trim() || item.name
     const displayName = projectItemDisplayName(item)
@@ -647,7 +655,7 @@ export function compileDataDashboardEntries(
       scopeNodeId: resolution.scopeNodeId,
       scopeName: resolution.scopeName,
       baseRate,
-      leadRate,
+      leadRate: currentLeadRate,
       rate,
       usageCount: 1,
       usages: [{ nodeId: item.id, path }],
@@ -866,6 +874,7 @@ function repriceLeadApplications(
       const outputQuantity = application.outputQuantity || 0
       updates.push({
         ...application,
+        morthLeadVariantSignature: item?.itemSource === 'MORTH' ? morthLeadVariantSignature(variant) : undefined,
         leadRate: breakdown.leadRate,
         loadingRate: breakdown.loadingRate,
         unloadingRate: breakdown.unloadingRate,
@@ -1129,7 +1138,7 @@ export async function syncLeadDashboardSnapshot(
   const merged = mergeDashboardItemData(project, items, itemData)
   const leadMetadata = new Map<string, unknown>([
     ...Array.from(applicability, ([code, row]) => [code, row.lead_applicability] as const),
-    ...Object.values(merged.recipes).filter(recipe => recipe.itemSource === 'SOR')
+    ...Object.values(merged.recipes).filter(recipe => recipe.itemSource === 'SOR' || recipe.itemSource === 'MORTH')
       .map(recipe => [recipe.itemCode, recipe.leadApplicability] as const),
     ...Object.entries(customLeadMetadata)
   ])

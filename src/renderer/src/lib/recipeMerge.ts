@@ -388,6 +388,7 @@ export function mergeSavedRecipe(
     publishedRateText: source.publishedRateText,
     sor: source.sor,
     morth: source.morth,
+    leadApplicability: source.morth ? source.leadApplicability : saved.leadApplicability ?? source.leadApplicability,
     miscellaneousDefaults: source.miscellaneousDefaults,
     recalculation: miscellaneousChanged ? undefined : saved.recalculation ?? source.recalculation,
     calculationStale: miscellaneousChanged || saved.calculationStale || source.calculationStale,

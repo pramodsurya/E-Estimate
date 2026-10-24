@@ -18,6 +18,13 @@ fn need(missing: &mut Vec<String>, name: &str) {
     }
 }
 fn quantity(raw: &Value, params: &Value, missing: &mut Vec<String>, label: &str) -> f64 {
+    if raw["material_lead"]["version"] == "morth-material-lead-v1"
+        && raw["material_lead"]["mode"] == "fixed" {
+        return num(&raw["material_lead"]["fixedQuantity"]).unwrap_or_else(|| {
+            need(missing, &format!("{}: fixed operations quantity required", label));
+            0.0
+        }) * num(&raw["sign"]).unwrap_or(1.0);
+    }
     let expr = &raw["quantity_expression"];
     let quantity = if expr.is_object() {
         let name = text(&expr["parameter"]);
@@ -146,6 +153,13 @@ pub fn calculate(recipe: &RateAnalysisRecipe) -> RateAnalysisSummary {
     let mut computed = Map::new();
     for (i, section) in ["materials", "machinery", "labour"].iter().enumerate() {
         for (j, raw) in list(&source[*section]).iter().enumerate() {
+            // Replaced carriage is excluded before quantity/rate validation and
+            // before every percentage basis. Original rows remain as evidence.
+            if config["costingBasis"] == "morth-material-lead-v1"
+                && raw["material_lead"]["version"] == "morth-material-lead-v1"
+                && raw["material_lead"]["mode"] == "excluded" {
+                continue;
+            }
             let id = format!("{}-{}", section, j);
             let input = &config["inputs"][&id];
             let label = text(&raw["desc"]);

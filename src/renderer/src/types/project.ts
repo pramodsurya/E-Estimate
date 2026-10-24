@@ -2173,6 +2173,8 @@ export interface LeadVariant {
 }
 
 export interface LeadApplication {
+  /** Pricing/source inputs adopted for a MoRTH material Lead application. */
+  morthLeadVariantSignature?: string
   id: string
   variantId: string
   /** Original route Lead retained when a weighted Lead becomes the adopted rate. */

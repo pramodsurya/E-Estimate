@@ -21,7 +21,7 @@ function load(file){
  m._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,file)
  return m.exports
 }
-const native=recipe=>{const r=spawnSync(path.join(root,'src-tauri/target/debug/rate_analysis_cli.exe'),['--base'],{input:JSON.stringify(recipe),encoding:'utf8'});assert.equal(r.status,0,r.stderr);return JSON.parse(r.stdout)}
+const native=recipe=>{const r=spawnSync(path.join(root,'src-tauri/target/debug',process.platform==='win32'?'rate_analysis_cli.exe':'rate_analysis_cli'),['--base'],{input:JSON.stringify(recipe),encoding:'utf8'});assert.equal(r.status,0,r.stderr);return JSON.parse(r.stdout)}
 global.window={api:{rateAnalysis:{calculateBase:async r=>native(r)}}}
 async function main(){
  const registry=load(path.join(lib,'morthAppendices.ts')),misc=load(path.join(lib,'miscellaneousCosts.ts')),morth=load(path.join(lib,'morthEstimate.ts')),data=load(path.join(lib,'typist-output/dataTypst.ts')),excel=load(path.join(lib,'excel-output/dataExcel.ts'))
@@ -41,7 +41,13 @@ async function main(){
  assert.equal(Object.values(repriced.morth.inputs).find(i=>i.dependency).dependency.morth.startingSummary.profitAmount,0,'A parent profit change never adds markup to a direct-cost appendix')
  assert.equal((await prepare(original,{})).morth.startingSummary.ratePerUnit,recipe.morth.startingSummary.ratePerUnit,'Source default can be restored')
  const ssr={schemaVersion:1,itemKey:'SSR:test',itemCode:'SSR:test',description:'SSR test',itemSource:'SSR',outputQuantity:1,unit:'cum',overheadPercent:14,sections:[{key:'labour',label:'Labour',lines:[{id:'labour-0',slNo:'1',description:'Labour',unit:'day',quantity:1,rate:100,amount:100}]}]};const ssrRule=misc.miscellaneousDefinitions(ssr)[0];assert.notEqual(ssrRule.key,overhead.key);assert.equal(misc.applyMiscellaneousCosts(ssr,{[ssrRule.key]:{percent:12,updatedAt:''}}).overheadPercent,12);assert.equal(native(misc.applyMiscellaneousCosts(ssr,{[ssrRule.key]:{percent:12,updatedAt:''}})).ratePerUnit,112)
- const sheets=[recipe,copy].map((r,i)=>({id:`slab-${i}`,recipe:r,calculatedSummary:r.morth.startingSummary,leadApplications:[],leadVariants:[]})),project={meta:{name:'MoRTH shared appendix — QA',sorYear:'2026-27',sorZone:'zone_3'}}
+ const lead=load(path.join(lib,'morthMaterialLead.ts'))
+ assert.throws(()=>data.buildRateAnalysisRenderData(recipe),/material Lead/,'A base rate cannot be exported as a complete MoRTH rate')
+ // Explicitly resolve every material for this presentation fixture. The focused
+ // material-Lead tests cover annual quotations, quantities and nonzero additions.
+ const leadVariants=[...new Map(lead.morthMaterialInventory(recipe).map(row=>[row.name,{id:row.name,materialName:row.name,conveyanceClass:row.conveyanceClass,rateSource:'manual',customGrossRate:0}])).values()]
+ const leadApplications=leadVariants.map(v=>({id:v.id,variantId:v.id,...lead.morthQuantityForLead(recipe,v),morthLeadVariantSignature:lead.morthLeadVariantSignature(v),grossAmount:0,rateYear:recipe.year,rateZone:recipe.zone,outputQuantity:recipe.outputQuantity}))
+ const sheets=[recipe,copy].map((r,i)=>({id:`slab-${i}`,recipe:r,calculatedSummary:r.morth.startingSummary,leadApplications,leadVariants})),project={meta:{name:'MoRTH shared appendix — QA',sorYear:'2026-27',sorZone:'zone_3'}}
  const upgrade=load(path.join(lib,'typist-output/dataTemplateUpgrade.ts'));
  for(const name of ['data-before-morth-appendices.typ','data-before-morth-ssr-style.typ']){
  const previous=fs.readFileSync(path.join(__dirname,'fixtures',name),'utf8');

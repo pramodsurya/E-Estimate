@@ -1,5 +1,6 @@
 import {collectMorthAppendices,appendixForRecipe,morthAbstract,calculationBasisLabel,type MorthAppendix} from "../morthAppendices"
 import defaultTemplate from './data.typ?raw'
+import { morthLeadIssues, morthFinalRate } from '../morthMaterialLead'
 /** DATA and rate-analysis data adapter. The complete layout is in data.typ. */
 
 import type { DataSheet } from '../dataSheets'
@@ -100,7 +101,8 @@ export function buildRateAnalysisRenderData(
   leadVariants: LeadVariant[] = [],
   scopeContext?: ScopeContext,
   calculatedSummary?: RateAnalysisSummary,
-  appendices: MorthAppendix[] = collectMorthAppendices([recipe])
+  appendices: MorthAppendix[] = collectMorthAppendices([recipe]),
+  appendixOnly = false
 ) {
   const code = recipe.morth?.printedItem || recipe.itemCode?.trim() || recipe.itemKey || 'DATA'
   const unit = recipe.unit || 'cum'
@@ -113,6 +115,10 @@ export function buildRateAnalysisRenderData(
   // This is the same semantic result consumed by the React DATA view.
   const presentation = buildDataPresentation(recipe, leadApplications, leadVariants, calculatedSummary ?? recipe.morth?.startingSummary)
   if(recipe.morth && (recipe.morth.pending.length || (calculatedSummary ?? recipe.morth.startingSummary)?.costReady===false))throw new Error('Resolve the pending MoRTH inputs before exporting this DATA.')
+  if (recipe.morth && !appendixOnly) {
+    const missing = morthLeadIssues(recipe, leadApplications, leadVariants)
+    if (missing.length) throw new Error(`Resolve material Lead before exporting this DATA: ${missing.join('; ')}`)
+  }
   const calculated = presentation.summary
 
   const materialsSection = recipe.sections.find((s) => s.key === 'materials')
@@ -325,7 +331,7 @@ export function buildRateAnalysisRenderData(
       base_amount_text: fmtMoney(baseFinalAmount),
       lead_total_text: fmtMoney(regularLeadApplications.reduce((sum, app) => sum + app.grossAmount, 0)),
       final_amount_text: fmtMoney(baseFinalAmount + regularLeadApplications.reduce((sum, app) => sum + app.grossAmount, 0)),
-      final_rate_text: fmtMoney((baseFinalAmount + regularLeadApplications.reduce((sum, app) => sum + app.grossAmount, 0)) / outputQty),
+      final_rate_text: fmtMoney(recipe.morth ? morthFinalRate(recipe, baseFinalAmount, regularLeadApplications) : (baseFinalAmount + regularLeadApplications.reduce((sum, app) => sum + app.grossAmount, 0)) / outputQty),
       disposal_only: regularLeadApplications.length > 0 && regularLeadApplications.every((app) => isDisposalLead(leadVariants.find((v) => v.id === app.variantId)))
     },
     optional_addition: optionalAddition
@@ -339,7 +345,7 @@ export interface TypstDocumentOptions {
   signature?: SignatureFooterSettings
 }
 export function buildMorthAppendixRenderData(recipes:RateAnalysisRecipe[],appendices=collectMorthAppendices(recipes)) {
-  return appendices.map(a=>({...buildRateAnalysisRenderData(a.recipe,[],[],undefined,a.recipe.morth?.startingSummary,appendices),appendix_key:a.key,appendix_name:a.name,appendix_usages:a.usages}))
+  return appendices.map(a=>({...buildRateAnalysisRenderData(a.recipe,[],[],undefined,a.recipe.morth?.startingSummary,appendices,true),appendix_key:a.key,appendix_name:a.name,appendix_usages:a.usages}))
 }
 export function dataTypstTemplate(): string { return defaultTemplate }
 export function dataSheetsCompileInputs(sheets: DataSheet[], options: TypstDocumentOptions = {}): Record<string, string> {
