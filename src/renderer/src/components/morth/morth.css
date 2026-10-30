@@ -119,27 +119,32 @@
   color: var(--text-secondary, #aaa);
   padding-top: 5px;
 }
-.cost-source-tabs {
+.cost-source-legend {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 22px 0 16px;
 }
-.cost-source-tabs button {
-  display: flex;
+[data-cost-source="MORTH"] {
+  --cost-source-color: var(--item-morth, #f5a34f);
+}
+[data-cost-source="SSR"] {
+  --cost-source-color: var(--item-ssr, #dcdcaa);
+}
+.cost-source-badge {
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 9px 16px;
-  background: transparent;
-  color: inherit;
-  border: 1px solid var(--border, #444);
-  border-radius: 7px;
-  cursor: pointer;
+  color: var(--cost-source-color);
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
 }
-.cost-source-tabs button[aria-pressed="true"] {
-  background: var(--bg-hover, #ffffff10);
-  border-color: var(--accent, #369bd6);
+.cost-table tr[data-cost-source] > td:first-child {
+  box-shadow: inset 3px 0 var(--cost-source-color);
 }
-.cost-source-tabs span,
 .cost-kind-tabs span {
   font-size: 11px;
   opacity: 0.7;
@@ -208,6 +213,11 @@
   font-size: 11px;
   color: var(--text-secondary, #aaa);
 }
+.cost-missing-description { display: block; margin-top: 5px; color: var(--page, #ce9178); }
+.cost-usage-codes { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.cost-usage-codes > span, .cost-location-code { color: var(--component, #4fc1ff); font-family: var(--mono, monospace); font-size: 11px; overflow-wrap: anywhere; user-select: text; }
+.cost-usage-codes > small { color: var(--text-dim, #aaa); }
+.cost-location-code { margin-bottom: 4px; }
 .cost-pending {
   color: var(--accent, #369bd6);
 }

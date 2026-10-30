@@ -370,3 +370,9 @@
 .misc-costs .cost-actions > span {
   margin-right: auto;
 }
+
+.morth-transport-distance { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+.morth-transport-distance small { flex-basis: 100%; }
+.morth-transport-distance input { width: 90px; color: #173851; background: #fff; border: 1px solid #abc9d5; padding: 4px; }
+.morth-transport-distance button { padding: 4px 8px; border: 1px solid #148496; border-radius: 4px; color: #006d7e; background: #edf8fa; }
+@media print { .morth-transport-distance label, .morth-transport-distance button { display: none; } }

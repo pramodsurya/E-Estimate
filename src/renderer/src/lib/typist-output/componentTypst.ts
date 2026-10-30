@@ -31,6 +31,7 @@ import { extractDocumentMedia, parseDocumentToTypstData } from './documentTypst'
 import { createUniverWorkbookData, usedCellRange } from '../univerSpreadsheet'
 import { attachEeDisplayText, type EeWorkbookLike } from './univerDisplayText'
 import { nodeDisplayName } from '../../components/nodeVisual'
+import { printedItemCode, printedItemDescription } from '../sorPresentation'
 import { findNode } from '../tree'
 import { componentItemsTotal, getItemFinal } from '../finalNumber'
 import { resolveNodeSettings, resolveNodeSettingsOverrides } from '../nodeSettings'
@@ -229,9 +230,9 @@ export function buildComponentRenderData(
 
     return {
       sl: String(index + 1),
-      code: item.itemCode ?? '',
-      heading: nodeDisplayName(item),
-      description: item.itemDescription || '',
+      code: printedItemCode(item),
+      heading: item.itemSource === 'SOR' ? printedItemDescription(item) : nodeDisplayName(item),
+      description: item.itemSource === 'SOR' ? printedItemDescription(item) : item.itemDescription || '',
       qty: rawQty != null ? qtyFmt.format(rawQty) : '—',
       rawQty,
       unit: item.unit ?? final.unit ?? '',
@@ -303,10 +304,10 @@ export function buildComponentRenderData(
 
     return {
       id: item.id,
-      code: item.itemCode ?? '',
-      name: nodeDisplayName(item),
+      code: item.itemSource === 'SOR' ? '' : printedItemCode(item),
+      name: item.itemSource === 'SOR' ? printedItemDescription(item) : nodeDisplayName(item),
       unit: item.unit ?? '',
-      description: item.itemDescription || '',
+      description: item.itemSource === 'SOR' ? printedItemDescription(item) : item.itemDescription || '',
       descriptionRuns: resolveItemDescriptionRuns(project, item),
       editorType: isDoc ? 'document' : 'spreadsheet',
       templateGenerated: Boolean(item.templateGenerated),

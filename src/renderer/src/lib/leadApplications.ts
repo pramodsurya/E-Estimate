@@ -11,7 +11,7 @@ function applicationKey(
   const variant = variantsById.get(application.variantId)
   const usageKey = application.itemNodeId || '__legacy_shared_data__'
   return variant
-    ? `${materialKey(variant)}\u0000${application.itemKey}\u0000${usageKey}`
+    ? `${materialKey(variant)}\u0000${application.itemKey}\u0000${usageKey}\u0000${JSON.stringify(application.morthAppendixPath ?? [])}`
     : null
 }
 
@@ -39,6 +39,13 @@ export function upsertUniqueLeadApplication(
       }
       continue
     }
+    // Reapplying an old aggregate MoRTH Lead replaces that old scope. Further
+    // appendix applications coexist because they carry explicit paths.
+    const candidateVariant = variantsById.get(candidate.variantId)
+    const incomingVariant = variantsById.get(application.variantId)
+    if (application.morthAppendixPath !== undefined && candidate.morthAppendixPath === undefined &&
+        candidate.itemKey === application.itemKey && (!candidate.itemNodeId || candidate.itemNodeId === application.itemNodeId) &&
+        candidateVariant && incomingVariant && materialKey(candidateVariant) === materialKey(incomingVariant)) continue
     if (incomingKey && applicationKey(candidate, variantsById) === incomingKey) continue
     next.push(candidate)
   }

@@ -11,7 +11,8 @@ import {
   rateAnalysisOverrideForNode
 } from './projectItems'
 import { scopedLeadRateAddition } from './leadApplications'
-import { morthLeadIssues, morthFinalRate } from './morthMaterialLead'
+import { morthLeadIssues, morthFinalRate, morthLeadPricingReady } from './morthMaterialLead'
+import { mergeSavedRecipe } from './recipeMerge'
 
 export function colLabel(index: number): string {
   let n = index
@@ -66,14 +67,17 @@ export function readFinalValueFromSnapshot(node: ProjectNode): number | null {
 /** Item rate per unit, if a rate analysis recipe exists for the item. */
 export function getItemRate(project: EestimateProject | null, node: ProjectNode): number | null {
   if (!project) return null
-  const recipe = rateAnalysisOverrideForNode(project, node)
-  if (!recipe) return null
-  if (typeof recipe.publishedRate === 'number' && Number.isFinite(recipe.publishedRate)) {
-    return recipe.publishedRate
-  }
-  if (recipe.recalculation?.calculatedRate) {
+  const saved = rateAnalysisOverrideForNode(project, node)
+  if (!saved) return null
+  const source = project.dashboardSnapshot?.recipes[node.id]
+  const recipe = source ? mergeSavedRecipe(source, saved) : saved
+  if (!recipe.calculationStale && recipe.recalculation?.calculatedRate &&
+      (recipe.recalculation.areaAllowancePercent ?? 0) === (recipe.areaAllowancePercent ?? 0)) {
     const r = Number(recipe.recalculation.calculatedRate)
     if (Number.isFinite(r)) return r
+  }
+  if (!recipe.calculationStale && (recipe.areaAllowancePercent ?? 0) <= 0 && typeof recipe.publishedRate === 'number' && Number.isFinite(recipe.publishedRate)) {
+    return recipe.publishedRate
   }
   return null
 }
@@ -89,9 +93,8 @@ export function getItemLeadRate(project: EestimateProject | null, node: ProjectN
   const recipe = rateAnalysisOverrideForNode(project, node) ?? (node.itemSource === 'MORTH' ? project.dashboardSnapshot?.recipes[node.id] : undefined)
   const outputQuantity = recipe?.outputQuantity || 0
   if (node.itemSource === 'MORTH') {
-    return outputQuantity > 0 ? (project.leadChart?.applications ?? []).filter(app =>
-      app.itemKey === itemKey && (app.itemNodeId ? app.itemNodeId === node.id : isLegacyTarget))
-      .reduce((sum, app) => sum + app.grossAmount, 0) / outputQuantity : 0
+    return outputQuantity > 0 && recipe?.morth?.leadPricingBaseAmount !== undefined
+      ? ((recipe.morth.startingSummary?.totalCost ?? recipe.morth.leadPricingBaseAmount) - recipe.morth.leadPricingBaseAmount) / outputQuantity : 0
   }
 
   return scopedLeadRateAddition(
@@ -133,17 +136,19 @@ export function getItemFinal(
   }
   if (project && node.itemSource === 'MORTH') {
     const key = projectItemKey(node)
-    const recipe = rateAnalysisOverrideForNode(project, node) ?? project.dashboardSnapshot?.recipes[node.id]
+    const source = project.dashboardSnapshot?.recipes[node.id]
+    const saved = rateAnalysisOverrideForNode(project, node)
+    const recipe = source ? saved ? mergeSavedRecipe(source, saved) : source : saved
     const legacyTarget = projectItemGroupIndex(project.root).get(key)?.usages[0]?.node.id === node.id
     const applications = (project.leadChart?.applications ?? []).filter(app =>
       app.itemKey === key && (app.itemNodeId ? app.itemNodeId === node.id : legacyTarget))
     if (!recipe || recipe.morth?.pending.length || recipe.morth?.startingSummary?.costReady === false ||
-        morthLeadIssues(recipe, applications, project.leadChart?.variants ?? []).length) {
+        morthLeadIssues(recipe, applications, project.leadChart?.variants ?? []).length || !morthLeadPricingReady(recipe, applications)) {
       return { qty, rate: null, amount: null, unit: node.unit ?? null }
     }
     const manual = typeof node.rate === 'number' && Number.isFinite(node.rate) ? node.rate : null
     const summary = recipe.morth?.startingSummary
-    const baseAmount = manual !== null ? manual * recipe.outputQuantity : summary?.costReady === true ? summary.totalCost : null
+    const baseAmount = manual !== null ? manual * recipe.outputQuantity : summary?.costReady === true ? recipe.morth?.leadPricingBaseAmount ?? summary.totalCost : null
     if (baseAmount === null) return { qty, rate: null, amount: null, unit: node.unit ?? null }
     const rate = morthFinalRate(recipe, baseAmount, applications)
     return { qty, rate, amount: qty === null ? null : qty * rate, unit: node.unit ?? null }

@@ -1,7 +1,7 @@
 # Build the Windows installer and publish it as a GitHub Release.
 #
-# Tauri NSIS builds must run on Windows. Auto-update via tauri-plugin-updater
-# is not wired yet — this workflow ships the installer only.
+# Tauri NSIS builds must run on Windows. The signed installer, signature and
+# latest.json feed the application's automatic updater.
 #
 # To ship:  git tag v0.1.9 && git push origin v0.1.9
 # Or run this workflow with a bump of patch/minor/major and it will tag for you.
@@ -36,6 +36,8 @@ jobs:
           node-version: '22'
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
@@ -67,6 +69,8 @@ jobs:
           cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
 
       # Reuse the ~780 compiled crates (typst/krilla/tauri) between releases.
       # Cold build is ~18-24 min; a cache hit is typically a few minutes.

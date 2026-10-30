@@ -353,6 +353,13 @@ pub struct CanalBankBermStepInput {
     pub drop_height: f64,
     pub shelf_width: f64,
     pub slope_after_berm: f64,
+    /// Minimum shelf height above natural ground, excluding stripping depth.
+    #[serde(default = "default_bank_berm_clearance")]
+    pub clearance: f64,
+}
+
+fn default_bank_berm_clearance() -> f64 {
+    2.0
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -460,6 +467,8 @@ pub struct SoilAllocationSummary {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CanalEmbankmentInput {
+    #[serde(default)]
+    pub bank_schedule: Option<super::bank_statement::BankExportInput>,
     pub bed_width: f64,
     pub full_supply_depth: f64,
     pub free_board: f64,

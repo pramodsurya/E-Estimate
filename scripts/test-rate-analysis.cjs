@@ -80,7 +80,7 @@ function loadTsModule(filePath, mocks = {}) {
   const loadedModule = new Module(filePath, module)
   loadedModule.filename = filePath
   loadedModule.paths = Module._nodeModulePaths(path.dirname(filePath))
-  loadedModule.require = (request) => request in mocks ? mocks[request] : /(?:morthMaterialLead|morthLeadMaterials)$/.test(request) ? loadTsModule(path.resolve(path.dirname(filePath), request + '.ts'), mocks) : request === './miscellaneousCosts' ? loadTsModule(path.join(root,'src/renderer/src/lib/miscellaneousCosts.ts'), {'./morthAppendices':loadTsModule(path.join(root,'src/renderer/src/lib/morthAppendices.ts'))}) : require(request)
+  loadedModule.require = (request) => request in mocks ? mocks[request] : /(?:morthMaterialLead|morthLeadMaterials|morthLeadPricing|morthTransport)$/.test(request) ? loadTsModule(path.resolve(path.dirname(filePath), request + '.ts'), mocks) : request === './miscellaneousCosts' ? loadTsModule(path.join(root,'src/renderer/src/lib/miscellaneousCosts.ts'), {'./morthAppendices':loadTsModule(path.join(root,'src/renderer/src/lib/morthAppendices.ts'))}) : require(request)
   loadedModule._compile(outputText, filePath)
   return loadedModule.exports
 }
@@ -92,6 +92,8 @@ const {
   labourRowsForDisplay,
   publishedRateBlocks,
   recalculateRateAnalysis,
+  prepareRateAnalysis,
+  rateAnalysisNeedsRecalculation,
   updateRateAnalysisLine
 } = loadTsModule(
   path.join(root, 'src/renderer/src/lib/rateAnalysis.ts'),
@@ -707,7 +709,7 @@ assert.notEqual(adoptedCaw.ratePerUnit, 423, 'historical combined CAW rate must 
   const saved=structuredClone(base);saved.sections[0].lines[0]={...saved.sections[0].lines[0],quantity:2,amount:200,editedFields:['quantity']};saved.recalculation={sectionTotals:{materials:'200',machinery:'0',labour:'0'},subtotal:'200',finalCost:'228',calculatedRate:'228',abstract:[],trace:[],warnings:[]}
   const merged=merge.mergeSavedRecipe(source,saved);assert.equal(merged.calculationStale,true);assert.equal(merged.recalculation,undefined)
   assert.equal((await calculateRateAnalysis(merged)).ratePerUnit,224,'A saved local quantity must retain its edit and use the new shared percentage')
-  const sheetsApi=loadTsModule(path.join(root,'src/renderer/src/lib/dataSheets.ts'),{'./recipeMerge':merge,'./projectItems':{},'./dashboardSync':{},'./tree':{},'./rateAnalysis':{calculateRateAnalysis,recalculateRateAnalysis}})
+  const sheetsApi=loadTsModule(path.join(root,'src/renderer/src/lib/dataSheets.ts'),{'./recipeMerge':merge,'./projectItems':{},'./dashboardSync':{},'./tree':{},'./rateAnalysis':{calculateRateAnalysis,recalculateRateAnalysis,prepareRateAnalysis,rateAnalysisNeedsRecalculation}})
   const [sheet]=await sheetsApi.calculateDataSheets([{recipe:merged,calculatedSummary:{ratePerUnit:228}}]);assert.equal(sheet.calculatedSummary.ratePerUnit,224);assert.equal(sheet.recipe.recalculation.abstract.find(r=>r.label.includes('contractor')).percent,'12%','Export must use the refreshed abstract rather than a stale saved cache')
   const exported=await recalculateRateAnalysis(merged);assert.equal(exported.recalculation.abstract.find(r=>r.label.includes('contractor')).percent,'12%')
   assert.equal((await calculateRateAnalysis(merge.mergeSavedRecipe(base,{...saved,overheadPercent:12,miscellaneousDefaults:{overheadPercent:14}}))).ratePerUnit,228,'Restoring the source percentage must refresh saved edits too')
@@ -744,7 +746,7 @@ console.log('Rate-analysis published-first, audit, and dual-measurement tests pa
   )
   const dataOutput = loadTsModule(path.join(root, 'src/renderer/src/lib/typist-output/dataTypst.ts'), {
     './data.typ?raw': template,
-    '../rateAnalysis': { calculateRateAnalysis },
+    '../rateAnalysis': { calculateRateAnalysis, prepareRateAnalysis },
     '../morthAppendices': loadTsModule(path.join(root,'src/renderer/src/lib/morthAppendices.ts')),
     '../rateAnalysisVisibility': visibilityMock,
     '../dataPresentation': dataPresentation,

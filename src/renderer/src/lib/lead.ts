@@ -385,6 +385,13 @@ export function calculateLeadVariantChargeFromRows(
   rows: LeadRateRow[],
   input: LeadVariantChargeInput
 ): LeadChargeBreakdown {
+  if (input.materialName === 'Concrete delivery') {
+    if (!Number.isFinite(input.distanceKm) || input.distanceKm < 0) throw new Error('Enter a finite nonnegative plant-to-site distance.')
+    const base = zeroDisposalBreakdown(input)
+    return { ...base, unit: 'km', quantity: 1,
+      calculation: leadCalculation([{ label: 'Distance supplied to MoRTH transport', expression: `${input.distanceKm} km → original machinery quantity`, amount: 0 }], 'km'),
+      notes: ['Distance only. Transport is calculated in the original MoRTH machinery row, with no additional SOR Lead charge.'] }
+  }
   const disposalLead = isDisposalLeadMaterial(input.materialName)
   const normalizedInput: LeadVariantChargeInput = disposalLead
     ? {

@@ -7,6 +7,14 @@ export type CanalBankWorkChapter = 'bankDrainage' | 'bankToeDrainage'
 const bankSide = (data: CanalData, side: 'left' | 'right'): 'left' | 'right' => data.design.bankConfig?.linkSymmetrical ? 'left' : side
 let defaultHeightTiers: ReturnType<typeof defaultCanalBankDesignConfig> | undefined
 
+/** Internal drainage follows Bank Design; toe works retain their separate chapter mode. */
+export function canalDrainageMode(data: CanalData, chapterKey: CanalBankWorkChapter = 'bankDrainage'): 'programmatic' | 'manual' {
+  const mode = data.design.bankConfig?.mode
+  return chapterKey === 'bankDrainage' && mode !== 'legacy' && mode != null
+    ? mode === 'manual' ? 'manual' : 'programmatic'
+    : data.design[chapterKey]?.mode ?? 'programmatic'
+}
+
 /** Reuse saved height brackets, including when bank geometry is manual. */
 export function canalDrainageTiers(data: CanalData, side: 'left' | 'right'): CanalBankTier[] {
   const config = data.design.bankConfig, bank = bankSide(data, side)
@@ -20,7 +28,16 @@ export function canalDrainageTiers(data: CanalData, side: 'left' | 'right'): Can
 
 export function canalManualDrainageReaches(data: CanalData, side: 'left' | 'right', chapterKey: CanalBankWorkChapter = 'bankDrainage'): CanalDrainageReach[] {
   const chapter = data.design[chapterKey]
-  return (bankSide(data, side) === 'left' ? chapter?.leftReaches : chapter?.rightReaches) ?? []
+  const bank = bankSide(data, side), config = data.design.bankConfig
+  const saved = (bank === 'left' ? chapter?.leftReaches : chapter?.rightReaches) ?? []
+  if (chapterKey !== 'bankDrainage' || config?.mode !== 'manual') return saved
+  const tiers = bank === 'left' ? config.leftTiers : config.rightTiers
+  const previous = bank === 'left' ? config.leftReachTreatment : config.rightReachTreatment
+  return canalBankReaches(data, side).filter(r => r.status === 'fill').map(reach => ({ id: reach.id, from: reach.from, to: reach.to,
+    treatment: { ...tiers.find(t => t.id === reach.tierId)?.foundationTreatment,
+      ...previous?.find(r => r.mode === 'manual' && r.reachId === reach.id)?.treatment,
+      ...(saved.find(r => r.id === reach.id) ?? saved.find(r => r.from === reach.from && r.to === reach.to))?.treatment }
+  }))
 }
 
 const rangeCache = new WeakMap<CanalData, Map<string, { design: CanalData['design']; sections: CanalData['sections']; length: number; ranges: CanalDrainageWorkRange[] }>>()
@@ -30,7 +47,8 @@ export function canalDrainageWorkRanges(data: CanalData, side: 'left' | 'right',
   if (cached?.design === data.design && cached.sections === data.sections && cached.length === data.lengthM) return cached.ranges
   const chapter = data.design[chapterKey]
   let ranges: CanalDrainageWorkRange[]
-  if (chapter?.mode === 'manual') ranges = canalManualDrainageReaches(data, side, chapterKey).map(r => ({ ...r, tierId: null }))
+  if (chapterKey === 'bankDrainage' && data.design.bankConfig?.mode !== 'legacy') ranges = canalBankReaches(data, side).filter(r => r.status === 'fill')
+  else if (chapter?.mode === 'manual') ranges = canalManualDrainageReaches(data, side, chapterKey).map(r => ({ ...r, tierId: null }))
   else if (data.design.bankConfig?.mode === 'tiered' || !chapter) ranges = canalBankReaches(data, side).filter(r => r.status === 'fill')
   else {
     const config = data.design.bankConfig ?? defaultCanalBankDesignConfig()
@@ -65,9 +83,9 @@ const toeKeys = ['rockToeProtection', 'rockToeProtectionSide', 'rockToeTopWidth'
   'toeDrain', 'toeDrainSide', 'toeDrainBottomWidth', 'toeDrainDepth', 'toeDrainLeftSlope', 'toeDrainRightSlope', 'toeDrainBermWidth', 'toeDrainProtection'] as const
 export function canalDrainageTreatmentAt(data: CanalData, ch: number, side: 'left' | 'right', base: CanalTierFoundationConfig, chapterKey: CanalBankWorkChapter = 'bankDrainage'): CanalTierFoundationConfig {
   const chapter = data.design[chapterKey]
-  if (!chapter) return base
+  if (!chapter && chapterKey !== 'bankDrainage') return base
   const range = canalDrainageRangeAt(data, ch, side, chapterKey)
-  const spec = chapter.mode === 'programmatic' && range?.tierId
+  const spec = canalDrainageMode(data, chapterKey) === 'programmatic' && range?.tierId
     ? canalDrainageTierTreatment(data, side, range.tierId, chapterKey)
     : { ...defaultCanalTierFoundationConfig(), ...canalManualDrainageReaches(data, side, chapterKey).find(r => r.id === range?.id)?.treatment }
   const keys = chapterKey === 'bankDrainage' ? drainageKeys : toeKeys
@@ -79,6 +97,19 @@ export function saveCanalDrainageTier(data: CanalData, side: 'left' | 'right', t
   const key = bankSide(data, side) === 'left' ? 'leftTierTreatments' : 'rightTierTreatments'
   const rows = chapter[key] ?? {}
   return { ...data, design: { ...data.design, [chapterKey]: { ...chapter, mode: 'programmatic', [key]: { ...rows, [tierId]: { ...rows[tierId], ...patch } } } } }
+}
+
+/** Update works on an existing manual Bank Design reach without creating another partition. */
+export function saveCanalBankDrainageReach(data: CanalData, side: 'left' | 'right', reachId: string, patch: Partial<CanalTierFoundationConfig>): CanalData {
+  if (data.design.bankConfig?.mode !== 'manual') return data
+  const reach = canalManualDrainageReaches(data, side).find(r => r.id === reachId)
+  if (!reach) return data
+  const key = bankSide(data, side) === 'left' ? 'leftReaches' : 'rightReaches'
+  const chapter = data.design.bankDrainage ?? { mode: 'manual' as const }
+  const rows = chapter[key] ?? []
+  return { ...data, design: { ...data.design, bankDrainage: { ...chapter, mode: 'manual',
+    [key]: [...rows.filter(r => r.id !== reachId), { ...reach, treatment: { ...reach.treatment, ...patch } }]
+  } } }
 }
 
 export function saveCanalManualDrainageReach(data: CanalData, side: 'left' | 'right', row: CanalDrainageReach, chapterKey: CanalBankWorkChapter = 'bankDrainage'): { data: CanalData; error: string | null } {

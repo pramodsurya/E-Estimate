@@ -200,6 +200,32 @@ try {
 
 console.log(`Item Typst (faithful sheet + images): all assertions passed (${pdf.length} bytes PDF compiled)`)
 
+// SOR headings use the book's printable wording without the catalogue key,
+// including when a previously saved template still references EE.code.
+const sorItem = {
+  ...item, id: 'sor-item', itemSource: 'SOR', itemCode: 'SOR-P01-T01-R0090',
+  name: 'Old catalogue name', itemDescription: 'Old catalogue description', charts: [],
+  sorCatalogue: { annual: { item_code: '96', to_be_printed: { description: 'Benching old embankment slopes 0.45 X 0.45 M' } } }
+}
+const sorData = api.buildItemSheetRenderData(project, sorItem)
+assert.equal(sorData.code, '', 'SOR codes are not prefixed to measurement headings')
+assert.equal(sorData.item, sorItem.sorCatalogue.annual.to_be_printed.description)
+assert.equal(sorData.description, sorData.item, 'published heading is not repeated as a subtitle')
+assert.equal(sorData.descriptionRuns.map(run => run.text).join(''), sorData.item)
+assert.equal(sorItem.itemCode, 'SOR-P01-T01-R0090', 'lookup identity is preserved')
+const sorCompiler = NodeCompiler.create({ workspace: root })
+try {
+  const sorSvg = sorCompiler.svg({
+    mainFileContent: api.resolvedItemSheetTypstSource(project, sorItem),
+    inputs: api.itemSheetCompileInputs(project, sorItem)
+  })
+  const sorText = sorSvg.replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/g, ' ')
+  assert(sorText.includes('Benching old embankment slopes'), 'published wording reaches the PDF renderer')
+  assert(!sorText.includes('SOR-P01-T01-R0090'), 'internal SOR key is absent from the printed sheet')
+  assert(!sorText.includes('Old catalogue'), 'old catalogue wording is absent')
+} finally { sorCompiler.resetShadow() }
+console.log('SOR printed heading: published wording, no catalogue code, lookup identity preserved')
+
 // 4. Test bidirectional parsing: does Document Setup know what changes were made in Typst code?
 const docSettingsApi = loadTsModule(path.join(root, 'src/renderer/src/lib/typist-output/documentSettings.ts'), {})
 const modifiedCode = `

@@ -17,7 +17,7 @@ function loadTs(filePath, mocks = {}) {
   const loaded = new Module(filePath, module);
   loaded.filename = filePath;
   loaded.paths = Module._nodeModulePaths(path.dirname(filePath));
-  loaded.require = (request) => request in mocks ? mocks[request] : /(?:morthMaterialLead|morthLeadMaterials)$/.test(request) ? loadTs(path.resolve(path.dirname(filePath), request + '.ts'), mocks) : Module.createRequire(filePath)(request);
+  loaded.require = (request) => request in mocks ? mocks[request] : /(?:morthMaterialLead|morthLeadMaterials|morthTransport|individualItemsOutput|individualCostIdentity|ssrExcelPlan)$/.test(request) ? loadTs(path.resolve(path.dirname(filePath), request + '.ts'), mocks) : Module.createRequire(filePath)(request);
   loaded._compile(outputText, filePath);
   return loaded.exports;
 }
@@ -406,14 +406,18 @@ async function runTest() {
   morthSheet.recipe={...morthSheet.recipe,itemSource:'MORTH',itemCode:'MORTH-2019-internal-test',documentTitle:'MoRTH 2019',description:'Foundation excavation',morth:{printedItem:'12.01',pending:[]},storedValues:{labourExtract:[],abstract:[{label:'Contractor profit',value:'',unit:'',basis:'',percent:'',amount:'278.21'}]}};
   morthSheet.calculatedSummary={sectionTotals:{materials:0,machinery:0,labour:2318.4},labourBaseCost:2318.4,baseCost:2318.4,overheadAmount:463.68,profitAmount:278.21,totalCost:3060.29,ratePerUnit:306.03,areaAllowanceAmount:0,areaAllowancePercent:0,labourCostWithAreaAllowance:2318.4,labourUnitBase:231.84,labourUnitProfit:0,labourUnitTotal:231.84,costReady:true};
   const morthFixture=JSON.parse(fs.readFileSync(path.join(root,'scripts/fixtures/morth-slab-appendix.json'),'utf8'));
-  morthSheet.recipe=morthFixture;
-  morthSheet.calculatedSummary=morthFixture.morth.startingSummary;
+  const ready = await require('./fixtures/morth-ready.cjs')(morthFixture);
+  morthSheet.recipe=ready.recipe;
+  morthSheet.leadApplications=ready.applications;
+  morthSheet.leadVariants=ready.variants;
+  morthSheet.calculatedSummary=ready.recipe.morth.startingSummary;
   const morthPayload=dataExcel.buildDataExcelPayload(mockProject,[morthSheet]);
   assert.equal(morthPayload.recipes.length,0,'MoRTH must not be exported as SSR');
   assert.equal(morthPayload.morth.length,1);
   assert.equal(morthPayload.morth[0].code,'14.01','The internal MoRTH identity must not print');
   payload.morth=morthPayload.morth;
   payload.morthAppendices=morthPayload.morthAppendices;
+  payload.individualItems.push(...morthPayload.individualItems);
   const testFilePath = path.join(root, 'scratch/test-workbook-output.xlsx');
   fs.writeFileSync(jsonPath, JSON.stringify(payload, null, 2));
 

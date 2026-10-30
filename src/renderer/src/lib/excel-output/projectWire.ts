@@ -47,6 +47,7 @@ import { resolveSeigniorageRowDescription } from '../typist-output/seigniorageTy
 import { buildBundOutputModel } from '../typist-output/bund/bundTypst'
 import { buildGuideWallRenderData } from '../typist-output/guidewall/guideWallTypst'
 import { projectItemKey } from '../projectItems'
+import { printedItemCode } from '../sorPresentation'
 import { collectProjectItems, computeProjectPrintInputs, projectDashboardIsReady } from '../projectPrintInputs'
 import { dashboardItemIsSynced } from '../dashboardSync'
 import { useStore } from '../../store/useStore'
@@ -260,7 +261,7 @@ export async function assembleProjectDashboardInput(project: EestimateProject, p
       projectItems.push({
         key,
         component: comp.name,
-        code: parts.headers[i]?.code || '',
+        code: node.itemSource === 'SOR' ? printedItemCode(node) : parts.headers[i]?.code || '',
         name: parts.headers[i]?.name || '',
         unit: parts.headers[i]?.unit || '',
         description: parts.headers[i]?.description || '',
@@ -280,7 +281,8 @@ export async function assembleProjectDashboardInput(project: EestimateProject, p
   )
   for (const sheet of dataSheets) {
     const recipe = sheet.recipe
-    const leadKeys = sheet.leadApplications.map((app) => `${sheet.id}::${app.id}`)
+    const externalApplications = recipe.morth ? [] : sheet.leadApplications
+    const leadKeys = externalApplications.map((app) => `${sheet.id}::${app.id}`)
     let base: number
     if (sheet.sorPrintRate) {
       const print = sheet.sorPrintRate
@@ -322,7 +324,7 @@ export async function assembleProjectDashboardInput(project: EestimateProject, p
       outputQty: recipe.outputQuantity || 1,
       leadKeys
     })
-    for (const app of sheet.leadApplications) {
+    for (const app of externalApplications) {
       const entry = entriesByVariant.get(app.variantId)
       if (!entry) throw new Error(`Project Excel: lead variant '${app.variantId}' is not synced.`)
       leadInputs.push({
@@ -460,6 +462,7 @@ export async function exportProjectDashboardExcel(): Promise<void> {
     .map((sheet) => [sheet.name, sheet.printSettings]))
   sheetPrintSettings[addressPlan.genSheet] = excelPrintSettings(resolveExcelDocumentSettings(current, 'general-abstract', undefined, { orientation: 'portrait' }))
   sheetPrintSettings['Front Page'] = excelPrintSettings(resolveExcelDocumentSettings(current, 'front-cover', current.root.children.find((child) => child.pageTemplate === 'front'), { orientation: 'portrait' }))
+  sheetPrintSettings['Individual Items'] = { ...excelPrintSettings(resolveExcelDocumentSettings(current,'individual-items')), orientation: current.printStudioDocumentSettings?.['individual-items']?.orientation ?? 'landscape' }
   sheetPrintSettings['Lead Statement'] = excelPrintSettings(resolveExcelDocumentSettings(current, 'lead-statement'))
   sheetPrintSettings['Seigniorage Statement'] = excelPrintSettings(resolveExcelDocumentSettings(current, 'seigniorage-statement', undefined, { orientation: 'landscape' }))
   for (const sheet of payload.sheets) {

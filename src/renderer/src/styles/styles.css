@@ -31,6 +31,7 @@
   --page: #ce9178;
   --item-ssr: #dcdcaa;
   --item-sor: #c586c0;
+  --item-morth: #f5a34f;
 
   --titlebar-h: 36px;
   --activitybar-w: 48px;
@@ -5187,6 +5188,8 @@ textarea {
   letter-spacing: 0.06em;
 }
 .lead-sidebar-section-title small {
+  margin-left: auto;
+  margin-right: 8px;
   display: grid;
   min-width: 20px;
   height: 20px;
@@ -5648,6 +5651,12 @@ textarea {
   line-height: 1.4;
   margin: -4px 0 2px;
 }
+
+
+
+
+
+
 .lead-road-preview {
   display: flex;
   flex-direction: column;
@@ -6955,6 +6964,11 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+.rate-notice.seig-sync-notice {
+  border-color: rgba(244, 135, 113, .45);
+  background: rgba(244, 135, 113, .08);
+  color: #f4a28c;
 }
 .panel-sync-notice,
 .panel-sync-warning {

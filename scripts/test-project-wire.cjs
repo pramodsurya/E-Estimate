@@ -19,7 +19,8 @@ require.extensions['.ts'] = function (m, filename) {
   m._compile(outputText, filename)
 }
 
-function loadTsModule(filePath, mocks = {}) {
+function loadTsModule(filePath, mocks = {}, cache = new Map()) {
+  if (cache.has(filePath)) return cache.get(filePath).exports
   const source = fs.readFileSync(filePath, 'utf8')
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: {
@@ -30,6 +31,7 @@ function loadTsModule(filePath, mocks = {}) {
     fileName: filePath
   })
   const loadedModule = new Module(filePath, module)
+  cache.set(filePath, loadedModule)
   loadedModule.filename = filePath
   loadedModule.paths = Module._nodeModulePaths(path.dirname(filePath))
   loadedModule.require = (request) => {
@@ -40,7 +42,7 @@ function loadTsModule(filePath, mocks = {}) {
     if (request.startsWith('.')) {
       const resolved = path.resolve(path.dirname(filePath), request)
       const tsFile = resolved.endsWith('.ts') ? resolved : resolved + '.ts'
-      if (fs.existsSync(tsFile)) return loadTsModule(tsFile, mocks)
+      if (fs.existsSync(tsFile)) return loadTsModule(tsFile, mocks, cache)
     }
     return require(request)
   }
@@ -259,6 +261,15 @@ async function runTests() {
   assert.equal(input.data.length, 1)
   assert.equal(input.data[0].sorRate, 80, '120 - 40/1')
   assert.deepEqual(input.data[0].leadKeys, ['ds1::a1'])
+  const morthMocks=mocks()
+  const morthSheet=morthMocks['../dataSheets'].collectDataSheets()[0]
+  morthSheet.recipe.morth={}
+  morthMocks['../typist-output/dataTypst']={buildRateAnalysisRenderData:()=>({totals:{rate_per_unit:120,lead_total:0,output_quantity:1}})}
+  const morthWire=loadTsModule(path.join(root,'src/renderer/src/lib/excel-output/projectWire.ts'),morthMocks)
+  const morthInput=await morthWire.assembleProjectDashboardInput(project())
+  assert.equal(morthInput.data[0].sorRate,120,'MoRTH DATA already contains native-priced appendix Lead')
+  assert.deepEqual(morthInput.data[0].leadKeys,[],'Project Excel never adds appendix Lead a second time')
+  assert.equal(morthInput.leads.length,0)
 
   // 3. Lead rows link applications to synced entries.
   assert.equal(input.leads.length, 1)

@@ -1,9 +1,14 @@
 import { resolve } from "path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { execFileSync } from "node:child_process";
 
 /** Vite config for the Tauri WebView2 renderer (dev server + production bundle). */
 export default defineConfig(({ command }) => {
+  const buildCanalSectionEngine = (): void => {
+    execFileSync(process.execPath, [resolve(__dirname,"scripts/build-canal-section-engine.cjs")], {cwd:__dirname,stdio:"inherit",windowsHide:true});
+  };
+  buildCanalSectionEngine();
   // The React Compiler is a Babel pass over every source file; in dev it made a
   // cold load ~14x slower (≈197 s vs 14 s of transform time). It only adds
   // memoization, so run it for production builds and lint; opt in for dev with
@@ -41,6 +46,10 @@ export default defineConfig(({ command }) => {
       ],
     },
     plugins: [
+      {name:"canal-section-engine",configureServer(server){
+        server.watcher.add([resolve(__dirname,"src-tauri/estimate-core/src/canal_engine/bank_statement.rs"),resolve(__dirname,"src-tauri/canal-section-wasm/src/lib.rs")]);
+        server.watcher.on("change",file=>{const path=file.replace(/\\/g,"/");if(path.endsWith("bank_statement.rs")||path.endsWith("canal-section-wasm/src/lib.rs")){buildCanalSectionEngine();server.ws.send({type:"full-reload"});}});
+      }},
       react({
         babel: {
           plugins: useReactCompiler
@@ -61,6 +70,7 @@ export default defineConfig(({ command }) => {
     server: {
       port: 5173,
       strictPort: true,
+      warmup: { clientFiles: ["./src/main.tsx"] },
       proxy: {
         // Browser/Vite sessions cannot fetch R2 tiles directly (the bucket sends
         // no CORS headers). Forward them same-origin; the desktop app never uses

@@ -1,6 +1,7 @@
+import IndividualItemsPrintStudio, { exportIndividualItemsExcel } from './IndividualItemsPrintStudio';
 import MiscellaneousCostsPanel from "./MiscellaneousCostsPanel";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { ChevronDown, Pencil, Search, X } from "lucide-react";
+import { ChevronDown, FileSpreadsheet, Printer, Pencil, Search, X } from "lucide-react";
 import {
   costChoices,
   individualCostAdoption,
@@ -25,8 +26,9 @@ import type {
   IndividualCostAdoption,
   IndividualCostChoice,
 } from "../../types/individualCosts";
-import type { RateAnalysisSectionKey } from "../../types/rateAnalysis";
+import type { RateAnalysisRecipe, RateAnalysisSectionKey } from "../../types/rateAnalysis";
 import "../morth/morth.css";
+import { compareCatalogueCodes } from "../../lib/catalogueGuidance";
 
 const EMPTY_COSTS: Record<string, IndividualCostAdoption> = {};
 const money = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
@@ -40,10 +42,7 @@ export default function IndividualCostsPanel(): JSX.Element | null {
 function IndividualCostsEditor(): JSX.Element {
   const project = useStore((s) => s.project)!,
     updateMeta = useStore((s) => s.updateMeta);
-  const [owner, setOwner] = useState<CostOwner>("MORTH"),
-    [kind, setKind] = useState<RateAnalysisSectionKey | "miscellaneous">(
-      "materials",
-    );
+  const [kind, setKind] = useState<RateAnalysisSectionKey | "miscellaneous">("materials");
   const [query, setQuery] = useState(""),
     [limit, setLimit] = useState(60);
   const [inventory, setInventory] = useState<{
@@ -67,6 +66,7 @@ function IndividualCostsEditor(): JSX.Element {
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
   const [picker, setPicker] = useState<ProjectIndividualCostRow | null>(null);
+  const [studio, setStudio] = useState<RateAnalysisRecipe[] | null>(null);
   const saved = project.meta.individualCosts ?? EMPTY_COSTS,
     year = project.meta.sorYear,
     zone = project.meta.sorZone ?? "zone_3";
@@ -77,14 +77,15 @@ function IndividualCostsEditor(): JSX.Element {
     [inventory, project],
   );
   const groupRows = useMemo(
-    () => allRows.filter((r) => r.owner === owner && r.kind === kind),
-    [allRows, owner, kind],
+    () => allRows.filter((r) => r.kind === kind),
+    [allRows, kind],
   );
   const matching = useMemo(() => {
     const terms = query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
     return groupRows.filter((r) =>
       terms.every((t) =>
-        r.aliases.some((a) => a.toLocaleLowerCase().includes(t)),
+        [sourceName(r.owner), r.description, ...r.aliases, ...r.locations.flatMap(u => [u.dataCode, u.analysisCode, u.analysisLabel, u.description, u.path, u.via ?? ''])]
+          .some((a) => a.toLocaleLowerCase().includes(t)),
       ),
     );
   }, [groupRows, query]);
@@ -101,7 +102,7 @@ function IndividualCostsEditor(): JSX.Element {
 
   useEffect(() => {
     if (kind === "miscellaneous" || !allRows.length || groupRows.length) return;
-    const first = allRows.find((r) => r.owner === owner);
+    const first = allRows[0];
     if (!first) return;
     let active = true;
     void Promise.resolve().then(() => {
@@ -110,7 +111,7 @@ function IndividualCostsEditor(): JSX.Element {
     return () => {
       active = false;
     };
-  }, [allRows, groupRows, owner, kind]);
+  }, [allRows, groupRows, kind]);
 
   useEffect(() => {
     let active = true;
@@ -118,11 +119,6 @@ function IndividualCostsEditor(): JSX.Element {
       .then((result) => {
         if (!active) return;
         setInventory({ project, ...result });
-        setOwner((previous) =>
-          result.rows.some((r) => r.owner === previous)
-            ? previous
-            : (result.rows[0]?.owner ?? previous),
-        );
       })
       .catch((e) => {
         if (active)
@@ -297,27 +293,21 @@ function IndividualCostsEditor(): JSX.Element {
             update its usages.
           </p>
         </div>
-        <span className="cost-context">
-          {year} · {zone.replace("_", " ")}
-        </span>
+        <div className="dash-actions">
+          <span className="cost-context">{year} · {zone.replace("_", " ")}</span>
+          <button className="btn" disabled={loading || busy || pendingRows.length > 0 || Boolean(inventory?.errors.length)} onClick={() => setStudio(inventory?.entries.map(entry=>entry.recipe) ?? [])}><Printer size={15}/> Typist Preview</button>
+          <button className="btn" disabled={loading || busy || pendingRows.length > 0 || Boolean(inventory?.errors.length)} onClick={() => {
+            setBusy(true);
+            void exportIndividualItemsExcel(project)
+              .catch(reason=>setMessage(String(reason))).finally(()=>setBusy(false));
+          }}><FileSpreadsheet size={15}/> Excel</button>
+        </div>
       </header>
-      <div
-        className="cost-source-tabs"
-        role="group"
-        aria-label="Resource source"
-      >
-        {(["MORTH", "SSR"] as const).map((s) => (
-          <button
-            key={s}
-            aria-pressed={owner === s}
-            onClick={() => {
-              setOwner(s);
-              changeFilter();
-            }}
-          >
-            {sourceName(s)}
-            <span>{allRows.filter((r) => r.owner === s).length}</span>
-          </button>
+      <div className="cost-source-legend" aria-label="Resource source colours">
+        {(["MORTH", "SSR"] as const).map((source) => (
+          <span key={source} className="cost-source-badge" data-cost-source={source}>
+            {sourceName(source)} · {allRows.filter(row => row.owner === source).length}
+          </span>
         ))}
       </div>
       <div
@@ -331,7 +321,7 @@ function IndividualCostsEditor(): JSX.Element {
             aria-selected={kind === k}
             disabled={
               !loading &&
-              !allRows.some((r) => r.owner === owner && r.kind === k)
+              !allRows.some((r) => r.kind === k)
             }
             key={k}
             onClick={() => {
@@ -345,7 +335,7 @@ function IndividualCostsEditor(): JSX.Element {
                 ? "Machinery"
                 : "Labour"}{" "}
             <span>
-              {allRows.filter((r) => r.owner === owner && r.kind === k).length}
+              {allRows.filter((r) => r.kind === k).length}
             </span>
           </button>
         ))}
@@ -362,7 +352,6 @@ function IndividualCostsEditor(): JSX.Element {
       </div>
       {kind === "miscellaneous" && (
         <MiscellaneousCostsPanel
-          owner={owner}
           entries={inventory?.project === project ? inventory.entries : []}
           loading={loading}
         />
@@ -415,7 +404,7 @@ function IndividualCostsEditor(): JSX.Element {
                 ? "No project resources yet"
                 : query
                   ? "No matching resources"
-                  : `No ${kind} used in ${sourceName(owner)} DATA`}
+                  : `No ${kind} used in project DATA`}
             </strong>
             <p>
               {!allRows.length
@@ -446,12 +435,15 @@ function IndividualCostsEditor(): JSX.Element {
                   const locked = new Set(
                     row.locations.filter((u) => u.locked).map((u) => u.nodeId),
                   ).size;
+                  const dataCodes = [...new Set(row.locations.map(u => u.dataCode).filter(Boolean))].sort(compareCatalogueCodes);
                   return (
                     <Fragment key={row.id}>
-                      <tr className={open ? "cost-row-open" : undefined}>
+                      <tr className={open ? "cost-row-open" : undefined} data-cost-source={row.owner}>
                         <td>
                           <strong>{row.description}</strong>
+                          {row.descriptionMissing && <small className="cost-missing-description">Source description missing · check DATA usage</small>}
                           <div className="cost-resource-meta">
+                            <span className="cost-source-badge" data-cost-source={row.owner}>{sourceName(row.owner)}</span>
                             <span>{row.unit || "unit"}</span>
                             {row.owner === "MORTH" && (
                               <span
@@ -476,6 +468,10 @@ function IndividualCostsEditor(): JSX.Element {
                           <small>{resolved?.label}</small>
                         </td>
                         <td>
+                          <div className="cost-usage-codes">
+                            {dataCodes.slice(0, 3).map(code => <span key={code}>{code}</span>)}
+                            {dataCodes.length > 3 && <small>+{dataCodes.length - 3} more</small>}
+                          </div>
                           <button
                             className="cost-usage-button"
                             aria-expanded={open && expanded.view === "usage"}
@@ -520,9 +516,11 @@ function IndividualCostsEditor(): JSX.Element {
                                 <ul className="cost-locations">
                                   {row.locations.map((u, i) => (
                                     <li key={`${u.nodeId}:${i}`}>
+                                      <div className="cost-location-code">{u.dataCode}{u.analysisCode !== u.dataCode ? ` → ${u.analysisLabel}` : ''}</div>
                                       <strong>{u.description}</strong>
                                       <small>
                                         {u.path}
+                                        {` · ${u.rowLabel}`}
                                         {u.via ? ` · via ${u.via}` : ""}
                                         {u.locked
                                           ? " · Local DATA rate retained"
@@ -561,7 +559,7 @@ function IndividualCostsEditor(): JSX.Element {
                                         }}
                                       >
                                         <option value="default">
-                                          {owner === "SSR"
+                                          {row.owner === "SSR"
                                             ? "SSR_Year / project default"
                                             : "Default starting rate"}
                                         </option>
@@ -642,7 +640,7 @@ function IndividualCostsEditor(): JSX.Element {
                                               }}
                                             >
                                               <option value="">
-                                                {owner === "SSR"
+                                                {row.owner === "SSR"
                                                   ? "Keep SSR_Year / project default"
                                                   : "Use default starting rate"}
                                               </option>
@@ -684,7 +682,7 @@ function IndividualCostsEditor(): JSX.Element {
                                     )}
                                   </div>
                                   <p className="cost-edit-hint">
-                                    Applies to matching {sourceName(owner)}{" "}
+                                    Applies to matching {sourceName(row.owner)}{" "}
                                     resources across this project.
                                     {locked > 0
                                       ? ` ${locked} DATA usage${locked === 1 ? " has a" : "s have"} local rate edit that will be retained.`
@@ -785,6 +783,7 @@ function IndividualCostsEditor(): JSX.Element {
           </div>
         </div>
       )}
+      {studio && <IndividualItemsPrintStudio project={project} recipes={studio} onClose={()=>setStudio(null)}/>}
     </section>
   );
 }

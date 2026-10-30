@@ -1,4 +1,5 @@
 import type { MasterSearchMatch } from './masterSearch'
+import { catalogueSearchText } from './catalogueGuidance'
 
 export interface SemanticSearchProgress {
   status: 'loading' | 'ready' | 'fallback'
@@ -119,7 +120,7 @@ export function rerankMasterSearch(
         key: match.key,
         text: [
           `Item code: ${match.item.code}`,
-          `Description: ${match.item.description}`,
+          `Description and work scope: ${catalogueSearchText(match.item)}`,
           match.item.unit ? `Unit: ${match.item.unit}` : '',
           `Section: ${match.item.category}`
         ]

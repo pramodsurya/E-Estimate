@@ -2,6 +2,7 @@ pub mod cut_calculator;
 pub mod diagram;
 pub mod embankment_calculator;
 pub mod models;
+pub mod bank_statement;
 
 pub use cut_calculator::{
     calculate_bed_level, calculate_canal_cutting, compute_section_cut,

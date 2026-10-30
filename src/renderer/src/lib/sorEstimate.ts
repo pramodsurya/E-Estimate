@@ -8,9 +8,9 @@ import type { RateAnalysisRecipe } from "../types/rateAnalysis";
 import { projectItemKey } from "./projectItems";
 import { parseRateAnalysisVisibility } from "./rateAnalysisVisibility";
 import { sorReference, record } from "./sorSource";
+import { sorItemDescription } from "./sorPresentation";
 import {
   createUniverWorkbookData,
-  usedCellRange,
   workbookFromRows,
 } from "./univerSpreadsheet";
 import type { IWorkbookData } from "@univerjs/core";
@@ -84,8 +84,7 @@ export function sorRecipe(
 ): RateAnalysisRecipe {
   if (!Number.isFinite(saved.rate) || saved.quote.status !== "priced")
     throw new Error("This SOR selection has no usable selected-year rate.");
-  const description =
-    saved.annual.to_be_printed?.description ?? saved.recipe.description;
+  const description = sorItemDescription(saved.annual, saved.recipe);
   const section = /labour/i.test(saved.recipe.heading)
     ? "labour"
     : /machinery/i.test(saved.recipe.heading)
@@ -164,12 +163,7 @@ export function seedSorMeasurement(node: ProjectNode): ProjectNode {
   if (!saved) return node;
   return {
     ...node,
-    finalCell: { row: 1, column: 1 },
-    spreadsheet: workbookFromRows(node, [
-      ["SOR reference", "Quantity", "Unit"],
-      [sorReference(saved), saved.quantity, saved.quote.unit],
-      ["Specification", node.itemDescription ?? node.name],
-    ]),
+    spreadsheet: workbookFromRows(node, []),
   };
 }
 export function seedSharedSorMeasurements(nodes: ProjectNode[]): ProjectNode[] {
@@ -179,33 +173,9 @@ export function seedSharedSorMeasurements(nodes: ProjectNode[]): ProjectNode[] {
     snapshot = structuredClone(
       createUniverWorkbookData(owner),
     ) as IWorkbookData;
-  const sheet = snapshot.sheets[snapshot.sheetOrder[0]],
-    start = (usedCellRange(snapshot)?.endRow ?? -2) + 2;
-  const cells = sheet.cellData ?? {};
-  cells[start] = {
-    0: { v: "SOR reference" },
-    1: { v: "Quantity" },
-    2: { v: "Unit" },
-  };
-  const rows = new Map<string, number>();
-  selected.forEach((node, index) => {
-    const saved = node.sorCatalogue!,
-      row = start + index + 1;
-    rows.set(node.id, row);
-    cells[row] = {
-      0: { v: sorReference(saved) },
-      1: { v: saved.quantity },
-      2: { v: saved.quote.unit },
-    };
-  });
-  sheet.cellData = cells;
-  sheet.rowCount = Math.max(sheet.rowCount ?? 0, start + selected.length + 20);
   return nodes.map((node) => ({
     ...node,
     spreadsheet: snapshot,
-    ...(rows.has(node.id)
-      ? { finalCell: { row: rows.get(node.id)!, column: 1 } }
-      : {}),
   }));
 }
 export function sorRecipeSnapshots(

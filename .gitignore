@@ -40,6 +40,7 @@ scripts/output/
 /tmp-berm/
 /scratch/
 /output/
+/src/renderer/src/generated/canal-section-engine.wasm*
 /outputs/
 *.tsbuildinfo
 /.codex-tmp/

@@ -10,7 +10,7 @@ import {
   Save,
   Wrench
 } from 'lucide-react'
-import { projectItemGroups } from '../../lib/projectItems'
+import { projectItemGroups, rateAnalysisOverrideForNode } from '../../lib/projectItems'
 import { adoptSavedRecipe, cloneRecipe } from '../../lib/dataSheets'
 import {
   auditPublishedRateAnalysis,
@@ -190,7 +190,10 @@ export default function RateAnalysisDashboard(): JSX.Element {
     project && selection?.scopeNodeId
       ? project.rateAnalysisScopedOverrides?.[selection.scopeNodeId]?.[selection.key] ?? null
       : null
-  const override = scopedOverride ?? globalOverride
+  const itemOverride = project && itemNode?.itemSource === 'MORTH'
+    ? rateAnalysisOverrideForNode(project, itemNode)
+    : null
+  const override = itemOverride ?? scopedOverride ?? globalOverride
   const leadVariants = project?.leadChart?.variants ?? EMPTY_LEAD_VARIANTS
   const syncedLeadRates =
     project && dashboardContextMatches(project.dashboardSnapshot, project)
@@ -333,7 +336,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
             zone: sorZone,
             leadRuleCode: info.sorRuleCode,
             conveyanceClass: variant.conveyanceClass,
-            distanceKm: variant.leadKm,
+            distanceKm: variant.materialName === 'Concrete delivery' ? variant.actualLeadKm ?? variant.leadKm : variant.leadKm,
             quantity: effectiveQuantity,
             liftM: variant.liftM,
             includedInitialLiftM: liftInfo.includedInitialLiftM,
@@ -609,7 +612,7 @@ export default function RateAnalysisDashboard(): JSX.Element {
             leadVariants={leadVariants}
             onLeadApplicationQuantityChange={updateLeadApplicationQuantity}
           />}
-          {draft.itemSource==='MORTH' && <MorthDataPreview recipe={draft} leadApplications={leadApplications} leadVariants={leadVariants}/>}
+          {draft.itemSource==='MORTH' && <MorthDataPreview itemNodeId={itemNode?.id} recipe={draft} leadApplications={leadApplications} leadVariants={leadVariants}/>}
           {draft.itemSource === 'SSR' && <RecalculationAudit recipe={draft} />}
           {!selection.recipeOnly && (
             <section className="rate-usages">

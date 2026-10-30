@@ -1,6 +1,5 @@
 import {collectMorthAppendices,appendixForRecipe,morthAbstract,calculationBasisLabel,type MorthAppendix} from "../morthAppendices"
 import defaultTemplate from './data.typ?raw'
-import { morthLeadIssues, morthFinalRate } from '../morthMaterialLead'
 /** DATA and rate-analysis data adapter. The complete layout is in data.typ. */
 
 import type { DataSheet } from '../dataSheets'
@@ -15,6 +14,8 @@ import { descriptionRunsForDisplay } from '../rateAnalysisVisibility'
 import { buildDataPresentation } from '../dataPresentation'
 import { applyDocumentSettingsToTypst, resolveProjectDocumentSettings } from './documentSettings'
 import { DATA_SIGNATURE_SCOPE, printableSignatureRows, resolveSignatureFooter } from '../signatureFooter'
+import { morthTransportDistance, morthTransportQuantityLabel } from '../morthTransport'
+import { concreteTransportParameter } from '../morthMaterialLead'
 
 /** Escapes special Typst markup characters in text strings. */
 export function escapeTypst(text: string | null | undefined): string {
@@ -71,23 +72,6 @@ function leadDeductionLabel(application: LeadApplication, disposal: boolean): st
   return `${prefix} after removing included Initial Lead`
 }
 
-function leadWarnings(application: LeadApplication, variant: LeadVariant | undefined) {
-  const warnings: Array<{ message: string; detail: string }> = []
-  const delivery = application.deliveryAtSiteWarning || (
-    variant && !/^fabricated\s+parts?$/i.test(variant.materialName.trim()) &&
-    (variant.conveyanceClass === 'CEMENT' || variant.conveyanceClass === 'STEEL') && variant.leadKm > 0.15
-      ? 'Cement/steel basic rate is normally delivery at site. External lead may duplicate transport already included in the material rate.' : ''
-  )
-  if (delivery) warnings.push({ message: delivery, detail: application.deliveryAtSiteOverrideReason ? `Reason: ${application.deliveryAtSiteOverrideReason}` : 'No override reason recorded' })
-  const handling = application.handlingWarning || (
-    variant && variant.handlingMode !== 'none' && (application.loadingRate > 0 || application.unloadingRate > 0)
-      ? 'Loading/unloading is added from the Lead variant. Use only when it is separately admissible and not already covered in the parent DATA item.' : ''
-  )
-  if (handling) warnings.push({ message: handling, detail: application.handlingOverrideReason ? `Reason: ${application.handlingOverrideReason}` : 'No override reason recorded' })
-  return warnings
-}
-
-
 export interface ScopeContext {
   scopeName?: string
   usagePath?: string
@@ -101,9 +85,12 @@ export function buildRateAnalysisRenderData(
   leadVariants: LeadVariant[] = [],
   scopeContext?: ScopeContext,
   calculatedSummary?: RateAnalysisSummary,
-  appendices: MorthAppendix[] = collectMorthAppendices([recipe]),
-  appendixOnly = false
+  appendices: MorthAppendix[] = collectMorthAppendices([recipe])
 ) {
+  if (recipe.morth) {
+    leadApplications = recipe.morth.appliedLeadApplications ?? []
+    leadVariants = recipe.morth.appliedLeadVariants ?? leadVariants
+  }
   const code = recipe.morth?.printedItem || recipe.itemCode?.trim() || recipe.itemKey || 'DATA'
   const unit = recipe.unit || 'cum'
   const outputQty = recipe.outputQuantity || 1
@@ -114,18 +101,15 @@ export function buildRateAnalysisRenderData(
 
   // This is the same semantic result consumed by the React DATA view.
   const presentation = buildDataPresentation(recipe, leadApplications, leadVariants, calculatedSummary ?? recipe.morth?.startingSummary)
-  if(recipe.morth && (recipe.morth.pending.length || (calculatedSummary ?? recipe.morth.startingSummary)?.costReady===false))throw new Error('Resolve the pending MoRTH inputs before exporting this DATA.')
-  if (recipe.morth && !appendixOnly) {
-    const missing = morthLeadIssues(recipe, leadApplications, leadVariants)
-    if (missing.length) throw new Error(`Resolve material Lead before exporting this DATA: ${missing.join('; ')}`)
-  }
+  // Preview and print show the current analysis. Readiness and review reminders
+  // belong to the editor; printing never resolves or clears those states.
   const calculated = presentation.summary
 
   const materialsSection = recipe.sections.find((s) => s.key === 'materials')
   const labourSection = recipe.sections.find((s) => s.key === 'labour')
   const machinerySection = recipe.sections.find((s) => s.key === 'machinery')
 
-  const matLines = materialsSection?.lines ?? []
+  const matLines = (materialsSection?.lines ?? []).filter(line => recipe.morth?.inputs[line.id]?.raw.material_lead_charge !== true)
   const labLines = labourSection?.lines ?? []
   const machLines = machinerySection?.lines ?? []
 
@@ -133,7 +117,7 @@ export function buildRateAnalysisRenderData(
     calculated?.sectionTotals.materials ??
     matLines.reduce((sum, line) => sum + (line.amount || 0), 0)
   const labTotal =
-    calculated?.sectionTotals.labour ??
+    calculated?.labourBaseCost ?? calculated?.sectionTotals.labour ??
     labLines.reduce((sum, line) => sum + (line.amount || 0), 0)
   const machTotal =
     calculated?.sectionTotals.machinery ??
@@ -151,12 +135,12 @@ export function buildRateAnalysisRenderData(
   const labUnitTotal = labUnitBase + labUnitProfit
 
   // Total lead additions
-  const leadTotalAmount = leadApplications.reduce((sum, app) => sum + app.grossAmount, 0)
+  const leadTotalAmount = recipe.morth ? (calculated.morthLeadAmount ?? 0) : leadApplications.reduce((sum, app) => sum + app.grossAmount, 0)
 
   // External project Lead is presented after the DATA abstract, exactly as in React.
-  const totalCost = calculated?.totalCost ?? baseCost + overheadAmt + areaAllowanceAmt
+  const totalCost = recipe.morth ? calculated.totalCost - leadTotalAmount : calculated?.totalCost ?? baseCost + overheadAmt + areaAllowanceAmt
   const ratePerUnit = recipe.morth ? calculated.ratePerUnit : outputQty > 0 ? totalCost / outputQty : totalCost
-  const baseFinalAmount = presentation.adoptedSummary.totalCost + presentation.addonLeadTotal
+  const baseFinalAmount = recipe.morth ? totalCost : presentation.adoptedSummary.totalCost + presentation.addonLeadTotal
   const layout = presentation.layout
   const calculatedAddon = presentation.calculatedAddon
   const addonLeadApplications = presentation.addonLeadApplications
@@ -165,12 +149,17 @@ export function buildRateAnalysisRenderData(
     const input=recipe.morth?.inputs[line.id], dependency=input?.dependency, appendix=dependency?appendixForRecipe(appendices,dependency):undefined
     const lookup=input?.raw.price_lookup as Record<string,unknown>|undefined
     const exclusions=(recipe.morth?.source.calculation as Record<string,unknown>|undefined)?.markup_excluded_resource_keys
+    const quantityLabel = input && morthTransportQuantityLabel(recipe, input.raw)
+    const transportParameter = quantityLabel && concreteTransportParameter(input.raw)
+    const description = transportParameter
+      ? `${line.description}\nLead = ${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 8 }).format(morthTransportDistance(recipe, transportParameter).km)} km · plant to site`
+      : line.description
     return ({
     appendix_key: appendix?.key, appendix_name: appendix?.name, appendix_direct: lookup?.require_direct_cost_only===true, appendix_multiplier: Number(lookup?.rate_multiplier ?? 1),
     markup_excluded: lookup?.parent_markup_excluded===true || (Array.isArray(exclusions)&&exclusions.includes(input?.raw.resource_key)),
-    sl: line.slNo || '', description: line.description, unit: line.unit,
+    sl: line.slNo || '', description, unit: line.unit,
     quantity: line.quantity, rate: line.rate, amount: line.amount,
-    qty_text: fmtQty(line.quantity), rate_text: fmtMoney(line.rate), amount_text: fmtMoney(line.amount),
+    qty_text: quantityLabel ?? fmtQty(line.quantity), rate_text: fmtMoney(line.rate), amount_text: fmtMoney(line.amount),
     user_added: Boolean(line.userAdded), edited: editedMap(line),
     source: { rate: line.rateSource ?? '', resource_code: line.resourceCode ?? '', amount: line.amountSource ?? '' }
   })})
@@ -210,7 +199,8 @@ export function buildRateAnalysisRenderData(
         unit: app.calculation.unit || app.unit,
         rows: app.calculation.rows.map((row) => ({ label: row.label, expression: row.expression, amount_text: fmtMoney(row.amount) }))
       } : null,
-      warnings: leadWarnings(app, variant)
+      // Keep this field for saved custom templates that read it.
+      warnings: []
     }
   })
 
@@ -259,6 +249,7 @@ export function buildRateAnalysisRenderData(
   const totals = {
     material_total: matTotal,
     labour_total: labTotal,
+    labour_cost_with_area_allowance: calculated?.labourCostWithAreaAllowance ?? labTotal + areaAllowanceAmt,
     machinery_total: machTotal,
     base_cost: baseCost,
     overhead_percent: overheadPct,
@@ -274,7 +265,7 @@ export function buildRateAnalysisRenderData(
     output_quantity: outputQty
   }
   return {
-    direct_rate_text:fmtMoney(calculated.baseCost/outputQty),
+    direct_rate_text:fmtMoney((calculated.baseCost + (recipe.morth ? leadTotalAmount : 0))/outputQty),
     morth_abstract: morthAbstract(recipe,calculated).map(row=>({...row,basisLabel:calculationBasisLabel(row.base)})),
     is_morth: Boolean(recipe.morth),
     code, unit, description: desc, description_runs: printableRuns(desc, layout.descriptionRuns),
@@ -331,7 +322,7 @@ export function buildRateAnalysisRenderData(
       base_amount_text: fmtMoney(baseFinalAmount),
       lead_total_text: fmtMoney(regularLeadApplications.reduce((sum, app) => sum + app.grossAmount, 0)),
       final_amount_text: fmtMoney(baseFinalAmount + regularLeadApplications.reduce((sum, app) => sum + app.grossAmount, 0)),
-      final_rate_text: fmtMoney(recipe.morth ? morthFinalRate(recipe, baseFinalAmount, regularLeadApplications) : (baseFinalAmount + regularLeadApplications.reduce((sum, app) => sum + app.grossAmount, 0)) / outputQty),
+      final_rate_text: fmtMoney(recipe.morth ? calculated.ratePerUnit : (baseFinalAmount + regularLeadApplications.reduce((sum, app) => sum + app.grossAmount, 0)) / outputQty),
       disposal_only: regularLeadApplications.length > 0 && regularLeadApplications.every((app) => isDisposalLead(leadVariants.find((v) => v.id === app.variantId)))
     },
     optional_addition: optionalAddition
@@ -345,7 +336,7 @@ export interface TypstDocumentOptions {
   signature?: SignatureFooterSettings
 }
 export function buildMorthAppendixRenderData(recipes:RateAnalysisRecipe[],appendices=collectMorthAppendices(recipes)) {
-  return appendices.map(a=>({...buildRateAnalysisRenderData(a.recipe,[],[],undefined,a.recipe.morth?.startingSummary,appendices,true),appendix_key:a.key,appendix_name:a.name,appendix_usages:a.usages}))
+  return appendices.map(a=>({...buildRateAnalysisRenderData(a.recipe,[],[],undefined,a.recipe.morth?.startingSummary,appendices),appendix_key:a.key,appendix_name:a.name,appendix_usages:a.usages}))
 }
 export function dataTypstTemplate(): string { return defaultTemplate }
 export function dataSheetsCompileInputs(sheets: DataSheet[], options: TypstDocumentOptions = {}): Record<string, string> {
@@ -392,9 +383,9 @@ export async function rateAnalysisCompileInputs(
   variants: LeadVariant[] = [],
   scopeContext?: ScopeContext
 ): Promise<Record<string, string>> {
-  if(recipe.itemSource==='SSR' && recipe.calculationStale)recipe=await (await import('../rateAnalysis')).recalculateRateAnalysis(recipe)
+  recipe = await (await import('../rateAnalysis')).prepareRateAnalysis(recipe)
+  if (recipe.morth) recipe = await (await import('../morthLeadPricing')).priceMorthLead(recipe, applications, variants)
   const summary = await window.api.rateAnalysis.calculate(recipe)
-  if(summary.costReady===false)throw new Error(`Resolve the pending MoRTH inputs before exporting: ${(summary.missing ?? []).join('; ')}`)
   return {
     'ee-data': JSON.stringify({
       project: project?.meta.name || 'Estimate',

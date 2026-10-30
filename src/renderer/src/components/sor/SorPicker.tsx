@@ -50,6 +50,7 @@ import type {
 } from "../../types/sor";
 import "./sorPicker.css";
 import type { SorTreeIndex } from "../../lib/sorTree";
+import { sorItemDescription } from "../../lib/sorPresentation";
 interface Props {
   year: string;
   zone: SorZone;
@@ -109,7 +110,6 @@ function SorPickerSession({
   const [config, setConfig] = useState<SorConfiguration>(
     initial?.configuration ?? EMPTY_SOR_CONFIGURATION,
   );
-  const [quantity, setQuantity] = useState(String(initial?.quantity ?? 1));
   const [selection, setSelection] = useState<SorItemSelection | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [row, setRow] = useState("");
@@ -159,14 +159,12 @@ function SorPickerSession({
   const [previousCalculation, setPreviousCalculation] = useState({
     detail,
     config,
-    quantity,
   });
   if (
     previousCalculation.detail !== detail ||
-    previousCalculation.config !== config ||
-    previousCalculation.quantity !== quantity
+    previousCalculation.config !== config
   ) {
-    setPreviousCalculation({ detail, config, quantity });
+    setPreviousCalculation({ detail, config });
     setSelection(null);
     setCalculating(Boolean(detail && readySorDetail(detail)));
     setError("");
@@ -319,7 +317,7 @@ function SorPickerSession({
   useEffect(() => {
     let active = true;
     if (!detail || !readySorDetail(detail)) return;
-    void createSorSelection(detail, code, year, zone, Number(quantity), config)
+    void createSorSelection(detail, code, year, zone, 1, config)
       .then((value) => {
         if (active) setSelection(value);
       })
@@ -332,7 +330,7 @@ function SorPickerSession({
     return () => {
       active = false;
     };
-  }, [detail, code, year, zone, quantity, config]);
+  }, [detail, code, year, zone, config]);
   const inspect = async (leaf: SorLeaf): Promise<void> => {
     if (stage === "browse")
       browseReturn.current = {
@@ -830,15 +828,13 @@ function SorPickerSession({
         <article className="sor-variant-stage">
           {detail.recipe && (
             <>
-              <h3 title={detail.recipe.description}>
-                {detail.recipe.description}
+              <h3>
+                {sorItemDescription(detail.annual, detail.recipe)}
               </h3>
               <details className="sor-specification">
                 <summary>Complete published specification</summary>
                 <p>
-                  {detail.annual?.to_be_printed?.description ??
-                    detail.annual?.description ??
-                    detail.recipe.description}
+                  {sorItemDescription(detail.annual, detail.recipe)}
                 </p>
               </details>
               <small>
@@ -977,17 +973,6 @@ function SorPickerSession({
               ))}
             </fieldset>
           )}
-          <label className="sor-input">
-            Quantity ({detail.quote.unit || "published unit"})
-            <input
-              aria-label="SOR quantity"
-              type="number"
-              min="0"
-              step="any"
-              value={quantity}
-              onChange={(event) => setQuantity(event.target.value)}
-            />
-          </label>
           {selection && (
             <div className="sor-amount">
               {selection.adjustments.map((row) => (
@@ -1000,9 +985,6 @@ function SorPickerSession({
                 <b>
                   {sorMoney(selection.rate)} / {selection.quote.unit}
                 </b>
-              </span>
-              <span>
-                Amount <b>{sorMoney(selection.rate * selection.quantity)}</b>
               </span>
             </div>
           )}

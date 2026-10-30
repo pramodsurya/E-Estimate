@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { CanalBankProtectionConfig, CanalBankReachProtection, CanalData } from '../../../../types/project'
 import { canalDesignProfile, canalGroundLevelAt, defaultCanalBankDesignConfig, orderedCanalSections } from '../../../../lib/canal'
-import { bankProtectionForReach, bankProtectionItem, bankProtectionQuantities, bankProtectionSectionAt, bankProtectionSegments, saveBankReachProtection, type BankProtectionQuantity } from '../../../../lib/canalBankProtection'
+import { bankProtectionForReach, bankProtectionForTier, bankProtectionItem, bankProtectionQuantities, bankProtectionSectionAt, bankProtectionSegments, saveBankReachProtection, saveBankTierProtection, type BankProtectionQuantity } from '../../../../lib/canalBankProtection'
 import { canalBankReaches, formatCanalReachChainage, type CanalAssignedBankReach } from '../../../../lib/canalTierReaches'
 import CanalSectionDiagram from '../../CanalSectionDiagram'
 import './canalBankProtection.css'
@@ -38,41 +38,43 @@ function TreatmentSettings({ label, spec, mode, onChange }: { label: string; spe
   </section>
 }
 
-function ReachProtectionEditor({ data, side, reach, quantities, onCommit }: { data: CanalData; side: 'left' | 'right'; reach: CanalAssignedBankReach; quantities: BankProtectionQuantity[]; onCommit: (update: (current: CanalData) => CanalData) => void }): JSX.Element {
+function ReachProtectionEditor({ data, side, reach, group, title, quantities, onCommit }: { data: CanalData; side: 'left' | 'right'; reach: CanalAssignedBankReach; group?: CanalAssignedBankReach[]; title?: string; quantities: BankProtectionQuantity[]; onCommit: (update: (current: CanalData) => CanalData) => void }): JSX.Element {
   const saved = bankProtectionForReach(data, side, reach)
   const [draft, setDraft] = useState<Treatments | null>(null)
+  const diagramData = draft ? group && reach.tierId ? saveBankTierProtection(data, side, reach.tierId, draft) : saveBankReachProtection(data, side, reach, draft) : data
   const [chainage, setChainage] = useState(reach.from)
   const linked = data.design.bankConfig?.linkSymmetrical
-  const selectedRows = quantities.filter(row => linked ? row.from === reach.from && row.to === reach.to && row.tierId === reach.tierId : row.reachId === reach.id && row.side === side)
-  const stations = [...new Set([reach.from, ...orderedCanalSections(data).filter(s => s.chainage >= reach.from && s.chainage < reach.to && s.designPopulated !== false && s.ground.length >= 2).map(s => s.chainage), reach.to])].sort((a, b) => a - b)
+  const ranges = group ?? [reach]
+  const selectedRows = quantities.filter(row => (!linked ? row.side === side : true) && (group ? row.tierId === reach.tierId : row.from === reach.from && row.to === reach.to && row.tierId === reach.tierId))
+  const stations = [...new Set(ranges.flatMap(r => [r.from, ...orderedCanalSections(data).filter(s => s.chainage >= r.from && s.chainage < r.to && s.designPopulated !== false && s.ground.length >= 2).map(s => s.chainage), r.to]))].sort((a, b) => a - b)
   const previewChainage = stations.includes(chainage) ? chainage : reach.from
-  // Keep survey interpolation and diagram geometry unchanged during local treatment edits.
-  const { preview, framed } = useMemo(() => {
-    const sample = bankProtectionSectionAt(data, previewChainage)
-    // At a shared endpoint show this reach's bank, keeping the opposite independent bank at its actual chainage.
-    const midpoint = (reach.from + reach.to) / 2
-    const preview = sample ? { ...sample, bankReachLookupChainageBySide: linked ? { left: midpoint, right: midpoint } : { [side]: midpoint } } : undefined
-    const profile = preview ? canalDesignProfile(data, preview) : []
-    const from = Math.min(...profile.map(p => p.offset)), to = Math.max(...profile.map(p => p.offset))
-    const margin = Math.max(2, (to - from) * 0.12)
-    const ground = preview && profile.length >= 2 ? [from - margin, ...preview.ground.map(p => p.offset).filter(x => x > from - margin && x < to + margin), to + margin].flatMap(offset => {
-      const rl = canalGroundLevelAt(preview.ground, offset)
-      return rl == null ? [] : [{ offset, rl }]
-    }).sort((a, b) => a.offset - b.offset) : []
-    return { preview, framed: preview && ground.length >= 2 ? { ...preview, ground } : preview }
-  }, [data, previewChainage, reach.from, reach.to, linked, side])
+  const previewReach = ranges.find(r => previewChainage >= r.from && previewChainage < r.to) ?? ranges.find(r => previewChainage === r.to)
+  const previewFrom = previewReach?.from, previewTo = previewReach?.to
+  // Survey framing stays stable while draft protection updates the diagram overlays.
+  const sample = previewFrom != null ? bankProtectionSectionAt(data, previewChainage) : undefined
+  // At a shared endpoint show this reach's bank, keeping the opposite independent bank at its actual chainage.
+  const midpoint = previewFrom != null && previewTo != null ? (previewFrom + previewTo) / 2 : previewChainage
+  const preview = sample ? { ...sample, bankReachLookupChainageBySide: linked ? { left: midpoint, right: midpoint } : { [side]: midpoint } } : undefined
+  const profile = preview ? canalDesignProfile(data, preview) : []
+  const from = Math.min(...profile.map(p => p.offset)), to = Math.max(...profile.map(p => p.offset))
+  const margin = Math.max(2, (to - from) * 0.12)
+  const ground = preview && profile.length >= 2 ? [from - margin, ...preview.ground.map(p => p.offset).filter(x => x > from - margin && x < to + margin), to + margin].flatMap(offset => {
+    const rl = canalGroundLevelAt(preview.ground, offset)
+    return rl == null ? [] : [{ offset, rl }]
+  }).sort((a, b) => a.offset - b.offset) : []
+  const framed = preview && ground.length >= 2 ? { ...preview, ground } : preview
   return <section className="canal-earthwork-card canal-protection-card">
-    <header><h3>{range(reach)} · {linked ? 'Both banks' : `${side === 'left' ? 'Left' : 'Right'} bank`}</h3><p>Protection applies only to this Bank Design reach.</p></header>
+    <header><h3>{title ?? range(reach)} · {linked ? 'Both banks' : `${side === 'left' ? 'Left' : 'Right'} bank`}</h3><p>{group ? `Programmatic design · the same protection applies to all ${ranges.length} reaches using this design.` : 'Manual design · protection applies only to this Bank Design reach.'}</p></header>
     <section className="canal-protection-section"><label className="canal-bank-field"><span>Cross-section chainage</span><select value={previewChainage} onChange={event => setChainage(Number(event.target.value))}>{stations.map(ch => <option value={ch} key={ch}>{formatCanalReachChainage(ch)}</option>)}</select></label>
-      {framed ? <><h4>Cross-section at {formatCanalReachChainage(previewChainage)}</h4><CanalSectionDiagram data={data} section={framed}/><p className="canal-protection-help">{data.sections.some(s => s.chainage === previewChainage && s.designPopulated !== false && s.ground.length >= 2) ? 'Uses the saved section ground levels.' : 'Ground interpolated between the adjoining populated sections at this reach boundary.'} The diagram shows the saved protection.</p>
+      {framed ? <><h4>Cross-section at {formatCanalReachChainage(previewChainage)}</h4><CanalSectionDiagram data={diagramData} section={framed}/><p className="canal-protection-help">{data.sections.some(s => s.chainage === previewChainage && s.designPopulated !== false && s.ground.length >= 2) ? 'Uses the saved section ground levels.' : 'Ground interpolated between the adjoining populated sections at this reach boundary.'} {draft ? 'Preview shows unsaved protection. Save to apply quantities.' : 'The diagram shows the saved protection.'}</p>
       <div className="canal-protection-colors"><span style={{ color: '#f1bc75' }}>▰ Stone pitching</span><span style={{ color: '#74d68a' }}>▰ Grass turfing</span></div>
       <p className="canal-protection-help">{(linked ? ['left', 'right'] as const : [side]).map(bank => `${bank === 'left' ? 'Left' : 'Right'} berm width ${number(bankProtectionSegments(data, preview!, bank, 'berms').reduce((sum, [a, b]) => sum + Math.abs(b.offset - a.offset), 0))} m`).join(' · ')}</p></> : <p className="canal-protection-pending">No populated section is available at this chainage. Enter ground levels in Sections to show the actual diagram and measure protection.</p>}
     </section>
     {draft ? <>
       <TreatmentSettings label="Outer bank slopes" spec={draft.slopes} mode={data.mode} onChange={slopes => setDraft({ ...draft, slopes })}/>
-      <TreatmentSettings label="Berm shelves in this reach" spec={draft.berms} mode={data.mode} onChange={berms => setDraft({ ...draft, berms })}/>
+      <TreatmentSettings label={group ? 'Berm shelves in this design' : 'Berm shelves in this reach'} spec={draft.berms} mode={data.mode} onChange={berms => setDraft({ ...draft, berms })}/>
       <p className="canal-protection-help">Berm treatment covers the horizontal shelves that exist in this reach. Crest and road platforms are excluded. Save to recalculate.</p>
-      <div className="canal-protection-choices"><button key="save" type="button" onClick={() => { onCommit(current => saveBankReachProtection(current, side, reach, draft)); setDraft(null) }}>Save protection</button><button key="cancel" type="button" onClick={() => setDraft(null)}>Cancel</button></div>
+      <div className="canal-protection-choices"><button key="save" type="button" onClick={() => { onCommit(current => group && reach.tierId ? saveBankTierProtection(current, side, reach.tierId, draft) : saveBankReachProtection(current, side, reach, draft)); setDraft(null) }}>Save protection</button><button key="cancel" type="button" onClick={() => setDraft(null)}>Cancel</button></div>
     </> : <><div className="canal-protection-saved">{(['slopes', 'berms'] as const).map(surface => {
       const item = bankProtectionItem(saved[surface])
       const area = selectedRows.filter(row => row.surface === surface).reduce((sum, row) => sum + row.area, 0)
@@ -88,15 +90,22 @@ export default function CanalBankProtection({ data, onCommit }: { data: CanalDat
   const config = data.design.bankConfig ?? defaultCanalBankDesignConfig(data.mode)
   const partition = canalBankReaches(data, side)
   const reaches = partition.filter(r => r.status === 'fill' && r.tierId)
-  const selected = reaches.find(r => r.id === reachId) ?? reaches[0]
+  const programmatic = config.mode === 'tiered'
+  const tiers = config.linkSymmetrical || side === 'left' ? config.leftTiers : config.rightTiers
+  const selectedTier = tiers.find(t => t.id === reachId) ?? tiers[0]
+  const group = programmatic ? reaches.filter(r => r.tierId === selectedTier?.id) : undefined
+  const selected: CanalAssignedBankReach | undefined = programmatic
+    ? group?.[0] ?? (selectedTier ? { id: `design-${selectedTier.id}`, tierId: selectedTier.id, from: 0, to: 0, status: 'fill', minHeight: null, maxHeight: null, intervals: [] } : undefined)
+    : reaches.find(r => r.id === reachId) ?? reaches[0]
   const quantities = useMemo(() => bankProtectionQuantities(data), [data])
   return <section className="canal-chapter canal-bank-protection">
-    <header className="canal-v2-section-header"><div><span className="canal-v2-section-kicker">Bank Protection</span><h2>Bank Protection</h2><p>Select a Bank Design reach to protect its outer slopes and berm shelves.</p></div></header>
+    <header className="canal-v2-section-header"><div><span className="canal-v2-section-kicker">Bank Protection</span><h2>Bank Protection</h2><p>{programmatic ? 'Configure protection once for each Bank Design type and apply it to all its reaches.' : 'Select a manual Bank Design reach to protect its outer slopes and berm shelves.'}</p></div></header>
+    <div className="canal-protection-context"><strong>{programmatic ? 'Programmatic design' : config.mode === 'manual' ? 'Manual reach design' : 'Legacy bank design'}</strong> · Follows the mode selected in Bank Design.</div>
     <div className="canal-protection-context">{config.linkSymmetrical ? 'Linked banks · the same choices apply to both banks.' : 'Independent banks · configure the left and right banks separately.'} Chainages follow the {config.mode === 'manual' ? 'manual reaches' : 'reaches'} saved in Bank Design.</div>
     {!config.linkSymmetrical && <Choices label="Which bank?" value={side} options={[['left', 'Left bank'], ['right', 'Right bank']]} onChange={value => { setSide(value); setReachId('') }}/>}
-    {reaches.length ? <>
-      <CanalBankReachPicker data={data} side={side} selected={selected} onSelect={r => setReachId(r.id)} status={r => { const spec = bankProtectionForReach(data, side, r); return `Slopes · ${treatmentLabel(spec.slopes)} · Berms · ${treatmentLabel(spec.berms)}` }}/>
-      {selected && <ReachProtectionEditor key={`${config.mode}:${config.linkSymmetrical ? 'both' : side}:${selected.id}:${selected.from}:${selected.to}`} data={data} side={side} reach={selected} quantities={quantities} onCommit={onCommit}/>}
+    {(programmatic ? tiers.length : reaches.length) ? <>
+      <CanalBankReachPicker data={data} side={side} selected={selected} selectedTierId={selectedTier?.id} onSelectTier={id => setReachId(id)} tierStatus={id => { const spec = bankProtectionForTier(data, side, id); return `Slopes · ${treatmentLabel(spec.slopes)} · Berms · ${treatmentLabel(spec.berms)}` }} onSelect={r => setReachId(r.id)} status={r => { const spec = bankProtectionForReach(data, side, r); return `Slopes · ${treatmentLabel(spec.slopes)} · Berms · ${treatmentLabel(spec.berms)}` }}/>
+      {selected && <ReachProtectionEditor key={`${config.mode}:${config.linkSymmetrical ? 'both' : side}:${programmatic ? selectedTier?.id : selected.id}:${programmatic ? group?.map(r => `${r.id}:${r.from}:${r.to}`).join(',') : `${selected.from}:${selected.to}`}`} data={data} side={side} reach={selected} group={group} title={programmatic ? selectedTier?.name : undefined} quantities={quantities} onCommit={onCommit}/>}
     </> : <p className="canal-protection-pending">{config.mode === 'legacy' ? 'Choose programmatic or manual reaches in Bank Design to configure protection by chainage.' : 'Create or assign bund reaches in Bank Design. The same reaches will appear here.'}</p>}
     <section className="canal-earthwork-card canal-protection-card"><h3>All bank protection quantities</h3>{quantities.length ? <div className="canal-protection-table"><table><thead><tr><th>Bank / reach</th><th>Surface</th><th>SSR item</th><th>Area (m²)</th></tr></thead><tbody>{quantities.map(row => <tr key={`${row.side}:${row.reachId}:${row.surface}:${row.code}`}><td>{row.side === 'left' ? 'Left' : 'Right'} · {range(row)}</td><td>{row.surface === 'slopes' ? 'Outer slopes' : 'Berm shelves'}</td><td>{row.code}</td><td>{number(row.area)}</td></tr>)}</tbody><tfoot><tr><th colSpan={3}>Total protected area</th><td>{number(quantities.reduce((sum, row) => sum + row.area, 0))}</td></tr></tfoot></table></div> : <p>Save protection and populate sections to calculate quantities.</p>}</section>
   </section>

@@ -363,6 +363,8 @@ export function mergeSavedRecipe(
   saved: RateAnalysisRecipe
 ): RateAnalysisRecipe {
   const miscellaneousChanged = Boolean(source.miscellaneousDefaults || saved.miscellaneousDefaults) && source.overheadPercent !== saved.overheadPercent
+  const allowanceChanged = (source.areaAllowancePercent ?? 0) !== (saved.areaAllowancePercent ?? 0)
+  const calculationContextChanged = miscellaneousChanged || allowanceChanged || source.year !== saved.year || source.zone !== saved.zone
   const merged = mergeRecipeSectionsWithReport(
     source.sections,
     saved.sections,
@@ -387,11 +389,11 @@ export function mergeSavedRecipe(
     publishedRate: source.publishedRate,
     publishedRateText: source.publishedRateText,
     sor: source.sor,
-    morth: source.morth,
+    morth: mergeMorthTransport(source, saved),
     leadApplicability: source.morth ? source.leadApplicability : saved.leadApplicability ?? source.leadApplicability,
     miscellaneousDefaults: source.miscellaneousDefaults,
-    recalculation: miscellaneousChanged ? undefined : saved.recalculation ?? source.recalculation,
-    calculationStale: miscellaneousChanged || saved.calculationStale || source.calculationStale,
+    recalculation: calculationContextChanged ? undefined : saved.recalculation ?? source.recalculation,
+    calculationStale: calculationContextChanged || saved.calculationStale || source.calculationStale,
     overheadPercent: source.morth || source.miscellaneousDefaults || saved.miscellaneousDefaults ? source.overheadPercent : saved.overheadPercent,
     sorCatalogueSource: source.sor ? source.sorCatalogueSource : saved.sorCatalogueSource ?? source.sorCatalogueSource,
     publishedLabourComponent: source.publishedLabourComponent,
@@ -410,4 +412,16 @@ export function mergeSavedRecipe(
       return open.length > 0 ? open : undefined
     })()
   }
+}
+
+/** Copy only estimator-owned distances across source/year refreshes, including nested appendices. */
+export function mergeMorthTransport(source: RateAnalysisRecipe, saved: RateAnalysisRecipe): RateAnalysisRecipe['morth'] {
+  if (!source.morth) return source.morth
+  return { ...source.morth, transportManualKm: saved.morth?.transportManualKm,
+    inputs: Object.fromEntries(Object.entries(source.morth.inputs).map(([id, input]) => {
+      const previous = saved.morth?.inputs[id]
+      return [id, input.dependency && previous?.dependency?.itemCode === input.dependency.itemCode
+        ? { ...input, dependency: { ...input.dependency, morth: mergeMorthTransport(input.dependency, previous.dependency) } }
+        : input]
+    })) }
 }

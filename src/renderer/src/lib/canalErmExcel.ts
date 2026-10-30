@@ -40,7 +40,7 @@ export async function downloadErmExcelTemplate(data: CanalData): Promise<void> {
   await window.api.export.workbook(result.data, 'Soil & Rock Strata Template.xlsx')
 }
 
-/** Read just workbook cells; macros, formulas and external links are never executed. */
+/** Read saved cell values, including formula results, without recalculating the workbook. */
 export async function readErmExcel(file: File, columns: CanalErmColumn[]): Promise<string> {
   if (!/\.xlsx$/i.test(file.name)) throw new Error('Upload an Excel .xlsx workbook.')
   if (file.size > 10 * 1024 * 1024) throw new Error('The workbook is too large. Upload a file smaller than 10 MB.')
@@ -90,8 +90,12 @@ export async function readErmExcel(file: File, columns: CanalErmColumn[]): Promi
       if (!letters) continue
       const c = Array.from(letters).reduce((n, letter) => n * 26 + letter.charCodeAt(0) - 64, 0) - 1
       if (c >= expected.length) throw new Error('The worksheet has extra columns. Download a template matching the current material columns.')
-      if (cell.getElementsByTagNameNS('*', 'f').length) throw new Error(`Cell ${cell.getAttribute('r')}: enter a level directly instead of a formula.`)
-      const value = cell.getElementsByTagNameNS('*', 'v')[0]?.textContent ?? ''
+      const savedValue = cell.getElementsByTagNameNS('*', 'v')[0]
+      const value = savedValue?.textContent ?? ''
+      if (cell.getAttribute('t') === 'e') throw new Error(`Cell ${cell.getAttribute('r')}: Excel saved the error ${value || '(unknown)'}. Correct it in Excel, save, and upload again.`)
+      if (cell.getElementsByTagNameNS('*', 'f').length && (!savedValue || (!value.trim() && cell.getAttribute('t') !== 'str'))) {
+        throw new Error(`Cell ${cell.getAttribute('r')}: the formula has no saved result. Recalculate and save the workbook in Excel, then upload again.`)
+      }
       values[c] = cell.getAttribute('t') === 's' ? strings[Number(value)] ?? '' : cell.getAttribute('t') === 'inlineStr' ? Array.from(cell.getElementsByTagNameNS('*', 't')).map((t) => t.textContent ?? '').join('') : value
     }
     if (values.some((value) => /[\t\r\n]/.test(value))) throw new Error('Enter one level or answer per cell, without line breaks.')

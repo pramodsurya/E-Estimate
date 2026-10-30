@@ -20,7 +20,12 @@ function loadTsModule(filePath, mocks = {}) {
   const loadedModule = new Module(filePath, module)
   loadedModule.filename = filePath
   loadedModule.paths = Module._nodeModulePaths(path.dirname(filePath))
-  loadedModule.require = (request) => (request in mocks ? mocks[request] : require(request))
+  loadedModule.require = (request) => {
+    if (request in mocks) return mocks[request]
+    const relativeTs = path.resolve(path.dirname(filePath), request + '.ts')
+    if (request.startsWith('.') && fs.existsSync(relativeTs)) return loadTsModule(relativeTs, mocks)
+    return Module.createRequire(filePath)(request)
+  }
   loadedModule._compile(outputText, filePath)
   return loadedModule.exports
 }
@@ -236,6 +241,7 @@ const abstractData = componentTypst.buildComponentRenderData(
   {},
   () => undefined
 )
+// The SOR catalogue identity still determines ordering; printed abstracts omit it.
 assert.deepEqual(
   abstractData.abstract.map((row) => [row.sl, row.code]),
   [
@@ -247,7 +253,7 @@ assert.deepEqual(
     ['6', 'IRR-DAW-1-1'],
     ['7', 'IRR-PMW-2-1'],
     ['8', 'IRR-DAW-2-4'],
-    ['9', 'SOR-CELL']
+    ['9', '']
   ]
 )
 

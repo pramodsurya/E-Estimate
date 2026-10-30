@@ -3,6 +3,7 @@ use rust_xlsxwriter::{Workbook, XlsxError};
 use std::collections::HashMap;
 
 mod morth;
+mod individual;
 mod sor;
 mod ssr;
 mod signature;
@@ -14,21 +15,23 @@ pub fn generate_excel_data_workbook(req: &ExcelCompileRequest) -> Result<Vec<u8>
 }
 
 /// Compose the established SSR and SOR DATA sheet writers in any workbook.
-/// Project export supplies Lead cell references; standalone DATA deliberately
-/// supplies none and therefore retains its existing absolute numeric values.
+/// DATA resource rates reference Individual Items in both standalone and project
+/// workbooks. Project export additionally supplies the Lead rate references.
 pub(crate) fn write_excel_data_sheets(
     workbook: &mut Workbook,
     req: &ExcelCompileRequest,
     lead_rate_refs: &HashMap<String, String>,
     require_lead_refs: bool,
 ) -> Result<HashMap<String, String>, XlsxError> {
-    let mut refs = if !req.recipes.is_empty() || req.morth.is_empty(){ssr::write_ssr_sheet(workbook, req, lead_rate_refs, require_lead_refs, false)?}else{HashMap::new()};
+    let individual_refs = individual::write_individual_items(workbook, req)?;
+    if req.individual_only { return Ok(HashMap::new()); }
+    let mut refs = if !req.recipes.is_empty() || req.morth.is_empty(){ssr::write_ssr_sheet(workbook, req, lead_rate_refs, require_lead_refs, false, &individual_refs)?}else{HashMap::new()};
     refs.extend(sor::write_sor_sheet(
         workbook,
         req,
         lead_rate_refs,
         require_lead_refs,
     )?);
-    refs.extend(morth::write_morth_sheets(workbook, req, lead_rate_refs, require_lead_refs)?);
+    refs.extend(morth::write_morth_sheets(workbook, req, lead_rate_refs, require_lead_refs, &individual_refs)?);
     Ok(refs)
 }

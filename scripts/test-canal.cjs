@@ -1083,7 +1083,7 @@ const rightShelfEnd = medBermPoints[medBermPoints.length - 1]
 near(rightToe.rl, 97.0, 1e-4, 'right toe lands at ground RL 97.0')
 near(rightToe.offset - rightShelfEnd.offset, 4.2, 1e-4, 'slope after berm runs at 2.0:1')
 
-// A tier berm remains when it fits 0.6 m above ground, without an extra minimum-clearance gate.
+// Default 2 m clearance omits low shelves even when they fit above ground.
 const shallowClearanceSection = {
   id: 'sec-shallow-clearance',
   chainage: 0,
@@ -1095,7 +1095,33 @@ const shallowClearanceSection = {
 }
 const shallowProfile = canal.canalDesignProfile(mediumFillCanal, shallowClearanceSection)
 const shallowBermPoints = shallowProfile.filter((p) => Math.abs(p.rl - 99.1) < 1e-4)
-assert.equal(shallowBermPoints.length, 4, 'tier berm shelf remains when it fits above ground')
+assert.equal(shallowBermPoints.length, 0, 'tier berm shelf is omitted at 0.6 m clearance')
+const loweredClearanceCanal = { ...mediumFillCanal, design: { ...mediumFillCanal.design, bankConfig: { ...tieredConfig,
+  leftTiers: tieredConfig.leftTiers.map(t => ({...t,berms:t.berms.map(b => ({...b,clearance:0.5}))}))
+} } }
+assert.equal(canal.canalDesignProfile(loweredClearanceCanal, shallowClearanceSection).filter(p => Math.abs(p.rl - 99.1) < 1e-4).length, 4, 'each shelf clearance can be lowered explicitly')
+const exactClearanceSection = {...shallowClearanceSection,ground:[{offset:-30,rl:97.1},{offset:30,rl:97.1}]}
+assert.equal(canal.canalDesignProfile(mediumFillCanal, exactClearanceSection).filter(p => Math.abs(p.rl - 99.1) < 1e-4).length, 4, 'exactly 2 m clearance retains the shelf')
+const belowClearanceSection = {...shallowClearanceSection,ground:[{offset:-30,rl:97.1001},{offset:30,rl:97.1001}]}
+assert.equal(canal.canalDesignProfile(mediumFillCanal, belowClearanceSection).filter(p => Math.abs(p.rl - 99.1) < 1e-4).length, 0, 'clearance just below 2 m omits the shelf')
+const rightShelfStart = medBermPoints[2].offset, rightShelfEndOffset = medBermPoints[3].offset
+const humpSection = {...mediumFillSection,ground:[{offset:-30,rl:97},{offset:rightShelfStart-.1,rl:97},{offset:(rightShelfStart+rightShelfEndOffset)/2,rl:98.1},{offset:rightShelfEndOffset+.1,rl:97},{offset:30,rl:97}]}
+assert.equal(canal.canalDesignProfile(mediumFillCanal, humpSection).filter(p => Math.abs(p.rl - 99.1) < 1e-4).length, 2, 'ground hump inside the right shelf omits only that bank shelf')
+const allTier = {...tieredConfig.leftTiers[1],minFillHeight:0,maxFillHeight:9999,berms:[{id:'skipped',dropHeight:1,shelfWidth:2,slopeAfterBerm:3,clearance:100},{id:'kept',dropHeight:1,shelfWidth:2,slopeAfterBerm:2,clearance:0}]}
+const scheduledBank = {...mediumFillCanal,design:{...mediumFillCanal.design,bankConfig:{...tieredConfig,leftTiers:[allTier],rightTiers:[allTier]}}}
+const singleTier = {...allTier,berms:[{...allTier.berms[1],dropHeight:2}]}
+const equivalentBank = {...scheduledBank,design:{...scheduledBank.design,bankConfig:{...scheduledBank.design.bankConfig,leftTiers:[singleTier],rightTiers:[singleTier]}}}
+assert.deepEqual(canal.canalDesignProfile(scheduledBank,mediumFillSection),canal.canalDesignProfile(equivalentBank,mediumFillSection),'skipping a berm preserves the previous slope and subsequent shelf elevations')
+const manualBank = {...scheduledBank,design:{...scheduledBank.design,bankConfig:{...scheduledBank.design.bankConfig,mode:'manual',leftManualReaches:[{id:'manual',from:0,to:scheduledBank.lengthM,tierId:allTier.id,status:'fill'}]}}}
+assert.deepEqual(canal.canalDesignProfile(manualBank,mediumFillSection),canal.canalDesignProfile(scheduledBank,mediumFillSection),'manual and programmatic bank geometry enforce identical clearance rules')
+const legacyClearance = {...scheduledBank,design:{...scheduledBank.design,bankConfig:{...scheduledBank.design.bankConfig,mode:'legacy'},berms:[{id:'old-outer',face:'right-outer',heightAboveBed:.4,width:2}]}}
+assert.deepEqual(canal.canalSideProfile(legacyClearance,shallowClearanceSection,'right'),canal.canalSideProfile({...legacyClearance,design:{...legacyClearance.design,berms:[]}},shallowClearanceSection,'right'),'legacy outer berms also default to 2 m clearance')
+const migratedBerms = canal.migrateCanalData(JSON.parse(JSON.stringify(scheduledBank)))
+assert.deepEqual(migratedBerms.design.bankConfig.leftTiers[0].berms.map(b=>b.clearance),[100,0],'per-berm clearance survives save/load, including zero')
+const oldBermBank = {...scheduledBank,design:{...scheduledBank.design,bankConfig:{...scheduledBank.design.bankConfig,leftTiers:[{...allTier,berms:allTier.berms.map(({clearance,...b})=>b)}]}}}
+assert.ok(canal.migrateCanalData(JSON.parse(JSON.stringify(oldBermBank))).design.bankConfig.leftTiers[0].berms.every(b=>b.clearance===2),'old profiles gain 2 m per-berm clearance')
+near(canal.tierOuterToeSlope(tieredConfig.leftTiers[1],canal.canalSideProfile(mediumFillCanal,shallowClearanceSection,'right')),1.5,1e-6,'toe works follow the unchanged base slope when the low berm is omitted')
+console.log('Bank berm clearance: exact boundaries, local ground peaks, manual/programmatic/legacy modes, independent shelves, toe batter and save/load passed')
 
 // Test Hearting in tiered mode:
 // All tiers (Low, Medium, High) are homogeneous by default -> zero hearting profiles!
@@ -1108,7 +1134,8 @@ const zonedTierConfig = {
   ...tieredConfig,
   leftTiers: tieredConfig.leftTiers.map((t) => (t.id === 'tier-medium' ? { ...t, sectionType: 'zoned' } : t))
 }
-const zonedFillCanal = makeCanal({ bankConfig: zonedTierConfig })
+// Tier reach assignment follows the persisted survey, as it does in the app.
+const zonedFillCanal = { ...makeCanal({ bankConfig: zonedTierConfig }), sections: [mediumFillSection, { ...mediumFillSection, id: 'medium-end', chainage: 1000 }] }
 const medHearting = canal.canalHeartingProfiles(zonedFillCanal, mediumFillSection)
 assert.equal(medHearting.length, 2, 'when zoned chosen, generates left and right hearting profiles')
 
@@ -1122,7 +1149,7 @@ const lowFillSection = {
   ],
   designPopulated: true
 }
-const lowHearting = canal.canalHeartingProfiles(zonedFillCanal, lowFillSection)
+const lowHearting = canal.canalHeartingProfiles({ ...zonedFillCanal, sections: [lowFillSection, { ...lowFillSection, id: 'low-end', chainage: 1000 }] }, lowFillSection)
 assert.equal(lowHearting.length, 0, 'homogeneous tier generates zero hearting profiles')
 
 // Defaults test: New canal defaults to tiered bank design, Repair canal defaults to legacy manual bank design
@@ -1219,7 +1246,8 @@ assert.ok(tierQuantities.filterVolume > 0, 'tier calculates horizontal filter vo
 // physical volumes must replace ordinary earth fill rather than double-bill it.
 const tieredBankVolumes = canal.canalBankVolumeTotals(tieredWorksCanal)
 const netTieredEarth = tieredBankVolumes.homogeneous + tieredBankVolumes.hearting + tieredBankVolumes.casing
-const embeddedDrainageVolume = tierQuantities.blanketQuantity * 0.25 + tierQuantities.filterVolume + tierQuantities.chimneyVolume
+const blanketBedExtension = tieredWorksCanal.design.bedWidth * 100 * 0.25
+const embeddedDrainageVolume = tierQuantities.blanketQuantity * 0.25 - blanketBedExtension + tierQuantities.filterVolume + tierQuantities.chimneyVolume
 near(
   tieredBankVolumes.totalFill - netTieredEarth,
   embeddedDrainageVolume,
@@ -1343,11 +1371,11 @@ assert.equal(warning.material, 'Hard Rock (HR)')
 assert.equal(canal.canalSectionStrataExtension(rockBottomData, rockBottomData.sections[1]), null, 'nearby chainage without overrun has no warning')
 console.log('ERM continuation: all material classes, trailing blanks, zero thickness, exact excavation allocation and section warnings passed')
 
-// Berms follow the tier until they meet ground, without an extra clearance threshold.
+// Per-shelf clearance replaces the unused legacy global setting.
 const closeBermTier = { ...roadTier, crestWidth: 2, berms: [{ id: 'near-ground', dropHeight: 2.6, shelfWidth: 1, slopeAfterBerm: 1.5 }] }
 const closeBermData = { ...tieredNoRoad, design: { ...tieredNoRoad.design, bankConfig: { ...tieredNoRoad.design.bankConfig, minClearanceToGround: 100, leftTiers: [closeBermTier], rightTiers: [closeBermTier] } } }
 const closeBermProfile = canal.canalDesignProfile(closeBermData, fillSection)
-assert.ok(closeBermProfile.some((p,i) => i > 0 && Math.abs(p.rl - 99.5) < 1e-6 && Math.abs(closeBermProfile[i-1].rl - p.rl) < 1e-6 && Math.abs(p.offset - closeBermProfile[i-1].offset) >= 0.99), 'tier berm remains at 0.5 m above ground')
+assert.ok(!closeBermProfile.some((p,i) => i > 0 && Math.abs(p.rl - 99.5) < 1e-6 && Math.abs(closeBermProfile[i-1].rl - p.rl) < 1e-6 && Math.abs(p.offset - closeBermProfile[i-1].offset) >= 0.99), 'tier berm is omitted at 0.5 m above ground')
 assert.deepEqual(closeBermProfile, canal.canalDesignProfile({ ...closeBermData, design: { ...closeBermData.design, bankConfig: { ...closeBermData.design.bankConfig, minClearanceToGround: 0 } } }, fillSection), 'old saved clearance settings do not change geometry')
 
 // Strata saving and section population are distinct user actions.

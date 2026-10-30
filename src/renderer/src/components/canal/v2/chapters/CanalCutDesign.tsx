@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, Fragment } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Info,
   Plus,
@@ -9,10 +9,8 @@ import {
   Check,
   X,
   FileSpreadsheet,
-  RefreshCw,
   Layers,
-  CheckCircle2,
-  AlertCircle
+  CheckCircle2
 } from 'lucide-react'
 import type {
   CanalData,
@@ -22,15 +20,15 @@ import type {
   CanalStrataSlopeConfig,
   CanalManualCutBerm
 } from '../../../../types/project'
-import type {
-  CanalCuttingCalculationResponse,
-  CanalCuttingInput,
-  CanalEmbankmentInput
-} from '../../../../types/eestimateApi'
 import {
   defaultCanalCutBermConfig,
   defaultCanalStrataSlopeConfig
 } from '../../../../lib/canal'
+import CanalSectionDiagram from '../../CanalSectionDiagram'
+import { CUTTING_MATERIALS, measureCanalCutting, measureCanalCuttingSection } from '../../../../lib/canalCutting'
+import { buildCanalCuttingExcel } from '../../../../lib/canalCuttingExcel'
+
+const n3 = (value: number): string => value.toLocaleString('en-IN', { maximumFractionDigits: 3 })
 
 function NumberField({
   label,
@@ -84,23 +82,10 @@ export default function CanalCutDesign({
   const [draftConfig, setDraftConfig] = useState<CanalCutBermConfig>(bermConfig)
   const [draftStrata, setDraftStrata] = useState<CanalStrataSlopeConfig>(strataSlopes)
 
-  // Rust Engine Calculation & Export State
-  const [calcResult, setCalcResult] = useState<CanalCuttingCalculationResponse | null>(null)
-  const [isCalculating, setIsCalculating] = useState<boolean>(false)
   const [isExporting, setIsExporting] = useState<boolean>(false)
   const [exportNotice, setExportNotice] = useState<string | null>(null)
-  const [calcError, setCalcError] = useState<string | null>(null)
-
-  // Selected Section for Cross-Section View
   const [selectedSectionId, setSelectedSectionId] = useState<string>('')
-
-  // Sync draft when design props update from outside and we are NOT editing
-  useEffect(() => {
-    if (!isEditing) {
-      setDraftConfig(design.cutBermConfig ?? defaultCanalCutBermConfig())
-      setDraftStrata(design.strataSlopes ?? defaultCanalStrataSlopeConfig())
-    }
-  }, [design.cutBermConfig, design.strataSlopes, isEditing])
+  const calcResult = useMemo(() => measureCanalCutting(data), [data])
 
   // Active configuration (draft when editing, committed when viewing)
   const activeConfig = isEditing ? draftConfig : bermConfig
@@ -109,105 +94,15 @@ export default function CanalCutDesign({
   const manualBerms = activeConfig.manualBerms ?? []
   const tblHeight = Number((design.fullSupplyDepth + design.freeBoard).toFixed(2))
 
-  // Helper to build Rust payload
-  const buildPayload = useCallback(
-    (cfg: CanalCutBermConfig, str: CanalStrataSlopeConfig): CanalCuttingInput => {
-      const bandSoil = data.excavationBands?.find((b) => b.label.toLowerCase().includes('soil'))
-      const bandHdr = data.excavationBands?.find((b) => b.label.toLowerCase().includes('hdr') || b.label.toLowerCase().includes('disintegrated'))
-      const bandFf = data.excavationBands?.find((b) => b.label.toLowerCase().includes('fissured') || b.label.toLowerCase().includes('f&f'))
-      const bandHr = data.excavationBands?.find((b) => b.label.toLowerCase().includes('hard rock') || b.label.toLowerCase().includes('hr'))
-      const hasBands = (bandSoil?.pct ?? 0) + (bandHdr?.pct ?? 0) + (bandFf?.pct ?? 0) + (bandHr?.pct ?? 0) > 0
+  const cuttingSections = useMemo(() => sections
+    .filter((section) => section.designPopulated !== false && section.ground.length >= 2)
+    .map((section) => measureCanalCuttingSection(data, section))
+    .filter(({ areas }) => areas.cutting > 0.001), [data, sections])
+  const selectedCuttingSection = cuttingSections.find(({ section }) => section.id === selectedSectionId)
+    ?? cuttingSections[0] ?? null
+  const selectedSection = selectedCuttingSection?.section ?? null
 
-      return {
-        bedWidth: design.bedWidth,
-        fullSupplyDepth: design.fullSupplyDepth,
-        freeBoard: design.freeBoard,
-        sideSlope: design.sideSlope,
-        bedSlope: design.bedSlope,
-        bedLevelAtStart: design.bedLevelAtStart,
-        bermConfig: cfg,
-        strataSlopes: str,
-        sections: sections.map((s) => {
-          const groundPoints = s.ground ?? []
-          const gl = groundPoints.length > 0
-            ? groundPoints.find((p) => Math.abs(p.offset) < 0.01)?.rl ?? Math.max(...groundPoints.map((p) => p.rl))
-            : Math.max(s.leftToeRl ?? design.bedLevelAtStart, s.rightToeRl ?? design.bedLevelAtStart)
-
-          let soilDepth: number | undefined
-          let hdrDepth: number | undefined
-          let ffDepth: number | undefined
-          let hrDepth: number | undefined
-
-          if (s.strata && s.strata.length > 0) {
-            for (const layer of s.strata) {
-              const nameLower = layer.name.toLowerCase()
-              const cls = layer.ermClass ?? (nameLower.includes('soil') ? 'all-soils' : nameLower.includes('hdr') || nameLower.includes('disintegrated') ? 'hdr' : nameLower.includes('f&f') || nameLower.includes('fissured') ? 'ff' : 'hr')
-              if (cls === 'all-soils') soilDepth = (soilDepth ?? 0) + layer.thickness
-              else if (cls === 'hdr') hdrDepth = (hdrDepth ?? 0) + layer.thickness
-              else if (cls === 'ff') ffDepth = (ffDepth ?? 0) + layer.thickness
-              else if (cls === 'hr') hrDepth = (hrDepth ?? 0) + layer.thickness
-            }
-          }
-
-          const hasExplicitDepths = soilDepth != null || hdrDepth != null || ffDepth != null || hrDepth != null
-
-          return {
-            id: s.id,
-            chainage: s.chainage,
-            groundLevel: gl,
-            bedLevel: undefined,
-            soilDepth,
-            hdrDepth,
-            ffDepth,
-            hrDepth,
-            soilPct: hasExplicitDepths ? undefined : (hasBands ? bandSoil?.pct : 35),
-            hdrPct: hasExplicitDepths ? undefined : (hasBands ? bandHdr?.pct : 25),
-            ffPct: hasExplicitDepths ? undefined : (hasBands ? bandFf?.pct : 25),
-            hrPct: hasExplicitDepths ? undefined : (hasBands ? bandHr?.pct : 15),
-          }
-        })
-      }
-    },
-    [design, sections, data.excavationBands]
-  )
-
-  // Execute Rust Calculation
-  const runRustCalculation = useCallback(
-    async (cfg: CanalCutBermConfig, str: CanalStrataSlopeConfig) => {
-      if (!window.api?.canal?.calculateCutting) return
-      setIsCalculating(true)
-      setCalcError(null)
-      try {
-        const payload = buildPayload(cfg, str)
-        const response = await window.api.canal.calculateCutting(payload)
-        setCalcResult(response)
-      } catch (err: unknown) {
-        console.error('Rust Canal Engine calculation error:', err)
-        setCalcError(String(err))
-      } finally {
-        setIsCalculating(false)
-      }
-    },
-    [buildPayload]
-  )
-
-  // Run calculation on initial load
-  useEffect(() => {
-    void runRustCalculation(bermConfig, strataSlopes)
-  }, [runRustCalculation, bermConfig, strataSlopes])
-
-  // Filter cutting sections based on Rust result or ground level
-  const cuttingSectionResults = useMemo(() => {
-    if (!calcResult) return []
-    return calcResult.sections.filter((s) => s.cutDepth > 0.01)
-  }, [calcResult])
-
-  const activeSectionResult = useMemo(() => {
-    if (cuttingSectionResults.length === 0) return null
-    return cuttingSectionResults.find((s) => s.sectionId === selectedSectionId) ?? cuttingSectionResults[0]
-  }, [cuttingSectionResults, selectedSectionId])
-
-  // Draft Mutators (Only modify local state, never freeze React!)
+  // Keep edits local until the saved geometry is updated.
   const patchDraftBermConfig = (patch: Partial<CanalCutBermConfig>): void => {
     setDraftConfig((prev) => ({ ...prev, ...patch }))
   }
@@ -244,19 +139,9 @@ export default function CanalCutDesign({
     })
   }
 
-  // Handle Save & Recalculate
-  const handleSaveAndCalculate = async (): Promise<void> => {
-    setIsCalculating(true)
-    try {
-      await runRustCalculation(draftConfig, draftStrata)
-      onCommit({
-        cutBermConfig: draftConfig,
-        strataSlopes: draftStrata
-      })
-      setIsEditing(false)
-    } finally {
-      setIsCalculating(false)
-    }
+  const handleSaveAndCalculate = (): void => {
+    onCommit({ cutBermConfig: draftConfig, strataSlopes: draftStrata })
+    setIsEditing(false)
   }
 
   // Handle Cancel Edit
@@ -266,34 +151,21 @@ export default function CanalCutDesign({
     setIsEditing(false)
   }
 
-  // Handle Excel Export with Native File Selector Dialog
   const handleExportExcel = async (): Promise<void> => {
-    if (!window.api?.canal?.exportCuttingExcel) return
     setIsExporting(true)
     setExportNotice(null)
     try {
-      const payload = buildPayload(activeConfig, activeStrata)
-      const res = await window.api.canal.exportCuttingExcel(payload, true)
-      if (res.ok && res.filePath) {
-        if (typeof window.api.export?.workbook === 'function') {
-          const fromCh = sections[0]?.chainage ?? 0
-          const toCh = sections[sections.length - 1]?.chainage ?? fromCh
-          const defaultFileName = `Canal Earthwork Cutting (Ch ${fromCh} to ${toCh}).xlsx`
-          const saveRes = await window.api.export.workbook(
-            '',
-            defaultFileName,
-            undefined,
-            { sourcePath: res.filePath }
-          )
-          if (saveRes && !saveRes.canceled && saveRes.path) {
-            setExportNotice(`Exported Canal Cutting Excel to: ${saveRes.path}`)
-          }
-        } else {
-          setExportNotice(`Exported Excel to: ${res.filePath}`)
-        }
-      } else if (res.error) {
-        setExportNotice(`Export Error: ${res.error}`)
+      if (!window.api?.excel?.compile || !window.api?.export?.workbook) {
+        throw new Error('Open the desktop app to export the cutting calculation.')
       }
+      const result = await window.api.excel.compile(buildCanalCuttingExcel(calcResult))
+      if (!result.ok || (!result.data && !result.filePath)) throw new Error(result.error || 'Could not create the cutting workbook.')
+      const fromCh = calcResult.sections[0]?.section.chainage ?? 0
+      const toCh = calcResult.sections.at(-1)?.section.chainage ?? fromCh
+      const saved = await window.api.export.workbook(result.data ?? '',
+        `Canal Earthwork Cutting (Ch ${fromCh} to ${toCh}).xlsx`, undefined,
+        result.filePath ? { sourcePath: result.filePath } : undefined)
+      if (saved && !saved.canceled && saved.path) setExportNotice(`Exported Canal Cutting Excel to: ${saved.path}`)
     } catch (err: unknown) {
       setExportNotice(`Export Error: ${String(err)}`)
     } finally {
@@ -306,10 +178,10 @@ export default function CanalCutDesign({
       {/* HEADER WITH EDIT / SAVE / EXCEL ACTION BAR */}
       <header className="canal-v2-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <span className="canal-v2-section-kicker">Chapter 4 · Rust Canal Engine</span>
+          <span className="canal-v2-section-kicker">Chapter 4</span>
           <h2>Cut Design &amp; Berms</h2>
           <p className="settings-note">
-            Calculated natively in Rust with dynamic bench discards, trapezoidal layers, continuous reaches, and pure vector SVG cross-sections.
+            Configure cutting slopes and berms, and view the saved canal cross-section at each chainage.
           </p>
         </div>
 
@@ -321,7 +193,6 @@ export default function CanalCutDesign({
                 className="btn ghost"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 onClick={handleCancelEdit}
-                disabled={isCalculating}
               >
                 <X size={15} /> Cancel
               </button>
@@ -330,10 +201,9 @@ export default function CanalCutDesign({
                 className="btn primary"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#10b981', borderColor: '#059669', color: '#fff', fontWeight: 600 }}
                 onClick={handleSaveAndCalculate}
-                disabled={isCalculating}
               >
-                {isCalculating ? <RefreshCw size={15} className="animate-spin" /> : <Check size={15} />}
-                Save &amp; Calculate (Rust)
+                <Check size={15} />
+                Save &amp; Calculate
               </button>
             </>
           ) : (
@@ -341,20 +211,9 @@ export default function CanalCutDesign({
               <button
                 type="button"
                 className="btn ghost"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                onClick={() => void runRustCalculation(bermConfig, strataSlopes)}
-                disabled={isCalculating}
-                title="Recalculate with Rust Engine"
-              >
-                <RefreshCw size={14} className={isCalculating ? 'animate-spin' : ''} />
-                Recalculate
-              </button>
-              <button
-                type="button"
-                className="btn ghost"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: '#3b82f6', color: '#60a5fa' }}
                 onClick={handleExportExcel}
-                disabled={isExporting || isCalculating}
+                disabled={isExporting || calcResult.sections.length === 0}
                 title="Export Canal Cutting spreadsheet with live formulas (select save location)"
               >
                 <FileSpreadsheet size={15} />
@@ -364,7 +223,7 @@ export default function CanalCutDesign({
                 type="button"
                 className="btn primary"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                onClick={() => setIsEditing(true)}
+                onClick={() => { setDraftConfig(bermConfig); setDraftStrata(strataSlopes); setIsEditing(true) }}
               >
                 <Edit3 size={15} /> Edit Cut Parameters
               </button>
@@ -379,7 +238,7 @@ export default function CanalCutDesign({
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.85rem', color: '#93c5fd' }}>
             <Info size={18} />
             <span>
-              <strong>Draft Mode Active:</strong> You can edit berm elevations, slopes, and widths freely with zero application lag. Click <strong>&ldquo;Save &amp; Calculate (Rust)&rdquo;</strong> to run the native engine.
+              <strong>Draft Mode Active:</strong> Edit berm elevations, slopes, and widths, then click <strong>&ldquo;Save &amp; Calculate&rdquo;</strong> to update the section diagram and quantities together.
             </span>
           </div>
         </div>
@@ -389,13 +248,6 @@ export default function CanalCutDesign({
         <div style={{ padding: '8px 14px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 6, fontSize: '0.82rem', color: '#6ee7b7', display: 'flex', alignItems: 'center', gap: 8 }}>
           <CheckCircle2 size={15} />
           <span>{exportNotice}</span>
-        </div>
-      )}
-
-      {calcError && (
-        <div style={{ padding: '8px 14px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 6, fontSize: '0.82rem', color: '#fca5a5', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <AlertCircle size={15} />
-          <span>{calcError}</span>
         </div>
       )}
 
@@ -574,7 +426,7 @@ export default function CanalCutDesign({
                 <div className="canal-cut-rule-box">
                   <div className="canal-cut-rule-header">
                     <Info size={15} />
-                    <strong>Dynamic Section Discard Rule (Rust Engine)</strong>
+                    <strong>Section Discard Rule</strong>
                   </div>
                   <ul className="canal-cut-rule-list">
                     <li>
@@ -750,230 +602,77 @@ export default function CanalCutDesign({
         )}
       </section>
 
-      {/* SECTION 2: ABSTRACT OF CUTTING REACHES (FROM RUST) */}
-      {calcResult && calcResult.reaches.length > 0 && (
+      {calcResult.reaches.length > 0 && (
         <section className="canal-earthwork-card">
-          <div className="canal-cross-panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              Abstract of Cutting Reaches (Rust Native Engine)
-              <small>
-                Continuous reaches grouped by identical bench configurations with prismoidal excavation volumes.
-              </small>
-            </div>
-            <div style={{ background: '#1e293b', padding: '6px 14px', borderRadius: 6, border: '1px solid #334155' }}>
-              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Total Excavation: </span>
-              <strong style={{ fontSize: '1.05rem', color: '#38bdf8' }}>{calcResult.totalCuttingVolumeM3.toLocaleString()} m³</strong>
-            </div>
+          <div className="canal-cross-panel-title">
+            Cutting Volume Calculation
+            <small>Measured from the section diagrams. Volume = (start cut area + end cut area) / 2 × interval length. Canal prism only; additional CNS/lining excavation is measured in Earthwork.</small>
+            <strong>Total Excavation: {n3(calcResult.totalVolume)} m³</strong>
           </div>
-
           <div style={{ overflowX: 'auto', marginTop: 12 }}>
-            <table className="canal-bank-reach-table" style={{ width: '100%', fontSize: '0.85rem' }}>
-              <thead>
-                <tr>
-                  <th>S.No</th>
-                  <th>Reach Description</th>
-                  <th>From Ch</th>
-                  <th>To Ch</th>
-                  <th>Length (m)</th>
-                  <th>Active Berms</th>
-                  <th>Volume (m³)</th>
-                  <th>Soil (m³)</th>
-                  <th>HDR (m³)</th>
-                  <th>F&amp;F (m³)</th>
-                  <th>HR (m³)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {calcResult.reaches.map((r) => (
-                  <tr key={r.reachIndex}>
-                    <td style={{ textAlign: 'center' }}>{r.reachIndex}</td>
-                    <td><strong>{r.reachName}</strong></td>
-                    <td style={{ textAlign: 'right' }}>{r.fromChainage.toFixed(1)} m</td>
-                    <td style={{ textAlign: 'right' }}>{r.toChainage.toFixed(1)} m</td>
-                    <td style={{ textAlign: 'right' }}>{r.lengthM.toFixed(1)} m</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span className="badge" style={{ background: r.bermCount > 0 ? '#7c3aed' : '#334155', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: '0.75rem' }}>
-                        {r.bermCount} Berm{r.bermCount === 1 ? '' : 's'}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right', fontWeight: 600, color: '#38bdf8' }}>{r.totalVolumeM3.toLocaleString()}</td>
-                    <td style={{ textAlign: 'right' }}>{r.soilVolumeM3.toLocaleString()}</td>
-                    <td style={{ textAlign: 'right' }}>{r.hdrVolumeM3.toLocaleString()}</td>
-                    <td style={{ textAlign: 'right' }}>{r.ffVolumeM3.toLocaleString()}</td>
-                    <td style={{ textAlign: 'right' }}>{r.hrVolumeM3.toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
+            <table className="canal-bank-reach-table" style={{ width: '100%' }}>
+              <thead><tr><th>From Ch (m)</th><th>To Ch (m)</th><th>Length (m)</th><th>Start cut (m²)</th><th>End cut (m²)</th><th>Volume (m³)</th>{CUTTING_MATERIALS.map(name => <th key={name}>{name} (m³)</th>)}</tr></thead>
+              <tbody>{calcResult.reaches.map((reach, i) => <tr key={i}>
+                <td>{n3(reach.start.section.chainage)}</td><td>{n3(reach.end.section.chainage)}</td><td>{n3(reach.length)}</td>
+                <td>{n3(reach.start.areas.cutting)}</td><td>{n3(reach.end.areas.cutting)}</td><td><strong>{n3(reach.volume)}</strong></td>
+                {reach.materialVolumes.map((volume, j) => <td key={j}>{n3(volume)}</td>)}
+              </tr>)}</tbody>
+              <tfoot><tr><th colSpan={5}>Total</th><th>{n3(calcResult.totalVolume)}</th>{calcResult.materialVolumes.map((volume, i) => <th key={i}>{n3(volume)}</th>)}</tr></tfoot>
             </table>
           </div>
         </section>
       )}
 
-      {/* SECTION 3: LIVE CROSS-SECTION DIAGRAM GENERATED IN RUST */}
       <section className="canal-earthwork-card">
         <div className="canal-preview-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div className="canal-cross-panel-title">
-            Cross-Section Diagram (Rust Vector SVG)
-            <small>
-              {activeSectionResult
-                ? `Showing Ch ${activeSectionResult.chainage} m · ${activeSectionResult.cutDepth >= tblHeight - 0.05 ? 'Full Cutting' : 'Partial Cutting'} | Cut Depth: ${activeSectionResult.cutDepth.toFixed(2)} m | Area: ${activeSectionResult.totalCutArea.toFixed(2)} m²`
-                : 'Cutting sections preview'}
-            </small>
+            Cross-Section Diagram Preview
+            <small>{selectedCuttingSection
+              ? `Showing Ch ${selectedCuttingSection.section.chainage} m · ${selectedCuttingSection.areas.filling > 0.001 ? 'Partial Cutting' : 'Full Cutting'} | Cut: ${selectedCuttingSection.areas.cutting.toFixed(2)} m² | Fill: ${selectedCuttingSection.areas.filling.toFixed(2)} m²`
+              : 'Cutting sections preview'}</small>
           </div>
-
-          {cuttingSectionResults.length > 1 && (
-            <div className="canal-sim-section-picker">
-              <label>
-                <span>Select Cutting Section:</span>
-                <select
-                  value={activeSectionResult?.sectionId ?? ''}
-                  onChange={(e) => setSelectedSectionId(e.target.value)}
-                >
-                  {cuttingSectionResults.map((s, idx) => {
-                    const isFullCut = s.cutDepth >= tblHeight - 0.05
-                    return (
-                      <option key={s.sectionId} value={s.sectionId}>
-                        #{idx + 1} · Ch {s.chainage} m · {isFullCut ? 'Full Cut' : 'Partial Cut'} (Cut: {s.cutDepth.toFixed(2)} m · {s.totalCutArea.toFixed(1)} m² · {(s.activeBerms?.length ?? 0)} Berms)
-                      </option>
-                    )
-                  })}
-                </select>
-              </label>
-            </div>
-          )}
+          {cuttingSections.length > 1 && <div className="canal-sim-section-picker"><label>
+            <span>Select Cutting Section:</span>
+            <select value={selectedSection?.id ?? ''} onChange={(e) => setSelectedSectionId(e.target.value)}>
+              {cuttingSections.map(({ section, areas }) => <option key={section.id} value={section.id}>
+                #{sections.findIndex(s => s.id === section.id) + 1} · Ch {section.chainage} m · {areas.filling > 0.001 ? 'Partial Cut' : 'Full Cut'} (Cut: {areas.cutting.toFixed(2)} m²)
+              </option>)}
+            </select>
+          </label></div>}
         </div>
-
-        {activeSectionResult ? (
-          <div className="canal-earthwork-section-view">
-            {/* Status of Active and Discarded Berms for this specific section */}
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '10px 0' }}>
-              {(activeSectionResult.activeBerms?.length ?? 0) > 0 ? (
-                activeSectionResult.activeBerms.map((b) => (
-                  <div key={b.index} style={{ padding: '6px 12px', background: 'rgba(168, 85, 247, 0.15)', border: '1px solid rgba(168, 85, 247, 0.4)', borderRadius: 6, fontSize: '0.8rem', color: '#c084fc' }}>
-                    <strong>Berm #{b.index}:</strong> RL {b.rl.toFixed(2)} m (Shelf: {b.shelfWidth} m, Slope: {b.slopeAfter}:1) — <span style={{ color: '#10b981', fontWeight: 600 }}>ACTIVE</span>
-                  </div>
-                ))
-              ) : (
-                <div style={{ padding: '6px 12px', background: 'rgba(51, 65, 85, 0.4)', borderRadius: 6, fontSize: '0.8rem', color: '#94a3b8' }}>
-                  No berms active (cut height {activeSectionResult.cutDepth.toFixed(2)} m is single cut).
-                </div>
-              )}
-
-              {(activeSectionResult.discardedBerms ?? []).map((db) => (
-                <div key={db.id} style={{ padding: '6px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 6, fontSize: '0.8rem', color: '#f87171' }}>
-                  Berm at {db.heightAboveBed.toFixed(2)} m above bed — <strong>DISCARDED</strong> (Cut depth {activeSectionResult.cutDepth.toFixed(2)} m &le; {db.heightAboveBed.toFixed(2)} m)
-                </div>
-              ))}
-            </div>
-
-            {/* RUST GENERATED VECTOR SVG DIAGRAM */}
-            <div
-              className="canal-rust-diagram-viewport"
-              style={{ width: '100%', minHeight: 380, margin: '8px 0', borderRadius: 8, overflow: 'hidden' }}
-              dangerouslySetInnerHTML={{ __html: activeSectionResult.diagramSvg }}
-            />
-
-            {/* DYNAMIC TRAPEZOID TIERS & STRATA SLICES BREAKDOWN TABLE */}
-            {(activeSectionResult.tiers?.length ?? 0) > 0 && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Layers size={15} style={{ color: '#38bdf8' }} />
-                    <span>Multi-Tier Trapezoid &amp; Strata Slices Breakdown</span>
-                  </div>
-                  {activeSectionResult.strataAreas && (
-                    <div style={{ display: 'flex', gap: 12, fontSize: '0.78rem', color: '#94a3b8', flexWrap: 'wrap' }}>
-                      <span>Soil: <strong style={{ color: '#facc15' }}>{activeSectionResult.strataAreas.soilArea.toFixed(2)} m²</strong></span>
-                      <span>HDR: <strong style={{ color: '#fb923c' }}>{activeSectionResult.strataAreas.hdrArea.toFixed(2)} m²</strong></span>
-                      <span>F&amp;F: <strong style={{ color: '#c084fc' }}>{activeSectionResult.strataAreas.ffArea.toFixed(2)} m²</strong></span>
-                      <span>HR: <strong style={{ color: '#f87171' }}>{activeSectionResult.strataAreas.hrArea.toFixed(2)} m²</strong></span>
-                      <span>Total Area: <strong style={{ color: '#38bdf8' }}>{activeSectionResult.totalCutArea.toFixed(2)} m²</strong></span>
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="canal-bank-reach-table" style={{ width: '100%', fontSize: '0.8rem' }}>
-                    <thead>
-                      <tr>
-                        <th>Tier / Stratum</th>
-                        <th>Bottom RL (m)</th>
-                        <th>Top RL (m)</th>
-                        <th>Depth (m)</th>
-                        <th>Bottom Width (m)</th>
-                        <th>Top Width (m)</th>
-                        <th>Side Slope (H:1V)</th>
-                        <th>Berm Shelf (L/R)</th>
-                        <th>Area (m²)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(activeSectionResult.tiers ?? []).map((t) => (
-                        <Fragment key={t.tierIndex}>
-                          {/* Tier Summary Header Row */}
-                          <tr style={{ background: 'rgba(56, 189, 248, 0.08)', borderTop: '2px solid rgba(56, 189, 248, 0.2)' }}>
-                            <td colSpan={3} style={{ fontWeight: 700, color: '#38bdf8' }}>
-                              Trapezoid #{t.tierIndex}: {t.tierName}
-                            </td>
-                            <td style={{ textAlign: 'right', fontWeight: 600, color: '#38bdf8' }}>{t.totalDepth.toFixed(2)} m</td>
-                            <td style={{ textAlign: 'right', color: '#94a3b8' }}>{t.startingBottomWidth.toFixed(2)} m</td>
-                            <td style={{ textAlign: 'right', color: '#94a3b8' }}>{t.endingTopWidth.toFixed(2)} m</td>
-                            <td style={{ textAlign: 'center', color: '#94a3b8' }}>
-                              {t.strataSlices && t.strataSlices.length > 0 ? `${t.strataSlices[0].slope}:1` : '-'}
-                            </td>
-                            <td style={{ textAlign: 'center', color: t.leftShelfWidth > 0 ? '#c084fc' : '#64748b' }}>
-                              {t.leftShelfWidth > 0 || t.rightShelfWidth > 0
-                                ? `L: ${t.leftShelfWidth.toFixed(1)}m | R: ${t.rightShelfWidth.toFixed(1)}m`
-                                : '-'}
-                            </td>
-                            <td style={{ textAlign: 'right', fontWeight: 700, color: '#38bdf8' }}>{t.totalTierArea.toFixed(3)}</td>
-                          </tr>
-
-                          {/* Individual Strata Slices inside this Tier */}
-                          {(t.strataSlices ?? []).map((s, sIdx) => {
-                            const stratumColor =
-                              s.stratumName === 'Hard Rock'
-                                ? '#f87171'
-                                : s.stratumName === 'F&F Rock'
-                                  ? '#c084fc'
-                                  : s.stratumName === 'HDR'
-                                    ? '#fb923c'
-                                    : '#facc15'
-                            return (
-                              <tr key={`${t.tierIndex}-${sIdx}`} style={{ background: 'rgba(15, 23, 42, 0.4)' }}>
-                                <td style={{ paddingLeft: 24, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: stratumColor, display: 'inline-block' }} />
-                                  <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{s.stratumName}</span>
-                                </td>
-                                <td style={{ textAlign: 'right' }}>{s.bottomRl.toFixed(2)}</td>
-                                <td style={{ textAlign: 'right' }}>{s.topRl.toFixed(2)}</td>
-                                <td style={{ textAlign: 'right', fontWeight: 600 }}>{s.depth.toFixed(2)}</td>
-                                <td style={{ textAlign: 'right' }}>{s.bottomWidth.toFixed(2)}</td>
-                                <td style={{ textAlign: 'right' }}>{s.topWidth.toFixed(2)}</td>
-                                <td style={{ textAlign: 'center' }}>{s.slope.toFixed(2)} : 1</td>
-                                <td style={{ textAlign: 'center', color: '#64748b' }}>-</td>
-                                <td style={{ textAlign: 'right', fontWeight: 600, color: stratumColor }}>
-                                  {s.area.toFixed(3)}
-                                </td>
-                              </tr>
-                            )
-                          })}
-                        </Fragment>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+        {selectedCuttingSection && selectedSection ? <div className="canal-earthwork-section-view">
+          <CanalSectionDiagram data={data} section={selectedSection} />
+          {selectedCuttingSection.shelves.length > 0 && <p className="settings-note">
+            Shelves in this section: {selectedCuttingSection.shelves.map(shelf => `${shelf.side} RL ${shelf.rl.toFixed(2)} m · ${shelf.width.toFixed(2)} m wide`).join('; ')}
+          </p>}
+          <div className="canal-cross-panel-title" style={{ marginTop: 14 }}>
+            <span><Layers size={15} /> Section Calculation</span>
+            <small>Each area is measured from the shaded excavation polygon, including the entered ground profile and the designed slopes and shelves.</small>
           </div>
-        ) : (
-          <div className="canal-diagram-empty">
-            No cutting sections found in this reach. All sections are in embankment (filling).
-            <small style={{ marginTop: '6px', display: 'block', opacity: 0.8 }}>
-              Cut berms and side slopes apply to excavation reaches where ground level rises above canal bed level.
-            </small>
+          <table className="canal-bank-reach-table" style={{ width: '100%' }}>
+            <thead><tr><th>Excavation zone</th><th>Bottom RL (m)</th><th>Top RL (m)</th><th>Area (m²)</th></tr></thead>
+            <tbody>{selectedCuttingSection.geometry.cutPolygons.map((polygon, i) => <tr key={i}>
+              <td>Cut zone {i + 1}</td><td>{n3(Math.min(...polygon.points.map(point => point.rl)))}</td>
+              <td>{n3(Math.max(...polygon.points.map(point => point.rl)))}</td><td>{n3(polygon.area)}</td>
+            </tr>)}</tbody>
+            <tfoot><tr><th colSpan={3}>Total cutting area</th><th>{n3(selectedCuttingSection.areas.cutting)}</th></tr></tfoot>
+          </table>
+          <div className="canal-cross-panel-title" style={{ marginTop: 14 }}>Excavation by Material
+            <small>Areas are intersections of those same cut polygons with the entered geological layers.</small>
           </div>
-        )}
+          <table className="canal-bank-reach-table" style={{ width: '100%' }}>
+            <thead><tr><th>Material</th><th>Top RL (m)</th><th>Bottom RL (m)</th><th>Area (m²)</th></tr></thead>
+            <tbody>{selectedCuttingSection.strata.filter(band => band.area > 0).map(band => <tr key={band.id}>
+              <td>{band.name}</td><td>{n3(band.topRl)}</td><td>{n3(band.bottomRl)}</td><td>{n3(band.area)}</td>
+            </tr>)}
+            {selectedCuttingSection.materialAreas[4] > 0 && <tr><td>Unclassified</td><td>—</td><td>—</td><td>{n3(selectedCuttingSection.materialAreas[4])}</td></tr>}
+            </tbody>
+          </table>
+          {selectedCuttingSection.materialAreas[4] > 0 && <p className="settings-note">Enter the soil and rock levels in Soil &amp; Rock Strata to classify the uninvestigated excavation.</p>}
+        </div> : <div className="canal-diagram-empty">
+          No populated cutting sections are available in this reach.
+          <small style={{ marginTop: 6, display: 'block', opacity: 0.8 }}>Populate the ground levels in Cross-Sections to preview cutting sections here.</small>
+        </div>}
       </section>
     </section>
   )

@@ -1,0 +1,3090 @@
+{
+  "item": {
+    "code": "IRR-CCDW-5-4",
+    "subject": "IRR-CCDW",
+    "chapter": "IRR-CCDW-5",
+    "unit": "CUM",
+    "quantity": 14.67,
+    "description": "Providing and laying insitu M-15 ( 28 days cube compressive strength not less than 15 N /\nsqmm ) grade cement concrete using 20 mm down size approved clean, hard, graded\naggregates for coping slab including cost of all materials, machinery, labour, formwork,\ncleaning surface, batching, mixing, placing in position, levelling, compacting, finishing, curing etc., complete with initial lead upto 50 m and initial lift upto 3 m.\n(Cement content: 300 kg / cum with use of super plasticiser(0.4% by wt. of cement),\nCA : 0.80cum, Blending Ratio of CA--65:35, FA : 0.45 cum)",
+    "description_runs": [
+      {
+        "bold": false,
+        "text": "Providing and ",
+        "italic": false,
+        "underline": false
+      },
+      {
+        "bold": true,
+        "text": "laying insitu M-15 ",
+        "italic": false,
+        "underline": false
+      },
+      {
+        "bold": false,
+        "text": "( 28 days cube compressive strength not less than 15 N /\nsqmm ) grade cement concrete using ",
+        "italic": false,
+        "underline": false
+      },
+      {
+        "bold": true,
+        "text": "20 mm down size ",
+        "italic": false,
+        "underline": false
+      },
+      {
+        "bold": false,
+        "text": "approved clean, hard, graded\naggregates for coping slab including cost of all materials, machinery, labour, formwork,\ncleaning surface, batching, mixing, placing in position, levelling, compacting, finishing, curing ",
+        "italic": false,
+        "underline": false
+      },
+      {
+        "bold": true,
+        "text": "etc., complete with initial lead upto 50 m and initial lift upto 3 m.\n(Cement content: 300 kg / cum with use of super plasticiser(0.4% by wt. of cement),\nCA : 0.80cum, Blending Ratio of CA--65:35, FA : 0.45 cum)",
+        "italic": false,
+        "underline": false
+      }
+    ],
+    "materials": [
+      {
+        "sl": "1",
+        "desc": "Cement for mix",
+        "unit": "kg",
+        "quantity": "4401.00",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed material specification, supply/quarry scope and unit. Preserve explicit kg/tonne conversion and monthly-document provenance separately from SOR annual prices.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "CEM_OPC43",
+            "legacy_table": "material_rate"
+          },
+          "master_code": "SOR-P01-T01-G0001-V001",
+          "recipe_code": "SOR-P01-T01-G0001-V001",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "Cement for incidentals @ 5 kg / cum",
+        "unit": "kg",
+        "quantity": "73.35",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "resource_key",
+          "unresolved": false,
+          "master_code": null,
+          "resource_key": "ssr:irr-ccdw-5-4:materials:cement-for-incidentals-5-kg-cum-207c67f787af",
+          "source_table": null,
+          "rate_component": null,
+          "master_resource_resolved": false
+        }
+      },
+      {
+        "sl": "2",
+        "desc": "Coarse aggregate 20-10 mm",
+        "unit": "cum",
+        "sor_ref": {
+          "code": "SOR-P01-T01-R0007",
+          "table": "SOR_Recipie",
+          "component": "rate",
+          "link_review": {
+            "method": "two_edition_price_tracking",
+            "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity.",
+            "status": "approved",
+            "reviewers": [
+              "Luna candidate review",
+              "primary agent live two-edition quote and exact printed-rounding validation"
+            ],
+            "master_code": "SOR-P01-T01-R0007",
+            "reviewed_on": "2026-10-15",
+            "matching_zone": null,
+            "analysis_scope": "materials",
+            "rate_component": "rate",
+            "conversion_kind": "physical_conversion",
+            "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+            "ssr_recipe_code": "IRR-CCDW-5-4",
+            "prior_link_review": {
+              "method": "technical_description_unit_and_exact_same_edition_price",
+              "status": "approved",
+              "group_id": "G0091",
+              "sor_rate": "1230",
+              "sor_unit": "cum",
+              "ssr_rate": "1230.00",
+              "ssr_unit": "cum",
+              "reviewers": [
+                "Luna semantic screening",
+                "primary agent technical and live-rate review"
+              ],
+              "scope_note": "Permanent resource identity; equality verified only for 2026-27. Other editions use their exact SOR annual rows, without changing published SSR amounts or carrying a rate forward.",
+              "reviewed_on": "2026-10-15",
+              "matching_zone": null,
+              "verified_year": "2026-27",
+              "analysis_scope": "materials",
+              "rate_component": "rate",
+              "evidence_report": "SSR_RESOURCE_MATCH_REVIEW_2026-10-15.md",
+              "sor_description": "Coarse aggregate 20-10 mm (excluding Seigniorage charges)",
+              "sor_recipe_code": "SOR-P01-T01-R0007",
+              "ssr_description": "Coarse aggregate 20-10 mm",
+              "ssr_recipe_code": "IRR-CCDW-5-4",
+              "technical_review": "SOR description preserves the source resource identity and stated technical qualifiers; saved catalogue unit has the same physical dimension.",
+              "conversion_factor": "1",
+              "sor_year_row_code": "SOR-Y-d718b70249914b5cef9d29f7bd720283706005bb631e18dadad674370563ab4e",
+              "ssr_year_row_code": "IRR-CCDW-5-4@2026-27",
+              "source_resource_key": "ssr:irr-ccdw-5-4:materials:coarse-aggregate-20-10-mm-1ade6fb8fa72"
+            },
+            "two_year_evidence": [
+              {
+                "year": "2025-26",
+                "zone": null,
+                "sor_rate": "1144",
+                "sor_unit": "cum",
+                "ssr_rate": "1144.00",
+                "ssr_unit": "cum",
+                "revision_path": [
+                  "SOR-P01-T01-R0007"
+                ],
+                "converted_rate": "1144.00",
+                "source_sor_unit": "cum",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-bc158638905dc220b61d710f3082c8f6d9a3016fa02e4a6c0f4825069299712d",
+                "resolved_recipe_code": "SOR-P01-T01-R0007",
+                "rate_basis_multiplier": "1"
+              },
+              {
+                "year": "2026-27",
+                "zone": null,
+                "sor_rate": "1230",
+                "sor_unit": "cum",
+                "ssr_rate": "1230.00",
+                "ssr_unit": "cum",
+                "revision_path": [
+                  "SOR-P01-T01-R0007"
+                ],
+                "converted_rate": "1230.00",
+                "source_sor_unit": "cum",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-d718b70249914b5cef9d29f7bd720283706005bb631e18dadad674370563ab4e",
+                "resolved_recipe_code": "SOR-P01-T01-R0007",
+                "rate_basis_multiplier": "1"
+              }
+            ],
+            "reference_sor_unit": "cum",
+            "source_resource_key": "ssr:irr-ccdw-5-4:materials:coarse-aggregate-20-10-mm-1ade6fb8fa72",
+            "rate_basis_multiplier": "1",
+            "rate_rounding_decimals": 2,
+            "rate_rounding_decimals_by_year": {
+              "2025-26": 2,
+              "2026-27": 2
+            }
+          },
+          "rate_basis_multiplier": "1"
+        },
+        "quantity": "7.63",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "recipe_code",
+          "unresolved": false,
+          "link_review": {
+            "method": "two_edition_price_tracking",
+            "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity.",
+            "status": "approved",
+            "reviewers": [
+              "Luna candidate review",
+              "primary agent live two-edition quote and exact printed-rounding validation"
+            ],
+            "master_code": "SOR-P01-T01-R0007",
+            "reviewed_on": "2026-10-15",
+            "matching_zone": null,
+            "analysis_scope": "materials",
+            "rate_component": "rate",
+            "conversion_kind": "physical_conversion",
+            "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+            "ssr_recipe_code": "IRR-CCDW-5-4",
+            "prior_link_review": {
+              "method": "technical_description_unit_and_exact_same_edition_price",
+              "status": "approved",
+              "group_id": "G0091",
+              "sor_rate": "1230",
+              "sor_unit": "cum",
+              "ssr_rate": "1230.00",
+              "ssr_unit": "cum",
+              "reviewers": [
+                "Luna semantic screening",
+                "primary agent technical and live-rate review"
+              ],
+              "scope_note": "Permanent resource identity; equality verified only for 2026-27. Other editions use their exact SOR annual rows, without changing published SSR amounts or carrying a rate forward.",
+              "reviewed_on": "2026-10-15",
+              "matching_zone": null,
+              "verified_year": "2026-27",
+              "analysis_scope": "materials",
+              "rate_component": "rate",
+              "evidence_report": "SSR_RESOURCE_MATCH_REVIEW_2026-10-15.md",
+              "sor_description": "Coarse aggregate 20-10 mm (excluding Seigniorage charges)",
+              "sor_recipe_code": "SOR-P01-T01-R0007",
+              "ssr_description": "Coarse aggregate 20-10 mm",
+              "ssr_recipe_code": "IRR-CCDW-5-4",
+              "technical_review": "SOR description preserves the source resource identity and stated technical qualifiers; saved catalogue unit has the same physical dimension.",
+              "conversion_factor": "1",
+              "sor_year_row_code": "SOR-Y-d718b70249914b5cef9d29f7bd720283706005bb631e18dadad674370563ab4e",
+              "ssr_year_row_code": "IRR-CCDW-5-4@2026-27",
+              "source_resource_key": "ssr:irr-ccdw-5-4:materials:coarse-aggregate-20-10-mm-1ade6fb8fa72"
+            },
+            "two_year_evidence": [
+              {
+                "year": "2025-26",
+                "zone": null,
+                "sor_rate": "1144",
+                "sor_unit": "cum",
+                "ssr_rate": "1144.00",
+                "ssr_unit": "cum",
+                "revision_path": [
+                  "SOR-P01-T01-R0007"
+                ],
+                "converted_rate": "1144.00",
+                "source_sor_unit": "cum",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-bc158638905dc220b61d710f3082c8f6d9a3016fa02e4a6c0f4825069299712d",
+                "resolved_recipe_code": "SOR-P01-T01-R0007",
+                "rate_basis_multiplier": "1"
+              },
+              {
+                "year": "2026-27",
+                "zone": null,
+                "sor_rate": "1230",
+                "sor_unit": "cum",
+                "ssr_rate": "1230.00",
+                "ssr_unit": "cum",
+                "revision_path": [
+                  "SOR-P01-T01-R0007"
+                ],
+                "converted_rate": "1230.00",
+                "source_sor_unit": "cum",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-d718b70249914b5cef9d29f7bd720283706005bb631e18dadad674370563ab4e",
+                "resolved_recipe_code": "SOR-P01-T01-R0007",
+                "rate_basis_multiplier": "1"
+              }
+            ],
+            "reference_sor_unit": "cum",
+            "source_resource_key": "ssr:irr-ccdw-5-4:materials:coarse-aggregate-20-10-mm-1ade6fb8fa72",
+            "rate_basis_multiplier": "1",
+            "rate_rounding_decimals": 2,
+            "rate_rounding_decimals_by_year": {
+              "2025-26": 2,
+              "2026-27": 2
+            }
+          },
+          "master_code": "SOR-P01-T01-R0007",
+          "recipe_code": "SOR-P01-T01-R0007",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "Coarse aggregate 10 mm below",
+        "unit": "cum",
+        "sor_ref": {
+          "code": "SOR-P01-T01-R0006",
+          "table": "SOR_Recipie",
+          "component": "rate",
+          "link_review": {
+            "method": "two_edition_price_tracking",
+            "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity. The abbreviated “10 mm down” specification is inferred as the uniquely matching SOR 10–4.75 mm grade from the two-year price vector.",
+            "status": "approved",
+            "reviewers": [
+              "Luna candidate review",
+              "primary agent live two-edition quote and exact printed-rounding validation"
+            ],
+            "master_code": "SOR-P01-T01-R0006",
+            "reviewed_on": "2026-10-15",
+            "matching_zone": null,
+            "analysis_scope": "materials",
+            "rate_component": "rate",
+            "conversion_kind": "physical_conversion",
+            "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+            "ssr_recipe_code": "IRR-CCDW-5-4",
+            "two_year_evidence": [
+              {
+                "year": "2025-26",
+                "zone": null,
+                "sor_rate": "879",
+                "sor_unit": "cum",
+                "ssr_rate": "879.00",
+                "ssr_unit": "cum",
+                "revision_path": [
+                  "SOR-P01-T01-R0006"
+                ],
+                "converted_rate": "879.00",
+                "source_sor_unit": "cum",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-09e0607986fe151172c87b691c8f89815f93ab66dff1571c1a46230f79015e63",
+                "resolved_recipe_code": "SOR-P01-T01-R0006",
+                "rate_basis_multiplier": "1"
+              },
+              {
+                "year": "2026-27",
+                "zone": null,
+                "sor_rate": "945",
+                "sor_unit": "cum",
+                "ssr_rate": "945.00",
+                "ssr_unit": "cum",
+                "revision_path": [
+                  "SOR-P01-T01-R0006"
+                ],
+                "converted_rate": "945.00",
+                "source_sor_unit": "cum",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-2c29662c4c26ade7ad37a2f53f45688cd297432e9ff43b91e64973765ffc75fb",
+                "resolved_recipe_code": "SOR-P01-T01-R0006",
+                "rate_basis_multiplier": "1"
+              }
+            ],
+            "reference_sor_unit": "cum",
+            "source_resource_key": "ssr:irr-ccdw-5-4:materials:coarse-aggregate-10-mm-below-d6e5073a37e2",
+            "rate_basis_multiplier": "1",
+            "rate_rounding_decimals": 2,
+            "rate_rounding_decimals_by_year": {
+              "2025-26": 2,
+              "2026-27": 2
+            }
+          },
+          "rate_basis_multiplier": "1"
+        },
+        "quantity": "4.11",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "recipe_code",
+          "unresolved": false,
+          "link_review": {
+            "method": "two_edition_price_tracking",
+            "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity. The abbreviated “10 mm down” specification is inferred as the uniquely matching SOR 10–4.75 mm grade from the two-year price vector.",
+            "status": "approved",
+            "reviewers": [
+              "Luna candidate review",
+              "primary agent live two-edition quote and exact printed-rounding validation"
+            ],
+            "master_code": "SOR-P01-T01-R0006",
+            "reviewed_on": "2026-10-15",
+            "matching_zone": null,
+            "analysis_scope": "materials",
+            "rate_component": "rate",
+            "conversion_kind": "physical_conversion",
+            "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+            "ssr_recipe_code": "IRR-CCDW-5-4",
+            "two_year_evidence": [
+              {
+                "year": "2025-26",
+                "zone": null,
+                "sor_rate": "879",
+                "sor_unit": "cum",
+                "ssr_rate": "879.00",
+                "ssr_unit": "cum",
+                "revision_path": [
+                  "SOR-P01-T01-R0006"
+                ],
+                "converted_rate": "879.00",
+                "source_sor_unit": "cum",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-09e0607986fe151172c87b691c8f89815f93ab66dff1571c1a46230f79015e63",
+                "resolved_recipe_code": "SOR-P01-T01-R0006",
+                "rate_basis_multiplier": "1"
+              },
+              {
+                "year": "2026-27",
+                "zone": null,
+                "sor_rate": "945",
+                "sor_unit": "cum",
+                "ssr_rate": "945.00",
+                "ssr_unit": "cum",
+                "revision_path": [
+                  "SOR-P01-T01-R0006"
+                ],
+                "converted_rate": "945.00",
+                "source_sor_unit": "cum",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-2c29662c4c26ade7ad37a2f53f45688cd297432e9ff43b91e64973765ffc75fb",
+                "resolved_recipe_code": "SOR-P01-T01-R0006",
+                "rate_basis_multiplier": "1"
+              }
+            ],
+            "reference_sor_unit": "cum",
+            "source_resource_key": "ssr:irr-ccdw-5-4:materials:coarse-aggregate-10-mm-below-d6e5073a37e2",
+            "rate_basis_multiplier": "1",
+            "rate_rounding_decimals": 2,
+            "rate_rounding_decimals_by_year": {
+              "2025-26": 2,
+              "2026-27": 2
+            }
+          },
+          "master_code": "SOR-P01-T01-R0006",
+          "recipe_code": "SOR-P01-T01-R0006",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "3",
+        "desc": "Fine aggregate (Un-Screened)",
+        "unit": "cum",
+        "sor_ref": {
+          "code": "SOR-P01-T01-G0002-V001",
+          "table": "SOR_Recipie",
+          "component": "rate",
+          "link_review": {
+            "method": "two_edition_price_tracking",
+            "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity.",
+            "status": "approved",
+            "reviewers": [
+              "Luna candidate review",
+              "primary agent live two-edition quote and exact printed-rounding validation"
+            ],
+            "master_code": "SOR-P01-T01-G0002-V001",
+            "reviewed_on": "2026-10-15",
+            "matching_zone": null,
+            "analysis_scope": "materials",
+            "rate_component": "rate",
+            "conversion_kind": "physical_conversion",
+            "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+            "ssr_recipe_code": "IRR-CCDW-5-4",
+            "two_year_evidence": [
+              {
+                "year": "2025-26",
+                "zone": null,
+                "sor_rate": "723",
+                "sor_unit": "cum",
+                "ssr_rate": "723.00",
+                "ssr_unit": "cum",
+                "revision_path": [
+                  "SOR-P01-T01-G0002-V001"
+                ],
+                "converted_rate": "723.00",
+                "source_sor_unit": "cum",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-63e2107a2836f634f8f264e2afc9f9753131354eb8fa89773b4e8508dbb17d12",
+                "resolved_recipe_code": "SOR-P01-T01-G0002-V001",
+                "rate_basis_multiplier": "1"
+              },
+              {
+                "year": "2026-27",
+                "zone": null,
+                "sor_rate": "777",
+                "sor_unit": "cum",
+                "ssr_rate": "777.00",
+                "ssr_unit": "cum",
+                "revision_path": [
+                  "SOR-P01-T01-G0002-V001"
+                ],
+                "converted_rate": "777.00",
+                "source_sor_unit": "cum",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-245289db73b75f634d9115dd9d3dd32c083035a38b363a63728358a2de6237ad",
+                "resolved_recipe_code": "SOR-P01-T01-G0002-V001",
+                "rate_basis_multiplier": "1"
+              }
+            ],
+            "reference_sor_unit": "cum",
+            "source_resource_key": "ssr:irr-ccdw-5-4:materials:fine-aggregate-un-screened-3c91745f8a39",
+            "rate_basis_multiplier": "1",
+            "rate_rounding_decimals": 2,
+            "rate_rounding_decimals_by_year": {
+              "2025-26": 2,
+              "2026-27": 2
+            }
+          },
+          "rate_basis_multiplier": "1"
+        },
+        "quantity": "6.60",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "recipe_code",
+          "unresolved": false,
+          "link_review": {
+            "method": "two_edition_price_tracking",
+            "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity.",
+            "status": "approved",
+            "reviewers": [
+              "Luna candidate review",
+              "primary agent live two-edition quote and exact printed-rounding validation"
+            ],
+            "master_code": "SOR-P01-T01-G0002-V001",
+            "reviewed_on": "2026-10-15",
+            "matching_zone": null,
+            "analysis_scope": "materials",
+            "rate_component": "rate",
+            "conversion_kind": "physical_conversion",
+            "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+            "ssr_recipe_code": "IRR-CCDW-5-4",
+            "two_year_evidence": [
+              {
+                "year": "2025-26",
+                "zone": null,
+                "sor_rate": "723",
+                "sor_unit": "cum",
+                "ssr_rate": "723.00",
+                "ssr_unit": "cum",
+                "revision_path": [
+                  "SOR-P01-T01-G0002-V001"
+                ],
+                "converted_rate": "723.00",
+                "source_sor_unit": "cum",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-63e2107a2836f634f8f264e2afc9f9753131354eb8fa89773b4e8508dbb17d12",
+                "resolved_recipe_code": "SOR-P01-T01-G0002-V001",
+                "rate_basis_multiplier": "1"
+              },
+              {
+                "year": "2026-27",
+                "zone": null,
+                "sor_rate": "777",
+                "sor_unit": "cum",
+                "ssr_rate": "777.00",
+                "ssr_unit": "cum",
+                "revision_path": [
+                  "SOR-P01-T01-G0002-V001"
+                ],
+                "converted_rate": "777.00",
+                "source_sor_unit": "cum",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-245289db73b75f634d9115dd9d3dd32c083035a38b363a63728358a2de6237ad",
+                "resolved_recipe_code": "SOR-P01-T01-G0002-V001",
+                "rate_basis_multiplier": "1"
+              }
+            ],
+            "reference_sor_unit": "cum",
+            "source_resource_key": "ssr:irr-ccdw-5-4:materials:fine-aggregate-un-screened-3c91745f8a39",
+            "rate_basis_multiplier": "1",
+            "rate_rounding_decimals": 2,
+            "rate_rounding_decimals_by_year": {
+              "2025-26": 2,
+              "2026-27": 2
+            }
+          },
+          "master_code": "SOR-P01-T01-G0002-V001",
+          "recipe_code": "SOR-P01-T01-G0002-V001",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "4",
+        "desc": "Super Plasticizer",
+        "unit": "kg",
+        "sor_ref": {
+          "code": "SOR-P01-T01-R0065",
+          "table": "SOR_Recipie",
+          "component": "rate",
+          "link_review": {
+            "method": "two_edition_price_tracking",
+            "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity.",
+            "status": "approved",
+            "reviewers": [
+              "Luna candidate review",
+              "primary agent live two-edition quote and exact printed-rounding validation"
+            ],
+            "master_code": "SOR-P01-T01-R0065",
+            "reviewed_on": "2026-10-15",
+            "matching_zone": null,
+            "analysis_scope": "materials",
+            "rate_component": "rate",
+            "conversion_kind": "physical_conversion",
+            "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+            "ssr_recipe_code": "IRR-CCDW-5-4",
+            "two_year_evidence": [
+              {
+                "year": "2025-26",
+                "zone": null,
+                "sor_rate": "73",
+                "sor_unit": "kg",
+                "ssr_rate": "73.00",
+                "ssr_unit": "kg",
+                "revision_path": [
+                  "SOR-P01-T01-R0065"
+                ],
+                "converted_rate": "73.00",
+                "source_sor_unit": "kg",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-158c5ab31b2ada716f824d11cbe0082740a41f416f9ca8b35b6441165474804a",
+                "resolved_recipe_code": "SOR-P01-T01-R0065",
+                "rate_basis_multiplier": "1"
+              },
+              {
+                "year": "2026-27",
+                "zone": null,
+                "sor_rate": "78",
+                "sor_unit": "kg",
+                "ssr_rate": "78.00",
+                "ssr_unit": "kg",
+                "revision_path": [
+                  "SOR-P01-T01-R0065"
+                ],
+                "converted_rate": "78.00",
+                "source_sor_unit": "kg",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-545e27811290ead8d555f88372a0731bff0b9742c6d1f31ca4f67678e6aa03ae",
+                "resolved_recipe_code": "SOR-P01-T01-R0065",
+                "rate_basis_multiplier": "1"
+              }
+            ],
+            "reference_sor_unit": "kg",
+            "source_resource_key": "ssr:irr-ccdw-5-4:materials:super-plasticizer-3a9d98045bfd",
+            "rate_basis_multiplier": "1",
+            "rate_rounding_decimals": 2,
+            "rate_rounding_decimals_by_year": {
+              "2025-26": 2,
+              "2026-27": 2
+            }
+          },
+          "rate_basis_multiplier": "1"
+        },
+        "quantity": "17.60",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "recipe_code",
+          "unresolved": false,
+          "link_review": {
+            "method": "two_edition_price_tracking",
+            "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity.",
+            "status": "approved",
+            "reviewers": [
+              "Luna candidate review",
+              "primary agent live two-edition quote and exact printed-rounding validation"
+            ],
+            "master_code": "SOR-P01-T01-R0065",
+            "reviewed_on": "2026-10-15",
+            "matching_zone": null,
+            "analysis_scope": "materials",
+            "rate_component": "rate",
+            "conversion_kind": "physical_conversion",
+            "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+            "ssr_recipe_code": "IRR-CCDW-5-4",
+            "two_year_evidence": [
+              {
+                "year": "2025-26",
+                "zone": null,
+                "sor_rate": "73",
+                "sor_unit": "kg",
+                "ssr_rate": "73.00",
+                "ssr_unit": "kg",
+                "revision_path": [
+                  "SOR-P01-T01-R0065"
+                ],
+                "converted_rate": "73.00",
+                "source_sor_unit": "kg",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-158c5ab31b2ada716f824d11cbe0082740a41f416f9ca8b35b6441165474804a",
+                "resolved_recipe_code": "SOR-P01-T01-R0065",
+                "rate_basis_multiplier": "1"
+              },
+              {
+                "year": "2026-27",
+                "zone": null,
+                "sor_rate": "78",
+                "sor_unit": "kg",
+                "ssr_rate": "78.00",
+                "ssr_unit": "kg",
+                "revision_path": [
+                  "SOR-P01-T01-R0065"
+                ],
+                "converted_rate": "78.00",
+                "source_sor_unit": "kg",
+                "rounding_decimals": 2,
+                "sor_year_row_code": "SOR-Y-545e27811290ead8d555f88372a0731bff0b9742c6d1f31ca4f67678e6aa03ae",
+                "resolved_recipe_code": "SOR-P01-T01-R0065",
+                "rate_basis_multiplier": "1"
+              }
+            ],
+            "reference_sor_unit": "kg",
+            "source_resource_key": "ssr:irr-ccdw-5-4:materials:super-plasticizer-3a9d98045bfd",
+            "rate_basis_multiplier": "1",
+            "rate_rounding_decimals": 2,
+            "rate_rounding_decimals_by_year": {
+              "2025-26": 2,
+              "2026-27": 2
+            }
+          },
+          "master_code": "SOR-P01-T01-R0065",
+          "recipe_code": "SOR-P01-T01-R0065",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "5",
+        "desc": "Use rate of shuttering",
+        "unit": "sqm",
+        "quantity": "80.69",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "resource_key",
+          "unresolved": false,
+          "master_code": null,
+          "resource_key": "ssr:irr-ccdw-5-4:materials:use-rate-of-shuttering-9a95df15dd2d",
+          "source_table": null,
+          "rate_component": null,
+          "master_resource_resolved": false
+        }
+      },
+      {
+        "sl": "6",
+        "desc": "Sundries",
+        "unit": "sqm",
+        "quantity": "1.00",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "resource_key",
+          "unresolved": false,
+          "master_code": null,
+          "resource_key": "ssr:irr-ccdw-5-4:materials:sundries-63cf049e2eb8",
+          "source_table": null,
+          "rate_component": null,
+          "master_resource_resolved": false
+        }
+      }
+    ],
+    "machinery": [
+      {
+        "sl": "1",
+        "desc": "Concrete mixer 300/200 ltr ( diesel )",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "SOR-P01-T08-R0016",
+          "table": "SOR_Year",
+          "component": "hire_charge",
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_016",
+            "legacy_table": "machinery_rate"
+          },
+          "recipe_code": "SOR-P01-T08-R0016"
+        },
+        "quantity": "8.00",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_016",
+            "legacy_table": "machinery_rate"
+          },
+          "master_code": "SOR-P01-T08-R0016",
+          "recipe_code": "SOR-P01-T08-R0016",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "hire_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "Fuel / Energy charges",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "SOR-P01-T08-R0016",
+          "table": "SOR_Year",
+          "component": "fuel_charge",
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_016",
+            "legacy_table": "machinery_rate"
+          },
+          "recipe_code": "SOR-P01-T08-R0016"
+        },
+        "quantity": "8.00",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_016",
+            "legacy_table": "machinery_rate"
+          },
+          "master_code": "SOR-P01-T08-R0016",
+          "recipe_code": "SOR-P01-T08-R0016",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "fuel_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "2",
+        "desc": "5 hp pump ( diesel )",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "SOR-P01-T08-R0026",
+          "table": "SOR_Year",
+          "component": "hire_charge",
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_026",
+            "legacy_table": "machinery_rate"
+          },
+          "recipe_code": "SOR-P01-T08-R0026"
+        },
+        "quantity": "0.50",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_026",
+            "legacy_table": "machinery_rate"
+          },
+          "master_code": "SOR-P01-T08-R0026",
+          "recipe_code": "SOR-P01-T08-R0026",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "hire_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "Fuel / Energy charges",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "SOR-P01-T08-R0026",
+          "table": "SOR_Year",
+          "component": "fuel_charge",
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_026",
+            "legacy_table": "machinery_rate"
+          },
+          "recipe_code": "SOR-P01-T08-R0026"
+        },
+        "quantity": "0.50",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_026",
+            "legacy_table": "machinery_rate"
+          },
+          "master_code": "SOR-P01-T08-R0026",
+          "recipe_code": "SOR-P01-T08-R0026",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "fuel_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "3",
+        "desc": "Water tanker 8000 ltr",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "SOR-P01-T08-R0064",
+          "table": "SOR_Year",
+          "component": "hire_charge",
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_064",
+            "legacy_table": "machinery_rate"
+          },
+          "recipe_code": "SOR-P01-T08-R0064"
+        },
+        "quantity": "1.00",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_064",
+            "legacy_table": "machinery_rate"
+          },
+          "master_code": "SOR-P01-T08-R0064",
+          "recipe_code": "SOR-P01-T08-R0064",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "hire_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "Fuel / Energy charges",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "SOR-P01-T08-R0064",
+          "table": "SOR_Year",
+          "component": "fuel_charge",
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_064",
+            "legacy_table": "machinery_rate"
+          },
+          "recipe_code": "SOR-P01-T08-R0064"
+        },
+        "quantity": "1.00",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_064",
+            "legacy_table": "machinery_rate"
+          },
+          "master_code": "SOR-P01-T08-R0064",
+          "recipe_code": "SOR-P01-T08-R0064",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "fuel_charge",
+          "master_resource_resolved": true
+        }
+      }
+    ],
+    "labour": [
+      {
+        "sl": "1",
+        "desc": "Crew for Concrete mixer",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "SOR-P01-T08-R0016",
+          "table": "SOR_Year",
+          "component": "crew_charge",
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_016",
+            "legacy_table": "machinery_rate"
+          },
+          "recipe_code": "SOR-P01-T08-R0016"
+        },
+        "quantity": "8.00",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_016",
+            "legacy_table": "machinery_rate"
+          },
+          "master_code": "SOR-P01-T08-R0016",
+          "recipe_code": "SOR-P01-T08-R0016",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "crew_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "2",
+        "desc": "Crew for Pump",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "SOR-P01-T08-R0026",
+          "table": "SOR_Year",
+          "component": "crew_charge",
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_026",
+            "legacy_table": "machinery_rate"
+          },
+          "recipe_code": "SOR-P01-T08-R0026"
+        },
+        "quantity": "0.50",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_026",
+            "legacy_table": "machinery_rate"
+          },
+          "master_code": "SOR-P01-T08-R0026",
+          "recipe_code": "SOR-P01-T08-R0026",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "crew_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "3",
+        "desc": "Crew for Water tanker",
+        "unit": "Hour",
+        "sor_ref": {
+          "code": "SOR-P01-T08-R0064",
+          "table": "SOR_Year",
+          "component": "crew_charge",
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_064",
+            "legacy_table": "machinery_rate"
+          },
+          "recipe_code": "SOR-P01-T08-R0064"
+        },
+        "quantity": "1.00",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "MC_064",
+            "legacy_table": "machinery_rate"
+          },
+          "master_code": "SOR-P01-T08-R0064",
+          "recipe_code": "SOR-P01-T08-R0064",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "crew_charge",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "4",
+        "desc": "Mason Class-I",
+        "unit": "Day",
+        "sor_ref": {
+          "code": "SOR-P01-T07-R0117",
+          "table": "SOR_Year",
+          "component": "rate",
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_S_11",
+            "legacy_table": "labour_rate"
+          },
+          "recipe_code": "SOR-P01-T07-R0117"
+        },
+        "quantity": "1.00",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_S_11",
+            "legacy_table": "labour_rate"
+          },
+          "master_code": "SOR-P01-T07-R0117",
+          "recipe_code": "SOR-P01-T07-R0117",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "5",
+        "desc": "work inspector",
+        "unit": "Day",
+        "sor_ref": {
+          "code": "SOR-P01-T07-R0010",
+          "table": "SOR_Year",
+          "component": "rate",
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_S_10",
+            "legacy_table": "labour_rate"
+          },
+          "recipe_code": "SOR-P01-T07-R0010"
+        },
+        "quantity": "1.00",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_S_10",
+            "legacy_table": "labour_rate"
+          },
+          "master_code": "SOR-P01-T07-R0010",
+          "recipe_code": "SOR-P01-T07-R0010",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "6",
+        "desc": "mazdoor",
+        "unit": "",
+        "quantity": "",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "resource_key",
+          "unresolved": false,
+          "master_code": null,
+          "resource_key": "ssr:irr-ccdw-5-4:labour:mazdoor-d41905ba69d5",
+          "source_table": null,
+          "rate_component": null,
+          "master_resource_resolved": false
+        }
+      },
+      {
+        "sl": "",
+        "desc": "for batching materials",
+        "unit": "Day",
+        "sor_ref": {
+          "code": "SOR-P01-T07-R0089",
+          "table": "SOR_Year",
+          "component": "rate",
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_U_03",
+            "legacy_table": "labour_rate"
+          },
+          "recipe_code": "SOR-P01-T07-R0089"
+        },
+        "quantity": "11.00",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_U_03",
+            "legacy_table": "labour_rate"
+          },
+          "master_code": "SOR-P01-T07-R0089",
+          "recipe_code": "SOR-P01-T07-R0089",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "for loading mortar pans",
+        "unit": "Day",
+        "sor_ref": {
+          "code": "SOR-P01-T07-R0089",
+          "table": "SOR_Year",
+          "component": "rate",
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_U_03",
+            "legacy_table": "labour_rate"
+          },
+          "recipe_code": "SOR-P01-T07-R0089"
+        },
+        "quantity": "4.00",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_U_03",
+            "legacy_table": "labour_rate"
+          },
+          "master_code": "SOR-P01-T07-R0089",
+          "recipe_code": "SOR-P01-T07-R0089",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "for laying and tamping",
+        "unit": "Day",
+        "sor_ref": {
+          "code": "SOR-P01-T07-R0089",
+          "table": "SOR_Year",
+          "component": "rate",
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_U_03",
+            "legacy_table": "labour_rate"
+          },
+          "recipe_code": "SOR-P01-T07-R0089"
+        },
+        "quantity": "3.00",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_U_03",
+            "legacy_table": "labour_rate"
+          },
+          "master_code": "SOR-P01-T07-R0089",
+          "recipe_code": "SOR-P01-T07-R0089",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "for conveying concrete",
+        "unit": "Day",
+        "sor_ref": {
+          "code": "SOR-P01-T07-R0089",
+          "table": "SOR_Year",
+          "component": "rate",
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_U_03",
+            "legacy_table": "labour_rate"
+          },
+          "recipe_code": "SOR-P01-T07-R0089"
+        },
+        "quantity": "14.67",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_U_03",
+            "legacy_table": "labour_rate"
+          },
+          "master_code": "SOR-P01-T07-R0089",
+          "recipe_code": "SOR-P01-T07-R0089",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "",
+        "desc": "for cleaning/ washing/ curing",
+        "unit": "Day",
+        "sor_ref": {
+          "code": "SOR-P01-T07-R0089",
+          "table": "SOR_Year",
+          "component": "rate",
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_U_03",
+            "legacy_table": "labour_rate"
+          },
+          "recipe_code": "SOR-P01-T07-R0089"
+        },
+        "quantity": "1.00",
+        "resource_identity": {
+          "version": 2,
+          "resolution": "master_code",
+          "unresolved": false,
+          "link_review": {
+            "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+            "status": "approved",
+            "reviewer": {
+              "kind": "ai",
+              "model": "GPT-6"
+            },
+            "legacy_code": "LAB_U_03",
+            "legacy_table": "labour_rate"
+          },
+          "master_code": "SOR-P01-T07-R0089",
+          "recipe_code": "SOR-P01-T07-R0089",
+          "resource_key": null,
+          "source_table": "SOR_Year",
+          "rate_component": "rate",
+          "master_resource_resolved": true
+        }
+      },
+      {
+        "sl": "7",
+        "desc": "Labour cost for shuttering/scaffolding",
+        "unit": "sqm",
+        "quantity": "80.69",
+        "resource_identity": {
+          "version": 1,
+          "resolution": "resource_key",
+          "unresolved": false,
+          "master_code": null,
+          "resource_key": "ssr:irr-ccdw-5-4:labour:labour-cost-for-shuttering-scaffolding-106b209e2075",
+          "source_table": null,
+          "rate_component": null,
+          "master_resource_resolved": false
+        }
+      }
+    ],
+    "rate_structure": {
+      "variants": [
+        {
+          "label": "Rate per cum (A+B+C+D)/14.67",
+          "add_percent": null
+        }
+      ],
+      "modifiers": [],
+      "section_rules": []
+    },
+    "images": [],
+    "content_hash": "10fa1b9c343e1bfaae1f814454b817fd",
+    "created_at": "2026-06-15T08:33:34.628097+00:00",
+    "updated_at": "2026-06-15T08:33:34.628097+00:00",
+    "unit_capacity": null,
+    "lead_applicability": {
+      "builtin": {
+        "mode": "initial_only",
+        "all_leads": false,
+        "overrides": null,
+        "water_note": null,
+        "desc_evidence": [
+          "initial lead upto 50 m"
+        ],
+        "abstract_lines": [],
+        "initial_lead_m": 50,
+        "builtin_lead_km": null
+      },
+      "classes": [
+        "CEMENT",
+        "STONE"
+      ],
+      "earthwork": false,
+      "materials": {
+        "Cement for mix": "CEMENT",
+        "Coarse aggregate 20-10 mm": "STONE",
+        "Coarse aggregate 10 mm below": "STONE",
+        "Fine aggregate (Un-Screened)": "STONE",
+        "Cement for incidentals @ 5 kg / cum": "CEMENT"
+      },
+      "rate_refs": [
+        {
+          "class": "CEMENT",
+          "formula": "lead_amount = item_quantity * lead_rate_for_distance",
+          "column_key": "CEMENT_STEEL_PACKED",
+          "charge_code": "COM-LDLFT-2",
+          "detail_code": "COM-DTL-LDLFT-2",
+          "pricing_basis": "distance_km"
+        },
+        {
+          "class": "STONE",
+          "formula": "lead_amount = item_quantity * lead_rate_for_distance",
+          "column_key": "STONE",
+          "charge_code": "COM-LDLFT-2",
+          "detail_code": "COM-DTL-LDLFT-2",
+          "pricing_basis": "distance_km"
+        }
+      ]
+    },
+    "lead_policy": null,
+    "seigniorage_applicability": {
+      "rows": [
+        {
+          "mode": "DESCRIPTION_MATERIAL_RATIO",
+          "status": "APPROVED",
+          "seig_code": "SEIG_SAND_OTHERS",
+          "charge_unit": "CUM",
+          "material_key": "SAND_FINE_AGGREGATE",
+          "quantity_unit": "CUM",
+          "material_label": "Fine aggregate",
+          "quantity_basis": "ITEM_QTY_X_RATIO",
+          "quantity_ratio": 0.45,
+          "approval_status": "APPROVED",
+          "item_output_qty": 14.67,
+          "conversion_factor": 1,
+          "recipe_material_qty": 6.6,
+          "description_quantity": 0.45,
+          "recipe_material_desc": "Fine aggregate (Un-Screened)",
+          "recipe_material_unit": "cum",
+          "quantity_ratio_source": "SSR_DESCRIPTION",
+          "description_blend_ratio": null,
+          "description_source_text": "FA : 0.45 cum",
+          "description_quantity_unit": "CUM"
+        },
+        {
+          "mode": "DESCRIPTION_MATERIAL_RATIO",
+          "status": "APPROVED",
+          "seig_code": "SEIG_BUILDING_STONE",
+          "charge_unit": "CUM",
+          "material_key": "STONE_AGGREGATE",
+          "quantity_unit": "CUM",
+          "material_label": "Coarse aggregate",
+          "quantity_basis": "ITEM_QTY_X_RATIO",
+          "quantity_ratio": 0.8,
+          "approval_status": "APPROVED",
+          "item_output_qty": 14.67,
+          "conversion_factor": 1,
+          "recipe_material_qty": 11.74,
+          "description_quantity": 0.8,
+          "recipe_material_desc": "Coarse aggregate 20-10 mm | Coarse aggregate 10 mm below",
+          "recipe_material_unit": "cum",
+          "quantity_ratio_source": "SSR_DESCRIPTION",
+          "description_blend_ratio": [
+            "65",
+            "35"
+          ],
+          "description_source_text": "CA : 0.80cum",
+          "description_quantity_unit": "CUM"
+        }
+      ],
+      "source": "SSR_DESCRIPTION",
+      "materials": [
+        {
+          "mode": "DESCRIPTION_MATERIAL_RATIO",
+          "notes": "Approved SSR description quantity used for calculation.",
+          "status": "APPROVED",
+          "seig_code": "SEIG_SAND_OTHERS",
+          "charge_unit": "CUM",
+          "material_key": "SAND_FINE_AGGREGATE",
+          "quantity_unit": "CUM",
+          "material_label": "Fine aggregate",
+          "quantity_basis": "ITEM_QTY_X_RATIO",
+          "quantity_ratio": 0.45,
+          "approval_status": "APPROVED",
+          "item_output_qty": 14.67,
+          "item_output_unit": "CUM",
+          "conversion_factor": 1,
+          "recipe_material_qty": 6.6,
+          "description_quantity": 0.45,
+          "recipe_material_desc": "Fine aggregate (Un-Screened)",
+          "recipe_material_unit": "cum",
+          "quantity_ratio_source": "SSR_DESCRIPTION",
+          "description_blend_ratio": null,
+          "description_source_text": "FA : 0.45 cum",
+          "description_quantity_unit": "CUM"
+        },
+        {
+          "mode": "DESCRIPTION_MATERIAL_RATIO",
+          "notes": "Approved SSR description quantity used for calculation.",
+          "status": "APPROVED",
+          "seig_code": "SEIG_BUILDING_STONE",
+          "charge_unit": "CUM",
+          "material_key": "STONE_AGGREGATE",
+          "quantity_unit": "CUM",
+          "material_label": "Coarse aggregate",
+          "quantity_basis": "ITEM_QTY_X_RATIO",
+          "quantity_ratio": 0.8,
+          "approval_status": "APPROVED",
+          "item_output_qty": 14.67,
+          "item_output_unit": "CUM",
+          "conversion_factor": 1,
+          "recipe_material_qty": 11.74,
+          "description_quantity": 0.8,
+          "recipe_material_desc": "Coarse aggregate 20-10 mm | Coarse aggregate 10 mm below",
+          "recipe_material_unit": "cum",
+          "quantity_ratio_source": "SSR_DESCRIPTION",
+          "description_blend_ratio": [
+            "65",
+            "35"
+          ],
+          "description_source_text": "CA : 0.80cum",
+          "description_quantity_unit": "CUM"
+        }
+      ],
+      "applicable": true,
+      "generated_at": "2026-08-25T19:04:03Z",
+      "policy_basis": {
+        "purpose": "MATERIAL_SUPPLY",
+        "evidence": [
+          "SSR item description"
+        ],
+        "review_status": "APPROVED"
+      },
+      "parser_version": "ssr-description-quantity-v2",
+      "schema_version": 4,
+      "approval_status": "APPROVED",
+      "description_hash": "b43a81faa53fbef8dd587cad4f797fa3"
+    },
+    "section_heading": null,
+    "addon_table": [],
+    "description_quantity_policy": {
+      "source": "SSR_DESCRIPTION",
+      "values": [
+        {
+          "unit": "CUM",
+          "quantity": 0.45,
+          "blend_ratio": null,
+          "source_text": "FA : 0.45 cum",
+          "material_key": "SAND_FINE_AGGREGATE",
+          "material_label": "Fine aggregate"
+        },
+        {
+          "unit": "CUM",
+          "quantity": 0.8,
+          "blend_ratio": [
+            "65",
+            "35"
+          ],
+          "source_text": "CA : 0.80cum",
+          "material_key": "STONE_AGGREGATE",
+          "material_label": "Coarse aggregate"
+        }
+      ],
+      "parser_version": "ssr-description-quantity-v2",
+      "schema_version": 1,
+      "approval_status": "APPROVED",
+      "description_hash": "b43a81faa53fbef8dd587cad4f797fa3"
+    }
+  },
+  "year": {
+    "code": "IRR-CCDW-5-4",
+    "year": "2026-27",
+    "rates": {
+      "labour": [
+        {
+          "sl": "1",
+          "desc": "Crew for Concrete mixer",
+          "rate": "375.70",
+          "unit": "Hour",
+          "amount": "3005.60",
+          "group_id": "labour_1",
+          "quantity": "8.00",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "MC_016",
+              "legacy_table": "machinery_rate"
+            },
+            "master_code": "SOR-P01-T08-R0016",
+            "recipe_code": "SOR-P01-T08-R0016",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "crew_charge",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "2",
+          "desc": "Crew for Pump",
+          "rate": "187.20",
+          "unit": "Hour",
+          "amount": "93.60",
+          "group_id": "labour_1",
+          "quantity": "0.50",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "MC_026",
+              "legacy_table": "machinery_rate"
+            },
+            "master_code": "SOR-P01-T08-R0026",
+            "recipe_code": "SOR-P01-T08-R0026",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "crew_charge",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "3",
+          "desc": "Crew for Water tanker",
+          "rate": "293.50",
+          "unit": "Hour",
+          "amount": "293.50",
+          "group_id": "labour_1",
+          "quantity": "1.00",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "MC_064",
+              "legacy_table": "machinery_rate"
+            },
+            "master_code": "SOR-P01-T08-R0064",
+            "recipe_code": "SOR-P01-T08-R0064",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "crew_charge",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "4",
+          "desc": "Mason Class-I",
+          "rate": "715.00",
+          "unit": "Day",
+          "amount": "715.00",
+          "group_id": "labour_1",
+          "quantity": "1.00",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "LAB_S_11",
+              "legacy_table": "labour_rate"
+            },
+            "master_code": "SOR-P01-T07-R0117",
+            "recipe_code": "SOR-P01-T07-R0117",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "rate",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "5",
+          "desc": "work inspector",
+          "rate": "845.00",
+          "unit": "Day",
+          "amount": "845.00",
+          "group_id": "labour_1",
+          "quantity": "1.00",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "LAB_S_10",
+              "legacy_table": "labour_rate"
+            },
+            "master_code": "SOR-P01-T07-R0010",
+            "recipe_code": "SOR-P01-T07-R0010",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "rate",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "6",
+          "desc": "mazdoor",
+          "rate": "",
+          "unit": "",
+          "amount": "",
+          "group_id": "labour_1",
+          "quantity": "",
+          "resource_identity": {
+            "version": 1,
+            "resolution": "resource_key",
+            "unresolved": false,
+            "master_code": null,
+            "resource_key": "ssr:irr-ccdw-5-4:labour:mazdoor-d41905ba69d5",
+            "source_table": null,
+            "rate_component": null,
+            "master_resource_resolved": false
+          }
+        },
+        {
+          "sl": "",
+          "desc": "for batching materials",
+          "rate": "635.00",
+          "unit": "Day",
+          "amount": "6985.00",
+          "group_id": "labour_1",
+          "quantity": "11.00",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "LAB_U_03",
+              "legacy_table": "labour_rate"
+            },
+            "master_code": "SOR-P01-T07-R0089",
+            "recipe_code": "SOR-P01-T07-R0089",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "rate",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "",
+          "desc": "for loading mortar pans",
+          "rate": "635.00",
+          "unit": "Day",
+          "amount": "2540.00",
+          "group_id": "labour_1",
+          "quantity": "4.00",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "LAB_U_03",
+              "legacy_table": "labour_rate"
+            },
+            "master_code": "SOR-P01-T07-R0089",
+            "recipe_code": "SOR-P01-T07-R0089",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "rate",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "",
+          "desc": "for laying and tamping",
+          "rate": "635.00",
+          "unit": "Day",
+          "amount": "1905.00",
+          "group_id": "labour_1",
+          "quantity": "3.00",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "LAB_U_03",
+              "legacy_table": "labour_rate"
+            },
+            "master_code": "SOR-P01-T07-R0089",
+            "recipe_code": "SOR-P01-T07-R0089",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "rate",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "",
+          "desc": "for conveying concrete",
+          "rate": "635.00",
+          "unit": "Day",
+          "amount": "9315.45",
+          "group_id": "labour_1",
+          "quantity": "14.67",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "LAB_U_03",
+              "legacy_table": "labour_rate"
+            },
+            "master_code": "SOR-P01-T07-R0089",
+            "recipe_code": "SOR-P01-T07-R0089",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "rate",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "",
+          "desc": "for cleaning/ washing/ curing",
+          "rate": "635.00",
+          "unit": "Day",
+          "amount": "635.00",
+          "group_id": "labour_1",
+          "quantity": "1.00",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed occupation, class/skill scope and daily unit against the existing Recipe, retaining the approved chronological revision chain.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "LAB_U_03",
+              "legacy_table": "labour_rate"
+            },
+            "master_code": "SOR-P01-T07-R0089",
+            "recipe_code": "SOR-P01-T07-R0089",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "rate",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "7",
+          "desc": "Labour cost for shuttering/scaffolding",
+          "rate": "156.90",
+          "unit": "sqm",
+          "amount": "12659.48",
+          "group_id": "labour_1",
+          "quantity": "80.69",
+          "resource_identity": {
+            "version": 1,
+            "resolution": "resource_key",
+            "unresolved": false,
+            "master_code": null,
+            "resource_key": "ssr:irr-ccdw-5-4:labour:labour-cost-for-shuttering-scaffolding-106b209e2075",
+            "source_table": null,
+            "rate_component": null,
+            "master_resource_resolved": false
+          }
+        }
+      ],
+      "machinery": [
+        {
+          "sl": "1",
+          "desc": "Concrete mixer 300/200 ltr ( diesel )",
+          "rate": "67.20",
+          "unit": "Hour",
+          "amount": "537.60",
+          "group_id": "machinery_1",
+          "quantity": "8.00",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "MC_016",
+              "legacy_table": "machinery_rate"
+            },
+            "master_code": "SOR-P01-T08-R0016",
+            "recipe_code": "SOR-P01-T08-R0016",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "hire_charge",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "",
+          "desc": "Fuel / Energy charges",
+          "rate": "142.80",
+          "unit": "Hour",
+          "amount": "1142.40",
+          "group_id": "machinery_1",
+          "quantity": "8.00",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "MC_016",
+              "legacy_table": "machinery_rate"
+            },
+            "master_code": "SOR-P01-T08-R0016",
+            "recipe_code": "SOR-P01-T08-R0016",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "fuel_charge",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "2",
+          "desc": "5 hp pump ( diesel )",
+          "rate": "10.70",
+          "unit": "Hour",
+          "amount": "5.35",
+          "group_id": "machinery_1",
+          "quantity": "0.50",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "MC_026",
+              "legacy_table": "machinery_rate"
+            },
+            "master_code": "SOR-P01-T08-R0026",
+            "recipe_code": "SOR-P01-T08-R0026",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "hire_charge",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "",
+          "desc": "Fuel / Energy charges",
+          "rate": "142.80",
+          "unit": "Hour",
+          "amount": "71.40",
+          "group_id": "machinery_1",
+          "quantity": "0.50",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "MC_026",
+              "legacy_table": "machinery_rate"
+            },
+            "master_code": "SOR-P01-T08-R0026",
+            "recipe_code": "SOR-P01-T08-R0026",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "fuel_charge",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "3",
+          "desc": "Water tanker 8000 ltr",
+          "rate": "495.60",
+          "unit": "Hour",
+          "amount": "495.60",
+          "group_id": "machinery_1",
+          "quantity": "1.00",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "MC_064",
+              "legacy_table": "machinery_rate"
+            },
+            "master_code": "SOR-P01-T08-R0064",
+            "recipe_code": "SOR-P01-T08-R0064",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "hire_charge",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "",
+          "desc": "Fuel / Energy charges",
+          "rate": "539.60",
+          "unit": "Hour",
+          "amount": "539.60",
+          "group_id": "machinery_1",
+          "quantity": "1.00",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed machine capacity, fuel/power type and hire unit. Price components come from the same-year reviewed machinery-hire row; preserve hire/fuel/crew selection.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "MC_064",
+              "legacy_table": "machinery_rate"
+            },
+            "master_code": "SOR-P01-T08-R0064",
+            "recipe_code": "SOR-P01-T08-R0064",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "fuel_charge",
+            "master_resource_resolved": true
+          }
+        }
+      ],
+      "materials": [
+        {
+          "sl": "1",
+          "desc": "Cement for mix",
+          "rate": "5.10",
+          "unit": "kg",
+          "amount": "22445.10",
+          "group_id": "materials_1",
+          "quantity": "4401.00",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "master_code",
+            "unresolved": false,
+            "link_review": {
+              "reason": "Reviewed material specification, supply/quarry scope and unit. Preserve explicit kg/tonne conversion and monthly-document provenance separately from SOR annual prices.",
+              "status": "approved",
+              "reviewer": {
+                "kind": "ai",
+                "model": "GPT-6"
+              },
+              "legacy_code": "CEM_OPC43",
+              "legacy_table": "material_rate"
+            },
+            "master_code": "SOR-P01-T01-G0001-V001",
+            "recipe_code": "SOR-P01-T01-G0001-V001",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "rate",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "",
+          "desc": "Cement for incidentals @ 5 kg / cum",
+          "rate": "5.10",
+          "unit": "kg",
+          "amount": "374.09",
+          "group_id": "materials_1",
+          "quantity": "73.35",
+          "resource_identity": {
+            "version": 1,
+            "resolution": "resource_key",
+            "unresolved": false,
+            "master_code": null,
+            "resource_key": "ssr:irr-ccdw-5-4:materials:cement-for-incidentals-5-kg-cum-207c67f787af",
+            "source_table": null,
+            "rate_component": null,
+            "master_resource_resolved": false
+          }
+        },
+        {
+          "sl": "2",
+          "desc": "Coarse aggregate 20-10 mm",
+          "rate": "1230.00",
+          "unit": "cum",
+          "amount": "9382.93",
+          "sor_ref": {
+            "code": "SOR-P01-T01-R0007",
+            "table": "SOR_Recipie",
+            "component": "rate",
+            "link_review": {
+              "method": "two_edition_price_tracking",
+              "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity.",
+              "status": "approved",
+              "reviewers": [
+                "Luna candidate review",
+                "primary agent live two-edition quote and exact printed-rounding validation"
+              ],
+              "master_code": "SOR-P01-T01-R0007",
+              "reviewed_on": "2026-10-15",
+              "matching_zone": null,
+              "analysis_scope": "materials",
+              "rate_component": "rate",
+              "conversion_kind": "physical_conversion",
+              "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+              "ssr_recipe_code": "IRR-CCDW-5-4",
+              "prior_link_review": {
+                "method": "technical_description_unit_and_exact_same_edition_price",
+                "status": "approved",
+                "group_id": "G0091",
+                "sor_rate": "1230",
+                "sor_unit": "cum",
+                "ssr_rate": "1230.00",
+                "ssr_unit": "cum",
+                "reviewers": [
+                  "Luna semantic screening",
+                  "primary agent technical and live-rate review"
+                ],
+                "scope_note": "Permanent resource identity; equality verified only for 2026-27. Other editions use their exact SOR annual rows, without changing published SSR amounts or carrying a rate forward.",
+                "reviewed_on": "2026-10-15",
+                "matching_zone": null,
+                "verified_year": "2026-27",
+                "analysis_scope": "materials",
+                "rate_component": "rate",
+                "evidence_report": "SSR_RESOURCE_MATCH_REVIEW_2026-10-15.md",
+                "sor_description": "Coarse aggregate 20-10 mm (excluding Seigniorage charges)",
+                "sor_recipe_code": "SOR-P01-T01-R0007",
+                "ssr_description": "Coarse aggregate 20-10 mm",
+                "ssr_recipe_code": "IRR-CCDW-5-4",
+                "technical_review": "SOR description preserves the source resource identity and stated technical qualifiers; saved catalogue unit has the same physical dimension.",
+                "conversion_factor": "1",
+                "sor_year_row_code": "SOR-Y-d718b70249914b5cef9d29f7bd720283706005bb631e18dadad674370563ab4e",
+                "ssr_year_row_code": "IRR-CCDW-5-4@2026-27",
+                "source_resource_key": "ssr:irr-ccdw-5-4:materials:coarse-aggregate-20-10-mm-1ade6fb8fa72"
+              },
+              "two_year_evidence": [
+                {
+                  "year": "2025-26",
+                  "zone": null,
+                  "sor_rate": "1144",
+                  "sor_unit": "cum",
+                  "ssr_rate": "1144.00",
+                  "ssr_unit": "cum",
+                  "revision_path": [
+                    "SOR-P01-T01-R0007"
+                  ],
+                  "converted_rate": "1144.00",
+                  "source_sor_unit": "cum",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-bc158638905dc220b61d710f3082c8f6d9a3016fa02e4a6c0f4825069299712d",
+                  "resolved_recipe_code": "SOR-P01-T01-R0007",
+                  "rate_basis_multiplier": "1"
+                },
+                {
+                  "year": "2026-27",
+                  "zone": null,
+                  "sor_rate": "1230",
+                  "sor_unit": "cum",
+                  "ssr_rate": "1230.00",
+                  "ssr_unit": "cum",
+                  "revision_path": [
+                    "SOR-P01-T01-R0007"
+                  ],
+                  "converted_rate": "1230.00",
+                  "source_sor_unit": "cum",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-d718b70249914b5cef9d29f7bd720283706005bb631e18dadad674370563ab4e",
+                  "resolved_recipe_code": "SOR-P01-T01-R0007",
+                  "rate_basis_multiplier": "1"
+                }
+              ],
+              "reference_sor_unit": "cum",
+              "source_resource_key": "ssr:irr-ccdw-5-4:materials:coarse-aggregate-20-10-mm-1ade6fb8fa72",
+              "rate_basis_multiplier": "1",
+              "rate_rounding_decimals": 2,
+              "rate_rounding_decimals_by_year": {
+                "2025-26": 2,
+                "2026-27": 2
+              }
+            },
+            "rate_basis_multiplier": "1"
+          },
+          "group_id": "materials_1",
+          "quantity": "7.63",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "recipe_code",
+            "unresolved": false,
+            "link_review": {
+              "method": "two_edition_price_tracking",
+              "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity.",
+              "status": "approved",
+              "reviewers": [
+                "Luna candidate review",
+                "primary agent live two-edition quote and exact printed-rounding validation"
+              ],
+              "master_code": "SOR-P01-T01-R0007",
+              "reviewed_on": "2026-10-15",
+              "matching_zone": null,
+              "analysis_scope": "materials",
+              "rate_component": "rate",
+              "conversion_kind": "physical_conversion",
+              "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+              "ssr_recipe_code": "IRR-CCDW-5-4",
+              "prior_link_review": {
+                "method": "technical_description_unit_and_exact_same_edition_price",
+                "status": "approved",
+                "group_id": "G0091",
+                "sor_rate": "1230",
+                "sor_unit": "cum",
+                "ssr_rate": "1230.00",
+                "ssr_unit": "cum",
+                "reviewers": [
+                  "Luna semantic screening",
+                  "primary agent technical and live-rate review"
+                ],
+                "scope_note": "Permanent resource identity; equality verified only for 2026-27. Other editions use their exact SOR annual rows, without changing published SSR amounts or carrying a rate forward.",
+                "reviewed_on": "2026-10-15",
+                "matching_zone": null,
+                "verified_year": "2026-27",
+                "analysis_scope": "materials",
+                "rate_component": "rate",
+                "evidence_report": "SSR_RESOURCE_MATCH_REVIEW_2026-10-15.md",
+                "sor_description": "Coarse aggregate 20-10 mm (excluding Seigniorage charges)",
+                "sor_recipe_code": "SOR-P01-T01-R0007",
+                "ssr_description": "Coarse aggregate 20-10 mm",
+                "ssr_recipe_code": "IRR-CCDW-5-4",
+                "technical_review": "SOR description preserves the source resource identity and stated technical qualifiers; saved catalogue unit has the same physical dimension.",
+                "conversion_factor": "1",
+                "sor_year_row_code": "SOR-Y-d718b70249914b5cef9d29f7bd720283706005bb631e18dadad674370563ab4e",
+                "ssr_year_row_code": "IRR-CCDW-5-4@2026-27",
+                "source_resource_key": "ssr:irr-ccdw-5-4:materials:coarse-aggregate-20-10-mm-1ade6fb8fa72"
+              },
+              "two_year_evidence": [
+                {
+                  "year": "2025-26",
+                  "zone": null,
+                  "sor_rate": "1144",
+                  "sor_unit": "cum",
+                  "ssr_rate": "1144.00",
+                  "ssr_unit": "cum",
+                  "revision_path": [
+                    "SOR-P01-T01-R0007"
+                  ],
+                  "converted_rate": "1144.00",
+                  "source_sor_unit": "cum",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-bc158638905dc220b61d710f3082c8f6d9a3016fa02e4a6c0f4825069299712d",
+                  "resolved_recipe_code": "SOR-P01-T01-R0007",
+                  "rate_basis_multiplier": "1"
+                },
+                {
+                  "year": "2026-27",
+                  "zone": null,
+                  "sor_rate": "1230",
+                  "sor_unit": "cum",
+                  "ssr_rate": "1230.00",
+                  "ssr_unit": "cum",
+                  "revision_path": [
+                    "SOR-P01-T01-R0007"
+                  ],
+                  "converted_rate": "1230.00",
+                  "source_sor_unit": "cum",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-d718b70249914b5cef9d29f7bd720283706005bb631e18dadad674370563ab4e",
+                  "resolved_recipe_code": "SOR-P01-T01-R0007",
+                  "rate_basis_multiplier": "1"
+                }
+              ],
+              "reference_sor_unit": "cum",
+              "source_resource_key": "ssr:irr-ccdw-5-4:materials:coarse-aggregate-20-10-mm-1ade6fb8fa72",
+              "rate_basis_multiplier": "1",
+              "rate_rounding_decimals": 2,
+              "rate_rounding_decimals_by_year": {
+                "2025-26": 2,
+                "2026-27": 2
+              }
+            },
+            "master_code": "SOR-P01-T01-R0007",
+            "recipe_code": "SOR-P01-T01-R0007",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "rate",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "",
+          "desc": "Coarse aggregate 10 mm below",
+          "rate": "945.00",
+          "unit": "cum",
+          "amount": "3881.68",
+          "sor_ref": {
+            "code": "SOR-P01-T01-R0006",
+            "table": "SOR_Recipie",
+            "component": "rate",
+            "link_review": {
+              "method": "two_edition_price_tracking",
+              "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity. The abbreviated “10 mm down” specification is inferred as the uniquely matching SOR 10–4.75 mm grade from the two-year price vector.",
+              "status": "approved",
+              "reviewers": [
+                "Luna candidate review",
+                "primary agent live two-edition quote and exact printed-rounding validation"
+              ],
+              "master_code": "SOR-P01-T01-R0006",
+              "reviewed_on": "2026-10-15",
+              "matching_zone": null,
+              "analysis_scope": "materials",
+              "rate_component": "rate",
+              "conversion_kind": "physical_conversion",
+              "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+              "ssr_recipe_code": "IRR-CCDW-5-4",
+              "two_year_evidence": [
+                {
+                  "year": "2025-26",
+                  "zone": null,
+                  "sor_rate": "879",
+                  "sor_unit": "cum",
+                  "ssr_rate": "879.00",
+                  "ssr_unit": "cum",
+                  "revision_path": [
+                    "SOR-P01-T01-R0006"
+                  ],
+                  "converted_rate": "879.00",
+                  "source_sor_unit": "cum",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-09e0607986fe151172c87b691c8f89815f93ab66dff1571c1a46230f79015e63",
+                  "resolved_recipe_code": "SOR-P01-T01-R0006",
+                  "rate_basis_multiplier": "1"
+                },
+                {
+                  "year": "2026-27",
+                  "zone": null,
+                  "sor_rate": "945",
+                  "sor_unit": "cum",
+                  "ssr_rate": "945.00",
+                  "ssr_unit": "cum",
+                  "revision_path": [
+                    "SOR-P01-T01-R0006"
+                  ],
+                  "converted_rate": "945.00",
+                  "source_sor_unit": "cum",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-2c29662c4c26ade7ad37a2f53f45688cd297432e9ff43b91e64973765ffc75fb",
+                  "resolved_recipe_code": "SOR-P01-T01-R0006",
+                  "rate_basis_multiplier": "1"
+                }
+              ],
+              "reference_sor_unit": "cum",
+              "source_resource_key": "ssr:irr-ccdw-5-4:materials:coarse-aggregate-10-mm-below-d6e5073a37e2",
+              "rate_basis_multiplier": "1",
+              "rate_rounding_decimals": 2,
+              "rate_rounding_decimals_by_year": {
+                "2025-26": 2,
+                "2026-27": 2
+              }
+            },
+            "rate_basis_multiplier": "1"
+          },
+          "group_id": "materials_1",
+          "quantity": "4.11",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "recipe_code",
+            "unresolved": false,
+            "link_review": {
+              "method": "two_edition_price_tracking",
+              "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity. The abbreviated “10 mm down” specification is inferred as the uniquely matching SOR 10–4.75 mm grade from the two-year price vector.",
+              "status": "approved",
+              "reviewers": [
+                "Luna candidate review",
+                "primary agent live two-edition quote and exact printed-rounding validation"
+              ],
+              "master_code": "SOR-P01-T01-R0006",
+              "reviewed_on": "2026-10-15",
+              "matching_zone": null,
+              "analysis_scope": "materials",
+              "rate_component": "rate",
+              "conversion_kind": "physical_conversion",
+              "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+              "ssr_recipe_code": "IRR-CCDW-5-4",
+              "two_year_evidence": [
+                {
+                  "year": "2025-26",
+                  "zone": null,
+                  "sor_rate": "879",
+                  "sor_unit": "cum",
+                  "ssr_rate": "879.00",
+                  "ssr_unit": "cum",
+                  "revision_path": [
+                    "SOR-P01-T01-R0006"
+                  ],
+                  "converted_rate": "879.00",
+                  "source_sor_unit": "cum",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-09e0607986fe151172c87b691c8f89815f93ab66dff1571c1a46230f79015e63",
+                  "resolved_recipe_code": "SOR-P01-T01-R0006",
+                  "rate_basis_multiplier": "1"
+                },
+                {
+                  "year": "2026-27",
+                  "zone": null,
+                  "sor_rate": "945",
+                  "sor_unit": "cum",
+                  "ssr_rate": "945.00",
+                  "ssr_unit": "cum",
+                  "revision_path": [
+                    "SOR-P01-T01-R0006"
+                  ],
+                  "converted_rate": "945.00",
+                  "source_sor_unit": "cum",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-2c29662c4c26ade7ad37a2f53f45688cd297432e9ff43b91e64973765ffc75fb",
+                  "resolved_recipe_code": "SOR-P01-T01-R0006",
+                  "rate_basis_multiplier": "1"
+                }
+              ],
+              "reference_sor_unit": "cum",
+              "source_resource_key": "ssr:irr-ccdw-5-4:materials:coarse-aggregate-10-mm-below-d6e5073a37e2",
+              "rate_basis_multiplier": "1",
+              "rate_rounding_decimals": 2,
+              "rate_rounding_decimals_by_year": {
+                "2025-26": 2,
+                "2026-27": 2
+              }
+            },
+            "master_code": "SOR-P01-T01-R0006",
+            "recipe_code": "SOR-P01-T01-R0006",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "rate",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "3",
+          "desc": "Fine aggregate (Un-Screened)",
+          "rate": "777.00",
+          "unit": "cum",
+          "amount": "5129.37",
+          "sor_ref": {
+            "code": "SOR-P01-T01-G0002-V001",
+            "table": "SOR_Recipie",
+            "component": "rate",
+            "link_review": {
+              "method": "two_edition_price_tracking",
+              "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity.",
+              "status": "approved",
+              "reviewers": [
+                "Luna candidate review",
+                "primary agent live two-edition quote and exact printed-rounding validation"
+              ],
+              "master_code": "SOR-P01-T01-G0002-V001",
+              "reviewed_on": "2026-10-15",
+              "matching_zone": null,
+              "analysis_scope": "materials",
+              "rate_component": "rate",
+              "conversion_kind": "physical_conversion",
+              "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+              "ssr_recipe_code": "IRR-CCDW-5-4",
+              "two_year_evidence": [
+                {
+                  "year": "2025-26",
+                  "zone": null,
+                  "sor_rate": "723",
+                  "sor_unit": "cum",
+                  "ssr_rate": "723.00",
+                  "ssr_unit": "cum",
+                  "revision_path": [
+                    "SOR-P01-T01-G0002-V001"
+                  ],
+                  "converted_rate": "723.00",
+                  "source_sor_unit": "cum",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-63e2107a2836f634f8f264e2afc9f9753131354eb8fa89773b4e8508dbb17d12",
+                  "resolved_recipe_code": "SOR-P01-T01-G0002-V001",
+                  "rate_basis_multiplier": "1"
+                },
+                {
+                  "year": "2026-27",
+                  "zone": null,
+                  "sor_rate": "777",
+                  "sor_unit": "cum",
+                  "ssr_rate": "777.00",
+                  "ssr_unit": "cum",
+                  "revision_path": [
+                    "SOR-P01-T01-G0002-V001"
+                  ],
+                  "converted_rate": "777.00",
+                  "source_sor_unit": "cum",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-245289db73b75f634d9115dd9d3dd32c083035a38b363a63728358a2de6237ad",
+                  "resolved_recipe_code": "SOR-P01-T01-G0002-V001",
+                  "rate_basis_multiplier": "1"
+                }
+              ],
+              "reference_sor_unit": "cum",
+              "source_resource_key": "ssr:irr-ccdw-5-4:materials:fine-aggregate-un-screened-3c91745f8a39",
+              "rate_basis_multiplier": "1",
+              "rate_rounding_decimals": 2,
+              "rate_rounding_decimals_by_year": {
+                "2025-26": 2,
+                "2026-27": 2
+              }
+            },
+            "rate_basis_multiplier": "1"
+          },
+          "group_id": "materials_1",
+          "quantity": "6.60",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "recipe_code",
+            "unresolved": false,
+            "link_review": {
+              "method": "two_edition_price_tracking",
+              "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity.",
+              "status": "approved",
+              "reviewers": [
+                "Luna candidate review",
+                "primary agent live two-edition quote and exact printed-rounding validation"
+              ],
+              "master_code": "SOR-P01-T01-G0002-V001",
+              "reviewed_on": "2026-10-15",
+              "matching_zone": null,
+              "analysis_scope": "materials",
+              "rate_component": "rate",
+              "conversion_kind": "physical_conversion",
+              "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+              "ssr_recipe_code": "IRR-CCDW-5-4",
+              "two_year_evidence": [
+                {
+                  "year": "2025-26",
+                  "zone": null,
+                  "sor_rate": "723",
+                  "sor_unit": "cum",
+                  "ssr_rate": "723.00",
+                  "ssr_unit": "cum",
+                  "revision_path": [
+                    "SOR-P01-T01-G0002-V001"
+                  ],
+                  "converted_rate": "723.00",
+                  "source_sor_unit": "cum",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-63e2107a2836f634f8f264e2afc9f9753131354eb8fa89773b4e8508dbb17d12",
+                  "resolved_recipe_code": "SOR-P01-T01-G0002-V001",
+                  "rate_basis_multiplier": "1"
+                },
+                {
+                  "year": "2026-27",
+                  "zone": null,
+                  "sor_rate": "777",
+                  "sor_unit": "cum",
+                  "ssr_rate": "777.00",
+                  "ssr_unit": "cum",
+                  "revision_path": [
+                    "SOR-P01-T01-G0002-V001"
+                  ],
+                  "converted_rate": "777.00",
+                  "source_sor_unit": "cum",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-245289db73b75f634d9115dd9d3dd32c083035a38b363a63728358a2de6237ad",
+                  "resolved_recipe_code": "SOR-P01-T01-G0002-V001",
+                  "rate_basis_multiplier": "1"
+                }
+              ],
+              "reference_sor_unit": "cum",
+              "source_resource_key": "ssr:irr-ccdw-5-4:materials:fine-aggregate-un-screened-3c91745f8a39",
+              "rate_basis_multiplier": "1",
+              "rate_rounding_decimals": 2,
+              "rate_rounding_decimals_by_year": {
+                "2025-26": 2,
+                "2026-27": 2
+              }
+            },
+            "master_code": "SOR-P01-T01-G0002-V001",
+            "recipe_code": "SOR-P01-T01-G0002-V001",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "rate",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "4",
+          "desc": "Super Plasticizer",
+          "rate": "78.00",
+          "unit": "kg",
+          "amount": "1373.11",
+          "sor_ref": {
+            "code": "SOR-P01-T01-R0065",
+            "table": "SOR_Recipie",
+            "component": "rate",
+            "link_review": {
+              "method": "two_edition_price_tracking",
+              "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity.",
+              "status": "approved",
+              "reviewers": [
+                "Luna candidate review",
+                "primary agent live two-edition quote and exact printed-rounding validation"
+              ],
+              "master_code": "SOR-P01-T01-R0065",
+              "reviewed_on": "2026-10-15",
+              "matching_zone": null,
+              "analysis_scope": "materials",
+              "rate_component": "rate",
+              "conversion_kind": "physical_conversion",
+              "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+              "ssr_recipe_code": "IRR-CCDW-5-4",
+              "two_year_evidence": [
+                {
+                  "year": "2025-26",
+                  "zone": null,
+                  "sor_rate": "73",
+                  "sor_unit": "kg",
+                  "ssr_rate": "73.00",
+                  "ssr_unit": "kg",
+                  "revision_path": [
+                    "SOR-P01-T01-R0065"
+                  ],
+                  "converted_rate": "73.00",
+                  "source_sor_unit": "kg",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-158c5ab31b2ada716f824d11cbe0082740a41f416f9ca8b35b6441165474804a",
+                  "resolved_recipe_code": "SOR-P01-T01-R0065",
+                  "rate_basis_multiplier": "1"
+                },
+                {
+                  "year": "2026-27",
+                  "zone": null,
+                  "sor_rate": "78",
+                  "sor_unit": "kg",
+                  "ssr_rate": "78.00",
+                  "ssr_unit": "kg",
+                  "revision_path": [
+                    "SOR-P01-T01-R0065"
+                  ],
+                  "converted_rate": "78.00",
+                  "source_sor_unit": "kg",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-545e27811290ead8d555f88372a0731bff0b9742c6d1f31ca4f67678e6aa03ae",
+                  "resolved_recipe_code": "SOR-P01-T01-R0065",
+                  "rate_basis_multiplier": "1"
+                }
+              ],
+              "reference_sor_unit": "kg",
+              "source_resource_key": "ssr:irr-ccdw-5-4:materials:super-plasticizer-3a9d98045bfd",
+              "rate_basis_multiplier": "1",
+              "rate_rounding_decimals": 2,
+              "rate_rounding_decimals_by_year": {
+                "2025-26": 2,
+                "2026-27": 2
+              }
+            },
+            "rate_basis_multiplier": "1"
+          },
+          "group_id": "materials_1",
+          "quantity": "17.60",
+          "resource_identity": {
+            "version": 2,
+            "resolution": "recipe_code",
+            "unresolved": false,
+            "link_review": {
+              "method": "two_edition_price_tracking",
+              "reason": "Both annual prices match the selected SOR resource and source description/unit support the identity.",
+              "status": "approved",
+              "reviewers": [
+                "Luna candidate review",
+                "primary agent live two-edition quote and exact printed-rounding validation"
+              ],
+              "master_code": "SOR-P01-T01-R0065",
+              "reviewed_on": "2026-10-15",
+              "matching_zone": null,
+              "analysis_scope": "materials",
+              "rate_component": "rate",
+              "conversion_kind": "physical_conversion",
+              "evidence_report": "SSR_TWO_YEAR_RATE_TRACKING_2026-10-15.md",
+              "ssr_recipe_code": "IRR-CCDW-5-4",
+              "two_year_evidence": [
+                {
+                  "year": "2025-26",
+                  "zone": null,
+                  "sor_rate": "73",
+                  "sor_unit": "kg",
+                  "ssr_rate": "73.00",
+                  "ssr_unit": "kg",
+                  "revision_path": [
+                    "SOR-P01-T01-R0065"
+                  ],
+                  "converted_rate": "73.00",
+                  "source_sor_unit": "kg",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-158c5ab31b2ada716f824d11cbe0082740a41f416f9ca8b35b6441165474804a",
+                  "resolved_recipe_code": "SOR-P01-T01-R0065",
+                  "rate_basis_multiplier": "1"
+                },
+                {
+                  "year": "2026-27",
+                  "zone": null,
+                  "sor_rate": "78",
+                  "sor_unit": "kg",
+                  "ssr_rate": "78.00",
+                  "ssr_unit": "kg",
+                  "revision_path": [
+                    "SOR-P01-T01-R0065"
+                  ],
+                  "converted_rate": "78.00",
+                  "source_sor_unit": "kg",
+                  "rounding_decimals": 2,
+                  "sor_year_row_code": "SOR-Y-545e27811290ead8d555f88372a0731bff0b9742c6d1f31ca4f67678e6aa03ae",
+                  "resolved_recipe_code": "SOR-P01-T01-R0065",
+                  "rate_basis_multiplier": "1"
+                }
+              ],
+              "reference_sor_unit": "kg",
+              "source_resource_key": "ssr:irr-ccdw-5-4:materials:super-plasticizer-3a9d98045bfd",
+              "rate_basis_multiplier": "1",
+              "rate_rounding_decimals": 2,
+              "rate_rounding_decimals_by_year": {
+                "2025-26": 2,
+                "2026-27": 2
+              }
+            },
+            "master_code": "SOR-P01-T01-R0065",
+            "recipe_code": "SOR-P01-T01-R0065",
+            "resource_key": null,
+            "source_table": "SOR_Year",
+            "rate_component": "rate",
+            "master_resource_resolved": true
+          }
+        },
+        {
+          "sl": "5",
+          "desc": "Use rate of shuttering",
+          "rate": "352.32",
+          "unit": "sqm",
+          "amount": "28427.18",
+          "group_id": "materials_1",
+          "quantity": "80.69",
+          "resource_identity": {
+            "version": 1,
+            "resolution": "resource_key",
+            "unresolved": false,
+            "master_code": null,
+            "resource_key": "ssr:irr-ccdw-5-4:materials:use-rate-of-shuttering-9a95df15dd2d",
+            "source_table": null,
+            "rate_component": null,
+            "master_resource_resolved": false
+          }
+        },
+        {
+          "sl": "6",
+          "desc": "Sundries",
+          "rate": "29.00",
+          "unit": "sqm",
+          "amount": "29.00",
+          "group_id": "materials_1",
+          "quantity": "1.00",
+          "resource_identity": {
+            "version": 1,
+            "resolution": "resource_key",
+            "unresolved": false,
+            "master_code": null,
+            "resource_key": "ssr:irr-ccdw-5-4:materials:sundries-63cf049e2eb8",
+            "source_table": null,
+            "rate_component": null,
+            "master_resource_resolved": false
+          }
+        }
+      ]
+    },
+    "totals": {
+      "labour": {
+        "amount": "38992.63",
+        "components": [
+          {
+            "label": "C. LABOUR:",
+            "amount": "38992.63",
+            "factor": "1",
+            "group_id": "labour_1",
+            "adjustments": [],
+            "base_amount": "38992.63",
+            "factor_kind": "identity",
+            "factor_label": ""
+          }
+        ]
+      },
+      "machinery": {
+        "amount": "2791.95",
+        "components": [
+          {
+            "label": "B. MACHINERY:",
+            "amount": "2791.95",
+            "factor": "1",
+            "group_id": "machinery_1",
+            "adjustments": [],
+            "base_amount": "2791.95",
+            "factor_kind": "identity",
+            "factor_label": ""
+          }
+        ]
+      },
+      "materials": {
+        "amount": "71042.46",
+        "components": [
+          {
+            "label": "A. MATERIALS:",
+            "amount": "71042.46",
+            "factor": "1",
+            "group_id": "materials_1",
+            "adjustments": [],
+            "base_amount": "71042.46",
+            "factor_kind": "identity",
+            "factor_label": ""
+          }
+        ]
+      }
+    },
+    "labour_extract": [
+      {
+        "label": "labour component/unit qty",
+        "value": "2658.00",
+        "percent": null
+      },
+      {
+        "label": "Add contractor's profit and overhead charges 13.615%",
+        "value": "361.90",
+        "percent": "13.615%"
+      },
+      {
+        "label": "labour component/unit qty (including contractor's profit)",
+        "value": "3019.90",
+        "percent": null
+      }
+    ],
+    "abstract": [
+      {
+        "unit": "",
+        "basis": "",
+        "label": "A. Cost of Materials",
+        "amount": "71042.46",
+        "percent": null
+      },
+      {
+        "unit": "",
+        "basis": "",
+        "label": "B. Hire charges of Machinery",
+        "amount": "2791.95",
+        "percent": null
+      },
+      {
+        "unit": "",
+        "basis": "",
+        "label": "C. Cost of Labour",
+        "amount": "38992.63",
+        "percent": null
+      },
+      {
+        "unit": "",
+        "basis": "",
+        "label": "",
+        "amount": "112827.03",
+        "percent": null
+      },
+      {
+        "unit": "13.615%",
+        "basis": "",
+        "label": "D. Add for contractor's profit and overheads on (A+B+C)",
+        "amount": "15361.4",
+        "percent": "13.615%"
+      },
+      {
+        "unit": "cum",
+        "basis": "14.67",
+        "label": "Total cost for",
+        "amount": "128188.43",
+        "percent": null
+      },
+      {
+        "unit": "",
+        "basis": "(A+B+C+D)/14.67",
+        "label": "Rate per cum",
+        "amount": "8738.10",
+        "percent": null
+      }
+    ],
+    "base_rate": 8738.1,
+    "rate_values": [
+      {
+        "label": "Rate per cum (A+B+C+D)/14.67",
+        "value": "8738.10",
+        "add_value": null,
+        "add_percent": null
+      }
+    ],
+    "modifiers": [],
+    "created_at": "2026-07-10T03:50:39.506475+00:00",
+    "updated_at": "2026-08-12T09:54:36.93197+00:00",
+    "addon_rates": []
+  }
+}

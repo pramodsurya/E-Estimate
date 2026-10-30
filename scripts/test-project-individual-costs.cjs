@@ -18,12 +18,40 @@ const line=(i,id='a')=>({id,description:i.raw.desc,unit:i.raw.unit,quantity:1,ra
 const recipe=(i)=>({itemSource:i.owner,itemCode:'A',year:'2026-27',sections:[{key:i.kind,label:i.kind,lines:[line(i)]}]})
 const node=(id,code='A',owner='SSR')=>({id,kind:'item',name:'DATA '+id,itemCode:code,itemSource:owner,categoryKey:'ssr_item',children:[]})
 const project=(items)=>({id:'p',meta:{sorYear:'2026-27',sorZone:'zone_3'},root:{id:'root',kind:'project',name:'Project',children:items},projectData:[{id:'UNUSED',kind:'ssr',sections:[{lines:[line(input())]}]}],overrides:{unused:recipe(input())}})
+function renderCombinedCosts(project,inventory,editId) {
+ const React=require('react'),file=path.join(root,'src/renderer/src/components/data/IndividualCostsPanel.tsx'),m=new Module(file,module)
+ let state=0
+ const values={4:{project,...inventory},9:editId?{id:editId,view:'edit'}:null}
+ m.filename=file;m.paths=Module._nodeModulePaths(path.dirname(file))
+ m.require=request=>{
+  if(request==='react')return {...React,useState:initial=>[++state in values?values[state]:typeof initial==='function'?initial():initial,()=>{}],useMemo:fn=>fn(),useEffect:()=>{}}
+  if(request.endsWith('.css'))return {}
+  if(request.endsWith('/store/useStore'))return {useStore:selector=>selector({project,updateMeta:()=>{}})}
+  if(request.endsWith('/SorPicker')||request==='./MiscellaneousCostsPanel'||request==='./IndividualItemsPrintStudio')return {__esModule:true,default:()=>null}
+  if(request.endsWith('/catalogueGuidance'))return {compareCatalogueCodes:(a,b)=>a.localeCompare(b)}
+  if(request.includes('/lib/'))return request.endsWith('/dashboardSync')?stubs['./dashboardSync']:load(path.basename(request))
+  return require(request)
+ }
+ m._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true},fileName:file}).outputText,file)
+ return require('react-dom/server').renderToStaticMarkup(React.createElement(m.exports.default))
+}
 async function main(){
  const api=load('projectIndividualCosts'),cost=load('individualCosts'),ssr=input(),morth=input('MORTH')
  const a=node('a'),b=node('b'),m=node('m','M','MORTH')
  recipes={A:recipe(ssr),M:recipe(morth)}
  let p=project([a,b,m]),result=await api.loadProjectIndividualCosts(p)
  assert.equal(result.rows.length,2,'Only used DATA resources; SSR and MoRTH never merge')
+ const combined=renderCombinedCosts(p,result)
+ assert.equal((combined.match(/<tr[^>]*data-cost-source=/g)??[]).length,2,'Both source resources appear together in Materials')
+ assert.match(combined,/class="cost-source-badge" data-cost-source="MORTH"/)
+ assert.match(combined,/class="cost-source-badge" data-cost-source="SSR"/)
+ assert.doesNotMatch(combined,/aria-pressed=|cost-source-tabs/,'Source labels are a legend, not separate source tabs')
+ assert.match(combined,/2 unique resources/)
+ for(const row of result.rows) {
+  const edit=renderCombinedCosts(p,result,row.id)
+  assert.ok(edit.includes(`Applies to matching ${row.owner==='MORTH'?'MoRTH':'SSR'}`),'Mixed-list editing retains the row source')
+  assert.ok(edit.includes(row.owner==='SSR'?'SSR_Year / project default':'Default starting rate'))
+ }
  assert.equal(fetched.filter(([code])=>code==='A').length,1,'Repeated DATA source fetched once')
  assert.equal(result.rows.find(r=>r.owner==='SSR').analyses,2)
  assert.equal(result.rows.find(r=>r.owner==='SSR').usages,2)
@@ -47,7 +75,28 @@ async function main(){
  assert.notEqual(cost.individualCostGroupKey(morth),cost.individualCostGroupKey(input('MORTH',{resource_identity:{master_code:'SOR-CEMENT',rate_component:'hire'}})))
  const complex=recipe(ssr);complex.sections[0].lines.push({...line(ssr,'b'),editedFields:['rate']});complex.dataVariant={additionAnalysis:{sections:[{key:'labour',lines:[line({...input('SSR',{desc:'Mate',unit:'day',resource_identity:{master_code:'LAB'}}),kind:'labour'},'addon')]}]}}
  groups=api.collectProjectIndividualCosts([{node:a,recipe:complex,path:'A'}]);assert.equal(groups.length,2);assert.equal(groups.find(r=>r.kind==='materials').usages,2);assert.ok(groups.find(r=>r.kind==='materials').locations.some(u=>u.locked));assert.ok(groups.find(r=>r.kind==='labour').locations[0].via.includes('addition'))
+ const placeholder=(desc,id)=>({...line(input('SSR',{desc,rate:'0',quantity:'0',amount:'0',resource_identity:{resource_key:id}}),id),quantity:0,rate:0,amount:0})
+ const inventoryRecipe=recipe(ssr);inventoryRecipe.itemCode='IRR-CCDW-5-4';inventoryRecipe.sections[0].lines=[
+  placeholder('NIL','nil'),placeholder('','blank'),placeholder('—','dash'),
+  {...placeholder('','header'),individualCostInput:input('SSR',{desc:'',rate:'in Rs.',amount:'in Rs',quantity:'',resource_identity:{}})},
+  {...placeholder('Cement with rate to adopt','real-zero'),individualCostInput:input('SSR',{desc:'Cement with rate to adopt',rate:'0',resource_identity:{master_code:'REAL-ZERO'}})},
+  {...placeholder('','unnamed-value'),quantity:2,amount:10},
+  {...placeholder('','unnamed-linked'),individualCostInput:input('SSR',{desc:'',rate:'0',quantity:'0',amount:'0',resource_identity:{master_code:'REAL-UNNAMED'}})},
+ ]
+ const inventoryBefore=JSON.stringify(inventoryRecipe)
+ groups=api.collectProjectIndividualCosts([{node:node('inventory','IRR-CCDW-5-4'),recipe:inventoryRecipe,path:'Project / Apron'}])
+ assert.equal(groups.length,3,'NIL, blank zero rows and copied headers do not become editable resources')
+ assert.ok(groups.some(r=>r.description==='Cement with rate to adopt'&&r.minRate===0),'A named zero-rate resource stays visible')
+ assert.equal(groups.filter(r=>r.descriptionMissing).length,2,'Unlabelled value or a real binding remains traceable for correction')
+ assert.ok(groups.every(r=>r.locations[0].dataCode==='IRR-CCDW-5-4'&&r.locations[0].analysisCode==='IRR-CCDW-5-4'&&r.locations[0].rowLabel.includes('row')))
+ assert.equal(JSON.stringify(inventoryRecipe),inventoryBefore,'Inventory filtering does not change the source analysis or its totals')
+ const repeated=recipe(ssr);repeated.sections[0].lines.push(line(ssr,'same-resource-again'))
+ groups=api.collectProjectIndividualCosts([{node:a,recipe:repeated,path:'A'}]);assert.equal(groups[0].locations.length,2,'Usage details identify every contributing resource row');assert.equal(groups[0].analyses,1)
  const nested=recipe(morth);nested.morth={inputs:{a:{dependency:recipe(ssr)}}};groups=api.collectProjectIndividualCosts([{node:a,recipe:nested,path:'A'}]);assert.equal(groups.length,1);assert.equal(groups[0].owner,'SSR','Dependency assembly is expanded into its actual resource rows')
+ const appendix=recipe(morth);appendix.itemCode='MORTH-APPENDIX-21.07';appendix.morth={printedItem:'21.07',inputs:{}}
+ const parent=recipe(morth);parent.itemCode='MORTH-PARENT-14.01';parent.morth={inputs:{a:{dependency:appendix}}}
+ groups=api.collectProjectIndividualCosts([{node:node('parent','MORTH-PARENT-14.01','MORTH'),recipe:parent,path:'Apron'}]);
+ assert.equal(groups[0].locations[0].dataCode,'MORTH-PARENT-14.01');assert.equal(groups[0].locations[0].analysisCode,'MORTH-APPENDIX-21.07');assert.equal(groups[0].locations[0].analysisLabel,'MoRTH 21.07','Appendix resources retain both parent DATA and consuming analysis identity')
  const snapshot=project([a]);snapshot.dashboardSnapshot={year:'2026-27',signatures:{a:signature(a)},recipes:{a:recipe(ssr)}};fetched=[];await api.loadProjectIndividualCosts(snapshot);assert.equal(fetched.length,0,'Current compiled recipes require no source fetch')
  p=project([a,node('broken','BROKEN')]);result=await api.loadProjectIndividualCosts(p);assert.equal(result.rows.length,1);assert.equal(result.errors.length,1,'One failed DATA does not hide other project resources')
  p.meta.sorYear='2025-26';await api.loadProjectIndividualCosts(p);assert.ok(fetched.some(([code,year])=>code==='A'&&year==='2025-26'),'Year change uses current annual rows')

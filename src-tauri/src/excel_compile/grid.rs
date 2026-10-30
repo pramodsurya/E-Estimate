@@ -1,7 +1,7 @@
 use super::models::*;
 use base64::Engine;
 use rust_xlsxwriter::{
-    Color, Format, FormatAlign, FormatBorder, FormatUnderline, Image, XlsxError,
+    Color, Format, FormatAlign, FormatBorder, FormatUnderline, Formula, Image, XlsxError,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -181,6 +181,10 @@ fn grid_write_value(
     fmt: &Format,
 ) -> Result<(), XlsxError> {
     if let Some(formula) = cell.formula.as_deref() {
+        let mut formula = Formula::new(formula);
+        if let Some(value) = cell.value.as_ref().and_then(serde_json::Value::as_f64) {
+            formula = formula.set_result(value.to_string());
+        }
         ws.write_formula_with_format(cell.r, cell.c as u16, formula, fmt)?;
         return Ok(());
     }

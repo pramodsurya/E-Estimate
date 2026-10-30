@@ -9,6 +9,7 @@ import type { SeigniorageApplicabilityPolicy } from '../../types/rateAnalysis'
 import { useStore } from '../../store/useStore'
 import {
   dashboardContextMatches,
+  dashboardSeigniorageCompileSignature,
   syncSeigniorageDashboardSnapshot
 } from '../../lib/dashboardSync'
 
@@ -36,6 +37,13 @@ export default function SeignioragePanel(): JSX.Element {
   const snapshotValid = project
     ? dashboardContextMatches(project.dashboardSnapshot, project)
     : false
+  const compiled = Boolean(
+    project &&
+    snapshotValid &&
+    project.dashboardSnapshot?.seigniorageSyncedAt &&
+    project.dashboardSnapshot.seigniorageCompileSignature ===
+      dashboardSeigniorageCompileSignature(project)
+  )
   const charges: SeigniorageCharge[] = snapshotValid
     ? project?.dashboardSnapshot?.seigniorageCharges ?? []
     : []
@@ -89,9 +97,9 @@ export default function SeignioragePanel(): JSX.Element {
       </div>
 
       {syncError && <div className="rate-warning panel-sync-warning">{syncError}</div>}
-      {!snapshotValid && !syncError && (
-        <div className="rate-notice panel-sync-notice">
-          <span>Seigniorage data is not synced for this project.</span>
+      {project && !compiled && !syncError && (
+        <div className="rate-notice panel-sync-notice seig-sync-notice" role="status">
+          <span>Seigniorage is not synced.</span>
           <button
             type="button"
             className="btn-mini secondary"

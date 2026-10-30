@@ -1069,6 +1069,8 @@ export interface CanalStrataSlopeConfig {
 /** A single berm shelf in an embankment height tier. */
 export interface CanalBankBermStep {
   id: string;
+  /** Minimum vertical distance from the whole shelf to natural ground (m). Defaults to 2 m. */
+  clearance?: number;
   /** Vertical drop from the crest or previous stage down to this berm shelf (m). */
   dropHeight: number;
   /** Horizontal width of this berm bench (m). */
@@ -1144,6 +1146,8 @@ export interface CanalBankTier {
   foundationTreatment?: CanalTierFoundationConfig;
   /** Legacy/default land-side slope treatment; individual reaches can override it. */
   bankProtection?: CanalBankProtectionConfig;
+  /** Programmatic protection for horizontal berm shelves across all reaches of this design. */
+  bankBermProtection?: CanalBankProtectionConfig;
 }
 
 export interface CanalBankProtectionConfig {
@@ -1191,7 +1195,7 @@ export interface CanalBankDesignConfig {
   mode: 'legacy' | 'tiered' | 'manual';
   /** Whether both left and right banks share the exact same tiers and rules. Default true. */
   linkSymmetrical: boolean;
-  /** Minimum vertical ground clearance below the lowest berm to omit it and avoid ground collisions (m). Default 1.0 m. */
+  /** Legacy setting; each berm now owns its clearance, defaulting to 2 m. */
   minClearanceToGround: number;
   /** Left bank (or symmetrical) height tiers ordered by minFillHeight ascending. */
   leftTiers: CanalBankTier[];
@@ -1379,6 +1383,8 @@ export interface CanalBerm {
   heightAboveBed: number;
   /** Horizontal shelf width (m). */
   width: number;
+  /** Minimum vertical distance from an outer bank shelf to natural ground (m). Defaults to 2 m. */
+  clearance?: number;
 }
 
 export interface CanalServiceRoadReach {
@@ -1955,7 +1961,7 @@ export type ConveyanceClass =
 export type LeadPointKind = 'site' | 'quarry' | 'sand_reach' | 'godown' | 'water' | 'stockyard' | 'other'
 export type LeadHandlingMode = 'none' | 'manual_no_idle' | 'manual_with_idle' | 'mechanical'
 export type LeadIncludedBasis = 'none' | 'initial_50m' | 'initial_1km' | 'all_leads'
-export type LeadRateSource = 'chart' | 'dtl' | 'manual' | 'pipe_catalogue'
+export type LeadRateSource = 'chart' | 'dtl' | 'manual' | 'pipe_catalogue' | 'morth_transport'
 export type LeadRoadCondition = 'normal' | 'certified_ghat' | 'ce_exceptional'
 export type LeadAccessDistanceMode = 'auto' | 'manual'
 export type LeadTransportPurpose =
@@ -2173,6 +2179,12 @@ export interface LeadVariant {
 }
 
 export interface LeadApplication {
+  /** Input IDs from the parent DATA to the consuming appendix; [] owns direct DATA resources. */
+  morthAppendixPath?: string[]
+  morthAppendixLabel?: string
+  /** Consumption of one local appendix basis within the parent DATA basis. */
+  morthRootFactor?: number
+  morthRootOutputQuantity?: number
   /** Pricing/source inputs adopted for a MoRTH material Lead application. */
   morthLeadVariantSignature?: string
   id: string

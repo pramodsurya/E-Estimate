@@ -18,6 +18,7 @@ pub fn calculate_bank_geometry(
     base_slope: f64,
     berms: &[CanalBankBermStepInput],
     gross_height: f64,
+    stripping_depth: f64,
 ) -> BankGeometryResult {
     if gross_height <= 0.0001 {
         return BankGeometryResult {
@@ -38,12 +39,17 @@ pub fn calculate_bank_geometry(
     let mut outer_proj = 0.0;
     let mut outer_area = 0.0;
     let mut outer_top_offset = 0.0;
+    let mut scheduled_drop = 0.0;
 
     for b in berms {
-        if remaining_h <= 0.0001 {
-            break;
+        scheduled_drop += b.drop_height.max(0.01);
+        let remaining_after_shelf = gross_height - scheduled_drop;
+        if remaining_after_shelf <= 0.0001
+            || remaining_after_shelf - stripping_depth + 1e-9 < b.clearance.max(0.0)
+        {
+            continue;
         }
-        let slice_h = remaining_h.min(b.drop_height);
+        let slice_h = remaining_h - remaining_after_shelf;
         let outer_bot_offset = outer_top_offset + current_outer_slope * slice_h;
         outer_area += (outer_top_offset + outer_bot_offset) * 0.5 * slice_h;
         outer_proj += current_outer_slope * slice_h;
@@ -208,6 +214,7 @@ pub fn compute_section_embankment(
         left_base_s,
         left_berms,
         gross_banking_height,
+        stripping_depth,
     );
 
     // Right bank geometry
@@ -242,6 +249,7 @@ pub fn compute_section_embankment(
         right_base_s,
         right_berms,
         gross_banking_height,
+        stripping_depth,
     );
 
     // Stripping footprint area
@@ -647,9 +655,37 @@ fn compute_soil_allocation(
 mod tests {
     use super::*;
 
+    fn berm(drop: f64, clearance: f64) -> CanalBankBermStepInput {
+        CanalBankBermStepInput { id: "shelf".into(), drop_height: drop, shelf_width: 2.0, slope_after_berm: 2.0, clearance }
+    }
+
+    #[test]
+    fn bank_shelf_clearance_uses_natural_ground_and_keeps_exact_boundary() {
+        let shelf = berm(3.0, 2.0);
+        let plain = calculate_bank_geometry(3.0, 1.5, 1.5, &[], 5.1, 0.6);
+        let omitted = calculate_bank_geometry(3.0, 1.5, 1.5, &[shelf.clone()], 5.1, 0.6);
+        assert_eq!(omitted.area, plain.area);
+        assert_eq!(omitted.outer_projection, plain.outer_projection);
+        let exact = calculate_bank_geometry(3.0, 1.5, 1.5, &[shelf.clone()], 5.6, 0.6);
+        assert!((exact.outer_projection - (4.5 + 2.0 + 2.0 * 2.6)).abs() < 1e-9);
+        let below = calculate_bank_geometry(3.0, 1.5, 1.5, &[shelf], 5.5999, 0.6);
+        assert!((below.outer_projection - 1.5 * 5.5999).abs() < 1e-9);
+    }
+
+    #[test]
+    fn skipped_shelf_preserves_following_elevation_and_base_slope() {
+        let scheduled = calculate_bank_geometry(3.0, 1.5, 1.5, &[berm(1.0, 100.0), berm(1.0, 0.0)], 5.0, 0.0);
+        let equivalent = calculate_bank_geometry(3.0, 1.5, 1.5, &[berm(2.0, 0.0)], 5.0, 0.0);
+        assert_eq!(scheduled.area, equivalent.area);
+        assert_eq!(scheduled.outer_projection, equivalent.outer_projection);
+        let old: CanalBankBermStepInput = serde_json::from_str(r#"{"dropHeight":3,"shelfWidth":2,"slopeAfterBerm":2}"#).unwrap();
+        assert_eq!(old.clearance, 2.0);
+    }
+
     #[test]
     fn test_section_embankment_calculation() {
         let input = CanalEmbankmentInput {
+            bank_schedule: None,
             bed_width: 8.0,
             full_supply_depth: 2.5,
             free_board: 0.75, // TBL = CBL + 3.25m

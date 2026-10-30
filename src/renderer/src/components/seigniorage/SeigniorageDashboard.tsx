@@ -459,12 +459,10 @@ export default function SeigniorageDashboard(): JSX.Element {
 
       {excelExportError && <div className="rate-warning">Excel export failed: {excelExportError}</div>}
       {error && <div className="rate-warning">Seigniorage sync failed: {error}</div>}
-      {!snapshotValid && !error && (
-        <div className="rate-notice">
+      {project && !compiled && !error && (
+        <div className="rate-notice seig-sync-notice" role="status">
           <span>
-            {selectedMaterialKey
-              ? 'Sync the total Seigniorage Dashboard to populate this material.'
-              : 'Click Sync to populate seigniorage from the backend.'}
+            Seigniorage is not synced. Click Sync to refresh its rates and quantities.
           </span>
           <button
             type="button"

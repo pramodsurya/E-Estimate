@@ -1,22 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Check, X } from 'lucide-react'
 import { SSR_CATEGORIES, fetchSsrItems, type MasterItem } from '../../lib/masterData'
 import { fetchDataVariantSpecs, type DataVariantSpec } from '../../lib/dataVariants'
 import {
-  applySemanticScores,
   parseMasterSearch,
   rankMasterItems,
-  shouldUseSemanticSearch,
   type MasterSearchMatch
 } from '../../lib/masterSearch'
-import {
-  rerankMasterSearch,
-  semanticCandidateMatches,
-  type SemanticSearchProgress
-} from '../../lib/semanticMasterSearch'
 import type { DataVariantSelection } from '../../types/project'
 import { useStore } from '../../store/useStore'
 import SsrCode from './SsrCode'
+import CatalogueItemDetails from './CatalogueItemDetails'
+import CatalogueChoiceText from './CatalogueChoiceText'
+import CatalogueComparison, { CatalogueCompareToggle, useCatalogueComparison } from './CatalogueComparison'
+import { compareCatalogueCodes } from '../../lib/catalogueGuidance'
 import DataVariantReview, {
   defaultSelectionForVariantSpec,
   selectionForVariantOption
@@ -24,10 +21,6 @@ import DataVariantReview, {
 
 const MAX_PICKER_RESULTS = 60
 
-interface SemanticRanking extends SemanticSearchProgress {
-  signature: string
-  scores: Record<string, number>
-}
 
 /**
  * SSR item chooser used by the component templates to attach a code to a
@@ -55,11 +48,11 @@ export default function MaterialPicker({
   initialItem?: MasterItem
   allowedCodes?: string[]
 }): JSX.Element {
+  const comparison = useCatalogueComparison()
   const project = useStore((state) => state.project)
   const [category, setCategory] = useState(initialCategory)
   const [search, setSearch] = useState(initialSearch)
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch)
-  const [semanticRanking, setSemanticRanking] = useState<SemanticRanking | null>(null)
   const [items, setItems] = useState<MasterItem[]>([])
   const [loading, setLoading] = useState(false)
   const [checkingVariant, setCheckingVariant] = useState(Boolean(initialItem))
@@ -121,82 +114,16 @@ export default function MaterialPicker({
     return () => window.clearTimeout(timer)
   }, [search])
 
-  // Same ranking pipeline as the Add DATA modal: exact constraints and
-  // description relevance first, then the AI worker re-orders the shortlist.
-  // A plain substring filter used to require the whole typed phrase to appear
-  // verbatim, so natural queries like "excavation drain seating" found nothing.
+  // Keep exact/specification search, then show matches in published code order.
   const q = debouncedSearch.trim()
-  const parsedSearch = (parseMasterSearch(q))
-  const selectableItems = (allowedCodes?.length
+  const parsedSearch = useMemo(() => parseMasterSearch(q), [q])
+  const selectableItems = useMemo(() => allowedCodes?.length
         ? items.filter((item) => allowedCodes.includes(item.code))
-        : items)
-  const lexicalMatches = (q ? rankMasterItems(selectableItems, parsedSearch) : [])
-  const semanticCandidates = (semanticCandidateMatches(lexicalMatches))
-  const semanticSignature = (`${parsedSearch.normalized}|${semanticCandidates.map((match) => match.key).join('|')}`)
-
-  const shouldSkipSemantic =
-    !q || loading || !shouldUseSemanticSearch(parsedSearch) || semanticCandidates.length < 2
-
-  const [prevSemanticKey, setPrevSemanticKey] = useState(() => ({
-    semanticSignature,
-    shouldSkipSemantic
-  }))
-  if (
-    prevSemanticKey.semanticSignature !== semanticSignature ||
-    prevSemanticKey.shouldSkipSemantic !== shouldSkipSemantic
-  ) {
-    setPrevSemanticKey({ semanticSignature, shouldSkipSemantic })
-    if (shouldSkipSemantic) {
-      setSemanticRanking(null)
-    }
-  }
-
-  useEffect(() => {
-    if (shouldSkipSemantic) return
-
-    let active = true
-    const updateProgress = (progress: SemanticSearchProgress): void => {
-      if (!active) return
-      setSemanticRanking({ ...progress, signature: semanticSignature, scores: {} })
-    }
-    updateProgress({ status: 'loading', message: 'Preparing AI relevance ranking' })
-    void rerankMasterSearch(q, semanticCandidates, updateProgress)
-      .then((scores) => {
-        if (!active) return
-        setSemanticRanking({
-          status: 'ready',
-          message: 'AI-ranked from item descriptions',
-          signature: semanticSignature,
-          scores
-        })
-      })
-      .catch((error) => {
-        if (!active) return
-        setSemanticRanking({
-          status: 'fallback',
-          message: `Description ranking active · ${
-            error instanceof Error ? error.message : 'AI unavailable'
-          }`,
-          signature: semanticSignature,
-          scores: {}
-        })
-      })
-
-    return () => {
-      active = false
-    }
-  }, [loading, parsedSearch, q, semanticCandidates, semanticSignature, shouldSkipSemantic])
-
-  const rankedMatches = (() => {
-    if (semanticRanking?.status !== 'ready' || semanticRanking.signature !== semanticSignature) {
-      return lexicalMatches
-    }
-    return applySemanticScores(lexicalMatches, semanticRanking.scores)
-  })()
-
+        : items, [allowedCodes, items])
+  const lexicalMatches = useMemo(() => q ? rankMasterItems(selectableItems, parsedSearch) : [], [q, selectableItems, parsedSearch])
   const rows: Array<{ item: MasterItem; match?: MasterSearchMatch }> = q
-    ? rankedMatches.slice(0, MAX_PICKER_RESULTS).map((match) => ({ item: match.item, match }))
-    : selectableItems.slice(0, MAX_PICKER_RESULTS).map((item) => ({ item }))
+    ? [...lexicalMatches].sort((a, b) => compareCatalogueCodes(a.item.code, b.item.code)).slice(0, MAX_PICKER_RESULTS).map((match) => ({ item: match.item, match }))
+    : [...selectableItems].sort((a, b) => compareCatalogueCodes(a.code, b.code)).slice(0, MAX_PICKER_RESULTS).map((item) => ({ item }))
 
   const inspectAndPick = async (item: MasterItem): Promise<void> => {
     const year = project?.meta.sorYear
@@ -222,7 +149,9 @@ export default function MaterialPicker({
   if (pendingItem) {
     return (
       <div className="gw-picker template-variant-picker">
-        <h4>{pendingItem.description}</h4>
+        <SsrCode code={pendingItem.code} description={pendingItem.description} guidance={pendingItem.guidance} className="catalogue-choice-code" strong={false} />
+        <CatalogueChoiceText item={pendingItem} />
+        <CatalogueItemDetails item={pendingItem} />
         {checkingVariant ? <p>Loading variants…</p> : variantError ? <p role="alert">{variantError}</p> : !variantSpec ? <p>Standard configuration · no alternative variant required.</p> : <DataVariantReview
           heading="Choose DATA variant / add-on"
           specs={{ [variantSpec.code]: variantSpec }}
@@ -267,6 +196,7 @@ export default function MaterialPicker({
       <div className="gw-picker-head">
         <select
           className="text-input"
+          aria-label="Work catalogue"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           disabled={categoryLocked}
@@ -296,40 +226,43 @@ export default function MaterialPicker({
       </div>
       {selectionHint && <div className="gw-picker-help">{selectionHint}</div>}
       {q && !loading && !loadError ? (
-        <div className={`master-search-summary ${semanticRanking?.status ?? 'lexical'}`}>
+        <div className="master-search-summary lexical">
           <span>
             {parsedSearch.exactConstraints.length > 0
               ? `Exact ${parsedSearch.exactConstraints
-                  .map((value) => value.toUpperCase())
+                  .map((value) => value.replace(/^mix(\d+)x(\d+)$/, '$1:$2').toUpperCase())
                   .join(', ')}`
-              : 'Description relevance'}
+              : 'Matching items'}
             {' · '}
-            {rankedMatches.length} match{rankedMatches.length === 1 ? '' : 'es'}
+            {lexicalMatches.length} match{lexicalMatches.length === 1 ? '' : 'es'}
           </span>
-          <small>{semanticRanking?.message ?? 'Exact and description ranking'}</small>
+          <small>Item code · ascending</small>
         </div>
       ) : null}
+      <CatalogueComparison comparison={comparison} />
       <div className="gw-picker-list">
         {loading ? (
           <div className="latlng-display">Loading items…</div>
         ) : loadError ? (
           <div className="data-variant-error">Could not load SSR codes: {loadError}</div>
         ) : rows.length ? (
-          rows.map(({ item, match }) => (
+          rows.map(({ item }) => (
+            <div className="catalogue-picker-row" key={item.code}>
+            <SsrCode code={item.code} description={item.description} guidance={item.guidance} className="catalogue-choice-code" strong={false} />
             <button
               type="button"
-              key={item.code}
               className="gw-picker-item"
-              title={`${item.code}\n${item.description}`}
               disabled={checkingVariant}
               onClick={() => void inspectAndPick(item)}
             >
-              <SsrCode code={item.code} description={item.description} />
-              <small>{item.description.slice(0, 110)}</small>
-              {match && match.reasons.length > 0 ? (
-                <span className="item-search-reason">{match.reasons.join(' · ')}</span>
-              ) : null}
+              <CatalogueChoiceText item={item} />
             </button>
+            <div className="catalogue-choice-tools">
+              {item.unit && <span className="item-unit">{item.unit}</span>}
+              <CatalogueCompareToggle item={item} comparison={comparison} />
+              <CatalogueItemDetails item={item} />
+            </div>
+            </div>
           ))
         ) : (
           <div className="latlng-display">No matching items.</div>

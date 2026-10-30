@@ -19,7 +19,8 @@ require.extensions['.ts'] = function (m, filename) {
   m._compile(outputText, filename)
 }
 
-function loadTsModule(filePath, mocks = {}) {
+function loadTsModule(filePath, mocks = {}, cache = new Map()) {
+  if (cache.has(filePath)) return cache.get(filePath).exports
   const source = fs.readFileSync(filePath, 'utf8')
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: {
@@ -30,6 +31,7 @@ function loadTsModule(filePath, mocks = {}) {
     fileName: filePath
   })
   const loadedModule = new Module(filePath, module)
+  cache.set(filePath, loadedModule)
   loadedModule.filename = filePath
   loadedModule.paths = Module._nodeModulePaths(path.dirname(filePath))
   loadedModule.require = (request) => {
@@ -37,7 +39,7 @@ function loadTsModule(filePath, mocks = {}) {
     if (request.startsWith('.')) {
       const resolved = path.resolve(path.dirname(filePath), request)
       const tsFile = resolved.endsWith('.ts') ? resolved : resolved + '.ts'
-      if (fs.existsSync(tsFile)) return loadTsModule(tsFile, mocks)
+      if (fs.existsSync(tsFile)) return loadTsModule(tsFile, mocks, cache)
     }
     return require(request)
   }

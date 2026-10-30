@@ -260,7 +260,7 @@ for(const text of ['Km 2.300','Km 3.000','Km 6.000','Crest Width','Upper Slope',
 for(const text of ['Low Bund','Medium Bund','High Bund','Continuous Fill-Height Bracket Scale','At bank-top level','Missing Top RL','Add Bank Profile']) assert.ok(!manualMarkup.includes(text),`Manual screen must not show ${text}`)
 console.log('Shared bank reaches: geological selection, editable boundaries, geometry, exact filter and protection lengths, save/load, independent manual profiles and unassigned billing passed.')
 // Drainage/filter decisions are per reach even when the geometry profile is shared.
-for (const mode of ['tiered','manual']) {
+for (const mode of ['manual']) {
   let drainage=fixture(); drainage.configured=true
   const cfg=drainage.design.bankConfig; cfg.mode=mode
   cfg.leftTiers=cfg.leftTiers.map(t=>({...t,foundationTreatment:canal.defaultCanalTierFoundationConfig()}))
@@ -280,7 +280,9 @@ for (const mode of ['tiered','manual']) {
   assert.equal(items.find(i=>i.code==='IRR-CAW-5-4').unit,'sq.m')
   near(items.find(i=>i.code==='IRR-CAW-5-5').quantity,360)
   assert.equal(items.find(i=>i.code==='IRR-CAW-5-5').unit,'cu.m')
-  near(gross-canal.canalBankVolumeTotals(drainage).homogeneous,960)
+  // The upper 0.15 m of the stacked blanket/filter projects beyond the 1.5:1
+  // outer bank at its toe. Deduct only its actual intersection with earth.
+  near(gross-canal.canalBankVolumeTotals(drainage).homogeneous,960 - 2*400*(.15*(.15*1.5)/2))
   drainage=canal.saveCanalBankReachTreatment(drainage,'left',first,{toeFilter:true,toeFilterKind:'5-12',toeFilterWidth:2,toeFilterSide:'both'})
   near(canal.canalTierToeProtectionQuantities(drainage,undefined,{from:0,to:400}).toeFilterFabric200Area,1600)
   assert.equal(canal.canalBankTreatmentForReach(drainage,'left',first).blanket,'5-4','saving filter changes retains saved blanket')
@@ -295,11 +297,13 @@ for (const mode of ['tiered','manual']) {
 }
 console.log('Per-reach drainage: exact scopes, independent same-profile reaches, mixed blanket units, fill deduction, toe filters, manual mode and save/load passed.')
 
-// Drainage owns its own design mode and ranges, independently of bank geometry.
+// Drainage follows the active Bank Design mode and its exact reach assignments.
 const drainageDesign = require('../src/renderer/src/lib/canalDrainageDesign.ts')
 let independentDrainage = fixture()
 independentDrainage.configured = true
 independentDrainage.design.bankConfig.leftTiers = independentDrainage.design.bankConfig.leftTiers.map(t => ({...t, foundationTreatment:canal.defaultCanalTierFoundationConfig()}))
+independentDrainage.design.bankConfig.mode='manual'
+independentDrainage.design.bankConfig.leftManualReaches=[{id:'d1',from:0,to:175,tierId:'tier-low',status:'fill'},{id:'gap',from:175,to:225,tierId:'tier-low',status:'fill'},{id:'d2',from:225,to:800,tierId:'tier-low',status:'fill'},{id:'rest',from:800,to:1000,tierId:'tier-low',status:'fill'}]
 const geometryBefore = structuredClone(independentDrainage.design.bankConfig)
 const fillBefore = canal.canalBankVolumeTotals(independentDrainage).homogeneous
 independentDrainage = {...independentDrainage, design:{...independentDrainage.design,bankDrainage:{mode:'manual'}}}
@@ -320,22 +324,41 @@ assert.equal(canal.canalSectionBankTreatment(independentDrainage,{...independent
 assert.match(drainageDesign.saveCanalManualDrainageReach(independentDrainage,'left',{id:'bad',from:150,to:250,treatment:fixed}).error,/overlaps/)
 assert.match(drainageDesign.saveCanalManualDrainageReach(independentDrainage,'left',{id:'bad',from:800,to:1001,treatment:fixed}).error,/within/)
 assert.match(drainageDesign.saveCanalManualDrainageReach(independentDrainage,'left',{id:'bad',from:800.5,to:900,treatment:fixed}).error,/whole metres/)
-let programDrainage = drainageDesign.saveCanalDrainageTier(independentDrainage,'left','tier-low',fixed)
+let programDrainage = {...independentDrainage,design:{...independentDrainage.design,bankConfig:{...independentDrainage.design.bankConfig,mode:'tiered'}}}
+programDrainage = drainageDesign.saveCanalDrainageTier(programDrainage,'left','tier-low',fixed)
+assert.equal(drainageDesign.canalDrainageMode(programDrainage),'programmatic')
 near(canal.canalTierFoundationItems(programDrainage).find(i=>i.code==='IRR-CAW-5-4').quantity,2000)
 assert.deepEqual(programDrainage.design.bankDrainage.leftReaches,independentDrainage.design.bankDrainage.leftReaches,'programmatic save preserves inactive manual works')
-programDrainage = {...programDrainage,design:{...programDrainage.design,bankDrainage:{...programDrainage.design.bankDrainage,mode:'manual'}}}
+programDrainage = {...programDrainage,design:{...programDrainage.design,bankConfig:{...programDrainage.design.bankConfig,mode:'manual'}}}
+assert.equal(drainageDesign.canalDrainageMode(programDrainage),'manual','Bank Design controls drainage even with a saved programmatic chapter flag')
 near(canal.canalTierFoundationItems(canal.migrateCanalData(JSON.parse(JSON.stringify(programDrainage)))).find(i=>i.code==='IRR-CAW-5-5').quantity,345)
 const rightDrainage = {...independentDrainage,design:{...independentDrainage.design,bankConfig:{...independentDrainage.design.bankConfig,linkSymmetrical:false}}}
 near(canal.canalTierFoundationItems(rightDrainage).find(i=>i.code==='IRR-CAW-5-4').quantity,175)
-// Height-tier drainage remains available over manual bank geometry.
+// Saving inactive height-tier settings cannot override manual Bank Design.
 let manualGeometry = {...programDrainage,design:{...programDrainage.design,bankConfig:{...programDrainage.design.bankConfig,mode:'manual',leftManualReaches:[{id:'mg',from:0,to:1000,tierId:'tier-low',status:'fill'}]}}}
 manualGeometry = drainageDesign.saveCanalDrainageTier(manualGeometry,'left','tier-low',fixed)
 assert.equal(drainageDesign.canalDrainageTiers(manualGeometry,'left').length,3)
-near(canal.canalTierFoundationItems(manualGeometry).find(i=>i.code==='IRR-CAW-5-4').quantity,2000)
+assert.equal(canal.canalTierFoundationItems(manualGeometry).length,0,'a different manual Bank Design reach does not inherit inactive automatic drainage')
 const independentSync = canal.syncCanalItems({id:'root',kind:'title',name:'R',children:[{id:'canal',kind:'component',name:'Canal',canal:independentDrainage,children:[]}]},'canal').children[0].children
 assert.ok(independentSync.some(i=>i.templateItemRole==='sand-blanket'&&Math.abs(i.computedQuantity-350)<.01))
 assert.ok(independentSync.some(i=>i.templateItemRole==='sand-blanket'&&Math.abs(i.computedQuantity-345)<.01))
-console.log('Independent drainage modes: tier groups, exact manual ranges/gaps, mixed billing, fill deductions, validation, save/load and independent banks passed.')
+assert.equal(drainageDesign.saveCanalBankDrainageReach(independentDrainage,'left','not-in-bank-design',fixed),independentDrainage,'drainage cannot create its own bank assignment')
+console.log('Shared drainage mode: Bank Design groups and manual reaches, mixed billing, fill deductions, save/load and independent banks passed.')
+
+let groupedDrainage = fixture()
+groupedDrainage.configured = true
+groupedDrainage.sections = [0,250,500,750,1000].map(ch=>({...groupedDrainage.sections[0],id:`drain-group-${ch}`,chainage:ch}))
+groupedDrainage.design.bankConfig.leftReachOverrides = [
+  {id:'low-a',from:0,to:250,tierId:'tier-low',status:'fill'},
+  {id:'medium',from:250,to:750,tierId:'tier-medium',status:'fill'},
+  {id:'low-b',from:750,to:1000,tierId:'tier-low',status:'fill'}
+]
+groupedDrainage.design.bankDrainage = {mode:'manual',leftReaches:[{id:'inactive',from:0,to:1000,treatment:variable}]}
+assert.equal(drainageDesign.canalDrainageMode(groupedDrainage),'programmatic','Bank Design overrides a stale independent drainage mode')
+groupedDrainage = drainageDesign.saveCanalDrainageTier(groupedDrainage,'left','tier-low',fixed)
+near(canal.canalTierFoundationItems(groupedDrainage).find(i=>i.code==='IRR-CAW-5-4').quantity,1000)
+assert.equal(canal.canalSectionBankTreatment(groupedDrainage,{...groupedDrainage.sections[0],chainage:500},'left').blanket,'none','medium design between low reaches remains unchanged')
+near(canal.canalTierFoundationItems({...groupedDrainage,design:{...groupedDrainage.design,bankConfig:{...groupedDrainage.design.bankConfig,linkSymmetrical:false}}}).find(i=>i.code==='IRR-CAW-5-4').quantity,500)
 
 // Rock toe / open ditch uses its own scopes without changing internal drainage.
 let toeData = independentDrainage
@@ -380,7 +403,7 @@ const removeRock = drainageDesign.removeCanalManualDrainageReach(toeData,'left',
 near(canal.canalTierToeProtectionQuantities(removeRock).rockToeVolume,0)
 near(canal.canalTierToeProtectionQuantities(removeRock).toeDrainConcreteVolume,toeQ.toeDrainConcreteVolume)
 const crossingToe = {...toeData,design:{...toeData.design,
-  bankConfig:{...toeData.design.bankConfig,leftReachOverrides:[{id:'geom-low',from:0,to:400,tierId:'tier-low',status:'fill'},{id:'geom-high',from:400,to:1000,tierId:'tier-high',status:'fill'}]},
+  bankConfig:{...toeData.design.bankConfig,mode:'tiered',leftReachOverrides:[{id:'geom-low',from:0,to:400,tierId:'tier-low',status:'fill'},{id:'geom-high',from:400,to:1000,tierId:'tier-high',status:'fill'}]},
   bankToeDrainage:{mode:'manual',leftReaches:[{id:'crossing-work',from:0,to:1000,treatment:rockSpec}]}}}
 near(canal.canalTierToeProtectionQuantities(crossingToe).rockToeVolume,400*2*(1+.5*(1+1.5))+600*2*(1+.5*(1+3)))
 assert.equal(crossingToe.design.bankToeDrainage.leftReaches.length,1,'one manual work reach spans different bank profiles')

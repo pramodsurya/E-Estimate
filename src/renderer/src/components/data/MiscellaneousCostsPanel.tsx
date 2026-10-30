@@ -16,11 +16,9 @@ import {
 import type { ProjectCostRecipe } from "../../lib/projectIndividualCosts";
 
 export default function MiscellaneousCostsPanel({
-  owner,
   entries,
   loading,
 }: {
-  owner: "SSR" | "MORTH";
   entries: ProjectCostRecipe[];
   loading: boolean;
 }): JSX.Element {
@@ -52,7 +50,7 @@ export default function MiscellaneousCostsPanel({
         }
     return [...groups.values()];
   }, [entries]);
-  const rows = allRules.filter((row) => row.owner === owner);
+  const rows = allRules;
   const apply = async (): Promise<void> => {
     const next = { ...project.meta.miscellaneousCosts };
     for (const row of allRules) {
@@ -108,14 +106,14 @@ export default function MiscellaneousCostsPanel({
   return (
     <div className="misc-costs">
       <p>
-        Percentages used by {owner === "MORTH" ? "MoRTH" : "SSR"} DATA in this
+        Percentages used by MoRTH and SSR DATA in this
         project. Matching rules share one setting; appendix production costs
         retain their own rules.
       </p>
       {loading ? (
         <p role="status">Loading project percentages…</p>
       ) : !rows.length ? (
-        <p>No percentage rules in this source’s project DATA.</p>
+        <p>No percentage rules in project DATA.</p>
       ) : (
         <div className="cost-table-wrap">
           <table className="cost-table">
@@ -140,9 +138,10 @@ export default function MiscellaneousCostsPanel({
                   ? (conditions[row.condition] ?? row.conditionValue)
                   : true;
                 return (
-                  <tr key={row.key}>
+                  <tr key={row.key} data-cost-source={row.owner}>
                     <td>
                       <strong>{row.label}</strong>
+                      <div className="cost-resource-meta"><span className="cost-source-badge" data-cost-source={row.owner}>{row.owner === 'MORTH' ? 'MoRTH' : 'SSR'}</span></div>
                       <small>
                         Source{" "}
                         {row.maximum !== undefined ? "maximum" : "default"}:{" "}

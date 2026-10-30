@@ -1,0 +1,16 @@
+.catalogue-item-reference {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 4px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.catalogue-item-reference > b {
+  text-align: left;
+  line-height: 1.5;
+}
+.catalogue-item-reference > small {
+  color: var(--text-dim);
+  font-weight: 400;
+}

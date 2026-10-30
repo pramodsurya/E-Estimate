@@ -29,6 +29,7 @@ import { resolveItemDescriptionRuns } from '../typist-output/itemTypst'
 import { resolveDocumentFinal } from '../documentFinal'
 import { resolveNodeSettings } from '../nodeSettings'
 import { nodeDisplayName } from '../../components/nodeVisual'
+import { printedItemDescription } from '../sorPresentation'
 import type { EestimateProject, ProjectNode } from '../../types/project'
 import type { RateAnalysisRecipe } from '../../types/rateAnalysis'
 
@@ -190,10 +191,10 @@ export async function prepareComponentExcelParts(
   // code/description only there, and the Abstract is what the estimator sees.
   const directAbstract = renderData.abstract.filter((row) => !row.sl.startsWith('S'))
   const headers = resolveDetailedHeaders(directNodes.map((itemNode, i) => ({
-    itemCode: itemNode.itemCode,
-    displayName: nodeDisplayName(itemNode),
+    itemCode: itemNode.itemSource === 'SOR' ? '' : itemNode.itemCode,
+    displayName: itemNode.itemSource === 'SOR' ? printedItemDescription(itemNode) : nodeDisplayName(itemNode),
     unit: itemNode.unit,
-    itemDescription: itemNode.itemDescription,
+    itemDescription: itemNode.itemSource === 'SOR' ? printedItemDescription(itemNode) : itemNode.itemDescription,
     descriptionRuns: resolveItemDescriptionRuns(project, itemNode).map((run) => ({
       text: run.text,
       style: {
@@ -204,7 +205,7 @@ export async function prepareComponentExcelParts(
         fontName: 'Trebuchet MS'
       }
     })),
-    abstractCode: directAbstract[i]?.code,
+    abstractCode: itemNode.itemSource === 'SOR' ? '' : directAbstract[i]?.code,
     abstractHeading: directAbstract[i]?.heading,
     abstractUnit: directAbstract[i]?.unit,
     abstractDescription: directAbstract[i]?.description

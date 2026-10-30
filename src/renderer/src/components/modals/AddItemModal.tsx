@@ -1,9 +1,10 @@
 import MorthPicker from '../morth/MorthPicker'
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import './addItemModal.css'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
-  ArrowDownAZ,
+  ArrowDown01,
   ArrowLeft,
-  ArrowUpAZ,
+  ArrowUp01,
   Check,
   ChevronDown,
   ChevronRight,
@@ -25,6 +26,10 @@ import {
 } from '../../lib/masterData'
 import type { DataVariantSelection, ProjectDataDefinition } from '../../types/project'
 import SsrCode from '../templates/SsrCode'
+import CatalogueItemDetails from '../templates/CatalogueItemDetails'
+import CatalogueChoiceText from '../templates/CatalogueChoiceText'
+import CatalogueComparison, { CatalogueCompareToggle, useCatalogueComparison } from '../templates/CatalogueComparison'
+import { catalogueSummary, compareCatalogueCodes } from '../../lib/catalogueGuidance'
 import SorPicker from '../sor/SorPicker'
 import { refreshSorSelection, sorMasterItem } from '../../lib/sorSource'
 import {
@@ -33,17 +38,10 @@ import {
   type DataVariantSpec
 } from '../../lib/dataVariants'
 import {
-  applySemanticScores,
   parseMasterSearch,
   rankMasterItems,
-  shouldUseSemanticSearch,
   type MasterSearchMatch
 } from '../../lib/masterSearch'
-import {
-  rerankMasterSearch,
-  semanticCandidateMatches,
-  type SemanticSearchProgress
-} from '../../lib/semanticMasterSearch'
 
 function itemKey(m: MasterItem): string {
   return `${m.side}:${m.category}:${m.code}${m.sorCatalogue ? `:${m.sorCatalogue.selectionKey}` : ''}`
@@ -51,10 +49,6 @@ function itemKey(m: MasterItem): string {
 
 type SortDir = 'asc' | 'desc'
 type CacheEntry = { status: 'loading' | 'loaded' | 'error'; items: MasterItem[]; error?: string }
-interface SemanticRankingState extends SemanticSearchProgress {
-  signature: string
-  scores: Record<string, number>
-}
 const MAX_RENDERED_ITEMS = 250
 
 export default function AddItemModal(): JSX.Element {
@@ -95,7 +89,8 @@ export default function AddItemModal(): JSX.Element {
     return()=>{active=false}
   },[selected,projectYear,projectZone])
   // Storage step: separate sheet per item (legacy) vs one shared sheet.
-  const [catalogueSource,setCatalogueSource]=useState<'existing'|'MORTH'>('existing')
+  const [catalogueSource, setCatalogueSource] = useState<'SSR' | 'SOR' | 'MORTH' | 'PROJECT_DATA'>('SSR')
+  const [visitedSources, setVisitedSources] = useState<Set<string>>(new Set(['SSR']))
   const [storageStep, setStorageStep] = useState(false)
   const [storageMode, setStorageMode] = useState<'separate' | 'new-shared' | 'existing-shared'>('separate')
   const [sharedName, setSharedName] = useState('')
@@ -107,6 +102,17 @@ export default function AddItemModal(): JSX.Element {
     return findNode(project.root, parentId)?.name ?? project.root.name
   })()
   const projectData = project?.projectData ?? []
+  const sources = [
+    { key: 'SSR' as const, label: 'SSR', description: 'Irrigation standard DATA' },
+    { key: 'SOR' as const, label: 'SOR', description: 'Schedule of rates' },
+    { key: 'MORTH' as const, label: 'MoRTH', description: 'Roads & bridges standard DATA' },
+    ...(projectData.length ? [{ key: 'PROJECT_DATA' as const, label: 'Project DATA', description: 'DATA created in this project' }] : [])
+  ]
+  const activeSource = sources.find(source => source.key === catalogueSource) ?? sources[0]
+  const activateSource = (key: typeof catalogueSource): void => {
+    setCatalogueSource(key)
+    setVisitedSources(current => new Set(current).add(key))
+  }
   const add = (m: MasterItem): void =>
     setSelected((prev) => new Map(prev).set(itemKey(m), m))
   const removeKey = (k: string): void =>
@@ -336,25 +342,49 @@ export default function AddItemModal(): JSX.Element {
         />
       ) : (
         <>
-          <div className="backend-data-source-tabs"><button aria-pressed={catalogueSource==='existing'} onClick={()=>setCatalogueSource('existing')}>SSR / SOR / Project DATA</button><button aria-pressed={catalogueSource==='MORTH'} onClick={()=>setCatalogueSource('MORTH')}>MoRTH catalogue</button></div>
-          {catalogueSource==='MORTH'?<div style={{height:440}}><MorthPicker selected={selected} onPick={add}/></div>:<div className="additem-cols">
-            <Column
+          <div className="additem-browser">
+            <div className="additem-source-header">
+              <div className="additem-source-tabs" role="tablist" aria-label="Item catalogue">
+                {sources.map((source, index) => {
+                  const count = source.key === 'PROJECT_DATA' ? selectedProjectData.size : [...selected.values()].filter(item => item.side === source.key).length
+                  return <button key={source.key} id={`additem-tab-${source.key}`} type="button" role="tab"
+                    aria-selected={activeSource.key === source.key} aria-controls={`additem-panel-${source.key}`}
+                    tabIndex={activeSource.key === source.key ? 0 : -1}
+                    onClick={() => activateSource(source.key)}
+                    onKeyDown={event => {
+                      const nextIndex = event.key === 'ArrowRight' ? (index + 1) % sources.length : event.key === 'ArrowLeft' ? (index + sources.length - 1) % sources.length : event.key === 'Home' ? 0 : event.key === 'End' ? sources.length - 1 : -1
+                      if (nextIndex < 0) return
+                      event.preventDefault()
+                      activateSource(sources[nextIndex].key)
+                      event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`#additem-tab-${sources[nextIndex].key}`)?.focus()
+                    }}>
+                    {source.label}{count > 0 && <span className="additem-source-count">{count}</span>}
+                  </button>
+                })}
+              </div>
+              <span className="additem-source-context">{projectYear} · {projectZone.replace('_', ' ')}</span>
+            </div>
+            <div className="additem-source-description">{activeSource.description}<span>Selections stay in your list when you switch catalogues.</span></div>
+            {sources.map(source => <div key={source.key} id={`additem-panel-${source.key}`} role="tabpanel"
+              aria-labelledby={`additem-tab-${source.key}`} hidden={activeSource.key !== source.key} className="additem-source-panel">
+              {visitedSources.has(source.key) && source.key === 'SSR' && <Column
               side="SSR"
-              tag="Unified SSR / TAW DAW CAW GAW CCDW PMW"
+              tag="Irrigation standard data catalogue"
               categories={SSR_CATEGORIES}
               fetcher={fetchSsrItems}
               selected={selected}
               onAdd={add}
               onRemove={removeKey}
-            />
-            <SorSelectionColumn
+            />}
+              {visitedSources.has(source.key) && source.key === 'SOR' && <SorSelectionColumn
               sorYear={project?.meta.sorYear ?? ''}
               sorZone={project?.meta.sorZone ?? 'zone_3'}
               selected={selected}
               onAdd={add}
               onRemove={removeKey}
-            />
-            <ProjectDataColumn
+            />}
+              {visitedSources.has(source.key) && source.key === 'MORTH' && <MorthPicker selected={selected} onPick={add} />}
+              {visitedSources.has(source.key) && source.key === 'PROJECT_DATA' && <ProjectDataColumn
               definitions={projectData}
               year={project?.meta.sorYear ?? ''}
               zone={project?.meta.sorZone ?? 'zone_3'}
@@ -367,13 +397,14 @@ export default function AddItemModal(): JSX.Element {
                   return next
                 })
               }
-            />
+            />}
+            </div>)}
           </div>
-          }
           {variantError && (
             <div className="data-variant-error">Could not read DATA variants: {variantError}</div>
           )}
-          <SelectedBar selected={selected} onRemove={removeKey} />
+          <SelectedBar selected={selected} onRemove={removeKey} projectData={projectData.filter(definition => selectedProjectData.has(definition.id))}
+            onRemoveProjectData={id => setSelectedProjectData(current => { const next = new Set(current); next.delete(id); return next })} />
         </>
       )}
     </Modal>
@@ -510,7 +541,7 @@ function ProjectDataColumn({
     <div className="additem-col project-data-col">
       <div className="col-header">
         <h3>Project DATA</h3>
-        <span className="col-tag">Built-in and created DATA</span>
+        <span className="col-tag">Created in this project</span>
       </div>
       <div className="project-data-list">
         {definitions.length === 0 ? (
@@ -654,7 +685,7 @@ export function SsrCodeSelectionColumn({
   return (
     <Column
       side="SSR"
-      tag="Unified SSR / TAW DAW CAW GAW CCDW PMW"
+      tag="Irrigation standard data catalogue"
       categories={SSR_CATEGORIES}
       fetcher={fetchSsrItems}
       selected={new Map()}
@@ -708,7 +739,7 @@ export function BackendDataSelectionColumns({
         {source === 'SSR' ? (
           <Column
             side="SSR"
-            tag="Unified SSR / TAW DAW CAW GAW CCDW PMW"
+            tag="Irrigation standard data catalogue"
             categories={SSR_CATEGORIES}
             fetcher={fetchSsrItems}
             selected={selected}
@@ -763,12 +794,12 @@ function Column({
   onRemove,
   trailingCategory
 }: ColumnProps): JSX.Element {
+  const comparison = useCatalogueComparison()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [cache, setCache] = useState<Record<string, CacheEntry>>({})
-  const [semanticRanking, setSemanticRanking] = useState<SemanticRankingState | null>(null)
 
   const cacheRef = useRef(cache)
   cacheRef.current = cache
@@ -817,79 +848,19 @@ function Column({
   }, [debouncedSearch, categories])
 
   const q = debouncedSearch.trim()
-  const parsedSearch = (parseMasterSearch(q))
-  const loadedItems = (categories.flatMap((category) => {
+  const parsedSearch = useMemo(() => parseMasterSearch(q), [q])
+  const loadedItems = useMemo(() => categories.flatMap((category) => {
         const entry = cache[category.key]
         return entry?.status === 'loaded' ? entry.items : []
-      }))
-  const lexicalMatches = (q ? rankMasterItems(loadedItems, parsedSearch) : [])
+      }), [categories, cache])
+  const lexicalMatches = useMemo(() => q ? rankMasterItems(loadedItems, parsedSearch) : [], [q, loadedItems, parsedSearch])
   const searchSettled =
     !q ||
     categories.every((category) => {
       const status = cache[category.key]?.status
       return status === 'loaded' || status === 'error'
     })
-  const semanticCandidates = (semanticCandidateMatches(lexicalMatches))
-  const semanticSignature = (`${parsedSearch.normalized}|${semanticCandidates.map((match) => match.key).join('|')}`)
-
-  useEffect(() => {
-    if (
-      !q ||
-      !searchSettled ||
-      !shouldUseSemanticSearch(parsedSearch) ||
-      semanticCandidates.length < 2
-    ) {
-      setSemanticRanking(null)
-      return
-    }
-
-    let active = true
-    const updateProgress = (progress: SemanticSearchProgress): void => {
-      if (!active) return
-      setSemanticRanking({
-        ...progress,
-        signature: semanticSignature,
-        scores: {}
-      })
-    }
-    updateProgress({ status: 'loading', message: 'Preparing AI relevance ranking' })
-    void rerankMasterSearch(q, semanticCandidates, updateProgress)
-      .then((scores) => {
-        if (!active) return
-        setSemanticRanking({
-          status: 'ready',
-          message: 'AI-ranked from item descriptions',
-          signature: semanticSignature,
-          scores
-        })
-      })
-      .catch((error) => {
-        if (!active) return
-        setSemanticRanking({
-          status: 'fallback',
-          message: `Description ranking active · ${
-            error instanceof Error ? error.message : 'AI unavailable'
-          }`,
-          signature: semanticSignature,
-          scores: {}
-        })
-      })
-
-    return () => {
-      active = false
-    }
-  }, [parsedSearch, q, searchSettled, semanticCandidates, semanticSignature])
-
-  const rankedMatches = (() => {
-    if (
-      semanticRanking?.status !== 'ready' ||
-      semanticRanking.signature !== semanticSignature
-    ) {
-      return lexicalMatches
-    }
-    return applySemanticScores(lexicalMatches, semanticRanking.scores)
-  })()
-  const searchMatches = (new Map(rankedMatches.map((match) => [match.key, match])))
+  const searchMatches = new Map(lexicalMatches.map((match) => [match.key, match]))
 
   return (
     <div className="additem-col">
@@ -907,37 +878,40 @@ function Column({
         />
         <button
           className={`icon-toggle ${sortDir === 'asc' ? 'active' : ''}`}
-          title="Sort A→Z"
+          title="Item code: ascending"
+          aria-label="Sort item codes ascending"
           onClick={() => setSortDir('asc')}
         >
-          <ArrowDownAZ size={15} />
+          <ArrowDown01 size={15} />
         </button>
         <button
           className={`icon-toggle ${sortDir === 'desc' ? 'active' : ''}`}
-          title="Sort Z→A"
+          title="Item code: descending"
+          aria-label="Sort item codes descending"
           onClick={() => setSortDir('desc')}
         >
-          <ArrowUpAZ size={15} />
+          <ArrowUp01 size={15} />
         </button>
       </div>
       {q ? (
-        <div className={`master-search-summary ${semanticRanking?.status ?? 'lexical'}`}>
+        <div className="master-search-summary lexical">
           <span>
             {parsedSearch.exactConstraints.length > 0
               ? `Exact ${parsedSearch.exactConstraints
-                  .map((value) => value.toUpperCase())
+                  .map((value) => value.replace(/^mix(\d+)x(\d+)$/, '$1:$2').toUpperCase())
                   .join(', ')}`
-              : 'Description relevance'}
+              : 'Matching items'}
             {' · '}
-            {rankedMatches.length} match{rankedMatches.length === 1 ? '' : 'es'}
+            {lexicalMatches.length} match{lexicalMatches.length === 1 ? '' : 'es'}
           </span>
           <small>
             {!searchSettled
               ? 'Loading item descriptions…'
-              : semanticRanking?.message ?? 'Exact and description ranking'}
+              : `Item code · ${sortDir === 'asc' ? 'ascending' : 'descending'}`}
           </small>
         </div>
       ) : null}
+      <CatalogueComparison comparison={comparison} />
       <div
         className="col-list"
         data-tour={side === 'SSR' ? 'add-item-results' : 'add-item-results-sor'}
@@ -957,21 +931,16 @@ function Column({
                 (row): row is { item: MasterItem; match: MasterSearchMatch } =>
                   row.match !== undefined
               )
-              .sort(
-                (left, right) =>
-                  right.match.finalScore - left.match.finalScore ||
-                  left.item.description.localeCompare(right.item.description)
-              )
-          } else if (sortDir === 'desc') {
-            rows = [...rows].reverse()
           }
+          rows.sort((left, right) => compareCatalogueCodes(left.item.code, right.item.code) * (sortDir === 'asc' ? 1 : -1))
           const resultCount = rows.length
+          if (q && entry?.status === 'loaded' && resultCount === 0) return null
           const visibleRows = rows.slice(0, MAX_RENDERED_ITEMS)
           return (
             <div className="cat-group" key={cat.key}>
               <button className="cat-head" onClick={() => toggle(cat.key)}>
                 {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                {cat.label}
+                <span className="catalogue-category-name">{cat.label}</span>
                 <span className="cat-count">
                   {entry?.status === 'loaded' ? resultCount : ''}
                 </span>
@@ -988,32 +957,26 @@ function Column({
                     <div className="cat-loading">No items{q ? ' match your search' : ''}.</div>
                   )}
                   {entry?.status === 'loaded' &&
-                    visibleRows.map(({ item: it, match }) => {
+                    visibleRows.map(({ item: it }) => {
                       const key = itemKey(it)
                       const added = selected.has(key)
                       return (
-                        <div key={key} className={`item-row ${added ? 'added' : ''}`}>
-                          {side !== 'SOR' ? (
-                            <SsrCode
-                              code={it.code}
-                              description={it.description}
-                              className="item-code"
-                              strong={false}
-                            />
-                          ) : null}
-                          <span className="item-desc-stack" title={it.description}>
-                            <span className="item-desc">{it.description}</span>
-                            {q && match && match.reasons.length > 0 ? (
-                              <span className="item-search-reason">
-                                {match.reasons.join(' · ')}
-                              </span>
-                            ) : null}
-                          </span>
-                          {it.unit && <span className="item-unit">{it.unit}</span>}
+                        <div key={key} className={`item-row catalogue-choice-row ${added ? 'added' : ''}`}>
+                          <div className="item-desc-stack">
+                            {side !== 'SOR' && <SsrCode code={it.code} description={it.description}
+                              guidance={it.guidance} className="catalogue-choice-code" strong={false} />}
+                            <CatalogueChoiceText item={it} />
+                            <div className="catalogue-choice-tools">
+                              {it.unit && <span className="item-unit">{it.unit}</span>}
+                              <CatalogueCompareToggle item={it} comparison={comparison} />
+                              <CatalogueItemDetails item={it} />
+                            </div>
+                          </div>
                           <button
                             className="item-add-btn"
                             data-tour="add-item-plus"
                             title={added ? 'Remove' : 'Add'}
+                            aria-label={`${added ? 'Remove' : 'Add'} ${it.code}`}
                             onClick={() => (added ? onRemove(key) : onAdd(it))}
                           >
                             {added ? <Check size={13} /> : <Plus size={13} />}
@@ -1040,28 +1003,33 @@ function Column({
 
 function SelectedBar({
   selected,
-  onRemove
+  onRemove,
+  projectData,
+  onRemoveProjectData
 }: {
   selected: Map<string, MasterItem>
   onRemove: (key: string) => void
+  projectData: ProjectDataDefinition[]
+  onRemoveProjectData: (id: string) => void
 }): JSX.Element {
   const entries = Array.from(selected.entries())
   return (
     <div className="selected-bar">
-      <div className="sb-title">Selected ({entries.length})</div>
-      {entries.length === 0 ? (
-        <div className="selected-empty">No items selected yet — add from either side.</div>
+      <div className="sb-title">Selected ({entries.length + projectData.length})</div>
+      {entries.length + projectData.length === 0 ? (
+        <div className="selected-empty">Choose items from any catalogue above.</div>
       ) : (
         <div className="selected-chips" data-tour="add-item-selected">
           {entries.map(([k, m]) => (
-            <span className="selected-chip" key={k} title={m.description}>
+            <span className="selected-chip" key={k}>
               <span className="sc-side">{m.side}</span>
               {m.side !== 'SSR' ? (
-                <span className="sc-label">{m.description}</span>
+                <SsrCode code={m.code} description={m.description} guidance={m.guidance} className="sc-label" strong={false}>{catalogueSummary(m)}</SsrCode>
               ) : (
                 <SsrCode
                   code={m.code}
                   description={m.description}
+                  guidance={m.guidance}
                   className="sc-label"
                   strong={false}
                 />
@@ -1071,6 +1039,10 @@ function SelectedBar({
               </button>
             </span>
           ))}
+          {projectData.map(definition => <span className="selected-chip" key={definition.id}>
+            <span className="sc-side">Project DATA</span><span className="sc-label">{definition.code} · {definition.description}</span>
+            <button onClick={() => onRemoveProjectData(definition.id)} title={`Remove ${definition.code}`}><X size={12} /></button>
+          </span>)}
         </div>
       )}
     </div>

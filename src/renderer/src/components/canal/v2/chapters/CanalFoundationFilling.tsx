@@ -2,8 +2,7 @@ import { useMemo, useState } from 'react'
 import { Droplets } from 'lucide-react'
 import type {
   CanalData,
-  CanalTierFoundationConfig,
-  CanalDrainageReach
+  CanalTierFoundationConfig
 } from '../../../../types/project'
 import {
   defaultCanalTierFoundationConfig,
@@ -18,7 +17,7 @@ import CanalSectionDiagram from '../../CanalSectionDiagram'
 import SsrCode from '../../../templates/SsrCode'
 import { Details as ToeFilterDetails, ToeFilterSketch } from './CanalFiltersDrains'
 import { formatCanalReachChainage } from '../../../../lib/canalTierReaches'
-import { canalDrainageTiers, canalDrainageTierTreatment, canalDrainageWorkRanges, canalManualDrainageReaches, saveCanalDrainageTier, saveCanalManualDrainageReach, removeCanalManualDrainageReach } from '../../../../lib/canalDrainageDesign'
+import { canalDrainageMode, canalDrainageTiers, canalDrainageTierTreatment, canalDrainageWorkRanges, canalManualDrainageReaches, saveCanalDrainageTier, saveCanalBankDrainageReach } from '../../../../lib/canalDrainageDesign'
 import { bankProtectionSectionAt } from '../../../../lib/canalBankProtection'
 import { bankReachLabel } from './CanalBankReachPicker'
 
@@ -40,11 +39,12 @@ function getReachBadgeText(f: CanalTierFoundationConfig): string {
   return parts.length ? parts.join(' · ') : 'No works'
 }
 
-function ReachDrainageEditor({ data, activeSide, ranges, title, saved, startEditing = false, onSave, onCancel, projectItems, grandToeSummary }: { data: CanalData; activeSide: 'left' | 'right'; ranges: Array<{ from: number; to: number }>; title: string; saved: CanalTierFoundationConfig; startEditing?: boolean; onSave: (patch: Partial<CanalTierFoundationConfig>) => boolean; onCancel?: () => void; projectItems: ReturnType<typeof canalTierFoundationItems>; grandToeSummary: ReturnType<typeof canalTierToeProtectionQuantities> }): JSX.Element {
+function ReachDrainageEditor({ data, activeSide, ranges, title, saved, buildPreview, startEditing = false, onSave, onCancel, projectItems, grandToeSummary }: { data: CanalData; activeSide: 'left' | 'right'; ranges: Array<{ from: number; to: number }>; title: string; saved: CanalTierFoundationConfig; buildPreview: (patch: Partial<CanalTierFoundationConfig>) => CanalData; startEditing?: boolean; onSave: (patch: Partial<CanalTierFoundationConfig>) => boolean; onCancel?: () => void; projectItems: ReturnType<typeof canalTierFoundationItems>; grandToeSummary: ReturnType<typeof canalTierToeProtectionQuantities> }): JSX.Element {
   const [draft, setDraft] = useState<Partial<CanalTierFoundationConfig> | null>(startEditing ? {} : null)
   const [previewChainage, setPreviewChainage] = useState(ranges[0]?.from ?? 0)
   const isSymmetrical = data.design.bankConfig?.linkSymmetrical
   const treatment = { ...saved, ...draft }
+  const diagramData = draft ? buildPreview(draft) : data
   const patchTreatment = (patch: Partial<CanalTierFoundationConfig>): void => setDraft(current => current ? { ...current, ...patch } : current)
   const stations = useMemo(() => [...new Set(ranges.flatMap(r => [r.from, ...orderedCanalSections(data).filter(s => s.chainage >= r.from && s.chainage < r.to && s.designPopulated !== false && s.ground.length >= 2).map(s => s.chainage), r.to]))].sort((a,b) => a-b), [data, ranges])
   const previewSection = useMemo(() => {
@@ -69,7 +69,7 @@ function ReachDrainageEditor({ data, activeSide, ranges, title, saved, startEdit
   }, [data, ranges, isSymmetrical, activeSide])
   const selectedToeFilterQuantity = saved.toeFilterKind === '5-7' ? tierToeSummary.toeFilterGradedVolume : saved.toeFilterKind === '5-12' ? tierToeSummary.toeFilterFabric200Area : tierToeSummary.toeFilterFabric250Area
   return <div className="canal-earthwork-card" style={{ display: 'grid', gap: 16 }}>
-    <header><h3>{title} · {isSymmetrical ? 'Both banks' : activeSide === 'left' ? 'Left bank' : 'Right bank'}</h3><p>Edit the settings, then save to recalculate. Quantities and the diagram show saved settings.</p></header>
+    <header><h3>{title} · {isSymmetrical ? 'Both banks' : activeSide === 'left' ? 'Left bank' : 'Right bank'}</h3><p>Edit the settings, then save to recalculate. Quantities show saved settings; the diagram previews your edits.</p></header>
     <div className="canal-protection-choices">{draft ? <><button key="save" type="button" onClick={() => { if (onSave(draft)) setDraft(null) }}>Save drainage &amp; filters</button><button key="cancel" type="button" onClick={() => { setDraft(null); onCancel?.() }}>Cancel</button></> : <button key="edit" type="button" onClick={() => setDraft({})}>Edit drainage &amp; filters</button>}</div>
     <fieldset className="canal-reach-work-fields" disabled={!draft}>
           <div className="canal-foundation-work-groups">
@@ -130,7 +130,7 @@ function ReachDrainageEditor({ data, activeSide, ranges, title, saved, startEdit
                   ) : (
                     <div className="canal-foundation-rule">
                       <strong>Automatic extent</strong>
-                      <span>Starts on the stripped level at the land-side toe and stops at the impervious core/trench where zoned.</span>
+                      <span>Runs across both banks and beneath the bed on homogeneous sections without canal cutting. Stops at the impervious core/trench where zoned.</span>
                     </div>
                   )}
 
@@ -322,7 +322,7 @@ function ReachDrainageEditor({ data, activeSide, ranges, title, saved, startEdit
     </fieldset>
           {/* Actual selected-reach cross-section using saved settings. */}
           <div className="canal-foundation-section-preview" style={{ marginTop: 12 }}>
-            <p className="canal-protection-help">{data.sections.some(s => s.chainage === previewChainage && s.designPopulated !== false && s.ground.length >= 2) ? 'Uses saved section ground levels.' : 'Ground at this reach boundary is interpolated between adjoining populated sections.'} The cross-section shows saved drainage and filters.</p>
+            <p className="canal-protection-help">{data.sections.some(s => s.chainage === previewChainage && s.designPopulated !== false && s.ground.length >= 2) ? 'Uses saved section ground levels.' : 'Ground at this reach boundary is interpolated between adjoining populated sections.'} {draft ? 'Preview shows unsaved drainage and filters. Save to apply quantities.' : 'The cross-section shows saved drainage and filters.'}</p>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <label className="canal-bank-field" style={{ minWidth: 320, maxWidth: 500 }}>
                 <span>Cross-section preview</span>
@@ -339,7 +339,7 @@ function ReachDrainageEditor({ data, activeSide, ranges, title, saved, startEdit
 
             {previewSection ? (
               <CanalSectionDiagram
-                data={data}
+                data={diagramData}
                 section={previewSection}
                 showFoundationExcavation={false}
               />
@@ -353,7 +353,7 @@ function ReachDrainageEditor({ data, activeSide, ranges, title, saved, startEdit
             <div className="canal-earthwork-summary" style={{ display: 'grid', gap: 6, padding: 14, borderRadius: 8, background: 'var(--surface-2)' }}>
               <strong style={{ fontSize: 13, color: 'var(--accent)' }}>Selected drainage quantities</strong>
               <div style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-                <span>Sand blanket: <strong>{n3(tierSummary.blanketQuantity)} {tierSummary.blanketUnit}</strong></span>
+                {tierSummary.blanketItems.length ? tierSummary.blanketItems.map(item => <span key={item.code}>{item.label}: <strong>{n3(item.quantity)} {item.unit}</strong></span>) : <span>Sand blanket: <strong>0.000</strong></span>}
                 <span>Horizontal filter drain: <strong>{n3(tierSummary.filterVolume)} cu.m</strong></span>
                 <span>Chimney filter: <strong>{n3(tierSummary.chimneyVolume)} cu.m</strong></span>
                 <span>Subsurface toe filter: <strong>{n3(selectedToeFilterQuantity)} {saved.toeFilterKind === '5-7' ? 'cu.m' : 'sq.m'}</strong></span>
@@ -376,56 +376,34 @@ function ReachDrainageEditor({ data, activeSide, ranges, title, saved, startEdit
 export default function CanalFoundationFilling({ data, onCommit }: { data: CanalData; onCommit: (update: (current: CanalData) => CanalData) => void }): JSX.Element {
   const [side, setSide] = useState<'left' | 'right'>('left')
   const [selectedId, setSelectedId] = useState('')
-  const [editing, setEditing] = useState<{ id: string; from: string; to: string; original?: CanalDrainageReach } | null>(null)
-  const [error, setError] = useState('')
   const config = data.design.bankConfig
-  const mode = data.design.bankDrainage?.mode ?? 'programmatic'
+  const mode = canalDrainageMode(data)
   const tiers = useMemo(() => canalDrainageTiers(data, side), [data, side])
-  const ranges = useMemo(() => canalDrainageWorkRanges(data.design.bankDrainage ? data : { ...data, design: { ...data.design, bankDrainage: { mode: 'programmatic' } } }, side), [data, side])
+  const ranges = useMemo(() => canalDrainageWorkRanges(data, side), [data, side])
   const manual = useMemo(() => canalManualDrainageReaches(data, side), [data, side])
   const selectedTier = tiers.find(t => t.id === selectedId) ?? tiers[0]
   const selectedManual = manual.find(r => r.id === selectedId) ?? manual[0]
-  const editorRange = editing ? editing.original : selectedManual
+  const editorRange = selectedManual
   const editorRanges = useMemo(() => mode === 'programmatic'
     ? ranges.filter(r => r.tierId === selectedTier?.id)
     : editorRange ? [editorRange] : [], [mode, ranges, selectedTier?.id, editorRange])
   const projectItems = useMemo(() => canalTierFoundationItems(data), [data])
   const grandToeSummary = useMemo(() => canalTierToeProtectionQuantities(data), [data])
-  const chooseMode = (next: 'programmatic' | 'manual'): void => {
-    if (mode === next) return
-    setSelectedId(''); setEditing(null); setError('')
-    onCommit(current => ({ ...current, design: { ...current.design, bankDrainage: { ...current.design.bankDrainage, mode: next } } }))
-  }
-  const saveManual = (patch: Partial<CanalTierFoundationConfig>): boolean => {
-    const row = editing ? { id: editing.id, from: Number(editing.from), to: Number(editing.to), treatment: { ...editing.original?.treatment, ...patch } }
-      : selectedManual ? { ...selectedManual, treatment: { ...selectedManual.treatment, ...patch } } : undefined
-    if (!row) return false
-    const result = editing && (!editing.from.trim() || !editing.to.trim())
-      ? { error: 'Enter both From and To chainages.' } : saveCanalManualDrainageReach(data, side, row)
-    if (result.error) { setError(result.error); return false }
-    onCommit(current => saveCanalManualDrainageReach(current, side, row).data)
-    setSelectedId(row.id); setEditing(null); setError(''); return true
-  }
   return <section className="canal-chapter canal-bank-protection">
-    <header className="canal-v2-section-header"><div><span className="canal-v2-section-kicker">Bund Drainage &amp; Filters</span><h2>Bund Drainage &amp; Filters</h2><p>Choose height tier design or create your own drainage reaches.</p></div></header>
-    <div className="canal-drainage-modes" aria-label="Drainage design mode">
-      <button type="button" className={`canal-tier-bracket-chip ${mode === 'programmatic' ? 'selected' : ''}`} aria-pressed={mode === 'programmatic'} onClick={() => chooseMode('programmatic')}><strong>Programmatic height tier design</strong><span>Configure Low, Medium and High Bund tiers. Height brackets follow Bank Design.</span></button>
-      <button type="button" className={`canal-tier-bracket-chip ${mode === 'manual' ? 'selected' : ''}`} aria-pressed={mode === 'manual'} onClick={() => chooseMode('manual')}><strong>Manual reach design</strong><span>Create From–To reaches and choose the drainage works for each reach.</span></button>
-    </div>
+    <header className="canal-v2-section-header"><div><span className="canal-v2-section-kicker">Bund Drainage &amp; Filters</span><h2>Bund Drainage &amp; Filters</h2><p>Design mode and chainage assignments follow Bank Design.</p></div></header>
+    <div className="canal-protection-context"><strong>{mode === 'programmatic' ? 'Programmatic design' : 'Manual reach design'}</strong> · Follows Bank Design. {mode === 'programmatic' ? 'Save one set of drainage and filter settings for all reaches of each design type.' : 'Configure the same manual reaches created in Bank Design. Edit their chainages in Bank Design.'}</div>
     <div className="canal-protection-context">{config?.linkSymmetrical ? 'Linked banks · the same choices apply to both banks.' : 'Independent banks · configure each bank separately.'}</div>
-    {!config?.linkSymmetrical && <div className="canal-bank-side-pills"><button type="button" aria-pressed={side === 'left'} onClick={() => { setSide('left'); setSelectedId(''); setEditing(null); setError('') }}>Left bank</button><button type="button" aria-pressed={side === 'right'} onClick={() => { setSide('right'); setSelectedId(''); setEditing(null); setError('') }}>Right bank</button></div>}
+    {!config?.linkSymmetrical && <div className="canal-bank-side-pills"><button type="button" aria-pressed={side === 'left'} onClick={() => { setSide('left'); setSelectedId('') }}>Left bank</button><button type="button" aria-pressed={side === 'right'} onClick={() => { setSide('right'); setSelectedId('') }}>Right bank</button></div>}
     {mode === 'programmatic' ? <>
       <div className="canal-protection-reach-cards" aria-label="Drainage height tiers">{tiers.map(tier => {
         const assigned = ranges.filter(r => r.tierId === tier.id)
-        return <button key={tier.id} type="button" className={`canal-tier-bracket-chip ${selectedTier?.id === tier.id ? 'selected' : ''}`} aria-pressed={selectedTier?.id === tier.id} onClick={() => setSelectedId(tier.id)}><strong>{tier.name}</strong><span>{n3(tier.minFillHeight)} m – {tier.maxFillHeight >= 9999 ? 'Max (∞)' : `${n3(tier.maxFillHeight)} m`}</span><small>{getReachBadgeText(canalDrainageTierTreatment(data, side, tier.id))}</small>{assigned.map(r => <small key={r.id}>{bankReachLabel(r)}</small>)}{!assigned.length && <small>No reaches in this tier.</small>}</button>
+        return <button key={tier.id} type="button" className={`canal-tier-bracket-chip ${selectedTier?.id === tier.id ? 'selected' : ''}`} aria-pressed={selectedTier?.id === tier.id} onClick={() => setSelectedId(tier.id)}><strong>{tier.name}</strong><span>{n3(tier.minFillHeight)} m – {tier.maxFillHeight >= 9999 ? 'Max (∞)' : `${n3(tier.maxFillHeight)} m`}</span><small>{assigned.length} {assigned.length === 1 ? 'reach' : 'reaches'} · {n3(assigned.reduce((sum, r) => sum + r.to - r.from, 0))} m</small><small>{getReachBadgeText(canalDrainageTierTreatment(data, side, tier.id))}</small>{assigned.map(r => <small key={r.id}>{bankReachLabel(r)}</small>)}{!assigned.length && <small>No reaches in this tier.</small>}</button>
       })}</div>
-      {selectedTier && <ReachDrainageEditor key={`tier:${side}:${selectedTier.id}`} data={data} activeSide={side} title={selectedTier.name} ranges={editorRanges} saved={canalDrainageTierTreatment(data, side, selectedTier.id)} projectItems={projectItems} grandToeSummary={grandToeSummary} onSave={patch => { onCommit(current => saveCanalDrainageTier(current, side, selectedTier.id, patch)); return true }}/>}
+      {selectedTier && <ReachDrainageEditor key={`tier:${config?.linkSymmetrical}:${side}:${selectedTier.id}:${editorRanges.map(r => `${r.from}:${r.to}`).join(',')}`} data={data} activeSide={side} title={selectedTier.name} ranges={editorRanges} saved={canalDrainageTierTreatment(data, side, selectedTier.id)} buildPreview={patch => saveCanalDrainageTier(data, side, selectedTier.id, patch)} projectItems={projectItems} grandToeSummary={grandToeSummary} onSave={patch => { onCommit(current => saveCanalDrainageTier(current, side, selectedTier.id, patch)); return true }}/>}
     </> : <>
-      <div className="canal-drainage-reach-toolbar"><strong>Total canal length: {n3(data.lengthM)} m · {manual.length} {manual.length === 1 ? 'reach' : 'reaches'} created</strong><button type="button" onClick={() => { setEditing({ id: crypto.randomUUID(), from: String(manual.at(-1)?.to ?? 0), to: '' }); setError('') }}>Add drainage reach</button></div>
-      <div className="canal-protection-reach-cards" aria-label="Manual drainage reaches">{manual.map((reach, index) => <div key={reach.id} className="canal-earthwork-card"><button type="button" className={`canal-tier-bracket-chip ${selectedManual?.id === reach.id ? 'selected' : ''}`} aria-pressed={selectedManual?.id === reach.id} onClick={() => { setSelectedId(reach.id); setEditing(null); setError('') }}><strong>Reach {index + 1}</strong><span>{bankReachLabel(reach)}</span><small>Length {n3(reach.to - reach.from)} m</small><small>{getReachBadgeText({ ...defaultCanalTierFoundationConfig(), ...reach.treatment })}</small></button><div className="canal-protection-choices"><button type="button" onClick={() => { setSelectedId(reach.id); setEditing({ id: reach.id, from: String(reach.from), to: String(reach.to), original: reach }); setError('') }}>Edit reach</button><button type="button" onClick={() => { onCommit(current => removeCanalManualDrainageReach(current, side, reach.id)); setEditing(null); setError('') }}>Remove reach</button></div></div>)}</div>
-      {editing && <div className="canal-earthwork-card"><h3>{editing.original ? 'Edit drainage reach' : 'Create drainage reach'}</h3><div className="canal-bank-grid"><label className="canal-bank-field"><span>From Ch (m)</span><input type="number" min="0" max={data.lengthM} step="1" value={editing.from} onChange={e => setEditing({ ...editing, from: e.target.value })}/></label><label className="canal-bank-field"><span>To Ch (m)</span><input type="number" min="0" max={data.lengthM} step="1" value={editing.to} onChange={e => setEditing({ ...editing, to: e.target.value })}/></label></div><p>Choose the works below, then save this reach.</p></div>}
-      {error && <p role="alert" className="canal-protection-pending">{error}</p>}
-      {(editing || selectedManual) ? <ReachDrainageEditor key={`manual:${side}:${editing ? `edit-${editing.id}` : selectedManual?.id}`} data={data} activeSide={side} title={editing ? editing.original ? 'Edit reach drainage & filters' : 'New reach drainage & filters' : bankReachLabel(selectedManual!)} ranges={editorRanges} saved={{ ...defaultCanalTierFoundationConfig(), ...(editing ? editing.original?.treatment : selectedManual?.treatment) }} startEditing={!!editing} onSave={saveManual} onCancel={() => { setEditing(null); setError('') }} projectItems={projectItems} grandToeSummary={grandToeSummary}/> : <p className="canal-protection-pending">Create a drainage reach to configure its sand blanket and filters.</p>}
+      <div className="canal-drainage-reach-toolbar"><strong>{manual.length} manual Bank Design {manual.length === 1 ? 'reach' : 'reaches'}</strong><span>Chainages are managed in Bank Design.</span></div>
+      <div className="canal-protection-reach-cards" aria-label="Manual drainage reaches">{manual.map((reach, index) => <button key={reach.id} type="button" className={`canal-tier-bracket-chip ${selectedManual?.id === reach.id ? 'selected' : ''}`} aria-pressed={selectedManual?.id === reach.id} onClick={() => setSelectedId(reach.id)}><strong>Reach {index + 1}</strong><span>{bankReachLabel(reach)}</span><small>Length {n3(reach.to - reach.from)} m</small><small>{getReachBadgeText({ ...defaultCanalTierFoundationConfig(), ...reach.treatment })}</small></button>)}</div>
+      {selectedManual ? <ReachDrainageEditor key={`manual:${config?.linkSymmetrical}:${side}:${selectedManual.id}:${selectedManual.from}:${selectedManual.to}`} data={data} activeSide={side} title={bankReachLabel(selectedManual)} ranges={editorRanges} saved={{ ...defaultCanalTierFoundationConfig(), ...selectedManual.treatment }} buildPreview={patch => saveCanalBankDrainageReach(data, side, selectedManual.id, patch)} onSave={patch => { onCommit(current => saveCanalBankDrainageReach(current, side, selectedManual.id, patch)); return true }} projectItems={projectItems} grandToeSummary={grandToeSummary}/> : <p className="canal-protection-pending">Create manual reaches in Bank Design to configure their sand blankets and filters here.</p>}
     </>}
   </section>
 }

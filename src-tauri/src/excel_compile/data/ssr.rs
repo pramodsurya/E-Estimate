@@ -10,6 +10,7 @@ pub(super) fn write_ssr_sheet(
     lead_rate_refs: &HashMap<String, String>,
     require_lead_refs: bool,
     morth: bool,
+    individual_refs: &HashMap<String,String>,
 ) -> Result<HashMap<String, String>, XlsxError> {
     let mut data_rate_refs = HashMap::new();
     let sheet_name=if morth {"MoRTH Items"} else {"SSR Items"};
@@ -78,6 +79,8 @@ pub(super) fn write_ssr_sheet(
             item_data.excel_key.clone()
         };
         let mut adopted_rate_row: Option<u32> = None;
+        let mut base_rate_row: Option<u32> = None;
+        let mut item_lead_formula = "0".to_string();
         let default_totals = Totals::default();
         let totals = item_data.totals.as_ref().unwrap_or(&default_totals);
         let item_desc = item_data.description.as_deref().unwrap_or("");
@@ -209,6 +212,7 @@ pub(super) fn write_ssr_sheet(
         ws_ssr.write_string_with_format(r, 6, item_unit, &bar_left)?;
         r += 1;
 
+        let mut section_refs: HashMap<String,String> = HashMap::new();
         // Render cost tables (A. Materials, B. Machinery, C. Labour)
         let cost_sections = [
             (
@@ -279,6 +283,7 @@ pub(super) fn write_ssr_sheet(
             }];
             let effective_lines = if lines.is_empty() { &empty_vec } else { lines };
 
+            let section_first = r;
             for (idx, line) in effective_lines.iter().enumerate() {
                 let is_last = idx == effective_lines.len() - 1;
                 // Description sits in col C (42.71 chars), wrapped.
@@ -354,6 +359,11 @@ pub(super) fn write_ssr_sheet(
                     amt_fmt = amt_fmt.set_border_bottom(FormatBorder::Thin);
                 }
 
+                let prefixes: &[&str] = match letter {"A"=>&["MAT","MATERIAL"],"B"=>&["MAC","MACHINERY"],_=>&["LAB","LABOUR","LABOR"]};
+                for prefix in prefixes {
+                    section_refs.insert(format!("{prefix}{}",idx+1),format!("G{}",r+1));
+                    section_refs.insert(format!("{prefix}{}_RATE",idx+1),format!("F{}",r+1));
+                }
                 let sl_str = val_to_string(&line.sl);
                 ws_ssr.write_string_with_format(r, 1, &sl_str, &sl_fmt)?;
 
@@ -367,10 +377,14 @@ pub(super) fn write_ssr_sheet(
                 ws_ssr.write_number_with_format(r, 4, qty_val, &qty_fmt)?;
 
                 let rate_val = val_to_f64(&line.rate);
-                ws_ssr.write_number_with_format(r, 5, rate_val, &rate_fmt)?;
+                if let Some(formula) = super::individual::rate_formula(line, individual_refs)? {
+                    ws_ssr.write_formula_with_format(r,5,rust_xlsxwriter::Formula::new(formula).set_result(rate_val.to_string()),&rate_fmt)?;
+                } else { ws_ssr.write_number_with_format(r, 5, rate_val, &rate_fmt)?; }
 
                 let amt_val = val_to_f64(&line.amount);
-                ws_ssr.write_number_with_format(r, 6, amt_val, &amt_fmt)?;
+                if !individual_refs.is_empty() && !line.amount_fixed && qty_val != 0.0 {
+                    ws_ssr.write_formula_with_format(r,6,rust_xlsxwriter::Formula::new(format!("=IF(AND(E{}={},F{}={}),{},ROUND(E{}*F{},2))",r+1,qty_val,r+1,rate_val,amt_val,r+1,r+1)).set_result(amt_val.to_string()),&amt_fmt)?;
+                } else { ws_ssr.write_number_with_format(r, 6, amt_val, &amt_fmt)?; }
 
                 r += 1;
             }
@@ -396,7 +410,13 @@ pub(super) fn write_ssr_sheet(
                 .set_border_right(FormatBorder::Thin);
             ws_ssr.write_string_with_format(r, 5, "Rs:", &sub_rs_fmt)?;
 
-            ws_ssr.write_number_with_format(r, 6, subtotal_val, &border_box_bold_right_num)?;
+            if !individual_refs.is_empty() {
+                let changed_formula=section_resource_formula(letter, effective_lines, section_first, &item_data.section_rules);
+                let unchanged=effective_lines.iter().enumerate().map(|(index,line)|format!("G{}={}",section_first+index as u32+1,val_to_f64(&line.amount))).collect::<Vec<_>>().join(",");
+                let formula=format!("=IF(AND({unchanged}),{subtotal_val},{})",changed_formula.trim_start_matches('='));
+                ws_ssr.write_formula_with_format(r,6,rust_xlsxwriter::Formula::new(formula).set_result(subtotal_val.to_string()),&border_box_bold_right_num)?;
+            } else { ws_ssr.write_number_with_format(r, 6, subtotal_val, &border_box_bold_right_num)?; }
+            section_refs.insert(letter.to_string(),format!("G{}",r+1));
             r += 1;
 
             // Blank line
@@ -439,7 +459,10 @@ pub(super) fn write_ssr_sheet(
                     }
                     if let Ok(num_val) = parse_amount_val(&lr.amount) {
                         v_fmt = v_fmt.set_num_format("0.00");
-                        ws_ssr.write_number_with_format(r, 4, num_val, &v_fmt)?;
+                        if !individual_refs.is_empty() && lr.excel_formula.is_some() {
+                            let formula=resolve_resource_expression(lr.excel_formula.as_deref().unwrap(),&section_refs,&output_qty_cell);
+                            ws_ssr.write_formula_with_format(r,4,rust_xlsxwriter::Formula::new(formula).set_result(num_val.to_string()),&v_fmt)?;
+                        } else { ws_ssr.write_number_with_format(r, 4, num_val, &v_fmt)?; }
                     } else {
                         let s_val = val_to_string(&Some(lr.amount.clone()));
                         ws_ssr.write_string_with_format(r, 4, &s_val, &v_fmt)?;
@@ -557,12 +580,16 @@ pub(super) fn write_ssr_sheet(
 
                     if let Ok(num_val) = parse_amount_val(&ar.amount) {
                         v_fmt = v_fmt.set_num_format("0.00");
-                        ws_ssr.write_number_with_format(r, 6, num_val, &v_fmt)?;
+                        if !individual_refs.is_empty() && ar.excel_formula.is_some() {
+                            let formula=resolve_resource_expression(ar.excel_formula.as_deref().unwrap(),&section_refs,&output_qty_cell);
+                            ws_ssr.write_formula_with_format(r,6,rust_xlsxwriter::Formula::new(formula).set_result(num_val.to_string()),&v_fmt)?;
+                        } else { ws_ssr.write_number_with_format(r, 6, num_val, &v_fmt)?; }
                     } else {
                         let s_val = val_to_string(&Some(ar.amount.clone()));
                         ws_ssr.write_string_with_format(r, 6, &s_val, &v_fmt)?;
                     }
                     if ar.is_rate.unwrap_or(false) {
+                        base_rate_row = Some(r);
                         adopted_rate_row = Some(r);
                     }
                     r += 1;
@@ -836,6 +863,7 @@ pub(super) fn write_ssr_sheet(
                         ),
                     ];
 
+                    item_lead_formula = if lead_amount_cells.is_empty() {"0".into()} else {format!("SUM({})",lead_amount_cells.join(","))};
                     let base_total_row = r;
                     for (lt_index, (lt_label, lt_val_text, highlight)) in
                         lead_totals.into_iter().enumerate()
@@ -874,7 +902,11 @@ pub(super) fn write_ssr_sheet(
                         }
 
                         val_fmt = val_fmt.set_num_format("0.00");
-                        if has_live_lead && lt_index > 0 {
+                        if !individual_refs.is_empty() && lt_index == 0 && adopted_rate_row.is_some() {
+                            let formula=format!("=G{}*{}",adopted_rate_row.unwrap()+1,output_qty_cell);
+                            let value=lt_val_text.replace(',', "").parse::<f64>().unwrap_or(0.0);
+                            ws_ssr.write_formula_with_format(r,6,rust_xlsxwriter::Formula::new(formula).set_result(value.to_string()),&val_fmt)?;
+                        } else if (has_live_lead || !individual_refs.is_empty()) && lt_index > 0 {
                             let formula = match lt_index {
                                 1 => format!("=SUM({})", lead_amount_cells.join(",")),
                                 2 => format!("=G{}+G{}", base_total_row + 1, base_total_row + 2),
@@ -941,7 +973,7 @@ pub(super) fn write_ssr_sheet(
                 ("Adopted rate", &adopted_val_str, true),
             ];
 
-            for (at_label, at_val, highlight) in addon_totals {
+            for (addon_index, (at_label, at_val, highlight)) in addon_totals.into_iter().enumerate() {
                 ws_ssr.set_row_height(r, 15.0)?;
                 let mut label_fmt = Format::new()
                     .set_font_name("Trebuchet MS")
@@ -981,7 +1013,13 @@ pub(super) fn write_ssr_sheet(
                     .collect();
                 if let Ok(num_val) = cleaned.parse::<f64>() {
                     val_fmt = val_fmt.set_num_format("0.00");
-                    ws_ssr.write_number_with_format(r, 6, num_val, &val_fmt)?;
+                    if !individual_refs.is_empty() && !item_data.live_addition.is_empty() && base_rate_row.is_some() {
+                        let cost=addition_cost_expression(item_data,individual_refs)?;
+                        let addon_rate=format!("ROUND(({cost})/{},2)",item_data.live_addition_output.filter(|q|*q!=0.0).unwrap_or(1.0));
+                        let base=format!("G{}",base_rate_row.unwrap()+1);
+                        let expression=match addon_index {0=>cost,1=>base.clone(),2=>addon_rate.clone(),_=>format!("ROUND({base}+{addon_rate},2)")};
+                        ws_ssr.write_formula_with_format(r,6,rust_xlsxwriter::Formula::new(format!("={expression}")).set_result(num_val.to_string()),&val_fmt)?;
+                    } else { ws_ssr.write_number_with_format(r, 6, num_val, &val_fmt)?; }
                 } else {
                     ws_ssr.write_string_with_format(r, 6, at_val, &val_fmt)?;
                 }
@@ -1090,6 +1128,27 @@ pub(super) fn write_ssr_sheet(
             }
         }
 
+        if !individual_refs.is_empty() && (!item_data.live_addition.is_empty() || item_data.live_multiplier.is_some() || item_data.live_steps.is_some()) {
+            if let Some(base_row)=base_rate_row {
+                let mut expression=format!("G{}*{}",base_row+1,output_qty_cell);
+                if !item_data.live_addition.is_empty() {
+                    let addon=addition_cost_expression(item_data,individual_refs)?;
+                    expression=format!("ROUND(({expression})+({addon})*{}/{},2)",output_qty_cell,item_data.live_addition_output.filter(|q|*q!=0.0).unwrap_or(1.0));
+                }
+                if let Some(steps)=item_data.live_steps {
+                    expression=format!("ROUND(({expression})/{output_qty_cell},2)");
+                    for _ in 0..steps {expression=format!("ROUND(({expression})+ROUND(({expression})*{}/100,2),2)",item_data.live_step_percent.unwrap_or(0.0));}
+                } else {
+                    if let Some(multiplier)=item_data.live_multiplier {expression=format!("ROUND(({expression})*{multiplier},2)");}
+                    expression=format!("ROUND(({expression})/{output_qty_cell},2)");
+                }
+                let formula=format!("=ROUND(({expression})+({item_lead_formula})/{output_qty_cell},2)");
+                let target=adopted_rate_row.filter(|row|*row!=base_row).unwrap_or(r);
+                if target==r { ws_ssr.merge_range(r,1,r,5,"Adopted rate",&border_box_bold_center)?;r+=1; }
+                ws_ssr.write_formula_with_format(target,6,rust_xlsxwriter::Formula::new(formula).set_result(format!("{:.2}",totals.rate_per_unit.unwrap_or(0.0))),&border_box_bold_right_num)?;
+                adopted_rate_row=Some(target);
+            }
+        }
         if let Some(rate_row) = adopted_rate_row {
             data_rate_refs.insert(data_key, format!("'{}'!$G${}", sheet_name, rate_row + 1));
         }
@@ -1337,4 +1396,46 @@ fn render_default_abstract(
     *r += 1;
 
     Ok(())
+}
+
+fn resolve_resource_expression(expression: &str, sections: &HashMap<String,String>, quantity: &str) -> String {
+    let mut result=expression.to_string();
+    for (token,section) in [("{M}","A"),("{H}","B"),("{L}","C")] {
+        result=result.replace(token,sections.get(section).map(String::as_str).unwrap_or("0"));
+    }
+    for (key,value) in sections { result=result.replace(&format!("{{{key}}}"),value); }
+    format!("={}",result.replace("{Q}",quantity))
+}
+
+fn section_resource_formula(letter: &str, lines: &[CostTableLine], first: u32, rules: &[serde_json::Value]) -> String {
+    let section=match letter {"A"=>"materials","B"=>"machinery",_=>"labour"};
+    let mut groups: std::collections::BTreeMap<String,Vec<String>>=std::collections::BTreeMap::new();
+    for (index,line) in lines.iter().enumerate() { groups.entry(line.group_id.clone().unwrap_or_else(||format!("{section}_1"))).or_default().push(format!("G{}",first+index as u32+1)); }
+    let mut terms=Vec::new();
+    for (id,cells) in groups {
+        let mut group=format!("ROUND(SUM({}),2)",cells.join(","));
+        let matching: Vec<_>=rules.iter().filter(|rule|rule["section"]==section && rule["groupId"]==id).collect();
+        if let Some(factor)=matching.iter().find_map(|rule|rule["factor"].as_f64()) {group=format!("ROUND(({group})*{factor},2)");}
+        for rule in matching.iter().filter(|rule|rule["kind"]=="percentage_addition") {
+            let percent=rule["percent"].as_f64().unwrap_or(0.0);
+            group=format!("ROUND(({group})+ROUND(({group})*{percent}/100,2),2)");
+        }
+        terms.push(group);
+    }
+    format!("=ROUND(SUM({}),2)",terms.join(","))
+}
+
+fn addition_cost_expression(item: &ExcelRecipe, refs: &HashMap<String,String>) -> Result<String,XlsxError> {
+    let mut ordinary=Vec::new();let mut labour=Vec::new();
+    for line in &item.live_addition {
+        let reference=super::individual::rate_formula(line,refs)?.unwrap_or_else(||format!("={}",val_to_f64(&line.rate)));
+        let term=format!("ROUND({}*({}),2)",val_to_f64(&line.quantity),reference.trim_start_matches('='));
+        if line.kind=="labour" {labour.push(term);} else {ordinary.push(term);}
+    }
+    if !labour.is_empty() {
+        let cost=format!("ROUND(SUM({}),2)",labour.join(","));
+        ordinary.push(format!("({cost}+ROUND(({cost})*{}/100,2))",item.live_addition_allowance.unwrap_or(0.0)));
+    }
+    let subtotal=format!("ROUND(SUM({}),2)",ordinary.join(","));
+    Ok(format!("ROUND({subtotal}+ROUND(({subtotal})*{}/100,2),2)",item.live_addition_overhead.unwrap_or(0.0)))
 }

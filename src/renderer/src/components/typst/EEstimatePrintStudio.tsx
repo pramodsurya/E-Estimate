@@ -224,6 +224,7 @@ function studioContextLabel(scopeKey: string | undefined, title: string, subtitl
   if (scopeKey === 'lead-statement') return 'Lead'
   if (scopeKey === 'seigniorage-statement') return 'Seigniorage'
   if (scopeKey === 'data-dashboard') return 'DATA'
+  if (scopeKey === 'individual-items') return 'Individual Items'
   if (scopeKey === 'front-cover' || scopeKey?.startsWith('component-') || scopeKey?.startsWith('item-sheet-')) {
     return subtitle || title
   }

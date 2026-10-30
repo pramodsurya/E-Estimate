@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Check, ChevronRight, Plus, Search } from "lucide-react";
 import { costRpc } from "../../lib/individualCosts";
 import type { MasterItem } from "../../lib/masterData";
+import { readCatalogueGuidance, type CatalogueGuidance } from "../../lib/catalogueGuidance";
+import SsrCode from "../templates/SsrCode";
+import CatalogueItemDetails from "../templates/CatalogueItemDetails";
+import CatalogueChoiceText from "../templates/CatalogueChoiceText";
+import CatalogueComparison, { CatalogueCompareToggle, useCatalogueComparison } from "../templates/CatalogueComparison";
 import "./morth.css";
 interface Entry {
   key?: string;
@@ -9,8 +14,10 @@ interface Entry {
   count?: number;
   code?: string;
   description?: string;
+  guidance?: CatalogueGuidance;
   unit?: string;
   printedItem?: string;
+  heading?: string;
   category?: string;
   sourceCodes?: Record<string, string>;
   variant?: string;
@@ -29,6 +36,7 @@ export default function MorthPicker({
   selected?: Map<string, MasterItem>;
   initial?: MasterItem;
 }): JSX.Element {
+  const comparison = useCatalogueComparison();
   const [path, setPath] = useState<Record<string, string>>({}),
     [query, setQuery] = useState(""),
     [search, setSearch] = useState(""),
@@ -93,6 +101,7 @@ export default function MorthPicker({
       category: "morth",
       code: codes[chosen] ?? entry.code!,
       description: entry.description ?? "",
+      guidance: readCatalogueGuidance(entry.guidance),
       unit: entry.unit ?? null,
       morth: {
         category,
@@ -160,8 +169,9 @@ export default function MorthPicker({
         </button>
       )}
       {error && <p role="alert">{error}</p>}
+      <CatalogueComparison comparison={comparison} />
       <div aria-busy={loading} className="morth-rows">
-        {page?.rows.map((entry, i) => {
+        {page?.rows.map((entry) => {
           if (page.level !== "item")
             return (
               <button
@@ -179,12 +189,15 @@ export default function MorthPicker({
           const added = Array.from(selected?.values() ?? []).some(
             (x) => x.side === "MORTH" && x.code === code,
           );
+          const item = { code, description: entry.description ?? "", unit: entry.unit, guidance: readCatalogueGuidance(entry.guidance) };
           return (
-            <div className="morth-item" key={`${entry.code}:${i}`}>
+            <div className="morth-item catalogue-choice-row" key={code}>
               <div>
-                <strong>{entry.description}</strong>
+                <SsrCode code={code} description={item.description} guidance={item.guidance} className="catalogue-choice-code" strong={false} />
+                <CatalogueChoiceText item={item} />
+                {search && entry.heading && <small className="catalogue-choice-context">{entry.heading}</small>}
+                <div className="catalogue-choice-tools">
                 <small>
-                  {entry.printedItem ? `Item ${entry.printedItem} · ` : ""}
                   {entry.unit}
                   {entry.category &&
                   entry.category !== "shared" &&
@@ -192,6 +205,9 @@ export default function MorthPicker({
                     ? ` · ${entry.category}`
                     : ""}
                 </small>
+                <CatalogueCompareToggle item={item} comparison={comparison} />
+                <CatalogueItemDetails item={item} />
+                </div>
               </div>
               <button
                 className="item-add-btn"

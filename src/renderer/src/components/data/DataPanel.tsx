@@ -135,7 +135,9 @@ export default function DataPanel(): JSX.Element | null {
                           ? 'var(--item-sor)'
                           : group.source === 'SSR'
                             ? 'var(--item-ssr)'
-                            : 'var(--text-dim)'
+                            : group.source === 'MORTH'
+                              ? 'var(--item-morth)'
+                              : 'var(--text-dim)'
                       }
                     />
                     <span className="data-item-code">{group.displayName}</span>

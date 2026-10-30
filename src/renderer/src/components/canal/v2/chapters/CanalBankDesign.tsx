@@ -12,7 +12,6 @@ import type {
   CanalBankDesignConfig
 } from '../../../../types/project'
 import type {
-  CanalEmbankmentCalculationResponse,
   CanalEmbankmentInput
 } from '../../../../types/eestimateApi'
 import CanalSectionDiagram from '../../CanalSectionDiagram'
@@ -23,6 +22,8 @@ import CanalTierHeightEditor from './CanalTierHeightEditor'
 import CanalBankMaterialEditor from './CanalBankMaterialEditor'
 import { saveCanalBankTierHeightRange } from '../../../../lib/canalBankTiers'
 import { switchCanalBankDesignMode } from '../../../../lib/canalManualBankReaches'
+import { buildCanalBankExportInput } from '../../../../lib/canalBankExport'
+import { canalBankReachSummary } from '../../../../lib/canalBankSection'
 import { formatCanalReachChainage } from '../../../../lib/canalTierReaches'
 import {
   canalBankRepairItems,
@@ -125,7 +126,7 @@ export default function CanalBankDesign({
   const [manualDraft, setManualDraft] = useState<CanalManualReachDraft | null>(null)
 
   // Rust Embankment Engine State & Export
-  const [calcResult, setCalcResult] = useState<CanalEmbankmentCalculationResponse | null>(null)
+  const [calcResult, setCalcResult] = useState<ReturnType<typeof canalBankReachSummary> | null>(null)
   const [isCalculating, setIsCalculating] = useState<boolean>(false)
   const [isExporting, setIsExporting] = useState<boolean>(false)
   const [exportNotice, setExportNotice] = useState<string | null>(null)
@@ -218,6 +219,7 @@ export default function CanalBankDesign({
           id: `berm-${Date.now()}-1`,
           dropHeight: 3.0,
           shelfWidth: 2.0,
+          clearance: 2,
           slopeAfterBerm: 2.0
         }
       ],
@@ -259,6 +261,7 @@ export default function CanalBankDesign({
       id: `tier-berm-${Date.now()}`,
       dropHeight: 3.0,
       shelfWidth: 2.0,
+      clearance: 2,
       slopeAfterBerm: lastBerm ? Math.min(3.0, lastBerm.slopeAfterBerm + 0.5) : Math.min(3.0, tier.baseSlope + 0.5)
     }
     patchTier(tierId, { berms: [...berms, newBerm] })
@@ -306,6 +309,7 @@ export default function CanalBankDesign({
           id: b.id,
           dropHeight: b.dropHeight,
           shelfWidth: b.shelfWidth,
+          clearance: b.clearance ?? 2,
           slopeAfterBerm: b.slopeAfterBerm,
         })),
         heartingTopWidth: t.heartingTopWidth ?? design.heartingTopWidth,
@@ -324,6 +328,7 @@ export default function CanalBankDesign({
           id: b.id,
           dropHeight: b.dropHeight,
           shelfWidth: b.shelfWidth,
+          clearance: b.clearance ?? 2,
           slopeAfterBerm: b.slopeAfterBerm,
         })),
         heartingTopWidth: t.heartingTopWidth ?? design.heartingTopWidth,
@@ -377,16 +382,15 @@ export default function CanalBankDesign({
         }
       }),
     }
-  }, [design, bankConfig, data.excavationBands, sections])
+  }, [design, bankConfig, data.excavationBands, data.strippingDepth, sections])
 
   // Execute Rust Calculation
-  const runRustCalculation = useCallback(async () => {
-    if (!window.api?.canal?.calculateEmbankment) return
+  const runRustCalculation = useCallback(() => {
     setIsCalculating(true)
     setCalcError(null)
+    setCalcResult(null)
     try {
-      const payload = buildPayload()
-      const response = await window.api.canal.calculateEmbankment(payload)
+      const response = canalBankReachSummary(data)
       setCalcResult(response)
     } catch (err: unknown) {
       console.error('Rust Canal Embankment calculation error:', err)
@@ -394,10 +398,11 @@ export default function CanalBankDesign({
     } finally {
       setIsCalculating(false)
     }
-  }, [buildPayload])
+  }, [data])
 
   useEffect(() => {
-    void runRustCalculation()
+    const timer = window.setTimeout(() => { void runRustCalculation() }, 0)
+    return () => window.clearTimeout(timer)
   }, [runRustCalculation])
 
   // Handle Excel Export with Native File Selector Dialog
@@ -407,6 +412,7 @@ export default function CanalBankDesign({
     setExportNotice(null)
     try {
       const payload = buildPayload()
+      payload.bankSchedule = buildCanalBankExportInput(data)
       const res = await window.api.canal.exportEmbankmentExcel(payload, true)
       if (res.ok && res.filePath) {
         if (typeof window.api.export?.workbook === 'function') {
@@ -435,7 +441,7 @@ export default function CanalBankDesign({
     }
   }
 
-  // Derive bankVolumes directly from Rust calcResult (zero React calculation freezing)
+  // Bank volumes come from the shared Rust section result.
   const bankVolumes = useMemo(() => {
     if (!calcResult) {
       return { homogeneous: 0, hearting: 0, casing: 0, totalFill: 0 }
@@ -480,7 +486,8 @@ export default function CanalBankDesign({
           id: `bank-berm-${newId()}`,
           face,
           heightAboveBed: Math.min(design.fullSupplyDepth, Math.max(0.1, design.fullSupplyDepth + design.freeBoard - 0.1)),
-          width: 3
+          width: 3,
+          clearance: 2
         }
       ]
     })
@@ -557,7 +564,7 @@ export default function CanalBankDesign({
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
             <FileSpreadsheet size={15} />
-            <span>{isExporting ? 'Exporting...' : 'Export Embankment (.xlsx)'}</span>
+            <span>{isExporting ? 'Exporting...' : 'Export Bank Quantities (.xlsx)'}</span>
           </button>
         </div>
       </header>
@@ -873,7 +880,7 @@ export default function CanalBankDesign({
                         <span>
                           Outer Berm Shelves ({bermsList.length})
                           <small style={{ color: 'var(--text-dim)', fontWeight: 'normal' }}>
-                            Vertical drop before shelf &amp; subsequent slope
+                            Shelves are omitted where the remaining height above natural ground is less than their clearance.
                           </small>
                         </span>
                         <button type="button" className="btn ghost" onClick={() => addBermToTier(tier.id)}>
@@ -907,6 +914,14 @@ export default function CanalBankDesign({
                                 onChange={(v) => patchBermInTier(tier.id, step.id, { shelfWidth: Math.max(0.5, v) })}
                               />
                               <NumberField
+                                label="Clearance"
+                                unit="m"
+                                value={step.clearance ?? 2}
+                                min={0}
+                                step={0.5}
+                                onChange={(clearance) => patchBermInTier(tier.id, step.id, { clearance: Math.max(0, clearance) })}
+                              />
+                              <NumberField
                                 label="Slope After Berm"
                                 unit="H : 1V"
                                 value={step.slopeAfterBerm}
@@ -936,7 +951,7 @@ export default function CanalBankDesign({
                           <span key={b.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                             <span className="canal-tier-flow-arrow">➔</span>
                             <span className="canal-tier-flow-node berm">
-                              Berm #{i + 1} (Drop {b.dropHeight}m · Shelf {b.shelfWidth}m)
+                              Berm #{i + 1} (Drop {b.dropHeight}m · Shelf {b.shelfWidth}m · Clearance {b.clearance ?? 2}m)
                             </span>
                             <span className="canal-tier-flow-arrow">➔</span>
                             <span className="canal-tier-flow-node">Slope {b.slopeAfterBerm} : 1</span>
@@ -1073,6 +1088,7 @@ export default function CanalBankDesign({
                             <strong>Berm {index + 1}</strong>
                             <NumberField label="Height above bed" unit="m" value={berm.heightAboveBed} onChange={(heightAboveBed) => patchBerm(berm.id, { heightAboveBed: Math.max(0, heightAboveBed) })} />
                             <NumberField label="Width" unit="m" value={berm.width} onChange={(width) => patchBerm(berm.id, { width: Math.max(0, width) })} />
+                            <NumberField label="Clearance" unit="m" value={berm.clearance ?? 2} onChange={(clearance) => patchBerm(berm.id, { clearance: Math.max(0, clearance) })} />
                             <button type="button" className="canal-earthwork-remove" aria-label={`Remove ${title}`} onClick={() => removeBerm(berm.id)}>
                               <Trash2 size={14} />
                             </button>
@@ -1172,7 +1188,7 @@ export default function CanalBankDesign({
         <div className="canal-cross-panel-title">
           Abstract of Embankment Reaches
           <small>
-            Contiguous canal reaches classified into bund height tiers and pure cutting stretches (zero embankment)
+            Saved reach assignments measured from the same section geometry and quantities used by Excel
           </small>
         </div>
 

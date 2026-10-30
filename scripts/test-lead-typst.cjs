@@ -393,3 +393,14 @@ const advancedPdf = compiler.pdf({
 })
 assert(advancedPdf && advancedPdf.length > 50000, 'PDF with Avg Lead and Weighted Lead compiled successfully')
 console.log(`Avg Lead and Weighted Lead Typst compilation: SUCCESS (${advancedPdf.length} bytes PDF)`)
+
+const nativeRouteBreakdown=engine.calculateLeadVariantChargeFromRows([], {year:'2025-26',conveyanceClass:'STEEL',materialName:'Concrete delivery',distanceKm:10,quantity:1})
+const nativeRouteEntry={...fullEntry,materialName:'Concrete delivery',conveyanceClass:'STEEL',rateSource:'morth_transport',leadKm:10,liftM:0,variantRate:0,rateUnit:'km',chargeBreakdown:nativeRouteBreakdown,breakdown:nativeRouteBreakdown.calculation.rows}
+const routeRender=buildLeadRenderData(project,[nativeRouteEntry])
+assert.equal(routeRender.rows[0].rate,'Calculated in MoRTH DATA')
+assert.equal(routeRender.breakdowns[0].native_transport,true)
+assert.equal(routeRender.breakdowns[0].calculation,null,'Route statement does not print a fictitious tariff calculation')
+const routeSvg=compiler.svg({mainFileContent:resolvedLeadTypstSource(project,[nativeRouteEntry]),inputs:leadCompileInputs(project,[nativeRouteEntry])}).replace(/<[^>]*>/g,'')
+assert.ok(routeSvg.includes('Calculated in MoRTH DATA'))
+assert.ok(routeSvg.includes('In DATA machinery'))
+console.log('Native MoRTH route statement: distance and DATA-owned transport cost passed')

@@ -12,7 +12,7 @@ import { UniverSheetsDrawingPreset } from '@univerjs/preset-sheets-drawing'
 import enUS from '@univerjs/preset-sheets-core/locales/en-US'
 import drawingEnUS from '@univerjs/preset-sheets-drawing/locales/en-US'
 import { BarChart3, Hash, Table2, Crop, FileCode, Plus, X } from 'lucide-react'
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   SPECIMEN_SHEET_RANGE,
   SPECIMEN_SHEET_ROWS,
@@ -58,7 +58,6 @@ import {
 } from '../../lib/finalNumber'
 import type { CellRange, ChartDef, ProjectNode } from '../../types/project'
 import { nodeDisplayName } from '../nodeVisual'
-import EEstimatePrintStudio from '../typst/EEstimatePrintStudio'
 import { exportItemNodeExcel } from '../../lib/excel-output/pageExcel'
 import {
   buildItemSheetRenderData,
@@ -85,6 +84,8 @@ import {
 import { registerChartRibbonMenu } from '../charts/chartRibbonMenu'
 
 type UniverSheetsApi = FUniver & IFUniverSheetsMixin
+
+const EEstimatePrintStudio = lazy(() => import('../typst/EEstimatePrintStudio'))
 
 const CHART_COMPONENT_KEY = 'eestimate-chart'
 
@@ -582,7 +583,7 @@ export default function UniverSpreadsheet({ node, focusedItemId }: { node: Proje
       : undefined
 
   const printRange = printSource.print?.range ?? null
-  const color = focusNode.itemSource === 'SOR' ? 'var(--item-sor)' : 'var(--item-ssr)'
+  const color = focusNode.itemSource === 'MORTH' ? 'var(--item-morth)' : focusNode.itemSource === 'SOR' ? 'var(--item-sor)' : 'var(--item-ssr)'
   const subtitle = (`${focusNode.itemSource ?? ''}${focusNode.unit ? ` - unit ${focusNode.unit}` : ''}`.trim() ||
       'Spreadsheet')
 
@@ -1328,6 +1329,7 @@ export default function UniverSpreadsheet({ node, focusedItemId }: { node: Proje
       </div>
 
       {printStudioOpen && project && itemPrintStudio ? (
+        <Suspense fallback={<div className="workarea-loading">Loading print studio...</div>}>
         <EEstimatePrintStudio
           scopeKey={itemSheetScopeKey(node)}
           key={itemSheetScopeKey(node)}
@@ -1349,6 +1351,7 @@ export default function UniverSpreadsheet({ node, focusedItemId }: { node: Proje
           }}
           onClose={() => setPrintStudioOpen(false)}
         />
+        </Suspense>
       ) : null}
 
       {chartModal ? (

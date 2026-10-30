@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { SorRequestCache } from "./sorCache";
+import { sorItemDescription } from "./sorPresentation";
 import { SorTreeIndex, type SorNavigationPath } from "./sorTree";
 import type { MasterItem } from "./masterData";
 import type { ConveyanceClass } from "../types/project";
@@ -16,6 +17,22 @@ import type {
   SorZone,
 } from "../types/sor";
 export const SOR_CATEGORY = "SOR_Recipie";
+/** Exact retired road references, for display and opening the current picker only.
+ * A current quote/configuration is saved only after the user chooses Apply.
+ */
+export function sorTemplateCode(code: string): string | undefined {
+  const value = code.trim();
+  if (/^SOR-/i.test(value)) return value;
+  switch (value) {
+    case "RB_WORK_6411571526E0":
+    case "RB Road Work 1(i)(b)":
+      return "SOR-P02-T03-R0118";
+    case "RB Road Work 8(a) — select/enter catalogue item":
+      return "SOR-P02-T03-R0138";
+    default:
+      return undefined;
+  }
+}
 const browserCache = new SorRequestCache(80);
 const detailCache = new SorRequestCache(128);
 const treeCache = new SorRequestCache(4);
@@ -178,7 +195,7 @@ export function sorPublishedCode(
     ? value
     : undefined;
 }
-export function sorReference(selection: SorItemSelection): string {
+export function sorReference(selection: Pick<SorItemSelection, "annual" | "recipe" | "year">): string {
   return [
     sorPublishedCode(selection.annual.item_code) ??
       `SOR · Part ${selection.recipe.part_no}`,
@@ -229,9 +246,7 @@ export function sorMasterItem(selection: SorItemSelection): MasterItem {
     side: "SOR",
     category: SOR_CATEGORY,
     code: selection.recipeCode,
-    description:
-      selection.annual.to_be_printed?.description ??
-      selection.recipe.description,
+    description: sorItemDescription(selection.annual, selection.recipe),
     unit: selection.quote.unit,
     sorCatalogue: selection,
     lead: {

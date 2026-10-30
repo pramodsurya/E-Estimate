@@ -5,6 +5,10 @@ use super::*;
 
 #[derive(Debug, Deserialize, Default)]
 pub struct ExcelCompileRequest {
+    #[serde(default, alias = "individualItems")]
+    pub individual_items: Vec<IndividualItemRow>,
+    #[serde(default, alias = "individualOnly")]
+    pub individual_only: bool,
     #[serde(default, alias = "projectName")]
     pub project_name: Option<String>,
     #[serde(default, alias = "sorYear")]

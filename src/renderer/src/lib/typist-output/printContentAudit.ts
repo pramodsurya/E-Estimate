@@ -63,7 +63,9 @@ export function preparePrintAudit(inputs: Record<string, string> = {}) {
     try { data = JSON.parse(json) } catch { continue }
     if (!object(data)) continue
     const p = inputKey
-    if (data.schedules && data.payable_by_code) {
+    if (data.individual_items) {
+      collection(data, 'individual_items', p, 'Individual resource')
+    } else if (data.schedules && data.payable_by_code) {
       collection(data, 'sections', p, `${data.component_name}: cross-section`)
       for (const key of ['payable_by_code', 'excavation_by_code']) {
         collection(data, key, p, `${data.component_name}: payable work`, (r, rp) =>

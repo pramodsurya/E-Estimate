@@ -517,13 +517,13 @@ export default function LeadDashboard(): JSX.Element | null {
                       )}
                     </span>
                     <span className="lcol-route">{route}</span>
-                    <span className="lcol-cls">{entry.conveyanceClass}</span>
+                    <span className="lcol-cls">{entry.rateSource === 'morth_transport' ? 'MoRTH transport' : entry.conveyanceClass}</span>
                     <span className="lcol-km">{measure.format(entry.leadKm)} km</span>
                     <span className="lcol-lift">
                       {entry.liftM > 0 ? `${measure.format(entry.liftM)} m` : '0.00'}
                     </span>
                     <span className="lcol-rate">
-                      {entry.variantRate != null
+                      {entry.rateSource === 'morth_transport' ? 'Calculated in MoRTH DATA' : entry.variantRate != null
                         ? `Rs. ${money.format(entry.variantRate)} / ${entry.rateUnit || 'unit'}`
                         : '—'}
                     </span>
@@ -615,7 +615,7 @@ export default function LeadDashboard(): JSX.Element | null {
                           <span>Conveyance charges for {measure.format(entry.leadKm)} km</span>
                           <span className="text-right">{measure.format(entry.leadKm)} km</span>
                           <span className="text-right">
-                            {entry.variantRate != null ? `Rs. ${money.format(entry.variantRate)}` : '—'}
+                            {entry.rateSource === 'morth_transport' ? 'In DATA machinery' : entry.variantRate != null ? `Rs. ${money.format(entry.variantRate)}` : '—'}
                           </span>
                         </div>
                       ) : (
@@ -623,17 +623,17 @@ export default function LeadDashboard(): JSX.Element | null {
                           <div className="lead-breakdown-row" key={sIdx}>
                             <span>{step.label}</span>
                             <span className="text-right">{step.expression}</span>
-                            <span className="text-right">Rs. {money.format(step.amount)}</span>
+                            <span className="text-right">{entry.rateSource === 'morth_transport' ? 'In DATA' : `Rs. ${money.format(step.amount)}`}</span>
                           </div>
                         ))
                       )}
                       <div className="lead-breakdown-total-row">
                         <span></span>
                         <span className="text-right font-bold">
-                          Adopted Rate per {entry.rateUnit || 'unit'}:
+                          {entry.rateSource === 'morth_transport' ? 'Transport cost:' : `Adopted Rate per ${entry.rateUnit || 'unit'}:`}
                         </span>
                         <span className="text-right font-bold text-accent">
-                          {entry.variantRate != null ? `Rs. ${money.format(entry.variantRate)}` : '—'}
+                          {entry.rateSource === 'morth_transport' ? 'In DATA machinery' : entry.variantRate != null ? `Rs. ${money.format(entry.variantRate)}` : '—'}
                         </span>
                       </div>
                     </div>

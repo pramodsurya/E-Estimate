@@ -1,0 +1,25 @@
+.additem-browser { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 360px; height: min(59vh, 640px); overflow: hidden; }
+.additem-source-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 18px 0; border-bottom: 1px solid var(--border); background: var(--bg-panel); }
+.additem-source-tabs { display: flex; gap: 6px; min-width: 0; }
+.additem-source-tabs > button { display: flex; align-items: center; gap: 8px; padding: 12px 20px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--text-dim); cursor: pointer; font: inherit; font-weight: 650; }
+.additem-source-tabs > button:hover { color: var(--text); background: var(--bg-hover); }
+.additem-source-tabs > button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.additem-source-tabs > button:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.additem-source-count { padding: 2px 6px; border-radius: 10px; background: var(--accent); color: var(--bg-panel); font-size: 10px; }
+.additem-source-context { color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+.additem-source-description { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 11px 18px; color: var(--text); font-size: 12px; border-bottom: 1px solid var(--border-soft); }
+.additem-source-description > span { color: var(--text-faint); font-size: 11px; }
+.additem-source-panel { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.additem-source-panel[hidden] { display: none; }
+.additem-source-panel > .additem-col { flex: 1; border: 0; min-width: 0; }
+.additem-source-panel .col-header { padding: 16px 18px 10px; }
+.additem-source-panel .col-toolbar { padding: 0 18px 12px; }
+.additem-source-panel .col-toolbar .text-input { height: 36px; }
+.additem-source-panel .project-data-list { overflow: auto; }
+@media (max-width: 700px) {
+  .additem-source-header { padding: 8px 8px 0; gap: 6px; }
+  .additem-source-tabs { flex: 1; gap: 0; }
+  .additem-source-tabs > button { flex: 1; justify-content: center; padding: 10px 8px; font-size: 12px; }
+  .additem-source-context { display: none; }
+  .additem-source-description > span { display: none; }
+}

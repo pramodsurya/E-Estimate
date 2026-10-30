@@ -177,6 +177,18 @@
   #if visible.at("labour", default: true) and RateAnalysis.labour.len() > 0 [
     #if morth [#heading(level: 2, text(fill: rgb("#7451a6"))[C. LABOUR])] else [== C. LABOUR]
     #cost-table(RateAnalysis.labour, RateAnalysis.display.labour_total, neutral: morth, accent: rgb("#7451a6"), tint: rgb("#f1edfa"))
+    #if not morth and RateAnalysis.totals.area_allowance_percent > 0 [
+      #block(breakable: false, width: 100%, fill: rgb("#fff7e7"), inset: 6pt)[
+        *Area allowance*
+        #table(
+          columns: (1fr, 35mm), align: (left, right), stroke: none,
+          table.cell(colspan: 2)[Allowance taken: *#RateAnalysis.area_allowance_label*],
+          [Total cost of labour], [#RateAnalysis.display.labour_total],
+          [Area allowance on labour (#RateAnalysis.totals.area_allowance_percent%)], [#RateAnalysis.display.area_allowance_amount],
+          [*Total labour cost including area allowance*], [*#RateAnalysis.display.labour_cost_with_area_allowance*]
+        )
+      ]
+    ]
     #if visible.at("labour_summary", default: true) [
       #if RateAnalysis.labour_summary_rows.len() > 0 [
         #table(
@@ -243,12 +255,9 @@
       columns: (1fr, 38mm), align: (left, right), stroke: 0.5pt + luma(190),
       [A. Cost of materials], [#RateAnalysis.display.material_total],
       [B. Hire charges of machinery], [#RateAnalysis.display.machinery_total],
-      [C. Cost of labour], [#RateAnalysis.display.labour_total],
+      [C. Cost of labour], [#RateAnalysis.display.labour_cost_with_area_allowance],
       [*Base cost*], [*#RateAnalysis.display.base_cost*],
       [Contractor's profit and overheads (#RateAnalysis.totals.overhead_percent%)], [#RateAnalysis.display.overhead_amount],
-      ..(if RateAnalysis.totals.area_allowance_percent > 0 {
-        ([Area allowance on labour (#RateAnalysis.area_allowance_label)], [#RateAnalysis.display.area_allowance_amount])
-      } else { () }),
       [*Total cost*], [*Rs. #RateAnalysis.display.total_cost*],
       [*Rate per #RateAnalysis.unit*], [*Rs. #RateAnalysis.display.rate_per_unit*]
     )
@@ -273,11 +282,7 @@
           #if lead_charge.at("lead_formula", default: "") != "" [#linebreak() #text(fill: rgb("#0369a1"))[#lead_charge.lead_formula]]
         ]],
         [#edited-cell([#metadata(lead_charge.at("_ee_print_id", default: ""))#lead_charge.qty_text #lead_charge.unit], edited: lead_charge.quantity_edited)],
-        [Rs. #lead_charge.rate_text], [*Rs. #lead_charge.amount_text*],
-        ..lead_charge.warnings.map(warning => (
-          table.cell(colspan: 2)[#text(size: 0.75em, fill: edit-red)[#warning.message]],
-          table.cell(colspan: 2)[#text(size: 0.75em, fill: edit-red)[#warning.detail]]
-        )).flatten()
+        [Rs. #lead_charge.rate_text], [*Rs. #lead_charge.amount_text*]
       )).flatten(),
       table.cell(colspan: 3)[Base final amount], [*Rs. #RateAnalysis.lead_summary.base_amount_text*],
       table.cell(colspan: 3)[#if RateAnalysis.lead_summary.disposal_only [Add Disposal Lead total] else [Add Lead/Lift total]], [*Rs. #RateAnalysis.lead_summary.lead_total_text*],

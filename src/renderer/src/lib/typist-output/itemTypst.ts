@@ -41,6 +41,7 @@ import {
 import { createUniverWorkbookData, usedCellRange } from '../univerSpreadsheet'
 import { attachEeDisplayText, type EeWorkbookLike } from './univerDisplayText'
 import { nodeDisplayName } from '../../components/nodeVisual'
+import { printedItemDescription } from '../sorPresentation'
 import { findSharedContentSource, findSharedOwner, findSharedPrintSource, sharedSheetScopeKey } from '../sharedSheet'
 import { getItemRate, readFinalValueFromSnapshot } from '../finalNumber'
 import {
@@ -449,6 +450,7 @@ export function resolveItemDescriptionRuns(
   project: EestimateProject,
   item: ProjectNode
 ): RateAnalysisTextRun[] {
+  if (item.itemSource === 'SOR') return parseDescriptionToRuns(printedItemDescription(item))
   // 1. Check if rate analysis recipe provides published/edited description runs (e.g. government SSR with bold clauses)
   const recipe =
     rateAnalysisOverrideForNode(project, item) ??
@@ -505,9 +507,10 @@ export function buildItemSheetRenderData(
   const projectDataDef = !shared && item.projectDataId
     ? project.projectData?.find((d) => d.id === item.projectDataId)
     : undefined
-  const resolvedCode = item.itemCode || projectDataDef?.code || ''
+  const resolvedCode = item.itemSource === 'SOR' ? '' : item.itemCode || projectDataDef?.code || ''
   const resolvedUnit = item.unit || projectDataDef?.unit || ''
   const resolvedDesc = shared ? '' :
+    item.itemSource === 'SOR' ? printedItemDescription(item) :
     projectDataDef?.description ||
     item.itemDescription ||
     nodeDisplayName(item)
@@ -517,7 +520,7 @@ export function buildItemSheetRenderData(
 
   return {
     project: project.meta.name || project.root.name || 'Detailed Estimate',
-    item: shared ? (item.sharedSheetName || 'Shared sheet') : nodeDisplayName(item),
+    item: shared ? (item.sharedSheetName || 'Shared sheet') : item.itemSource === 'SOR' ? cleanDescription : nodeDisplayName(item),
     code: shared ? '' : resolvedCode,
     unit: shared ? '' : resolvedUnit,
     description: shared ? '' : cleanDescription,

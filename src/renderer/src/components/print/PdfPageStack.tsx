@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy } from 'pdfjs-dist'
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-
-GlobalWorkerOptions.workerSrc = workerUrl
+import type { PDFDocumentProxy } from 'pdfjs-dist'
 
 /**
  * How many rasterised pages are held at once.
@@ -233,6 +230,14 @@ export default function PdfPageStack({ src, zoom = 100 }: { src: string; zoom?: 
     const held = imagesRef.current
 
     const open = async (): Promise<void> => {
+      // Dashboards import this component even with their preview closed. Keep
+      // PDF.js and its worker out of that screen's initial module graph.
+      const [{ GlobalWorkerOptions, getDocument }, { default: workerUrl }] = await Promise.all([
+        import('pdfjs-dist'),
+        import('pdfjs-dist/build/pdf.worker.min.mjs?url')
+      ])
+      if (generationRef.current !== generation) return
+      GlobalWorkerOptions.workerSrc = workerUrl
       const response = await fetch(src)
       const data = new Uint8Array(await response.arrayBuffer())
       const pdf = await getDocument({ data }).promise

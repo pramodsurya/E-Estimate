@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import {
   type CalculatedOptionalAddition,
   invalidateRateAnalysisCalculation,
+  prepareRateAnalysis,
+  rateAnalysisNeedsRecalculation,
   updateRateAnalysisLine
 } from '../../lib/rateAnalysis'
 import {
@@ -156,7 +158,7 @@ function UnresolvedEditsNotice({
 }
 
 export default function RateAnalysisTable({
-  recipe,
+  recipe: sourceRecipe,
   editing,
   onChange,
   leadApplications = [],
@@ -177,15 +179,33 @@ export default function RateAnalysisTable({
    */
   figureUrls?: Record<string, string>
 }): JSX.Element {
-  const [rustSummary, setRustSummary] = useState<RateAnalysisSummary | null>(null)
+  const [calculated, setCalculated] = useState<{
+    source: RateAnalysisRecipe
+    recipe: RateAnalysisRecipe
+    summary: RateAnalysisSummary
+  } | null>(null)
+  const [calculationError, setCalculationError] = useState<{ source: RateAnalysisRecipe; message: string } | null>(null)
   useEffect(() => {
-    if (recipe.itemSource === 'SOR') return
+    if (sourceRecipe.itemSource === 'SOR') return
     let active = true
-    window.api.rateAnalysis.calculate(recipe).then((res) => {
-      if (active) setRustSummary(res)
-    }).catch(console.error)
+    void (async () => {
+      const recipe = await prepareRateAnalysis(sourceRecipe)
+      const summary = await window.api.rateAnalysis.calculate(recipe)
+      if (active) setCalculated({ source: sourceRecipe, recipe, summary })
+    })().catch((reason: unknown) => {
+      if (active) setCalculationError({ source: sourceRecipe, message: reason instanceof Error ? reason.message : String(reason) })
+    })
     return () => { active = false }
-  }, [recipe])
+  }, [sourceRecipe])
+  const currentCalculation = calculated?.source === sourceRecipe ? calculated : null
+  const recipe = currentCalculation?.recipe ?? sourceRecipe
+
+  if (calculationError?.source === sourceRecipe) {
+    return <div className="rate-state">Could not calculate this DATA: {calculationError.message}</div>
+  }
+  if (!currentCalculation && rateAnalysisNeedsRecalculation(sourceRecipe)) {
+    return <div className="rate-state">Recalculating DATA…</div>
+  }
 
   if (recipe.itemSource === 'SOR') {
     return (
@@ -200,7 +220,7 @@ export default function RateAnalysisTable({
     )
   }
 
-  const presentation = buildDataPresentation(recipe, leadApplications, leadVariants, rustSummary ?? undefined)
+  const presentation = buildDataPresentation(recipe, leadApplications, leadVariants, currentCalculation?.summary)
   const {
     summary, adoptedSummary, calculatedAddon, addonLeadApplications, regularLeadApplications,
     addonLeadTotal, layout, labourRows, abstractRows, publishedAbstractRows,
@@ -1339,7 +1359,7 @@ function PublishedRateBlocks({
   )
 }
 
-function LeadAdditions({
+export function LeadAdditions({
   applications,
   variants,
   outputQuantity,

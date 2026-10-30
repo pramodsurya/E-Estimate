@@ -149,6 +149,7 @@ pub fn calculate(recipe: &RateAnalysisRecipe) -> RateAnalysisSummary {
     // remain visible for review; only inputs that enter the arithmetic block
     // calculation. Quantity expressions and percentage choices validate below.
     let mut totals = [0.0; 3];
+    let mut lead_amount = 0.0;
     let mut eligible = 0.0;
     let mut computed = Map::new();
     for (i, section) in ["materials", "machinery", "labour"].iter().enumerate() {
@@ -180,10 +181,11 @@ pub fn calculate(recipe: &RateAnalysisRecipe) -> RateAnalysisSummary {
                         if dep.output_quantity > 0.0 {
                             rate = Some(
                                 if raw["price_lookup"]["require_direct_cost_only"] == true {
-                                    result.base_cost / dep.output_quantity
+                                    (result.base_cost + result.morth_lead_amount.unwrap_or(0.0)) / dep.output_quantity
                                 } else {
                                     result.rate_per_unit
-                                } * num(&raw["price_lookup"]["rate_multiplier"]).unwrap_or(1.0),
+                                } * num(&raw["price_lookup"]["rate_multiplier"]).unwrap_or(1.0)
+                                    * num(&raw["price_lookup"]["quantity_multiplier"]).unwrap_or(1.0),
                             );
                         } else {
                             need(
@@ -203,6 +205,11 @@ pub fn calculate(recipe: &RateAnalysisRecipe) -> RateAnalysisSummary {
             }
             let rate = rate.unwrap_or(0.0);
             let amount = round_money(quantity * rate);
+            if raw["material_lead_charge"] == true {
+                lead_amount += amount;
+                computed.insert(id, json!({"quantity":quantity,"rate":rate,"amount":amount}));
+                continue;
+            }
             totals[i] += amount;
             let excluded = raw["price_lookup"]["parent_markup_excluded"] == true
                 || list(&calc["markup_excluded_resource_keys"])
@@ -312,6 +319,7 @@ pub fn calculate(recipe: &RateAnalysisRecipe) -> RateAnalysisSummary {
         });
     abstract_rows.push(json!({"id":"total","label":format!("Total cost for {} {}", divisor, recipe.unit.as_deref().unwrap_or("unit")),"amount":total,"formulaKind":"total"}));
     abstract_rows.push(json!({"id":"rate","label":format!("Rate per {}", recipe.unit.as_deref().unwrap_or("unit")),"amount":round_money(total / divisor),"formulaKind":"rate"}));
+    let total_with_lead = round_money(total + lead_amount);
     RateAnalysisSummary {
         cost_ready: Some(missing.is_empty()),
         missing,
@@ -319,6 +327,7 @@ pub fn calculate(recipe: &RateAnalysisRecipe) -> RateAnalysisSummary {
         allowance_amount: allowance,
         computed_lines: Some(Value::Object(computed)),
         morth_abstract: Some(Value::Array(abstract_rows)),
+        morth_lead_amount: Some(round_money(lead_amount)),
         section_totals: RateAnalysisSectionTotals {
             materials: totals[0],
             machinery: totals[1],
@@ -330,8 +339,8 @@ pub fn calculate(recipe: &RateAnalysisRecipe) -> RateAnalysisSummary {
         labour_cost_with_area_allowance: totals[2],
         base_cost: direct,
         overhead_amount: overhead,
-        total_cost: total,
-        rate_per_unit: round_money(total / divisor),
+        total_cost: total_with_lead,
+        rate_per_unit: round_money(total_with_lead / divisor),
         labour_unit_base: totals[2] / divisor,
         labour_unit_profit: 0.0,
         labour_unit_total: totals[2] / divisor,
@@ -359,6 +368,29 @@ mod tests {
         let s = calculate(&r);
         assert_eq!(s.cost_ready, Some(false));
         assert!(!s.missing.is_empty());
+    }
+    #[test]
+    fn local_lead_is_added_after_percentages_and_stays_with_its_scope() {
+        let baseline = calculate(&recipe());
+        let mut child = recipe();
+        let cfg = child.morth.as_mut().unwrap();
+        cfg["source"]["materials"] = json!([{"desc":"Stone Lead","quantity":2,"material_lead_charge":true}]);
+        cfg["inputs"]["materials-0"] = json!({"rate":50});
+        let result = calculate(&child);
+        assert_eq!(result.base_cost, baseline.base_cost);
+        assert_eq!(result.overhead_amount, baseline.overhead_amount);
+        assert_eq!(result.profit_amount, baseline.profit_amount);
+        assert_eq!(result.morth_lead_amount, Some(100.0));
+        assert_eq!(result.total_cost, round_money(baseline.total_cost + 100.0));
+        let mut parent = recipe();
+        let cfg = parent.morth.as_mut().unwrap();
+        cfg["source"]["labour"] = json!([]);
+        cfg["source"]["materials"] = json!([{"desc":"Concrete appendix","quantity":2,"price_lookup":{"require_direct_cost_only":true}}]);
+        cfg["inputs"] = json!({"materials-0":{"dependency":child}});
+        let adopted = calculate(&parent);
+        assert_eq!(adopted.base_cost, 483.68);
+        assert_eq!(adopted.morth_lead_amount, Some(0.0));
+        assert_eq!(adopted.computed_lines.as_ref().unwrap()["materials-0"]["rate"], json!(241.84));
     }
     #[test]
     fn shared_road_analysis_uses_selected_project_size() {
@@ -434,6 +466,30 @@ mod tests {
             result.computed_lines.as_ref().unwrap()["materials-0"]["rate"],
             json!(231.84)
         );
+    }
+    #[test]
+    fn dependency_tonne_rate_is_converted_to_parent_kg_once() {
+        let mut child = recipe();
+        let child_cfg = child.morth.as_mut().unwrap();
+        child_cfg["source"]["labour"] = json!([]);
+        child_cfg["source"]["materials"] = json!([{"desc":"Steel","quantity":1}]);
+        child_cfg["source"]["rate_divisor"] = json!(1);
+        child_cfg["source"]["calculation"]["overhead_percent_by_project_type"]["new_or_widening"] = json!(0);
+        child_cfg["source"]["calculation"]["contractor_profit_percent"] = json!(0);
+        child_cfg["inputs"] = json!({"materials-0":{"rate":60000}});
+        child.output_quantity = 1.0;
+        let mut parent = recipe();
+        let cfg = parent.morth.as_mut().unwrap();
+        cfg["source"]["labour"] = json!([]);
+        cfg["source"]["materials"] = json!([{"desc":"Reinforcement in kg","quantity":25,"price_lookup":{"quantity_multiplier":0.001}}]);
+        cfg["inputs"] = json!({"materials-0":{"dependency":child}});
+        let result = calculate(&parent);
+        assert_eq!(result.cost_ready, Some(true));
+        assert_eq!(result.base_cost, 1500.0);
+        assert_eq!(result.computed_lines.as_ref().unwrap()["materials-0"]["rate"], json!(60.0));
+        // A manual override is already quoted in the parent's kg basis.
+        parent.morth.as_mut().unwrap()["inputs"] = json!({"materials-0":{"rate":65}});
+        assert_eq!(calculate(&parent).base_cost, 1625.0);
     }
     #[test]
     fn incomplete_appendix_keeps_known_rate_and_propagates_missing() {

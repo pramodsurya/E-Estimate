@@ -59,8 +59,8 @@ const split = protection.bankProtectionQuantities(transition)
 const lowEnd = 50
 const lowExpected = (2.1 + 3.1) / 2 * Math.hypot(1, 1.5) * lowEnd
 near(split.find((row) => row.side === 'left' && row.tierId === 'tier-low').area, lowExpected, 'tier change uses the entered section at 50 m')
-const mediumExpected = ((3 * Math.hypot(1, 1.5) + 0.1 * Math.hypot(1, 2)) + (3 * Math.hypot(1, 1.5) + 1.1 * Math.hypot(1, 2))) / 2 * (100 - lowEnd)
-near(split.find((row) => row.side === 'left' && row.tierId === 'tier-medium').area, mediumExpected, 'horizontal berm omitted from slope area')
+const mediumExpected = (3.1 + 4.1) / 2 * Math.hypot(1, 1.5) * (100 - lowEnd)
+near(split.find((row) => row.side === 'left' && row.tierId === 'tier-medium').area, mediumExpected, 'low-clearance berm is omitted and pitching follows the base slope')
 
 const road = fixture()
 road.design.serviceRoadReaches = [{ id: 'road', fromChainage: 20, toChainage: 80, side: 'left', heightMode: 'tbl', heightAboveBed: 2.1, width: 8, shoulderWidth: 1, constructionType: 'earthen' }]
@@ -76,11 +76,12 @@ const changed = JSON.parse(JSON.stringify(synced))
 changed.children[0].canal.design.bankConfig.leftTiers[0].bankProtection.kind = 'none'
 assert.equal(canal.syncCanalItems(changed, 'c').children[0].children.filter((item) => item.templateItemRole === 'bank-protection').length, 0, 'turning off protection removes generated item')
 assert.deepEqual(canal.migrateCanalData(JSON.parse(JSON.stringify(data))).design.bankConfig.leftTiers[0].bankProtection, spec(), 'selection survives save and migration')
-// Distinct chainage reaches sharing a height tier must not share edits.
+// Manual chainage reaches keep their own protection, even with a shared old profile.
 const reachLib = require('../src/renderer/src/lib/canalTierReaches.ts')
 let perReach = fixture(98)
 perReach.sections.splice(1,0,{...perReach.sections[0],id:'s40',chainage:40})
-perReach.design.bankConfig.leftReachOverrides = [
+perReach.design.bankConfig.mode = 'manual'
+perReach.design.bankConfig.leftManualReaches = [
   {id:'r1',from:0,to:40,tierId:'tier-low',status:'fill'},
   {id:'r2',from:40,to:100,tierId:'tier-low',status:'fill'}
 ]
@@ -126,5 +127,24 @@ const automaticReach=reachLib.canalBankReaches(automatic,'left')[0]
 automatic=protection.saveBankReachProtection(automatic,'left',automaticReach,{slopes:spec({kind:'grass'}),berms:protection.defaultBankProtection()})
 assert.equal(protection.bankProtectionAt(automatic,automatic.sections[0],'right').slopes.kind,'grass','automatic linked right bank uses same range despite its distinct reach ID')
 automatic={...automatic,sections:[automatic.sections[0],{...automatic.sections[1],id:'s50',chainage:50,ground:[{offset:-100,rl:98},{offset:100,rl:98}]},automatic.sections[1]]}
-assert.equal(protection.bankProtectionAt(automatic,automatic.sections[0],'left').slopes.kind,'none','regenerated automatic indices cannot transfer old treatment to a different range')
+assert.equal(protection.bankProtectionAt(automatic,automatic.sections[0],'left').slopes.kind,'grass','programmatic protection follows its design when reach boundaries change')
+const automaticLow = reachLib.canalBankReaches(automatic,'left').find(r=>r.tierId==='tier-low')
+automatic = protection.saveBankTierProtection(automatic,'left','tier-low',{slopes:spec(),berms:spec({kind:'grass'})})
+assert.equal(protection.bankProtectionForReach(automatic,'left',automaticLow).slopes.kind,'stone')
+assert.equal(protection.bankProtectionForTier(automatic,'left','tier-medium').slopes.kind,'none','other programmatic designs remain unchanged')
+assert.equal(protection.bankProtectionForTier(canal.migrateCanalData(JSON.parse(JSON.stringify(automatic))),'left','tier-low').berms.kind,'grass','group berm protection survives save/load')
+let grouped = fixture(98)
+grouped.sections = [0,25,50,75,100].map(ch=>({...grouped.sections[0],id:`group-${ch}`,chainage:ch}))
+grouped.design.bankConfig.leftReachOverrides = [
+  {id:'low-a',from:0,to:25,tierId:'tier-low',status:'fill'},
+  {id:'medium',from:25,to:75,tierId:'tier-medium',status:'fill'},
+  {id:'low-b',from:75,to:100,tierId:'tier-low',status:'fill'}
+]
+grouped = protection.saveBankTierProtection(grouped,'left','tier-low',{slopes:spec({kind:'grass'}),berms:protection.defaultBankProtection()})
+const groupedRows = protection.bankProtectionQuantities(grouped)
+assert.equal(groupedRows.length,4,'one programmatic save protects two disjoint reaches on both linked banks')
+assert.ok(groupedRows.every(r=>r.to<=25||r.from>=75),'other designs between the shared reaches receive no protection')
+near(groupedRows.reduce((sum,r)=>sum+r.area,0),4.1*Math.hypot(1,1.5)*50*2,'group total includes only its assigned lengths')
+const independentGroup = {...grouped,design:{...grouped.design,bankConfig:{...grouped.design.bankConfig,linkSymmetrical:false,rightTiers:canal.defaultCanalBankDesignConfig().rightTiers}}}
+assert.ok(protection.bankProtectionQuantities(independentGroup).every(r=>r.side==='left'),'independent right-bank design keeps its own protection')
 console.log('Canal bank protection tests passed')

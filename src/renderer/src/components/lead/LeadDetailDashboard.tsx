@@ -32,7 +32,10 @@ import {
   type LeadHandlingMode,
   type LeadRateRow
 } from '../../lib/lead'
-import { morthLeadVariantSignature } from '../../lib/morthMaterialLead'
+import { morthLeadVariantSignature, morthLeadScopes, morthRecipeAtPath, morthQuantityForLead, morthLeadApplicability } from '../../lib/morthMaterialLead'
+import { leadAppendixSources, leadMetadataForGroup, showAllLeadData } from '../../lib/leadWorkspace'
+import { priceMorthLead, morthApplicationsAtPath } from '../../lib/morthLeadPricing'
+import { upsertUniqueLeadApplication } from '../../lib/leadApplications'
 import {
   addonLeadRuleForVariant,
   basisForData,
@@ -66,7 +69,9 @@ import {
   dashboardContextMatches,
   dashboardLeadCompileSignature,
   syncLeadDashboardSnapshot,
-  dashboardItemIsSynced
+  dashboardItemIsSynced,
+  dashboardRecipeForNode,
+  refreshMorthLeadSnapshot
 } from '../../lib/dashboardSync'
 import { useStore } from '../../store/useStore'
 import { computeProjectPrintInputs } from '../../lib/projectPrintInputs'
@@ -183,6 +188,7 @@ interface SourceDraft {
 type LeadSelectablePoint = LeadPoint & { deletable?: boolean }
 
 interface VariantDraft {
+  deliveryRate?: string
   variantName: string
   /** Empty means "let the automatic colour cycle decide". */
   mapColor: string
@@ -230,6 +236,7 @@ interface DraftRouteStop extends LeadMapCoordinate {
 }
 
 interface TargetPreview {
+  rootOutputQuantity?: number
   target: LeadTarget
   addonId?: string
   quantitySource: string
@@ -241,10 +248,13 @@ interface TargetPreview {
 }
 
 interface LeadTarget {
+  morthRootFactor?: number
   key: string
   group: ProjectItemGroup
   usage: ItemUsage
   pathLabel: string
+  morthAppendixPath?: string[]
+  morthAppendixLabel?: string
 }
 
 interface LeadOverrideDraft {
@@ -255,12 +265,13 @@ interface LeadOverrideDraft {
   otherReason: string
 }
 
-function leadTargetForUsage(group: ProjectItemGroup, usage: ItemUsage): LeadTarget {
+function leadTargetForUsage(group: ProjectItemGroup, usage: ItemUsage, morthAppendixPath?: string[], morthAppendixLabel?: string, morthRootFactor?: number): LeadTarget {
   return {
-    key: `${group.key}::${usage.node.id}`,
+    key: `${group.key}::${usage.node.id}${morthAppendixPath ? `::${JSON.stringify(morthAppendixPath)}` : ''}`,
     group,
     usage,
-    pathLabel: usage.path.map((node) => node.name).join(' > ') || 'Project'
+    pathLabel: [usage.path.map((node) => node.name).join(' > ') || 'Project', morthAppendixLabel].filter(Boolean).join(' > '),
+    morthAppendixPath, morthAppendixLabel, morthRootFactor
   }
 }
 
@@ -271,7 +282,7 @@ function leadTargetForApplication(
   const usage = application.itemNodeId
     ? group.usages.find((candidate) => candidate.node.id === application.itemNodeId)
     : group.usages[0]
-  return usage ? leadTargetForUsage(group, usage) : null
+  return usage ? leadTargetForUsage(group, usage, application.morthAppendixPath, application.morthAppendixLabel, application.morthRootFactor) : null
 }
 
 function leadApplicationDisplayLabel(
@@ -291,12 +302,13 @@ function applicationForLeadTarget(
   const exact = applications.find(
     (application) =>
       application.itemKey === target.group.key &&
-      application.itemNodeId === target.usage.node.id
+      application.itemNodeId === target.usage.node.id &&
+      JSON.stringify(application.morthAppendixPath ?? []) === JSON.stringify(target.morthAppendixPath ?? [])
   )
   if (exact) return exact
   if (target.group.usages[0]?.node.id !== target.usage.node.id) return null
   return applications.find(
-    (application) => application.itemKey === target.group.key && !application.itemNodeId
+    (application) => application.itemKey === target.group.key && !application.itemNodeId && JSON.stringify(application.morthAppendixPath ?? []) === JSON.stringify(target.morthAppendixPath ?? [])
   ) ?? null
 }
 
@@ -570,6 +582,8 @@ export default function LeadDetailDashboard(): JSX.Element {
   }, [variantDraft.mapColor, materialVariants, editingVariantId])
   const selectedVariant =
     materialVariants.find((variant) => variant.id === selectedVariantId) ?? materialVariants[0] ?? null
+  const concreteDelivery = materialName === 'Concrete delivery'
+  const explicitDeliveryRate = ['Hot mix delivery', 'Precast delivery', 'Disposal material', 'Material delivery'].includes(materialName)
   const selectedMaterialIsDeliveryAtSite =
     !disposalLead && isDeliveryAtSiteMaterial(conveyanceClass, materialName)
   const selectedVariantNeedsDeliveryOverride = needsDeliveryAtSiteOverride(selectedVariant)
@@ -578,6 +592,29 @@ export default function LeadDetailDashboard(): JSX.Element {
     selectedVariantNeedsDeliveryOverride || selectedVariantNeedsLoadingUnloadingOverride
   const showDeliveryAtSiteNotice =
     selectedVariantNeedsDeliveryOverride || (selectedMaterialIsDeliveryAtSite && !selectedVariant)
+
+  const leadRecipes = useMemo(() => Object.fromEntries(groups.flatMap(group =>
+    group.usages.flatMap(({ node }) => {
+      const recipe = project ? dashboardRecipeForNode(project, snapshotValid ? project.dashboardSnapshot : undefined, node) : undefined
+      return recipe ? [[node.id, recipe]] : []
+    })
+  )), [groups, project, snapshotValid])
+
+
+  useEffect(() => {
+    if (!project || !snapshotValid) return
+    let cancelled = false
+    void refreshMorthLeadSnapshot(project).then(snapshot => {
+      if (!cancelled && snapshot && snapshot !== project.dashboardSnapshot && useStore.getState().project === project) setDashboardSnapshot(snapshot)
+    }).catch(reason => { if (!cancelled) setError(describeError(reason, 'Unable to calculate appendix Lead.')) })
+    return () => { cancelled = true }
+  }, [project, snapshotValid, setDashboardSnapshot])
+
+  const targetsForGroup = (group: ProjectItemGroup): LeadTarget[] => group.usages.flatMap(usage => {
+    const recipe = leadRecipes[usage.node.id]
+    if (!recipe?.morth) return [leadTargetForUsage(group, usage)]
+    return morthLeadScopes(recipe, materialName, conveyanceClass).map(scope => leadTargetForUsage(group, usage, scope.path, scope.label, scope.factor ?? undefined))
+  })
 
   const metadata = useMemo(() => {
     const stored =
@@ -588,20 +625,20 @@ export default function LeadDetailDashboard(): JSX.Element {
     for (const group of groups) {
       if (group.source === 'PROJECT_DATA') {
         const definition = projectDataForNode(project?.projectData, group.usages[0]?.node)
-        if (definition) map.set(group.code, projectDataLeadApplicability(definition))
+        if (definition) map.set(group.key, leadMetadataForGroup(group, projectDataLeadApplicability(definition)))
         continue
       }
-      if ((group.source === 'SSR' || group.source === 'MORTH') && Object.prototype.hasOwnProperty.call(stored, group.code)) {
-        map.set(group.code, stored[group.code])
+      if (group.source === 'SSR' || group.source === 'MORTH') {
+        map.set(group.key, leadMetadataForGroup(group, stored[group.code], leadRecipes))
       }
     }
     return map
-  }, [groups, project])
+  }, [groups, project, leadRecipes])
 
   const availableGroups = groups.filter((group) =>
     materialInGroup(
       group,
-      leadMetadataForGroup(group, metadata.get(group.code)),
+      metadata.get(group.key),
       materialName,
       conveyanceClass,
       disposalLead,
@@ -619,7 +656,7 @@ export default function LeadDetailDashboard(): JSX.Element {
           : isEligibleForLead(
               group,
               selectedVariant,
-              parseLeadInfo(leadMetadataForGroup(group, metadata.get(group.code)))
+              parseLeadInfo(metadata.get(group.key))
             )
       )
     : []
@@ -637,10 +674,12 @@ export default function LeadDetailDashboard(): JSX.Element {
   )
   // A selected lead card scopes the DATA list to its source: Avg leads show the
   // chosen component's DATA, Normal leads from a component working point show
-  // that component's DATA, and anything else falls back to applied (linked) DATA.
+  // that component's DATA. Unscoped leads show linked DATA, or all eligible DATA
+  // when no links exist yet so the first application is discoverable.
   const scopeNodeIds = selectedVariant ? scopeNodeIdsForVariant(selectedVariant) : null
   const scopeKind = scopeNodeIds ? (selectedVariant?.avgLead ? 'component' : 'work point') : 'linked'
-  const showAllData = !selectedVariant || showAllDataForVariantId === selectedVariant.id
+  const selectedVariantHasLinks = materialApplications.some(application => application.variantId === selectedVariant?.id)
+  const showAllData = showAllLeadData(selectedVariant?.id, showAllDataForVariantId, Boolean(scopeNodeIds), selectedVariantHasLinks)
   const visibleGroups = showAllData
     ? eligibleGroups
     : scopeNodeIds
@@ -657,7 +696,7 @@ export default function LeadDetailDashboard(): JSX.Element {
           )
         )
   const applyableTargets = applyableGroups.flatMap((group) =>
-    group.usages.map((usage) => leadTargetForUsage(group, usage))
+    targetsForGroup(group)
   )
   const incompleteApplicationSignature = materialApplications
     .filter(
@@ -878,7 +917,7 @@ export default function LeadDetailDashboard(): JSX.Element {
   const shouldClearBreakdowns =
     !project ||
     materialVariants.length === 0 ||
-    (syncedLeadRates.length === 0 && !materialVariants.some((variant) => variant.pipeLead))
+    (syncedLeadRates.length === 0 && !materialVariants.some((variant) => variant.pipeLead || variant.rateSource === 'manual' || variant.rateSource === 'morth_transport'))
 
   const [prevBreakdownsKey, setPrevBreakdownsKey] = useState(() => ({
     projectId: project?.id,
@@ -904,7 +943,7 @@ export default function LeadDetailDashboard(): JSX.Element {
     if (
       !project ||
       materialVariants.length === 0 ||
-      (syncedLeadRates.length === 0 && !materialVariants.some((variant) => variant.pipeLead))
+      (syncedLeadRates.length === 0 && !materialVariants.some((variant) => variant.pipeLead || variant.rateSource === 'manual' || variant.rateSource === 'morth_transport'))
     ) {
       return
     }
@@ -931,7 +970,7 @@ export default function LeadDetailDashboard(): JSX.Element {
             year: project.meta.sorYear,
             zone: project.meta.sorZone ?? 'zone_3',
             conveyanceClass: variant.conveyanceClass,
-            distanceKm: variant.leadKm,
+            distanceKm: variant.materialName === 'Concrete delivery' ? variant.actualLeadKm ?? variant.leadKm : variant.leadKm,
             quantity: 1,
             liftM: variant.liftM,
             includedInitialLiftM: 3,
@@ -966,16 +1005,17 @@ export default function LeadDetailDashboard(): JSX.Element {
     variant: LeadVariant
   ): Promise<TargetPreview> {
     if (!project) throw new Error('No active project.')
-    const recipe =
+    const rootRecipe =
       rateAnalysisOverrideForNode(project, target.usage.node) ??
       (dashboardContextMatches(project.dashboardSnapshot, project) &&
       dashboardItemIsSynced(project.dashboardSnapshot, target.usage.node)
         ? project.dashboardSnapshot?.recipes[target.usage.node.id]
         : undefined)
+    const recipe = rootRecipe ? morthRecipeAtPath(rootRecipe, target.morthAppendixPath) : undefined
     const leadRates = dashboardContextMatches(project.dashboardSnapshot, project)
       ? project.dashboardSnapshot?.leadRates ?? []
       : []
-    if (!recipe || (!variant.pipeLead && leadRates.length === 0)) {
+    if (!recipe || (!variant.pipeLead && variant.rateSource === 'chart' && leadRates.length === 0)) {
       throw new Error('Lead data is not compiled. Open the total Lead Dashboard, click Sync, and try again.')
     }
     let addonId: string | undefined
@@ -1000,10 +1040,11 @@ export default function LeadDetailDashboard(): JSX.Element {
       quantitySource =
         `Published ${recipe.outputQuantity || 1} ${quote.unit} SOR pipe-rate basis`
     } else {
-      const info = parseLeadInfo(
+      const info = parseLeadInfo(recipe.morth ? morthLeadApplicability(recipe, true) :
         leadMetadataForGroup(
-          target.group,
-          metadata.get(target.group.code) ?? recipe.leadApplicability
+          { ...target.group, usages: [target.usage] },
+          metadata.get(target.group.key) ?? recipe.leadApplicability,
+          { [target.usage.node.id]: recipe }
         )
       )
       const liftInfo = liftInfoForData(
@@ -1011,13 +1052,13 @@ export default function LeadDetailDashboard(): JSX.Element {
         target.group.description || recipe.description,
         target.group.code
       )
-      const quantity = quantityForVariant(recipe, variant, info)
+      const quantity = recipe.morth ? morthQuantityForLead(recipe, variant, true) : quantityForVariant(recipe, variant, info)
       addonId = addonLeadRuleForVariant(info, variant)?.addonId
       breakdown = calculateLeadVariantChargeFromRows(leadRates, {
         year: project.meta.sorYear,
         zone: project.meta.sorZone ?? 'zone_3',
         conveyanceClass: variant.conveyanceClass,
-        distanceKm: variant.leadKm,
+        distanceKm: variant.materialName === 'Concrete delivery' ? variant.actualLeadKm ?? variant.leadKm : variant.leadKm,
         quantity: quantity.quantity,
         liftM: variant.liftM,
         includedInitialLiftM: liftInfo.includedInitialLiftM,
@@ -1046,7 +1087,8 @@ export default function LeadDetailDashboard(): JSX.Element {
         ? summary.totalCost
         : summary.ratePerUnit * outputQuantity
     const finalAmount = baseFinalAmount + breakdown.grossAmount
-    return {
+    const preview: TargetPreview = {
+      rootOutputQuantity: rootRecipe?.outputQuantity,
       target,
       addonId,
       quantitySource,
@@ -1056,6 +1098,16 @@ export default function LeadDetailDashboard(): JSX.Element {
       finalAmount,
       finalRate: finalAmount / outputQuantity
     }
+    if (recipe.morth) {
+      const current = useStore.getState().project
+      const ownApplications = (current?.leadChart?.applications ?? []).filter(app => app.itemKey === target.group.key && app.itemNodeId === target.usage.node.id)
+      const pricingVariants = [...(current?.leadChart?.variants ?? []).filter(candidate => candidate.id !== variant.id), variant]
+      const next = upsertUniqueLeadApplication(ownApplications, pricingVariants, previewToApplication(preview, variant))
+      const priced = await priceMorthLead(recipe, morthApplicationsAtPath(next, target.morthAppendixPath ?? []), pricingVariants)
+      const pricedSummary = priced.morth?.startingSummary
+      if (pricedSummary) return { ...preview, baseFinalAmount: priced.morth?.leadPricingBaseAmount ?? baseFinalAmount, finalAmount: pricedSummary.totalCost, finalRate: pricedSummary.ratePerUnit }
+    }
+    return preview
   }
 
   function previewToApplication(
@@ -1082,6 +1134,10 @@ export default function LeadDetailDashboard(): JSX.Element {
       itemKey: preview.target.group.key,
       itemCode: preview.target.group.displayName,
       itemNodeId: preview.target.usage.node.id,
+      morthAppendixPath: preview.target.morthAppendixPath,
+      morthAppendixLabel: preview.target.morthAppendixLabel,
+      morthRootFactor: preview.target.morthRootFactor,
+      morthRootOutputQuantity: preview.rootOutputQuantity,
       quantity: preview.breakdown.quantity,
       quantitySource: preview.quantitySource,
       morthLeadVariantSignature: preview.target.group.source === 'MORTH' ? morthLeadVariantSignature(variant) : undefined,
@@ -1093,7 +1149,7 @@ export default function LeadDetailDashboard(): JSX.Element {
       grossRate: preview.breakdown.grossRate,
       grossAmount: preview.breakdown.grossAmount,
       outputQuantity: preview.outputQuantity,
-      rateAddition: preview.breakdown.grossAmount / preview.outputQuantity,
+      rateAddition: preview.target.morthAppendixPath ? preview.breakdown.grossAmount * (preview.target.morthRootFactor ?? 1) / (preview.rootOutputQuantity || preview.outputQuantity) : preview.breakdown.grossAmount / preview.outputQuantity,
       netRate: preview.breakdown.netRate,
       netAmount: preview.breakdown.netAmount,
       calculation: preview.breakdown.calculation,
@@ -1635,6 +1691,11 @@ export default function LeadDetailDashboard(): JSX.Element {
       : null
 
   const saveVariant = async (): Promise<void> => {
+    const deliveryRate = nonNegativeNumber(variantDraft.deliveryRate ?? '')
+    if (explicitDeliveryRate && deliveryRate === null) {
+      setError('Enter the delivery rate per tonne for this route, or explicitly enter 0 when included.')
+      return
+    }
     const existingVariant = editingVariantId
       ? materialVariants.find((variant) => variant.id === editingVariantId) ?? null
       : null
@@ -1772,7 +1833,7 @@ export default function LeadDetailDashboard(): JSX.Element {
       firstMileKm: variantDraft.distanceMode === 'auto' ? firstMileKm ?? undefined : undefined,
       lastMileMode: variantDraft.distanceMode === 'auto' ? variantDraft.lastMileMode : undefined,
       lastMileKm: variantDraft.distanceMode === 'auto' ? lastMileKm ?? undefined : undefined,
-      chargeCode: selectedPipeLead
+      chargeCode: concreteDelivery ? 'AUTO' : selectedPipeLead
         ? 'AUTO'
         : disposalLead
         ? 'AUTO'
@@ -1787,16 +1848,16 @@ export default function LeadDetailDashboard(): JSX.Element {
         ? variantDraft.mechanicalConveyanceReachesFinalPoint === 'yes'
         : false,
       actualLeadKm: avgSaveDetail ? avgSaveDetail.avgKm : actualLeadKm,
-      roadCondition: selectedPipeLead ? 'normal' : variantDraft.roadCondition,
-      roadSegmentKm: selectedPipeLead ? 0 : roadSegmentKm,
-      roadMultiplier: selectedPipeLead ? 1 : roadMultiplier,
-      leadKm: avgSaveDetail ? avgSaveDetail.avgKm : selectedPipeLead ? actualLeadKm ?? 0 : equivalentLeadKm,
-      liftM: disposalLead || selectedPipeLead ? 0 : liftM,
-      handlingMode: disposalLead || selectedPipeLead ? 'none' : variantDraft.handlingMode,
+      roadCondition: selectedPipeLead || concreteDelivery ? 'normal' : variantDraft.roadCondition,
+      roadSegmentKm: selectedPipeLead || concreteDelivery ? 0 : roadSegmentKm,
+      roadMultiplier: selectedPipeLead || concreteDelivery ? 1 : roadMultiplier,
+      leadKm: avgSaveDetail ? avgSaveDetail.avgKm : selectedPipeLead || concreteDelivery ? actualLeadKm ?? 0 : equivalentLeadKm,
+      liftM: disposalLead || selectedPipeLead || concreteDelivery ? 0 : liftM,
+      handlingMode: disposalLead || selectedPipeLead || concreteDelivery ? 'none' : variantDraft.handlingMode,
       includedBasis: 'none',
-      rateSource: selectedPipeLead ? 'pipe_catalogue' : 'chart',
+      rateSource: selectedPipeLead ? 'pipe_catalogue' : concreteDelivery ? 'morth_transport' : explicitDeliveryRate ? 'manual' : 'chart',
       pipeLead: selectedPipeLead,
-      customGrossRate: null,
+      customGrossRate: explicitDeliveryRate ? deliveryRate : null,
       active: true,
       ...(avgSaveDetail
         ? {
@@ -1862,6 +1923,7 @@ export default function LeadDetailDashboard(): JSX.Element {
     setNotice('')
     setEditingVariantId(variant.id)
     if (variant.avgLead) {
+      setVariantDraft(variantDraftForEdit(variant, disposalLead, ''))
       const detail = variant.avgLead
       setCreateKind('avg')
       setCreateKindChosen(true)
@@ -1921,6 +1983,10 @@ export default function LeadDetailDashboard(): JSX.Element {
 
   const createWeightedLead = async (): Promise<void> => {
     if (!project) return
+    if (availableGroups.some(group => group.source === 'MORTH' && targetsForGroup(group).some(target => !applicationForLeadTarget(materialApplications, target)))) {
+      setError('Apply material Lead to every consuming appendix and DATA usage before calculating a weighted average.')
+      return
+    }
     let entries
     try {
       entries = weightedLeadEntriesFromSeigniorage(
@@ -1952,7 +2018,7 @@ export default function LeadDetailDashboard(): JSX.Element {
       liftM: 0,
       handlingMode: 'none',
       includedBasis: 'none',
-      rateSource: 'chart',
+      rateSource: concreteDelivery ? 'morth_transport' : 'chart',
       active: true,
       createdAt: new Date().toISOString(),
       weightedLead: {
@@ -2158,11 +2224,16 @@ export default function LeadDetailDashboard(): JSX.Element {
         <span>
           {disposalLead
             ? 'Disposal Lead - choose Earth/Rock per Material'
-            : `${conveyanceClass} - ${conveyanceClassLabel(conveyanceClass)}`}
+            : concreteDelivery ? 'Concrete transport · distance in km' : `${conveyanceClass} - ${conveyanceClassLabel(conveyanceClass)}`}
         </span>
         <span>{eligibleGroups.length} lead-available DATA item(s)</span>
         <span>{materialApplications.length} linked component usage(s)</span>
       </div>
+      {(materialName === 'Cement' || materialName === 'Concrete delivery') && groups.some(group => group.source === 'MORTH') && (
+        <div className="rate-notice">
+          Cement Lead covers cement from its source to the batching plant. Concrete delivery supplies plant-to-site kilometres to the original MoRTH machinery row. Edit kilometres in DATA to override a route for that usage.
+        </div>
+      )}
       {notice && <div className="rate-notice">{notice}</div>}
       {error && <div className="rate-warning">{error}</div>}
       {printStudioOpen && project ? (
@@ -2539,7 +2610,7 @@ export default function LeadDetailDashboard(): JSX.Element {
         <section className="lead-main-panel">
           <div className="card-title">Materials and Linked DATA</div>
           <div className="lead-variant-list">
-            <div className="lead-weighted-row">
+            {!concreteDelivery && <div className="lead-weighted-row">
               <button
                 type="button"
                 className="btn-secondary btn-sm"
@@ -2548,7 +2619,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                 <Crown size={15} /> Weighted Average Lead
               </button>
               <small>Compute (Σ w×l) ÷ W across applied leads</small>
-            </div>
+            </div>}
             {materialVariants.length === 0 ? (
               <div className="list-empty">Create the first {materialName} Lead/Lift Material.</div>
             ) : (
@@ -2634,7 +2705,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                         </button>
                       </div>
                     )}
-                    {variantBreakdown ? (
+                    {concreteDelivery ? <div className="lead-rule-help">{km.format(variant.actualLeadKm ?? variant.leadKm)} km → original MoRTH transport row. View the transport cost in DATA; no separate SOR charge is added.</div> : variantBreakdown ? (
                       <LeadRateCalculation
                         calculation={variantBreakdown.calculation}
                         grossRate={variantBreakdown.grossRate}
@@ -2642,7 +2713,9 @@ export default function LeadDetailDashboard(): JSX.Element {
                         title={
                           disposalLead
                             ? 'Disposal lead calculation'
-                            : 'Chart calculation before DATA initial-lead deduction'
+                            : variant.materialName === 'Concrete delivery'
+                              ? 'Distance supplied to original MoRTH machinery row'
+                              : 'Chart calculation before DATA initial-lead deduction'
                         }
                       />
                     ) : (
@@ -2660,8 +2733,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                             key={application.id}
                             onClick={() => openRateAnalysis(application.itemKey, application.itemNodeId ?? '')}
                           >
-                            {leadApplicationDisplayLabel(application, groups)} - Rs.{' '}
-                            {money.format(application.grossAmount)}
+                            {leadApplicationDisplayLabel(application, groups)} · {concreteDelivery ? 'Distance applied in DATA' : `Rs. ${money.format(application.grossAmount)}`}
                           </button>
                         ))
                       )}
@@ -3356,7 +3428,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                 />
               </>
             )}
-            {!pipeLeadMaterial && (
+            {!pipeLeadMaterial && !concreteDelivery && (
               <label className="span-2">
                 Road condition
                 <select
@@ -3375,7 +3447,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                 </select>
               </label>
             )}
-            {!pipeLeadMaterial && variantDraft.roadCondition === 'certified_ghat' && (
+            {!pipeLeadMaterial && !concreteDelivery && variantDraft.roadCondition === 'certified_ghat' && (
               <>
                 <div className="lead-road-warning span-2">
                   Use 1.5x only for ghat road or road steeper than 1 in 20 with Superintending Engineer certificate.
@@ -3398,7 +3470,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                 </label>
               </>
             )}
-            {!pipeLeadMaterial && variantDraft.roadCondition === 'ce_exceptional' && (
+            {!pipeLeadMaterial && !concreteDelivery && variantDraft.roadCondition === 'ce_exceptional' && (
               <>
                 <div className="lead-road-warning span-2">
                   Exceptional multiplier up to 2.5x requires Chief Engineer permission; enter only the approved segment and multiplier.
@@ -3438,6 +3510,13 @@ export default function LeadDetailDashboard(): JSX.Element {
                 </label>
               </>
             )}
+            {explicitDeliveryRate && !concreteDelivery && (
+              <label className="span-2">
+                Delivery rate for this route (Rs. per tonne)
+                <input className="text-input" type="number" min="0" step="0.01" value={variantDraft.deliveryRate ?? ''} onChange={event => setVariantDraft(current => ({ ...current, deliveryRate: event.target.value }))} />
+                <small>Enter the complete conveyance rate for this journey. Enter 0 explicitly when delivery is already included.</small>
+              </label>
+            )}
             {pipeLeadMaterial ? (
               <div className="lead-road-preview span-2">
                 <span>
@@ -3448,9 +3527,9 @@ export default function LeadDetailDashboard(): JSX.Element {
               </div>
             ) : (
               <div className="lead-road-preview span-2">
-                <span>{roadConditionSummary(variantDraft)}</span>
+                <span>{concreteDelivery ? 'Original MoRTH transport uses actual plant-to-site kilometres.' : roadConditionSummary(variantDraft)}</span>
                 <strong>
-                  Equivalent lead for chart: {km.format(draftLeadKm)} km
+                  {concreteDelivery || explicitDeliveryRate ? 'Actual route distance:' : 'Equivalent lead for chart:'} {km.format(concreteDelivery ? draftActualLeadKm : draftLeadKm)} km
                 </strong>
               </div>
             )}
@@ -3461,6 +3540,8 @@ export default function LeadDetailDashboard(): JSX.Element {
                 pipe-conveyance rate. Lift, common Lead codes, and road-condition multipliers do
                 not apply.
               </div>
+            ) : concreteDelivery ? (
+              <div className="lead-rule-help span-2">Concrete haulage only. Fixed unloading and pumping operations remain in their consuming DATA or appendix.</div>
             ) : disposalLead ? (
               <div className="lead-rule-help span-2">
                 Disposal Lead variant records the full Work Location to Approved Dump Area lead using COM-LDLFT-2. Any initial-lead deduction is applied only in DATA.
@@ -3575,7 +3656,7 @@ export default function LeadDetailDashboard(): JSX.Element {
               </div>
             )}
 
-            {!disposalLead && !pipeLeadMaterial && (
+            {!disposalLead && !pipeLeadMaterial && !concreteDelivery && (
               <div className="lead-toggle-row span-2">
                 <span>Code</span>
                 <div className="lead-segmented">
@@ -3604,7 +3685,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                 </div>
               </div>
             )}
-            {!disposalLead && !pipeLeadMaterial && variantDraft.ruleMode === 'manual' && (
+            {!disposalLead && !pipeLeadMaterial && !concreteDelivery && variantDraft.ruleMode === 'manual' && (
               <label className="span-2">
                 COM code
                 <select
@@ -3628,8 +3709,8 @@ export default function LeadDetailDashboard(): JSX.Element {
             <div className="lead-variant-draft-summary span-2">
               {disposalLead && <span>{disposalClassLabel(variantDraft.conveyanceClass)}</span>}
               <span>Actual {km.format(draftActualLeadKm)} km</span>
-              {!pipeLeadMaterial && <span>Chart lead {km.format(draftLeadKm)} km</span>}
-              {!pipeLeadMaterial && draftLiftApplies && <span>Lift {metre.format(draftLiftM)} m</span>}
+              {!pipeLeadMaterial && (!explicitDeliveryRate && !concreteDelivery) && <span>Chart lead {km.format(draftLeadKm)} km</span>}
+              {!pipeLeadMaterial && !concreteDelivery && draftLiftApplies && <span>Lift {metre.format(draftLiftM)} m</span>}
             </div>
             <div className="lead-code-summary span-2">
               {pipeLeadMaterial ? (
@@ -3639,7 +3720,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                     : 'RCC pipe conveyance'}
                 </span>
               ) : (
-                draftRuleLabels.map((label) => <span key={label}>{label}</span>)
+                (concreteDelivery ? ['Kilometres → original MoRTH transport calculation'] : draftRuleLabels).map((label) => <span key={label}>{label}</span>)
               )}
             </div>
           </div>
@@ -3692,14 +3773,18 @@ export default function LeadDetailDashboard(): JSX.Element {
               Showing {showAllData ? 'all DATA' : `${scopeKind} DATA`} for{' '}
               <b>{variantMapLabel(selectedVariant)}</b>
               {!showAllData && ` · ${visibleGroups.length}/${eligibleGroups.length}`}
-              {' · '}
-              <button
-                type="button"
-                className="btn-mini"
-                onClick={() => setShowAllDataForVariantId(showAllData ? null : selectedVariant.id)}
-              >
-                {showAllData ? 'Source only' : 'Show all'}
-              </button>
+              {(scopeNodeIds || selectedVariantHasLinks) && (
+                <>
+                  {' · '}
+                  <button
+                    type="button"
+                    className="btn-mini"
+                    onClick={() => setShowAllDataForVariantId(showAllData ? null : selectedVariant.id)}
+                  >
+                    {showAllData ? 'Source only' : 'Show all'}
+                  </button>
+                </>
+              )}
             </div>
           )}
           {showDeliveryAtSiteNotice && (
@@ -3746,7 +3831,7 @@ export default function LeadDetailDashboard(): JSX.Element {
               onClick={() => {
                 if (!selectedVariant) return
                 const confirmed = window.confirm(
-                  `Apply ${selectedVariant.variantName || `${km.format(selectedVariant.leadKm)} km ${selectedVariant.materialName}`} to every eligible component usage (${applyableTargets.length})? Existing Materials on those usages will be replaced.`
+                  `Apply ${selectedVariant.variantName || `${km.format(selectedVariant.materialName === 'Concrete delivery' ? selectedVariant.actualLeadKm ?? selectedVariant.leadKm : selectedVariant.leadKm)} km ${selectedVariant.materialName}`} to every eligible component usage (${applyableTargets.length})? Existing Materials on those usages will be replaced.`
                 )
                 if (confirmed) void applyTargets(applyableTargets)
               }}
@@ -3776,7 +3861,7 @@ export default function LeadDetailDashboard(): JSX.Element {
               visibleGroups.map((group) => {
                 const groupLeadRef = leadRefForGroup(
                   group,
-                  leadMetadataForGroup(group, metadata.get(group.code)),
+                  metadata.get(group.key),
                   materialName,
                   conveyanceClass,
                   disposalLead,
@@ -3793,14 +3878,14 @@ export default function LeadDetailDashboard(): JSX.Element {
                       : isEligibleForLead(
                           group,
                           selectedVariant,
-                          parseLeadInfo(leadMetadataForGroup(group, metadata.get(group.code)))
+                          parseLeadInfo(metadata.get(group.key))
                         ))
                 )
                 const needsOverride = needsDeliveryAtSiteOverride(selectedVariant)
                 const needsLoadingOverride = needsLoadingUnloadingOverride(selectedVariant)
                 const needsAnyOverride = needsOverride || needsLoadingOverride
                 const showDeliveryWarning = needsOverride || (selectedMaterialIsDeliveryAtSite && !selectedVariant)
-                const targets = group.usages.map((usage) => leadTargetForUsage(group, usage))
+                const targets = targetsForGroup(group)
                 const anyApplied = targets.some((target) =>
                   Boolean(applicationForLeadTarget(materialApplications, target))
                 )
@@ -3829,7 +3914,7 @@ export default function LeadDetailDashboard(): JSX.Element {
                         const loadingUnloadingWarning =
                           applied?.handlingWarning ?? selectedLoadingUnloadingCaution
                         const appliedVariantLabel = appliedVariant
-                          ? appliedVariant.variantName || `${km.format(appliedVariant.leadKm)} km Material`
+                          ? appliedVariant.variantName || `${km.format(appliedVariant.materialName === 'Concrete delivery' ? appliedVariant.actualLeadKm ?? appliedVariant.leadKm : appliedVariant.leadKm)} km Material`
                           : 'Stored Material'
                         return (
                           <div
@@ -3864,10 +3949,16 @@ export default function LeadDetailDashboard(): JSX.Element {
                               }
                             >
                               <strong>{target.pathLabel}</strong>
+                              {(!target.morthAppendixPath ? leadAppendixSources(leadRecipes[target.usage.node.id], materialName) : []).map(source => (
+                                <small key={source}>{source}</small>
+                              ))}
+                              {target.morthAppendixPath !== undefined && (
+                                <small>{concreteDelivery ? 'Distance drives the original machinery row in this DATA or appendix.' : `Lead is calculated in this ${target.morthAppendixPath.length ? 'appendix' : 'DATA'} and included in its rate.`}</small>
+                              )}
                               <small>
                                 {applied
                                   ? appliedToSelectedVariant
-                                    ? `${appliedVariantLabel} applied · Rs. ${money.format(applied.grossAmount)}`
+                                    ? concreteDelivery ? `${appliedVariantLabel} · distance supplied to DATA` : `${appliedVariantLabel} applied · Rs. ${money.format(applied.grossAmount)}`
                                     : `${appliedVariantLabel} applied · Rs. ${money.format(applied.grossAmount)}`
                                   : selectedVariant && !groupCanApplySelectedVariant && groupLeadRef
                                     ? `Needs ${disposalLead ? disposalClassLabel(groupLeadRef.conveyanceClass) : conveyanceClassLabel(groupLeadRef.conveyanceClass)} Material`
@@ -5125,17 +5216,16 @@ function MapPointsViewport({
   const signature = points.map((point) => `${point.lat},${point.lon}`).join('|')
 
   useEffect(() => {
-    window.setTimeout(() => map.invalidateSize(), 0)
+    const resizeTimer = window.setTimeout(() => map.invalidateSize(), 0)
     if (points.length === 1) {
       map.setView([points[0].lat, points[0].lon], singleZoom, { animate: false })
-      return
-    }
-    if (points.length > 1) {
+    } else if (points.length > 1) {
       map.fitBounds(
         L.latLngBounds(points.map((point) => L.latLng(point.lat, point.lon))),
         { padding: [42, 42], maxZoom: 18, animate: false }
       )
     }
+    return () => window.clearTimeout(resizeTimer)
   }, [map, points, signature, singleZoom])
 
   return null
@@ -5241,19 +5331,6 @@ function leadRefForGroup(
       (disposalLead || ref.conveyanceClass === conveyanceClass) &&
       ref.name.toLowerCase() === materialName.toLowerCase()
   )
-}
-
-function leadMetadataForGroup(group: ProjectItemGroup, metadata: unknown): unknown {
-  const addonIds = Array.from(new Set(
-    group.usages.map((usage) => usage.node.dataVariant?.addonId).filter(Boolean)
-  ))
-  if (!addonIds.length || !metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
-    return metadata
-  }
-  return {
-    ...(metadata as Record<string, unknown>),
-    selected_addon_ids: addonIds
-  }
 }
 
 function materialInGroup(
@@ -5382,6 +5459,7 @@ function variantDraftForEdit(
 
   return {
     variantName: variant.variantName ?? '',
+    deliveryRate: variant.customGrossRate == null ? '' : String(variant.customGrossRate),
     mapColor: variant.mapColor ?? '',
     startPointId: variant.startPointId ?? (hasMappedRoute ? inferredStartPointId : ''),
     viaPointIds: [...(variant.viaPointIds ?? [])],
@@ -5474,6 +5552,7 @@ function roadConditionSummary(draft: VariantDraft): string {
 
 function variantLeadMeasureLabel(variant: LeadVariant): string {
   const actualLeadKm = variant.actualLeadKm ?? variant.leadKm
+  if (variant.materialName === 'Concrete delivery') return `Plant to site ${km.format(actualLeadKm)} km`
   const multiplier = variant.roadMultiplier ?? 1
   const segmentKm = variant.roadSegmentKm ?? 0
   if (multiplier > 1 && Math.abs(actualLeadKm - variant.leadKm) > 0.0005) {
@@ -5550,6 +5629,7 @@ function ruleLabelsForDraft(draft: VariantDraft): string[] {
 
 function ruleLabelsForVariant(variant: LeadVariant): string[] {
   if (variant.pipeLead) return [variant.pipeLead.pipeLeadCatalogueCode]
+  if (variant.materialName === 'Concrete delivery') return ['Distance for MoRTH machinery · no separate SOR charge']
   return ruleLabels({
     leadKm: variant.leadKm,
     liftM: variant.liftM,

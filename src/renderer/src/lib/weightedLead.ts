@@ -17,9 +17,10 @@ export interface WeightedLeadScopeGroup {
 
 /** Applied stone quantity behind one application (output units win). */
 export function applicationWeight(
-  application: Pick<LeadApplication, 'outputQuantity' | 'quantity'>
+  application: Pick<LeadApplication, 'outputQuantity' | 'quantity' | 'morthAppendixPath' | 'morthRootFactor'>
 ): number {
-  const value = application.outputQuantity ?? application.quantity
+  const value = application.morthAppendixPath !== undefined
+    ? application.quantity * (application.morthRootFactor ?? 1) : application.outputQuantity ?? application.quantity
   return Number.isFinite(value) && value > 0 ? value : 0
 }
 
@@ -99,9 +100,15 @@ export function weightedLeadEntriesFromSeigniorage(
       )
     }
     const terms = candidates[0].quantityTerms ?? []
-    const quantity = terms
+    let quantity = terms
       .filter((term) => term.itemNodeId === application.itemNodeId)
       .reduce((sum, term) => sum + term.quantity, 0)
+    if (application.morthAppendixPath !== undefined) {
+      const peers = applications.filter(peer => peer.itemNodeId === application.itemNodeId &&
+        byId.get(peer.sourceVariantId ?? peer.variantId)?.materialName === variant.materialName)
+      const total = peers.reduce((sum, peer) => sum + applicationWeight(peer), 0)
+      quantity *= total > 0 ? applicationWeight(application) / total : 0
+    }
     if (!(quantity > 0)) continue
     totals.set(variant.id, (totals.get(variant.id) ?? 0) + quantity)
     units.set(variant.id, candidates[0].unit || application.unit || '')

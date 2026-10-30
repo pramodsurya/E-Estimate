@@ -73,6 +73,7 @@ pub(super) fn write_morth_sheets(
     req: &ExcelCompileRequest,
     lead_refs: &HashMap<String, String>,
     require_lead_refs: bool,
+    individual_refs: &HashMap<String,String>,
 ) -> Result<HashMap<String, String>, XlsxError> {
     let mut refs = HashMap::new();
     for (name, recipes, appendix) in [
@@ -333,6 +334,8 @@ pub(super) fn write_morth_sheets(
                                 value(&line.rate),
                                 &number,
                             )?;
+                        } else if let Some(formula) = super::individual::rate_formula(line, individual_refs)? {
+                            cached(ws,row,5,formula,value(&line.rate),&number)?;
                         } else {
                             ws.write_number_with_format(row, 5, value(&line.rate), &number)?;
                         }
@@ -515,55 +518,36 @@ pub(super) fn write_morth_sheets(
                     }
                     row += 1;
                 }
-                if appendix {
-                    let key = recipe.appendix_key.as_deref().ok_or_else(|| {
-                        XlsxError::CustomError("Missing appendix identity".into())
-                    })?;
-                    ws.merge_range(
-                        row,
-                        0,
-                        row,
-                        5,
-                        "Direct rate per unit (before allowances and markup)",
-                        &text,
-                    )?;
-                    cached(
-                        ws,
-                        row,
-                        6,
-                        format!("={direct}/{divisor}"),
-                        totals.base_cost.unwrap_or(0.0) / output,
-                        &number,
-                    )?;
-                    names.push((
-                        format!("MORTH_{key}_DIRECT"),
-                        format!("='{name}'!$G${}", row + 1),
-                    ));
-                    names.push((
-                        format!("MORTH_{key}_RATE"),
-                        format!("='{name}'!$G${}", rate_row + 1),
-                    ));
-                    names.push((
-                        format!("MORTH_{key}_TITLE"),
-                        format!("='{name}'!$A${}", breaks.last().copied().unwrap_or(2) + 1),
-                    ));
-                    row += 1;
-                }
+                let mut amounts = Vec::new();
                 if let Some(leads) = &recipe.leads {
                     if !leads.is_empty() {
                         row += 1;
                         ws.merge_range(row, 0, row, 6, "LEAD ADDITIONS", &heading)?;
                         row += 1;
-                        let mut amounts = Vec::new();
+                        ws.merge_range(row, 0, row, 2, "Material / basis", &band)?;
+                        for (col, label) in [(3, "Quantity"), (4, "Unit"), (5, "Rate (Rs.)"), (6, "Amount (Rs.)")] {
+                            ws.write_string_with_format(row, col, label, &band)?;
+                        }
+                        row += 1;
                         for lead in leads {
+                            if let Some(deduction) = &lead.deduction {
+                                ws.merge_range(row, 0, row, 4, &deduction.label, &text)?;
+                                ws.write_string_with_format(row, 5, format!("{} - {}", deduction.full_rate_text.as_deref().unwrap_or(""), deduction.deducted_rate_text.as_deref().unwrap_or("")), &text)?;
+                                ws.write_string_with_format(row, 6, deduction.net_rate_text.as_deref().unwrap_or(""), &bold)?;
+                                row += 1;
+                            }
+                            let mut caption = lead.material.clone().unwrap_or_else(|| "Lead".into());
+                            if let Some(source) = &lead.quantity_source { caption.push_str(&format!("\n{source}")); }
+                            if let Some(distance) = lead.distance_km { caption.push_str(&format!(" · {distance} km")); }
                             ws.merge_range(
                                 row,
                                 0,
                                 row,
                                 2,
-                                lead.material.as_deref().unwrap_or("Lead"),
+                                &caption,
                                 &text,
                             )?;
+                            ws.set_row_height(row, if caption.len() > 90 { 60.0 } else { 36.0 })?;
                             ws.write_number_with_format(row, 3, value(&lead.quantity), &quantity)?;
                             ws.write_string_with_format(
                                 row,
@@ -599,15 +583,24 @@ pub(super) fn write_morth_sheets(
                             amounts.push(cell(row));
                             row += 1;
                         }
+                        let lead_total = leads.iter().map(|l| value(&l.amount)).sum::<f64>();
+                        for (label, formula, result) in [
+                            ("Base final amount", format!("={total}"), totals.total_cost.unwrap_or(0.0)),
+                            ("Add Lead/Lift total", format!("={}", sum(&amounts)), lead_total),
+                            ("Final amount with Lead", format!("={total}+{}", sum(&amounts)), totals.total_cost.unwrap_or(0.0) + lead_total),
+                        ] {
+                            ws.merge_range(row, 0, row, 5, label, &bold)?;
+                            cached(ws, row, 6, formula, result, &bold_number)?;
+                            row += 1;
+                        }
                         ws.merge_range(
                             row,
                             0,
                             row,
                             5,
-                            "Adopted rate per unit including Lead",
+                            "Rate per unit with Lead",
                             &bold,
                         )?;
-                        let lead_total = leads.iter().map(|l| value(&l.amount)).sum::<f64>();
                         cached(
                             ws,
                             row,
@@ -619,6 +612,16 @@ pub(super) fn write_morth_sheets(
                         rate_row = row;
                         row += 1;
                     }
+                }
+                if appendix {
+                    let key = recipe.appendix_key.as_deref().ok_or_else(|| XlsxError::CustomError("Missing appendix identity".into()))?;
+                    ws.merge_range(row, 0, row, 5, "Direct rate per unit including applied Lead (before allowances and markup)", &text)?;
+                    let lead_total = recipe.leads.as_ref().map(|leads| leads.iter().map(|lead| value(&lead.amount)).sum::<f64>()).unwrap_or(0.0);
+                    cached(ws, row, 6, format!("=({direct}+{})/{divisor}", sum(&amounts)), (totals.base_cost.unwrap_or(0.0) + lead_total) / output, &number)?;
+                    names.push((format!("MORTH_{key}_DIRECT"), format!("='{name}'!$G${}", row + 1)));
+                    names.push((format!("MORTH_{key}_RATE"), format!("='{name}'!$G${}", rate_row + 1)));
+                    names.push((format!("MORTH_{key}_TITLE"), format!("='{name}'!$A${}", breaks.last().copied().unwrap_or(2) + 1)));
+                    row += 1;
                 }
                 let key = if recipe.excel_key.is_empty() {
                     recipe.code.clone()

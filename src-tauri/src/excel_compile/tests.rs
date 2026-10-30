@@ -1,6 +1,32 @@
 use super::*;
 
 #[test]
+fn test_page_formula_keeps_measured_quantity_cache() {
+    use std::io::{Cursor, Read};
+
+    let page: PagePayload = serde_json::from_value(serde_json::json!({
+        "name": "Cutting Volumes",
+        "grid": {
+            "cells": [
+                {"r": 0, "c": 0, "value": 3.5},
+                {"r": 0, "c": 1, "value": 4.5},
+                {"r": 0, "c": 2, "value": 40.0, "formula": "=(A1+B1)/2*10"}
+            ],
+            "colWidthsChars": [20, 20, 20]
+        }
+    }))
+    .unwrap();
+    let bytes = generate_excel_page_workbook(&page, &ExcelCompileRequest::default()).unwrap();
+    let mut zip = zip::ZipArchive::new(Cursor::new(bytes)).unwrap();
+    let mut sheet = String::new();
+    zip.by_name("xl/worksheets/sheet1.xml")
+        .unwrap()
+        .read_to_string(&mut sheet)
+        .unwrap();
+    assert!(sheet.contains("<f>(A1+B1)/2*10</f><v>40</v>"), "{sheet}");
+}
+
+#[test]
 fn test_excel_print_settings_default_and_named_sheet_override() {
     use std::io::{Cursor, Read};
 
@@ -161,6 +187,7 @@ fn test_excel_compile_basic() {
                 quantity: Some(serde_json::json!(0.5)),
                 rate: Some(serde_json::json!(450.0)),
                 amount: Some(serde_json::json!(225.0)),
+                ..Default::default()
             }],
             totals: Some(Totals {
                 output_quantity: Some(1.0),
@@ -186,6 +213,7 @@ fn test_excel_compile_basic() {
             rate_variant: None,
             area_allowance_label: None,
             scope_label: None,
+            ..Default::default()
         }],
         sor: vec![ExcelSorItem {
             excel_key: "sor-1".into(),

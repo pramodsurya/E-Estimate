@@ -1,5 +1,5 @@
 import type { IndividualCostInput } from './individualCosts'
-import type { ConveyanceClass, PipeLeadSource, ProjectDataRateSource } from './project'
+import type { ConveyanceClass, PipeLeadSource, ProjectDataRateSource, LeadApplication, LeadVariant } from './project'
 import type { SorItemSelection } from './sor'
 
 export type RateAnalysisSectionKey = 'materials' | 'machinery' | 'labour'
@@ -275,6 +275,8 @@ export interface RateAnalysisCalculationTrace {
 
 /** A derived editor result. The original Supabase values remain in storedValues. */
 export interface RateAnalysisRecalculation {
+  /** Allowance used to build this cache; absent in older project files. */
+  areaAllowancePercent?: number
   sectionTotals: Record<RateAnalysisSectionKey, string>
   subtotal: string
   finalCost: string
@@ -379,7 +381,7 @@ export interface SeigniorageApplicabilityPolicy {
 
 export interface RateAnalysisRecipe {
   miscellaneousDefaults?: { overheadPercent: number }
-  morth?: { costingBasis?: string; source: Record<string, unknown>; parameters: Record<string, string | number | boolean>; inputs: Record<string, {rate:number|null; raw:Record<string,unknown>; dependency?: RateAnalysisRecipe}>; printedItem: string; pending: string[]; sourceErrors?: string[]; startingSummary?: RateAnalysisSummary }
+  morth?: { appliedLeadApplications?: LeadApplication[]; appliedLeadVariants?: LeadVariant[]; leadPricingInputSignature?: string; leadPricingSignature?: string; leadPricingBaseAmount?: number; transportManualKm?: Record<string, number>; transportLeadKm?: Record<string, number>; costingBasis?: string; source: Record<string, unknown>; parameters: Record<string, string | number | boolean>; inputs: Record<string, {rate:number|null; raw:Record<string,unknown>; dependency?: RateAnalysisRecipe}>; printedItem: string; pending: string[]; sourceErrors?: string[]; startingSummary?: RateAnalysisSummary }
   schemaVersion: 1
   itemKey: string
   itemSource: 'SSR' | 'SOR' | 'MORTH' | 'OTHERS'
@@ -518,6 +520,7 @@ export interface RateAnalysisSummary {
   /** Native MoRTH quantities/rates used by DATA and recursive material Lead. */
   computedLines?: Record<string, { quantity: number; rate: number; amount: number }>
   morthAbstract?: import('../lib/morthAppendices').MorthAbstractRow[]
+  morthLeadAmount?: number
   costReady?: boolean
   missing?: string[]
   profitAmount?: number

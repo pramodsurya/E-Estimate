@@ -1,22 +1,18 @@
+import { openSectionPolygon } from '../../lib/canalBankSection'
 import type { CanalData, CanalFilterDrainReach, CanalPoint, CanalSection } from '../../types/project'
 import {
   canalBedLevelAt,
-  canalBundFootprintRanges,
-  canalDesignProfile,
+  canalSectionGeometry,
   canalFlowLabel,
   canalFoundationRlAt,
-  canalAutomaticFilterLengthsAtSection,
   canalFoundationExcavationBands,
   canalGroundLevelAt,
   canalHeartingSection,
   canalServiceRoadSegments,
-  canalSectionAreas,
-  canalSectionBankTier,
-  canalSectionBankTreatment,
+  canalSectionToeWorks,
+  canalSandBlanketsAtSection,
   canalStrippingBands,
-  canalStrippingDepthAt,
-  orderCanalPoints,
-  profileDifferenceBands
+  canalStrippingDepthAt
 } from '../../lib/canal'
 import { formatChainage } from '../../lib/guideWall'
 import { bankProtectionSegments, bankProtectionItem, bankProtectionAt } from '../../lib/canalBankProtection'
@@ -63,19 +59,6 @@ function linePath(points: CanalPoint[], m: Mapped): string {
   return points.map((p, i) => `${i ? 'L' : 'M'} ${m.toX(p.offset)} ${m.toY(p.rl)}`).join(' ')
 }
 
-function profileBetween(points: CanalPoint[], from: number, to: number): CanalPoint[] {
-  if (points.length < 2 || !(to > from)) return []
-  const inside = points.filter((point) => point.offset > from && point.offset < to)
-  const fromRl = canalGroundLevelAt(points, from)
-  const toRl = canalGroundLevelAt(points, to)
-  if (fromRl == null || toRl == null) return []
-  return [{ offset: from, rl: fromRl }, ...inside, { offset: to, rl: toRl }]
-}
-
-function raisedBand(profile: CanalPoint[], thickness: number): CanalPoint[] {
-  if (profile.length < 2 || !(thickness > 0)) return []
-  return [...profile, ...[...profile].reverse().map((point) => ({ ...point, rl: point.rl + thickness }))]
-}
 
 /**
  * To-scale cross-section at one chainage: surveyed ground, designed canal
@@ -97,99 +80,47 @@ export default function CanalSectionDiagram({
   /** Explicit rock-toe/drain works for a live preview. Saved works are used when omitted. */
   filterDrainWorks?: CanalFilterDrainReach[]
 }): JSX.Element {
-  const isTiered = data.design.bankConfig?.mode === 'tiered' || data.design.bankConfig?.mode === 'manual'
-  const leftTier = isTiered ? canalSectionBankTier(data, section, 'left') : null
-  const rightTier = isTiered ? canalSectionBankTier(data, section, 'right') : null
-  const leftTreatment = leftTier ? canalSectionBankTreatment(data, section, 'left') : undefined
-  const rightTreatment = rightTier ? canalSectionBankTreatment(data, section, 'right') : undefined
+
   const resolvedFilterDrainWorks = filterDrainWorks ?? data.filterDrainReaches.filter((row) => section.chainage >= row.fromChainage && section.chainage <= row.toChainage)
+  const geometry = canalSectionGeometry(data, section)
   const view = (() => {
-    const design = canalDesignProfile(data, section)
-    const rawGround = orderCanalPoints(section.ground)
-    let ground = rawGround
-    if (design.length >= 2 && rawGround.length >= 2) {
-      const minDesign = design[0].offset
-      const maxDesign = design[design.length - 1].offset
-      const minGround = rawGround[0].offset
-      const maxGround = rawGround[rawGround.length - 1].offset
-      if (minDesign < minGround - 1e-6 || maxDesign > maxGround + 1e-6) {
-        const leftExt = minDesign < minGround - 1e-6 ? [{ offset: minDesign, rl: rawGround[0].rl }] : []
-        const rightExt = maxDesign > maxGround + 1e-6 ? [{ offset: maxDesign, rl: rawGround[rawGround.length - 1].rl }] : []
-        ground = [...leftExt, ...rawGround, ...rightExt]
-      }
-    }
-    const bands =
-      design.length >= 2 && ground.length >= 2
-        ? profileDifferenceBands(ground, design)
-        : []
+    const { design, bands } = geometry
+    let ground = geometry.ground
     const coreSection = canalHeartingSection(data, section)
     const hearting = coreSection.profiles
     const stripping = canalStrippingBands(data, section)
     const foundation = showFoundationExcavation ? canalFoundationExcavationBands(data, section) : []
     const bedRl = canalBedLevelAt(data, section.chainage)
     const strippingDepth = canalStrippingDepthAt(data, section.chainage)
-    const autoFilterLengths = canalAutomaticFilterLengthsAtSection(data, section)
-    const preparedProfiles = canalBundFootprintRanges(data, section).flatMap(([from, to]) => {
-      const side = (from + to) / 2 < 0 ? 'left' as const : 'right' as const
-      const groundProfile = profileBetween(ground, from, to)
-      if (groundProfile.length < 2) return []
-      return [{ side, from, to, points: groundProfile.map((point) => ({ ...point, rl: point.rl - strippingDepth })) }]
-    })
-    const sandBlankets = preparedProfiles.flatMap((prepared) => {
-      const treatment = prepared.side === 'left' ? leftTreatment : rightTreatment
-      if (!treatment || treatment.blanket === 'none') return []
-      const thickness = treatment.blanket === '5-4' ? 0.25 : Math.max(0, treatment.blanketThickness)
-      const impervious = hearting.find((profile) => profile.bank === prepared.side)
-      const imperviousOffsets = impervious ? [...impervious.points, ...impervious.trench].map((point) => point.offset) : []
-      const available = imperviousOffsets.length
-        ? prepared.side === 'left'
-          ? Math.max(0, Math.min(...imperviousOffsets) - prepared.from)
-          : Math.max(0, prepared.to - Math.max(...imperviousOffsets))
-        : prepared.to - prepared.from
-      const requested = treatment.blanketWidthMode === 'automatic'
-        ? available
-        : prepared.side === 'left' ? treatment.blanketLeftWidth : treatment.blanketRightWidth
-      const width = Math.min(available, Math.max(0, requested))
-      const from = prepared.side === 'left' ? prepared.from : prepared.to - width
-      const to = prepared.side === 'left' ? prepared.from + width : prepared.to
-      const points = raisedBand(profileBetween(prepared.points, from, to), thickness)
-      return points.length ? [{ side: prepared.side, kind: treatment.blanket, thickness, points }] : []
-    })
-    const horizontalFilters = preparedProfiles.flatMap((prepared) => {
-      const treatment = prepared.side === 'left' ? leftTreatment : rightTreatment
-      if (!treatment?.horizontalFilter || !(treatment.filterThickness > 0)) return []
-      const impervious = hearting.find((profile) => profile.bank === prepared.side)
-      const imperviousOffsets = impervious ? [...impervious.points, ...impervious.trench].map((point) => point.offset) : []
-      const available = imperviousOffsets.length
-        ? prepared.side === 'left'
-          ? Math.max(0, Math.min(...imperviousOffsets) - prepared.from)
-          : Math.max(0, prepared.to - Math.max(...imperviousOffsets))
-        : prepared.to - prepared.from
-      const requested = treatment.filterLengthMode === 'automatic'
-        ? autoFilterLengths[prepared.side]
-        : prepared.side === 'left' ? treatment.filterLeftLength : treatment.filterRightLength
-      const width = Math.min(available, Math.max(0, requested))
-      const from = prepared.side === 'left' ? prepared.from : prepared.to - width
-      const to = prepared.side === 'left' ? prepared.from + width : prepared.to
-      const blanketThickness = treatment.blanket === 'none' ? 0 : treatment.blanket === '5-4' ? 0.25 : Math.max(0, treatment.blanketThickness)
-      const base = profileBetween(prepared.points, from, to).map((point) => ({ ...point, rl: point.rl + blanketThickness }))
-      const points = raisedBand(base, treatment.filterThickness)
-      return points.length ? [{ side: prepared.side, thickness: treatment.filterThickness, points }] : []
-    })
-    const fsl = bedRl == null ? null : bedRl + data.design.fullSupplyDepth
-    const chimneyFilters = horizontalFilters.flatMap((filter) => {
-      const treatment = filter.side === 'left' ? leftTreatment : rightTreatment
-      if (!treatment?.rockToe || (treatment.rockToeSide !== 'both' && treatment.rockToeSide !== filter.side)) return []
-      const offsets = filter.points.map((point) => point.offset)
-      const inner = filter.side === 'left' ? Math.max(...offsets) : Math.min(...offsets)
-      const width = Math.min(Math.max(0, treatment.rockToeWidth), Math.max(...offsets) - Math.min(...offsets))
-      const from = filter.side === 'left' ? inner - width : inner
-      const to = filter.side === 'left' ? inner : inner + width
-      const base = Math.max(...filter.points.filter((point) => point.offset === inner).map((point) => point.rl))
-      const height = treatment.rockToeHeight > 0 ? treatment.rockToeHeight : Math.max(0, (fsl ?? base) - base)
-      const points = [{ offset: from, rl: base }, { offset: to, rl: base }, { offset: to, rl: base + height }, { offset: from, rl: base + height }]
-      return height > 0 && width > 0 ? [{ side: filter.side, points }] : []
-    })
+    const sectionModel = geometry.bankSection
+    const preparedProfiles = (sectionModel?.banks ?? []).flatMap((bank, index) => bank.shapes.filter(shape => shape.key === 'prepared').map(shape => ({
+      side: index === 0 ? 'left' as const : 'right' as const, from: Math.min(...shape.points.map(p => p.offset)), to: Math.max(...shape.points.map(p => p.offset)), points: shape.points
+    })))
+    const preparedLines = (sectionModel?.cutting ?? 0) <= 1e-6 && preparedProfiles.length > 1
+      ? [{ side: 'continuous', from: Math.min(...preparedProfiles.map(p => p.from)), to: Math.max(...preparedProfiles.map(p => p.to)),
+          points: [...preparedProfiles.flatMap(profile => profile.points)].sort((a,b) => a.offset-b.offset).filter((point,index,all) => index === 0 || point.offset !== all[index-1].offset) }]
+      : preparedProfiles
+
+    const toeWorks = canalSectionToeWorks(data, section)
+    const ownedSandBlankets = canalSandBlanketsAtSection(data, section)
+    const sandBlankets = (() => {
+      const left = ownedSandBlankets.find(blanket => blanket.side === 'left')
+      const right = ownedSandBlankets.find(blanket => blanket.side === 'right')
+      if (ownedSandBlankets.length === 2 && left && right && Math.abs(left.to - right.from) < 1e-7 && left.kind === right.kind && Math.abs(left.thickness - right.thickness) < 1e-9) {
+        const lower = [...left.points.slice(0, left.points.length / 2), ...right.points.slice(1, right.points.length / 2)]
+        return [{ ...left, side: 'both' as const, to: right.to,
+          points: [...lower, ...[...lower].reverse().map(point => ({ ...point, rl: point.rl + left.thickness }))] }]
+      }
+      return ownedSandBlankets
+    })()
+    const horizontalFilters = (sectionModel?.banks ?? []).flatMap((bank, index) => bank.shapes.filter(shape => shape.key === 'horizontal_filter').map(shape => {
+      const points = openSectionPolygon(shape.points)
+      return { side: index === 0 ? 'left' as const : 'right' as const, points, thickness: points.length ? points.at(-1)!.rl - points[0].rl : 0 }
+    }))
+    const chimneyFilters = (sectionModel?.banks ?? []).flatMap((bank, index) => bank.shapes.filter(shape => shape.key === 'vertical_filter').map(shape => ({
+      side: index === 0 ? 'left' as const : 'right' as const, points: openSectionPolygon(shape.points)
+    })))
+
     const roads = canalServiceRoadSegments(data, section)
     const leftToe = design[0]
     const rightToe = design[design.length - 1]
@@ -243,6 +174,14 @@ export default function CanalSectionDiagram({
         return { id: `${work.id}-${side}`, kind: work.kind, side, rockToe, rockToeFilter, points, secondaryPoints }
       })
     }) : []
+    const workPoints = [...toeWorks.flatMap(work => [...work.points, ...(work.extraPolygons ?? []).flat()]), ...externalWorks.flatMap(work => work.points)]
+    if (ground.length >= 2 && workPoints.length) {
+      const from = Math.min(...workPoints.map(p => p.offset)), to = Math.max(...workPoints.map(p => p.offset))
+      ground = [
+        ...(from < ground[0].offset ? [{ offset: from, rl: ground[0].rl }] : []), ...ground,
+        ...(to > ground.at(-1)!.offset ? [{ offset: to, rl: ground.at(-1)!.rl }] : [])
+      ]
+    }
     const all = [
       ...design,
       ...ground,
@@ -253,6 +192,7 @@ export default function CanalSectionDiagram({
       , ...sandBlankets.flatMap((blanket) => blanket.points)
       , ...horizontalFilters.flatMap((filter) => filter.points)
       , ...chimneyFilters.flatMap((filter) => filter.points)
+      , ...toeWorks.flatMap(work => [...work.points, ...(work.extraPolygons ?? []).flat()])
       , ...externalWorks.flatMap((work) => work.points)
       , ...externalWorks.flatMap((work) => work.secondaryPoints ?? [])
       , ...roads.flatMap((road) => [{ offset: road.fromOffset, rl: road.level }, { offset: road.toOffset, rl: road.level }])
@@ -300,12 +240,15 @@ export default function CanalSectionDiagram({
       hearting,
       stripping,
       preparedProfiles,
+      preparedLines,
+      strippingDepth,
+      toeWorks,
       foundation,
       sandBlankets,
       horizontalFilters,
       chimneyFilters,
       roads,
-      coreErrors: coreSection.errors,
+      coreErrors: [...new Set([...coreSection.errors, ...(sectionModel?.errors ?? [])])],
       coreTrenches: coreSection.trenches,
       combinedTrench: coreSection.combinedTrench,
       coreOverlap: coreSection.overlap,
@@ -322,7 +265,7 @@ export default function CanalSectionDiagram({
     }
   })()
 
-  const areas = (canalSectionAreas(data, section))
+  const areas = geometry.areas
   const foundationArea = view?.foundation.reduce((sum, points) => sum + polygonArea(points), 0) ?? 0
   const bed = canalBedLevelAt(data, section.chainage)
   const hydraulicLevels = bed == null ? null : {
@@ -344,6 +287,20 @@ export default function CanalSectionDiagram({
   const m: Mapped = { toX: view.toX, toY: view.toY }
   const hasGround = view.ground.length >= 2
   const hasDesign = view.design.length >= 2
+  const enabledWorks = [
+    ...view.sandBlankets.map(work => ({ id: `${work.side}-blanket`, side: work.side, nativeKey: work.kind === '5-4' ? 'blanket_25' : 'blanket_variable', label: `${work.side === 'both' ? 'Both banks' : work.side === 'left' ? 'Left' : 'Right'} sand blanket · ${f2(work.thickness)} m`, code: `IRR-CAW-${work.kind}`, color: '#67d7b7' })),
+    ...view.horizontalFilters.map(work => ({ id: `${work.side}-horizontal`, side: work.side, nativeKey: 'horizontal_filter', label: `${work.side === 'left' ? 'Left' : 'Right'} horizontal filter · ${f2(work.thickness)} m`, code: 'IRR-CAW-5-7', color: '#22d3ee' })),
+    ...view.chimneyFilters.map(work => ({ id: `${work.side}-chimney`, side: work.side, nativeKey: 'vertical_filter', label: `${work.side === 'left' ? 'Left' : 'Right'} chimney filter`, code: 'IRR-CAW-5-10', color: '#a5f3fc' })),
+    ...view.toeWorks.flatMap(work => [
+      { id: work.id, side: work.side, nativeKey: work.kind === 'toe-filter' ? `toe_filter_${work.code.replace('IRR-CAW-', '')}` : work.kind === 'rock-toe' ? 'rock_toe' : work.kind === 'rock-toe-filter' ? 'rock_toe_filter' : 'toe_ditch', label: `${work.side === 'left' ? 'Left' : 'Right'} ${work.label.toLowerCase()}`, code: work.code, color: work.kind.startsWith('rock-toe') ? '#f1bc75' : '#22d3ee' },
+      ...(work.lining ? [{ id: `${work.id}-lining`, side: work.side, nativeKey: work.lining === 'rubble' ? 'ditch_rubble' : 'ditch_concrete', label: `${work.side === 'left' ? 'Left' : 'Right'} toe-ditch ${work.lining === 'rubble' ? 'rubble protection' : 'M15 concrete lining'}`, code: work.lining === 'rubble' ? 'IRR-CAW-8-4' : 'IRR-CAW-7-15', color: '#cbd5e1' }] : [])
+    ]),
+    ...(['left', 'right'] as const).flatMap(side => (['slopes', 'berms'] as const).flatMap(surface => {
+      const spec = bankProtectionAt(data, section, side)[surface], item = bankProtectionItem(spec)
+      return item && bankProtectionSegments(data, section, side, surface).length && !(data.mode === 'new' && spec.kind === 'stone' && spec.thickness === 0.225)
+        ? [{ id: `${side}-${surface}-protection`, side, nativeKey: `${surface === 'slopes' ? 'slope' : 'berm'}_protection_${item.code}`, label: `${side === 'left' ? 'Left' : 'Right'} ${surface} · ${spec.kind === 'grass' ? 'grass turfing' : 'stone pitching'}`, code: item.code, color: spec.kind === 'grass' ? '#74d68a' : '#f1bc75' }] : []
+    }))
+  ]
 
   return (
     <>
@@ -450,7 +407,7 @@ export default function CanalSectionDiagram({
 
       {view.stripping.length > 0 && (
         <g>
-          {view.preparedProfiles.map((profile) => <g key={`prepared-${profile.side}`}><path d={linePath(profile.points, m)} className="canal-diagram-stripping-line" fill="none"/><text x={view.toX((profile.from + profile.to) / 2)} y={view.toY(Math.min(...profile.points.map((point) => point.rl))) + 11} textAnchor="middle" className="canal-diagram-stripping-label">Prepared level −{f2(data.strippingDepth)} m</text></g>)}
+          {view.preparedLines.map((profile) => <g key={`prepared-${profile.side}`} aria-label={`${profile.side} prepared level`}><path d={linePath(profile.points, m)} className="canal-diagram-stripping-line" fill="none"/><text x={view.toX((profile.from + profile.to) / 2)} y={view.toY(Math.min(...profile.points.map((point) => point.rl))) + 11} textAnchor="middle" className="canal-diagram-stripping-label">Prepared level −{f2(view.strippingDepth)} m</text></g>)}
         </g>
       )}
 
@@ -462,8 +419,8 @@ export default function CanalSectionDiagram({
           </text>
         </g>
       )}
-      {view.sandBlankets.length > 0 && <g>{view.sandBlankets.map((blanket, index) => { const centre = blanket.points.reduce((sum, point) => sum + point.offset, 0) / blanket.points.length; return <g key={`sand-blanket-${index}`}><polygon points={blanket.points.map((p) => `${view.toX(p.offset)},${view.toY(p.rl)}`).join(' ')} fill={`url(#canal-sand-blanket-${blanket.kind})`} stroke="#67d7b7" strokeWidth="1.5"/><text x={view.toX(centre)} y={view.toY(Math.max(...blanket.points.map((point) => point.rl))) - 7} textAnchor="middle" className="canal-diagram-foundation-label">{blanket.side === 'left' ? 'Left' : 'Right'} sand blanket · {f2(blanket.thickness)} m</text></g> })}</g>}
-      {view.horizontalFilters.length > 0 && <g>{view.horizontalFilters.map((filter, index) => { const centre = filter.points.reduce((sum, point) => sum + point.offset, 0) / filter.points.length; return <g key={`horizontal-filter-${index}`}><polygon points={filter.points.map((p) => `${view.toX(p.offset)},${view.toY(p.rl)}`).join(' ')} fill="url(#canal-horizontal-filter)" stroke="#22d3ee" strokeWidth="1.5"/><text x={view.toX(centre)} y={view.toY(Math.max(...filter.points.map((point) => point.rl))) - 7} textAnchor="middle" className="canal-diagram-fsl-label">Horizontal filter · {f2(filter.thickness)} m</text></g> })}</g>}
+      {view.sandBlankets.length > 0 && <g>{view.sandBlankets.map((blanket, index) => { return <g key={`sand-blanket-${index}`} data-blanket={blanket.kind} aria-label={`${blanket.side} sand blanket`}><polygon points={blanket.points.map((p) => `${view.toX(p.offset)},${view.toY(p.rl)}`).join(' ')} fill={`url(#canal-sand-blanket-${blanket.kind})`} stroke="#67d7b7" strokeWidth="1.5"/><title>{`${blanket.side === 'both' ? 'Both banks' : blanket.side === 'left' ? 'Left' : 'Right'} sand blanket · ${f2(blanket.thickness)} m`}</title></g> })}</g>}
+      {view.horizontalFilters.length > 0 && <g>{view.horizontalFilters.map((filter, index) => { return <g key={`horizontal-filter-${index}`}><polygon points={filter.points.map((p) => `${view.toX(p.offset)},${view.toY(p.rl)}`).join(' ')} fill="url(#canal-horizontal-filter)" stroke="#22d3ee" strokeWidth="1.5"/><title>{`Horizontal filter · ${f2(filter.thickness)} m`}</title></g> })}</g>}
       {view.chimneyFilters.length > 0 && <g>{view.chimneyFilters.map((filter, index) => {
         const points = filter.points
         const centre = (points[0].offset + points[1].offset) / 2
@@ -539,12 +496,22 @@ export default function CanalSectionDiagram({
         {work.secondaryPoints && <text x={view.toX(work.secondaryPoints.reduce((sum, point) => sum + point.offset, 0) / work.secondaryPoints.length)} y={view.toY(work.secondaryPoints.reduce((sum, point) => sum + point.rl, 0) / work.secondaryPoints.length)} textAnchor="middle" className="canal-diagram-rocktoe-label">Back filter · 0.50 m</text>}
       </g>)}
 
+      {view.toeWorks.map(work => {
+        const rock = work.kind.startsWith('rock-toe')
+        const pattern = work.kind === 'rock-toe' ? 'canal-rocktoe-work' : work.kind === 'rock-toe-filter' ? 'canal-rocktoe-filter-work' : 'canal-drainage-work'
+        return <g key={work.id} aria-label={`${work.side} ${work.label}`} data-work={work.kind}>
+          <title>{`${work.label} · ${work.code}`}</title>
+          {[work.points, ...(work.extraPolygons ?? [])].map((points, index) => <polygon key={index} points={points.map(p => `${view.toX(p.offset)},${view.toY(p.rl)}`).join(' ')} fill={`url(#${pattern})`} fillOpacity={work.kind === 'toe-ditch' ? 0.35 : 1} stroke={rock ? '#f1bc75' : '#22d3ee'} strokeWidth="1.5" />)}
+          {work.lines?.map((points, index) => <path key={index} d={linePath(points, m)} fill="none" stroke={work.lining === 'rubble' ? '#f1bc75' : '#e2e8f0'} strokeWidth={work.lining ? 3 : 2} strokeDasharray={work.lining ? undefined : '3 2'} />)}
+        </g>
+      })}
+
       {(['left', 'right'] as const).flatMap((side) => (['slopes', 'berms'] as const).map((surface) => {
         const spec = bankProtectionAt(data, section, side)[surface]
         const item = bankProtectionItem(spec)
         if (!item || (data.mode === 'new' && spec.kind === 'stone' && spec.thickness === 0.225)) return null
         return <g key={`bank-protection-${side}-${surface}`} aria-label={`${side} bank ${surface} ${spec.kind === 'grass' ? 'grass turfing' : 'stone pitching'}`}>
-          <title>{side === 'left' ? 'Left' : 'Right'} bank · {spec.kind === 'grass' ? 'Grass turfing' : 'Stone pitching'} · {item.code}</title>
+          <title>{`${side === 'left' ? 'Left' : 'Right'} bank · ${spec.kind === 'grass' ? 'Grass turfing' : 'Stone pitching'} · ${item.code}`}</title>
           {bankProtectionSegments(data, section, side, surface).map(([a, b], index) => <line key={index} x1={view.toX(a.offset)} y1={view.toY(a.rl)} x2={view.toX(b.offset)} y2={view.toY(b.rl)} stroke={spec.kind === 'grass' ? '#74d68a' : '#f1bc75'} strokeWidth="5" strokeDasharray={spec.kind === 'grass' ? '2 2' : '7 2'}/>)}
         </g>
       }))}
@@ -569,7 +536,7 @@ export default function CanalSectionDiagram({
       <g className="canal-diagram-readout">
         <text x={PAD_LEFT + 6} y={PAD_TOP + 16} className="canal-diagram-readout-title">
           {hasGround && hasDesign
-            ? `Cutting ${f2(areas.cutting)} m² · Filling ${f2(areas.filling)} m²`
+            ? `Cutting ${f2(areas.cutting)} m² · Gross filling ${f2(areas.filling)} m² · Earth filling ${f2(geometry.bankSection?.netFill ?? 0)} m²`
             : hasGround
               ? 'Ground entered — populate the canal design to measure'
               : 'Enter ground levels to measure cutting and filling'}
@@ -606,6 +573,12 @@ export default function CanalSectionDiagram({
         </g>}
       </g>
     </svg>
+    {enabledWorks.length > 0 && <div className="canal-diagram-work-legend" aria-label="Enabled bank works">{enabledWorks.map(work => {
+      const model = geometry.bankSection
+      const value = (model?.banks ?? []).reduce((sum, bank, index) => work.side === 'both' || work.side === (index === 0 ? 'left' : 'right') ? sum + (bank.values[work.nativeKey] ?? 0) : sum, 0)
+      const unit = model?.works.find(item => item.key === work.nativeKey)?.sectionUnit ?? ''
+      return <span key={work.id} data-section-work={work.nativeKey} data-section-value={value}><i style={{ background: work.color }} aria-hidden="true"/>{work.label} <strong>{f2(value)} {unit}</strong> <small>{work.code}</small></span>
+    })}</div>}
     {view.hearting.length > 0 && <p className="settings-note">{data.design.heartingConnection === 'continuous' && view.coreOverlap.length && !view.coreErrors.length ? 'The filled core is one connected soil zone. Internal crossing lines are removed; shared soil is counted once.' : 'Dashed outline: entered core width and slopes. Red fill marks overlap that conflicts with separate bank cores.'}</p>}
     {view.combinedTrench && <p className="settings-note">One continuous cutoff trench spans beneath the connected cores and canal bed. The full span is included in excavation once.</p>}
     {view.coreErrors.map((error) => <p className="canal-road-warning" role="status" key={error}>{error} Hearting and casing quantities at this section remain pending.</p>)}

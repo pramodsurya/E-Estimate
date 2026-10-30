@@ -13,6 +13,7 @@ import {
   individualCostGroupKey,
   individualCostKey,
   numeric,
+  record,
 } from "./individualCosts";
 import {
   collectDashboardItems,
@@ -35,6 +36,11 @@ export interface ProjectCostUsage {
   path: string;
   via?: string;
   locked: boolean;
+  dataCode: string;
+  analysisCode: string;
+  analysisLabel: string;
+  lineId: string;
+  rowLabel: string;
 }
 export interface ProjectIndividualCostRow extends IndividualCostRow {
   id: string;
@@ -46,6 +52,7 @@ export interface ProjectIndividualCostRow extends IndividualCostRow {
   locations: ProjectCostUsage[];
   aliases: string[];
   confidence: ReturnType<typeof costConfidence>;
+  descriptionMissing: boolean;
 }
 export interface ProjectCostRecipe {
   node: ProjectNode;
@@ -53,6 +60,15 @@ export interface ProjectCostRecipe {
   path: string;
 }
 const sourceCache = new SorRequestCache(128);
+
+const emptyResourceName = (name: string): boolean =>
+  /^(?:nil|nill|none|n\s*\/?\s*a|not applicable|unit|description|[-–—.]+)?$/i.test(name.trim().replace(/[.:]+$/, '').trim());
+
+/** Only display resources, not NIL markers or copied column headers. */
+function resourceDescription(line: RateAnalysisRecipe['sections'][number]['lines'][number], input: IndividualCostInput): string {
+  return [line.description, input.raw.desc, input.raw.description]
+    .map(value => String(value ?? '').trim()).find(value => !emptyResourceName(value)) ?? '';
+}
 
 /** Build the inventory from actual project rows; unused definitions never enter it. */
 export function collectProjectIndividualCosts(
@@ -69,7 +85,7 @@ export function collectProjectIndividualCosts(
       if (ancestors.has(current)) return;
       const visited = new Set(ancestors).add(current);
       for (const section of current.sections)
-        for (const line of section.lines) {
+        for (const [lineIndex, line] of section.lines.entries()) {
           if (current.morth && morthRowIsExcluded(current.morth.inputs[line.id]?.raw ?? {})) continue;
           const dependency = current.morth?.inputs[line.id]?.dependency;
           const locked = Boolean(
@@ -88,6 +104,16 @@ export function collectProjectIndividualCosts(
           const input = line.individualCostInput;
           if (!input || (input.owner !== "SSR" && input.owner !== "MORTH"))
             continue;
+          const description = resourceDescription(line, input);
+          if (/^(?:total|sub[ -]?total|grand total)$/i.test(description)) continue;
+          if (!description) {
+            const identity = record(input.raw.resource_identity), lookup = record(input.raw.price_lookup);
+            const hasBinding = [identity.master_code, identity.recipe_code, identity.resource_code, lookup.recipe_code, lookup.resource_code]
+              .some(value => typeof value === 'string' && value.trim());
+            const hasValue = [line.quantity, line.rate, line.amount, input.raw.quantity, input.raw.rate, input.raw.amount]
+              .some(value => { const amount = numeric(value); return amount !== null && amount !== 0; });
+            if (!hasBinding && !hasValue) continue;
+          }
           const id = individualCostGroupKey(input),
             memberKey = individualCostKey(input);
           let row = groups.get(id);
@@ -98,7 +124,8 @@ export function collectProjectIndividualCosts(
               key: JSON.parse(id),
               owner: input.owner,
               kind: input.kind,
-              description: line.description,
+              description: description || `Unnamed ${input.kind === 'materials' ? 'material' : input.kind === 'machinery' ? 'machine' : 'labour resource'}`,
+              descriptionMissing: !description,
               unit: line.unit,
               sample: input.raw,
               usages: 0,
@@ -115,6 +142,10 @@ export function collectProjectIndividualCosts(
             };
             groups.set(id, row);
           }
+          if (row.descriptionMissing && description) {
+            row.description = description;
+            row.descriptionMissing = false;
+          }
           if (!row.memberKeys.includes(memberKey)) {
             row.memberKeys.push(memberKey);
           }
@@ -126,23 +157,29 @@ export function collectProjectIndividualCosts(
             )
           )
             row.inputs.push(input);
-          if (!row.aliases.includes(line.description))
-            row.aliases.push(line.description);
+          if (description && !row.aliases.includes(description)) row.aliases.push(description);
           if (severity[confidence] > severity[row.confidence])
             row.confidence = confidence;
           row.usages++;
+          const dataCode = node.itemCode || recipe.itemCode || node.name;
+          const analysisCode = current.itemCode || recipe.itemCode || dataCode;
           if (
             !row.locations.some(
               (u) =>
-                u.nodeId === node.id && u.via === via && u.locked === locked,
+                u.nodeId === node.id && u.via === via && u.locked === locked && u.lineId === line.id && u.analysisCode === analysisCode,
             )
           )
             row.locations.push({
               nodeId: node.id,
-              description: node.itemDescription ?? node.name,
+              description: node.itemDescription?.trim() || recipe.description || node.name,
               path,
               via,
               locked,
+              dataCode,
+              analysisCode,
+              analysisLabel: current.morth?.printedItem ? `MoRTH ${current.morth.printedItem}` : analysisCode,
+              lineId: line.id,
+              rowLabel: `${section.label || section.key} · row ${line.slNo?.trim() || lineIndex + 1}`,
             });
           row.analyses = new Set(row.locations.map((u) => u.nodeId)).size;
           const rate =
@@ -214,6 +251,10 @@ export function collectProjectIndividualCosts(
       continue;
     }
     existing.adoptionKeys.push(...row.adoptionKeys);
+    if (existing.descriptionMissing && !row.descriptionMissing) {
+      existing.description = row.description;
+      existing.descriptionMissing = false;
+    }
     existing.memberKeys = [
       ...new Set([...existing.memberKeys, ...row.memberKeys]),
     ];
@@ -226,7 +267,7 @@ export function collectProjectIndividualCosts(
           (u) =>
             u.nodeId === location.nodeId &&
             u.via === location.via &&
-            u.locked === location.locked,
+            u.locked === location.locked && u.lineId === location.lineId && u.analysisCode === location.analysisCode,
         )
       )
         existing.locations.push(location);

@@ -1,3 +1,6 @@
+import { individualCostKey as identityKey, individualCostGroupKey as identityGroupKey } from './individualCostIdentity';
+export const individualCostKey = identityKey;
+export const individualCostGroupKey = identityGroupKey;
 import { supabase } from "./supabase";
 import { SorRequestCache } from "./sorCache";
 import type {
@@ -33,57 +36,6 @@ export async function costRpc<T>(name: string, args: RecordValue): Promise<T> {
     return data as T;
   });
 }
-export function individualCostKey({
-  owner,
-  kind,
-  raw,
-  context,
-}: IndividualCostInput): string {
-  const unit = String(raw.unit ?? "")
-    .toLowerCase()
-    .replace(/\s+/g, "");
-  const identity = record(raw.resource_identity),
-    lookup = record(raw.price_lookup);
-  if (owner === "SSR")
-    return JSON.stringify([
-      owner,
-      kind,
-      unit,
-      identity.master_code ??
-        identity.recipe_code ??
-        identity.resource_key ??
-        context,
-      identity.rate_component ?? "rate",
-      String(record(identity.link_review).rate_basis_multiplier ?? "1"),
-    ]);
-  const targets = new Set<string>();
-  const walk = (v: unknown): void => {
-    if (Array.isArray(v)) {
-      v.forEach(walk);
-      return;
-    }
-    for (const [k, val] of Object.entries(record(v))) {
-      if ((k === "recipe_code" || k === "resource_code") && val !== null)
-        targets.add(String(val));
-      walk(val);
-    }
-  };
-  walk(lookup);
-  const named =
-    identity.recipe_code ?? identity.master_code ?? identity.resource_code;
-  if (named !== undefined && named !== null) targets.add(String(named));
-  return JSON.stringify([
-    owner,
-    kind,
-    unit,
-    raw.resource_key ?? context,
-    [...targets].sort(),
-    lookup.rate_component ??
-      identity.rate_component ??
-      record(raw.sor_ref).component ??
-      "rate",
-  ]);
-}
 export function costConfidence(
   raw: RecordValue,
 ): "Correct" | "Maybe" | "Review Required" {
@@ -105,30 +57,6 @@ export function costConfidence(
     return "Correct";
   return "Review Required";
 }
-/** Merge equivalent MoRTH resources without conflating different grades or rate bases. */
-export function individualCostGroupKey(input: IndividualCostInput): string {
-  const key = JSON.parse(individualCostKey(input)) as unknown[];
-  if (input.owner === "SSR") return JSON.stringify(key);
-  const targets = key[4] as string[];
-  const description = String(input.raw.desc ?? input.raw.description ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-  if (!targets.length || !description) return JSON.stringify(key);
-  return JSON.stringify([
-    input.owner,
-    input.kind,
-    key[2],
-    "resource-group",
-    description,
-    targets,
-    key[5],
-    String(
-      record(record(input.raw.resource_identity).link_review)
-        .rate_basis_multiplier ?? "1",
-    ),
-  ]);
-}
 export function individualCostAdoption(
   input: IndividualCostInput,
   costs?: IndividualCosts,
@@ -141,16 +69,23 @@ export async function costChoices(
   raw: RecordValue,
 ): Promise<IndividualCostChoice[]> {
   const defaults = await morthResourceDefaults(raw);
-  return costRpc("individual_cost_choices", {
+  const choices = await costRpc<IndividualCostChoice[]>("individual_cost_choices", {
     p_row: {
       ...raw,
       _candidates: [...rows(raw._candidates), ...rows(defaults.candidates)],
     },
   });
+  const component = record(raw.price_lookup).rate_component;
+  return typeof component === "string"
+    ? choices.map((choice) => ({ ...choice, component }))
+    : choices;
 }
 export function morthResourceCode(raw: RecordValue): string | undefined {
   const lookup = record(raw.price_lookup),
     identity = record(raw.resource_identity);
+  // Expanded equipment alternatives retain source evidence, but their current
+  // SOR/project-quote binding takes precedence over that inherited identity.
+  if (lookup.table && lookup.table !== "analysis_resource") return undefined;
   if (
     lookup.table !== "analysis_resource" &&
     identity.source_table !== "analysis_resource"
@@ -186,6 +121,17 @@ export interface ResolvedIndividualCost {
   label: string;
   source?: "manual" | "sor" | "starting-sor" | "stored" | "benchmark";
   reviewRequired?: boolean;
+  pricing?: {
+    recipeCode: string;
+    component: string;
+    quoteUnit: string;
+    status: string;
+    conversionFactor: number;
+    capacityFactor?: number;
+    includesFuel?: boolean;
+    includesCrew?: boolean;
+    components?: Record<string, number>;
+  };
 }
 async function storedStartingRate(
   raw: RecordValue,
@@ -194,6 +140,43 @@ async function storedStartingRate(
   zone: string,
 ): Promise<ResolvedIndividualCost | undefined> {
   const defaults = await morthResourceDefaults(raw);
+  const component = String(
+    record(raw.price_lookup).rate_component ??
+      record(raw.resource_identity).rate_component ?? "rate",
+  );
+  const startingBasis = record(defaults.starting_rate_basis);
+  if (startingBasis.enabled === true) {
+    const quote = await costRpc<RecordValue>("morth_resource_starting_quote", {
+      p_resource_code: morthResourceCode(raw), p_year: year, p_zone: zone,
+      p_component: component, p_unit: unit,
+    });
+    const value = numeric(quote.rate);
+    const rate = quote.status === "priced" && quote.year === year && quote.zone === zone
+      && value !== null && value >= 0 ? value : null;
+    const capacity = numeric(quote.capacity_factor ?? startingBasis.capacity_factor);
+    const factors = record(quote.component_factors ?? startingBasis.component_factors);
+    const total = ["rate", "total", "hire_total"].includes(component);
+    const factorLabel = total
+      ? `hire/fuel ×${capacity}; crew ×${String(factors.crew_charge ?? 1)}`
+      : `${component.replace("_charge", "")} ×${String(factors[component] ?? "?")}`;
+    return {
+      rate, source: "starting-sor", reviewRequired: true,
+      label: `${String(quote.description ?? raw.desc ?? "Equipment")} · 8 kL SOR · ${factorLabel} · ${year}${rate === null ? " · estimate unavailable" : " · starting estimate"} · review required`,
+      pricing: {
+        recipeCode: String(startingBasis.reference_recipe_code), component,
+        quoteUnit: unit, status: String(quote.status),
+        conversionFactor: numeric(quote.unit_conversion_factor) ?? 1,
+        ...(capacity !== null ? { capacityFactor: capacity } : {}),
+        includesFuel: quote.includes_fuel === true,
+        includesCrew: quote.includes_crew === true,
+        components: Object.fromEntries(Object.entries(record(quote.rate_detailed))
+          .filter(([, amount]) => numeric(amount) !== null)
+          .map(([name, amount]) => [name, numeric(amount)!])),
+      },
+    };
+  }
+  const editionOf = (r: RecordValue): unknown =>
+    r.year ?? r.sor_year ?? r.source_edition_year;
   const records = rows(defaults.pricing_records)
     .filter(
       (r) =>
@@ -201,16 +184,21 @@ async function storedStartingRate(
         (!r.project_zone || r.project_zone === zone),
     )
     .sort((a, b) => {
-      const annual = (r: RecordValue): number => (r.year === year ? 1 : 0);
+      const annual = (r: RecordValue): number => (editionOf(r) === year ? 1 : 0);
       return (
         annual(b) - annual(a) ||
-        String(b.year ?? b.source_edition_year ?? "").localeCompare(
-          String(a.year ?? a.source_edition_year ?? ""),
+        String(editionOf(b) ?? "").localeCompare(
+          String(editionOf(a) ?? ""),
         )
       );
     });
   for (const entry of records) {
-    const rate = numeric(record(entry.rate)[zone] ?? entry.rate);
+    // Legacy machinery records store their inclusive price as hire_total.
+    // A split fuel/hire/crew row must only read that specific component.
+    const amount = ["rate", "total", "hire_total"].includes(component)
+      ? entry.rate ?? entry.hire_total ?? record(entry.zone_rates)[zone]
+      : entry[component];
+    const rate = numeric(record(amount)[zone] ?? amount);
     if (rate === null || rate < 0) continue;
     const sourceUnit = String(entry.unit ?? defaults.unit ?? unit);
     const factor =
@@ -223,15 +211,15 @@ async function storedStartingRate(
             }),
           );
     if (factor === null) continue;
-    const edition = entry.year ?? entry.source_edition_year;
+    const edition = editionOf(entry);
     const benchmark =
-      entry.year !== year ||
+      edition !== year ||
       /benchmark|mock|proxy/.test(String(entry.rate_role));
     return {
       rate: rate * factor,
       source: benchmark ? "benchmark" : "stored",
       reviewRequired: benchmark,
-      label: `${benchmark ? "Stored starting benchmark" : "Stored resource rate"}${edition ? ` · ${edition}` : ""}${benchmark ? " · review required" : ""}`,
+      label: `${benchmark ? "Stored starting benchmark" : "Stored resource rate"}${edition ? ` · ${edition}` : ""} · no SOR item adopted${factor !== 1 ? ` · ×${factor} (${sourceUnit} → ${unit})` : ""}${benchmark ? " · review required" : ""}`,
     };
   }
   for (const field of ["starting_rate", "mock_rate", "rate"]) {
@@ -251,6 +239,15 @@ export function defaultCostChoice(
 ): IndividualCostChoice | undefined {
   return choices.find((x) => x.medium) ?? choices[0];
 }
+function linkedSorLookup(raw: RecordValue, code: string): RecordValue | undefined {
+  const lookup = record(raw.price_lookup);
+  if (lookup.recipe_code === code) return lookup;
+  for (const value of Object.values(record(lookup.cases))) {
+    const branch = record(value);
+    if (branch.recipe_code === code) return { ...lookup, ...branch };
+  }
+  return undefined;
+}
 export async function resolveIndividualCost(
   raw: RecordValue,
   unit: string,
@@ -259,6 +256,7 @@ export async function resolveIndividualCost(
   year: string,
   zone: string,
   supplied?: IndividualCostChoice[],
+  parameters: RecordValue = record(raw._pricing_parameters),
 ): Promise<ResolvedIndividualCost> {
   if (adoption?.mode === "manual")
     return {
@@ -273,17 +271,28 @@ export async function resolveIndividualCost(
     };
   if (owner === "SSR" && !adoption)
     return { rate: numeric(raw.rate), label: "SSR_Year" };
+  const lookup = record(raw.price_lookup);
+  if (owner === "MORTH" && !adoption && lookup.table === "project_quote")
+    return { rate: null, label: "Enter this equipment's quoted component rate in Individual Costs" };
   if (owner === "MORTH" && !adoption && morthResourceCode(raw)) {
     const stored = await storedStartingRate(raw, unit, year, zone);
     if (stored) return stored;
   }
+  const choices = adoption?.code ? [] : supplied ?? (await costChoices(raw));
+  const branch = record(record(lookup.cases)[String(parameters[String(lookup.selection_parameter)])]);
+  const boundCode = branch.recipe_code ?? lookup.recipe_code;
+  const boundChoice = typeof boundCode === "string"
+    ? { ...choices.find((choice) => choice.code === boundCode),
+        code: boundCode,
+        component: String(branch.rate_component ?? lookup.rate_component ?? "rate") }
+    : undefined;
   const selected = adoption?.code
     ? {
         code: adoption.code,
         component: adoption.component ?? "rate",
         description: adoption.label,
       }
-    : defaultCostChoice(supplied ?? (await costChoices(raw)));
+    : boundChoice ?? defaultCostChoice(choices);
   if (!selected) {
     const stored =
       owner === "MORTH" && !adoption
@@ -303,8 +312,31 @@ export async function resolveIndividualCost(
     selected.code === originalCode
       ? numeric(review.rate_basis_multiplier)
       : null;
-  const quotedUnit =
+  let quotedUnit =
     multiplier !== null ? String(review.reference_sor_unit ?? unit) : unit;
+  let basisFactor = multiplier ?? 1;
+  const conversion = record(linkedSorLookup(raw, selected.code)?.unit_conversion);
+  if (multiplier === null && conversion.type === "fixed_supply_length") {
+    const length = numeric(conversion.metres_per_supply_item);
+    const requestedLength = numeric(await costRpc("sor_unit_rate_factor", {
+      p_source_unit: "metre", p_requested_unit: unit,
+    }));
+    if (length === null || length <= 0 || requestedLength === null)
+      return { rate: null, label: "Supply length conversion requires review" };
+    quotedUnit = "Each";
+    basisFactor = requestedLength / length;
+  } else if (multiplier === null && conversion.type === "bulk_density_kg_per_cum") {
+    const density = numeric(parameters[String(conversion.parameter)]);
+    if (density === null || density <= 0)
+      return { rate: null, label: "Enter bulk density (kg/cum) to convert the SOR rate" };
+    const requestedMass = numeric(await costRpc("sor_unit_rate_factor", {
+      p_source_unit: "kg", p_requested_unit: unit,
+    }));
+    if (requestedMass === null)
+      return { rate: null, label: "Density conversion requires a mass unit" };
+    quotedUnit = "cum";
+    basisFactor = requestedMass / density;
+  }
   const quote = await costRpc<RecordValue>("sor_resource_quote", {
     p_recipe_code: selected.code,
     p_year: year,
@@ -318,18 +350,30 @@ export async function resolveIndividualCost(
     quote.year === year &&
     quote.zone === zone &&
     quoted !== null
-      ? quoted * (multiplier ?? 1)
+      ? quoted * basisFactor
       : null;
   if (rate === null && owner === "MORTH" && !adoption) {
     const stored = await storedStartingRate(raw, unit, year, zone);
     if (stored) return stored;
   }
   const starting = !adoption && Boolean(morthResourceCode(raw));
+  // The quote already includes ordinary unit conversion; never multiply it twice.
+  const factor = (numeric(quote.conversion_factor) ?? 1) * basisFactor;
+  const basisLabel = rate !== null && factor !== 1
+    ? ` · ×${factor} (${String(quote.source_unit ?? quotedUnit)} → ${unit})`
+    : "";
   return {
     rate,
-    label: `${selected.description ?? "Selected SOR rate"}${rate === null ? ` · no compatible ${year} rate per ${unit}` : starting ? " · starting SOR choice · review required" : ""}`,
+    label: `${selected.description ?? "Selected SOR rate"}${basisLabel}${rate === null ? ` · no compatible ${year} rate per ${unit}` : starting ? " · starting SOR choice · review required" : ""}`,
     source: starting ? "starting-sor" : "sor",
     reviewRequired: starting,
+    pricing: {
+      recipeCode: selected.code,
+      component: selected.component,
+      quoteUnit: quotedUnit,
+      status: String(quote.status ?? "unknown"),
+      conversionFactor: factor,
+    },
   };
 }
 /** Mirror existing project Cement/Steel defaults before a resource-specific adoption. */

@@ -1,3 +1,5 @@
+import { morthTransportDistance } from './morthTransport';
+import { CONCRETE_TRANSPORT_KEY, concreteTransportParameter } from './morthMaterialLead';
 import {
   applyMiscellaneousCosts,
   type MiscellaneousCosts,
@@ -165,6 +167,12 @@ export async function fetchMorthRecipe(
                 description = String(raw.desc ?? raw.description ?? "");
               const enriched = {
                 ...raw,
+                _pricing_parameters: Object.fromEntries(
+                  [record(raw.price_lookup).selection_parameter,
+                    record(record(raw.price_lookup).unit_conversion).parameter]
+                    .filter((name): name is string => typeof name === "string" && selectedParameters[name] !== undefined)
+                    .map((name) => [name, selectedParameters[name]]),
+                ),
                 _evidence: detail.candidates[String(raw.resource_key)],
                 _candidates:
                   record(detail.candidates[String(raw.resource_key)])
@@ -216,6 +224,8 @@ export async function fetchMorthRecipe(
                     adoption,
                     year,
                     zone,
+                    undefined,
+                    selectedParameters,
                   );
                 } catch (e) {
                   pending.push(
@@ -317,8 +327,44 @@ export async function prepareMorthRecipe(
     inputs[id] = { ...input, raw: activeMorthRow(input.raw),
       ...(input.dependency ? { dependency: await prepareMorthRecipe(input.dependency) } : {}) };
   }
-  const activeSections = recipe.sections.map(section=>({...section,lines:section.lines.filter(line=>!morthRowIsExcluded(inputs[line.id]?.raw ?? {})).map(line=>{
-    const binding=morthTransportBinding(inputs[line.id]?.raw ?? {});
+  const parameters = { ...recipe.morth.parameters };
+  for (const [id, input] of Object.entries(inputs)) {
+    const parameter = concreteTransportParameter(input.raw);
+    if (!parameter) continue;
+    parameters[parameter] = morthTransportDistance(recipe, parameter).km;
+    // Preserve a directly adopted tonne-km rate. Otherwise derive bare carriage
+    // from the matching 6 cum truck, never from a different SOR capacity.
+    const line = recipe.sections.flatMap(section => section.lines).find(row => row.id === id);
+    const hourlyEntry = Object.entries(inputs).find(([, entry]) => entry.raw.resource_key === 'morth:transit_truck_agitator_6_cum' && entry.raw.unit === 'hour');
+    const hourlyLine = recipe.sections.flatMap(section => section.lines).find(row => row.id === hourlyEntry?.[0]);
+    const hourlyRate = hourlyLine?.editedFields?.some(field => field === 'rate' || field === 'amount') ? hourlyLine.rate : hourlyEntry?.[1].rate;
+    const directlyAdopted = line?.editedFields?.some(field => field === 'rate' || field === 'amount') || (input.rate !== null && input.raw.transport_rate_derived !== true);
+    if (line?.editedFields?.some(field => field === 'rate' || field === 'amount')) {
+      inputs[id] = { ...input, raw: { ...input.raw, transport_rate_derived: false } };
+    } else if (input.raw.resource_key === CONCRETE_TRANSPORT_KEY && !directlyAdopted) {
+      inputs[id] = { ...input, rate: hourlyRate != null && Number.isFinite(hourlyRate) && hourlyRate >= 0 ? hourlyRate / 180 : null,
+        raw: { ...input.raw, transport_rate_derived: true } };
+    }
+  }
+  const restoredSections = recipe.sections.map(section => {
+    if (section.key !== 'machinery') return section;
+    const lines = [...section.lines];
+    rows(source.machinery).forEach((raw, index) => {
+      const id = `machinery-${index}`;
+      if (!concreteTransportParameter(raw) || lines.some(line => line.id === id)) return;
+      lines.push({ id, slNo: String(index + 1), description: String(raw.desc), unit: String(raw.unit), quantity: 0, rate: inputs[id]?.rate ?? 0, amount: 0 });
+    });
+    return { ...section, lines: lines.sort((a, b) => Number(a.id.split('-')[1]) - Number(b.id.split('-')[1])) };
+  });
+  const activeSections = restoredSections.map(section=>({...section,lines:section.lines.filter(line=>!morthRowIsExcluded(inputs[line.id]?.raw ?? {})).map(line=>{
+    const input = inputs[line.id];
+    const parameter = concreteTransportParameter(input?.raw ?? {});
+    if (parameter) {
+      const distance = morthTransportDistance(recipe, parameter);
+      const basis = input.raw.transport_rate_derived === true ? '6 cum truck operating rate ÷ 180 · SDB 1.04(v), 15 t payload, 20/30 km/h · starting estimate; review required' : line.editedFields?.some(field => field === 'rate' || field === 'amount') ? 'Project adopted transport rate' : line.rateSource ?? 'Adopted machinery transport rate';
+      return { ...line, rate: input.rate ?? 0, rateSource: `${distance.source} · ${distance.km} km · ${basis.replace(/^(Default|Manual|From Lead) · [\d.]+ km · /, '')}` };
+    }
+    const binding=morthTransportBinding(input?.raw ?? {});
     return binding?.mode==='fixed' ? {...line,description:`${String(inputs[line.id].raw.desc ?? line.description)} · fixed operations`} : line;
   })}));
   for (const section of recipe.sections)
@@ -341,6 +387,7 @@ export async function prepareMorthRecipe(
     morth: {
       ...recipe.morth,
       source,
+      parameters,
       costingBasis: MORTH_LEAD_MODEL,
       inputs,
       pending: recipe.morth.sourceErrors ?? [],

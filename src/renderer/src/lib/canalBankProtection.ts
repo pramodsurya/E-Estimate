@@ -1,7 +1,8 @@
+import { measureCanalBankSection, measureCanalBankQuantities } from './canalBankSection'
 import type { CanalBankProtectionConfig, CanalBankReachProtection, CanalData, CanalPoint, CanalSection } from '../types/project'
-import { canalGroundLevelAt, canalSectionBankTier, canalSideProfile, orderedCanalSections } from './canal'
+import { canalGroundLevelAt, canalSectionBankTier, orderedCanalSections } from './canal'
 import { BANK_PROTECTION_ITEMS } from './canalBankProtectionCatalogue'
-import { canalBankReachAt, canalBankReaches, type CanalAssignedBankReach } from './canalTierReaches'
+import { canalBankReachAt, type CanalAssignedBankReach } from './canalTierReaches'
 
 export const defaultBankProtection = (): CanalBankProtectionConfig => ({ kind: 'none', stone: 'rubble', bedding: 'dry', thickness: 0.25, headers: true, sand: true })
 
@@ -15,11 +16,35 @@ function matchesReach(row: CanalBankReachProtection, mode: string, reach: CanalA
 
 export function bankProtectionForReach(data: CanalData, side: 'left' | 'right', reach: CanalAssignedBankReach): Pick<CanalBankReachProtection, 'slopes' | 'berms'> {
   const config = data.design.bankConfig
+  if (config?.mode === 'tiered' && reach.tierId) return bankProtectionForTier(data, side, reach.tierId)
   const linkedSide = config?.linkSymmetrical ? 'left' : side
   const saved = (linkedSide === 'left' ? config?.leftReachProtection : config?.rightReachProtection)?.find(row => matchesReach(row, config?.mode ?? '', reach))
   const tiers = linkedSide === 'left' ? config?.leftTiers : config?.rightTiers
   return { slopes: { ...defaultBankProtection(), ...(saved?.slopes ?? tiers?.find(t => t.id === reach.tierId)?.bankProtection) },
     berms: { ...defaultBankProtection(), ...saved?.berms } }
+}
+
+export function bankProtectionForTier(data: CanalData, side: 'left' | 'right', tierId: string): Pick<CanalBankReachProtection, 'slopes' | 'berms'> {
+  const config = data.design.bankConfig, bank = config?.linkSymmetrical ? 'left' : side
+  const tier = (bank === 'left' ? config?.leftTiers : config?.rightTiers)?.find(t => t.id === tierId)
+  const prior = (bank === 'left' ? config?.leftReachProtection : config?.rightReachProtection)?.find(r => r.mode === 'tiered' && r.tierId === tierId)
+  return { slopes: { ...defaultBankProtection(), ...(prior?.slopes ?? tier?.bankProtection) },
+    berms: { ...defaultBankProtection(), ...(prior?.berms ?? tier?.bankBermProtection) } }
+}
+
+/** Programmatic works belong to the design and cover all of its disjoint reaches. */
+export function saveBankTierProtection(data: CanalData, side: 'left' | 'right', tierId: string, treatments: Pick<CanalBankReachProtection, 'slopes' | 'berms'>): CanalData {
+  const config = data.design.bankConfig
+  if (config?.mode !== 'tiered') return data
+  const bank = config.linkSymmetrical ? 'left' : side
+  const tiers = bank === 'left' ? config.leftTiers : config.rightTiers
+  if (!tiers.some(t => t.id === tierId)) return data
+  const updated = tiers.map(t => t.id === tierId ? { ...t, bankProtection: structuredClone(treatments.slopes), bankBermProtection: structuredClone(treatments.berms) } : t)
+  const clear = (rows: CanalBankReachProtection[] | undefined): CanalBankReachProtection[] => (rows ?? []).filter(r => r.mode !== 'tiered' || r.tierId !== tierId)
+  return { ...data, design: { ...data.design, bankConfig: { ...config,
+    ...(config.linkSymmetrical || bank === 'left' ? { leftTiers: updated, leftReachProtection: clear(config.leftReachProtection) } : {}),
+    ...(config.linkSymmetrical || bank === 'right' ? { rightTiers: updated, rightReachProtection: clear(config.rightReachProtection) } : {})
+  } } }
 }
 
 export function bankProtectionAt(data: CanalData, section: CanalSection, side: 'left' | 'right'): Pick<CanalBankReachProtection, 'slopes' | 'berms'> {
@@ -32,6 +57,7 @@ export function bankProtectionAt(data: CanalData, section: CanalSection, side: '
 export function saveBankReachProtection(data: CanalData, side: 'left' | 'right', reach: CanalAssignedBankReach, treatments: Pick<CanalBankReachProtection, 'slopes' | 'berms'>): CanalData {
   const config = data.design.bankConfig
   if (!config || config.mode === 'legacy' || reach.status !== 'fill') return data
+  if (config.mode === 'tiered') return reach.tierId ? saveBankTierProtection(data, side, reach.tierId, treatments) : data
   const key = config.linkSymmetrical || side === 'left' ? 'leftReachProtection' : 'rightReachProtection'
   const row: CanalBankReachProtection = { mode: config.mode, reachId: reach.id, tierId: reach.tierId, from: reach.from, to: reach.to, ...structuredClone(treatments) }
   return { ...data, design: { ...data.design, bankConfig: { ...config, [key]: [...(config[key] ?? []).filter(r => !matchesReach(r, config.mode, reach)), row] } } }
@@ -60,19 +86,13 @@ export function bankProtectionItem(config: CanalBankProtectionConfig): typeof BA
 /** Actual outer faces or horizontal berm shelves below the crest. Crest/road platforms are excluded. */
 export function bankProtectionSegments(data: CanalData, section: CanalSection, side: 'left' | 'right', surface: 'slopes' | 'berms' = 'slopes'): Array<[CanalPoint, CanalPoint]> {
   if (section.designPopulated === false || section.ground.length < 2 || !canalSectionBankTier(data, section, side)) return []
-  const points = canalSideProfile(data, section, side)
-  const top = Math.max(...points.map((point) => point.rl))
-  const outerTop = points.reduce((last, point, index) => Math.abs(point.rl - top) < 1e-6 ? index : last, -1)
-  const segments: Array<[CanalPoint, CanalPoint]> = []
-  for (let index = outerTop + 1; index < points.length; index++) {
-    const a = points[index - 1], b = points[index]
-    if (surface === 'slopes' ? a.rl - b.rl > 1e-6 : Math.abs(a.rl - b.rl) <= 1e-6 && Math.abs(a.offset - b.offset) > 1e-6) segments.push([a, b])
-  }
-  return segments
+  const bank = measureCanalBankSection(data, section).banks[side === 'left' ? 0 : 1]
+  return (surface === 'slopes' ? bank.slopeSegments : bank.bermSegments) as Array<[CanalPoint, CanalPoint]>
 }
 
 export function bankProtectionSlopeLength(data: CanalData, section: CanalSection, side: 'left' | 'right'): number {
-  return bankProtectionSegments(data, section, side).reduce((sum, [a, b]) => sum + Math.hypot(b.offset - a.offset, b.rl - a.rl), 0)
+  if (section.designPopulated === false || section.ground.length < 2 || !canalSectionBankTier(data, section, side)) return 0
+  return measureCanalBankSection(data, section).banks[side === 'left' ? 0 : 1].outerSlopeLength
 }
 
 export function bankProtectionSectionAt(data: CanalData, chainage: number): CanalSection | undefined {
@@ -100,39 +120,18 @@ export interface BankProtectionQuantity { tierId: string; reachId: string; from:
 
 /** Average developed slope length or berm width × distance, split at shared reach and road boundaries. */
 export function bankProtectionQuantities(data: CanalData): BankProtectionQuantity[] {
-  const sections = orderedCanalSections(data)
+  const model = measureCanalBankQuantities(data)
   const totals = new Map<string, BankProtectionQuantity>()
-  for (let i = 1; i < sections.length; i++) {
-    const a = sections[i - 1], b = sections[i]
-    if (a.designPopulated === false || b.designPopulated === false || a.ground.length < 2 || b.ground.length < 2 || b.chainage <= a.chainage) continue
-    for (const side of ['left', 'right'] as const) {
-      const boundaries = new Set([a.chainage, b.chainage])
-      for (const reach of canalBankReaches(data, side)) {
-        for (const ch of [reach.from, reach.to]) if (ch > a.chainage && ch < b.chainage) boundaries.add(ch)
-      }
-      for (const road of data.design.serviceRoadReaches ?? []) {
-        for (const ch of [road.fromChainage, road.toChainage]) if (ch > a.chainage && ch < b.chainage) boundaries.add(ch)
-      }
-      const ordered = [...boundaries].sort((x, y) => x - y)
-      for (let j = 1; j < ordered.length; j++) {
-        const start = ordered[j - 1], end = ordered[j], length = end - start
-        const reach = canalBankReachAt(data, (start + end) / 2, side)
-        if (!reach || reach.status !== 'fill' || !reach.tierId) continue
-        const treatments = bankProtectionForReach(data, side, reach)
-        const epsilon = Math.min(length * 1e-7, 1e-5)
-        for (const surface of ['slopes', 'berms'] as const) {
-          const spec = treatments[surface]
-          const code = bankProtectionCode(spec)
-          if (!code || (data.mode === 'new' && spec.kind === 'stone' && spec.thickness === 0.225)) continue
-          const developed = (ch: number): number => bankProtectionSegments(data, between(a, b, ch), side, surface).reduce((sum, [p, q]) => sum + Math.hypot(q.offset - p.offset, q.rl - p.rl), 0)
-          const area = (developed(start + epsilon) + developed(end - epsilon)) / 2 * length
-          const key = `${side}:${reach.id}:${surface}:${code}`
-          const row = totals.get(key) ?? { side, tierId: reach.tierId, reachId: reach.id, from: reach.from, to: reach.to, surface, code, area: 0 }
-          row.area += area
-          totals.set(key, row)
-        }
-      }
+  for (const interval of model.rows) {
+    const reach = canalBankReachAt(data, (interval.from + interval.to) / 2, interval.side)
+    if (!reach || !reach.tierId || reach.status !== 'fill') continue
+    for (const work of model.works) {
+      const surface = work.key.startsWith('slope_protection_') ? 'slopes' as const : work.key.startsWith('berm_protection_') ? 'berms' as const : null
+      if (!surface || !(interval.quantities[work.key] > 0)) continue
+      const key = interval.side + ':' + reach.id + ':' + surface + ':' + work.code
+      const row = totals.get(key) ?? { side: interval.side, tierId: reach.tierId, reachId: reach.id, from: reach.from, to: reach.to, surface, code: work.code, area: 0 }
+      row.area += interval.quantities[work.key]; totals.set(key, row)
     }
   }
-  return [...totals.values()].map((row) => ({ ...row, area: Math.round(row.area * 1000) / 1000 })).filter((row) => row.area > 0)
+  return [...totals.values()].map(row => ({ ...row, area: Math.round(row.area * 1000) / 1000 }))
 }

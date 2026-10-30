@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense } from 'react'
 import { useStore, useSelectedNode } from '../store/useStore'
 import { findNode } from '../lib/tree'
 import { findSharedOwner } from '../lib/sharedSheet'
@@ -20,8 +20,7 @@ const GuideWallDetail = lazy(() => import('./guidewall/GuideWallDetail'))
 const BundDetail = lazy(() => import('./bund/BundDetail'))
 const CanalDetail = lazy(() => import('./canal/CanalDetail'))
 const PageEditor = lazy(() => import('./editors/PageEditor'))
-const loadItemSpreadsheet = () => import('./editors/ItemSpreadsheet')
-const ItemSpreadsheet = lazy(loadItemSpreadsheet)
+const ItemSpreadsheet = lazy(() => import('./editors/ItemSpreadsheet'))
 const RateAnalysisDashboard = lazy(() => import('./rateanalysis/RateAnalysisDashboard'))
 const DataDashboard = lazy(() => import('./data/DataDashboard'))
 const LeadDashboard = lazy(() => import('./lead/LeadDashboard'))
@@ -47,23 +46,6 @@ export default function WorkArea(): JSX.Element {
     const key = item.sharedSheetId ? `shared:${item.sharedSheetId}` : item.id
     return <ItemSpreadsheet key={key} node={owner} focusedItemId={item.id} />
   }
-
-  useEffect(() => {
-    if (view === 'home' || view === 'newproject') return
-    if (typeof window.requestIdleCallback === 'function') {
-      const handle = window.requestIdleCallback(
-        () => {
-          void loadItemSpreadsheet()
-        },
-        { timeout: 3500 }
-      )
-      return () => window.cancelIdleCallback(handle)
-    }
-    const timer = window.setTimeout(() => {
-      void loadItemSpreadsheet()
-    }, 2500)
-    return () => window.clearTimeout(timer)
-  }, [view])
 
   let content: JSX.Element
   if (view === 'home') {

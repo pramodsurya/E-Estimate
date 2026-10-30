@@ -1,14 +1,19 @@
+import { mergeMorthTransport } from '../../lib/recipeMerge';
+import { morthTransportDistance, morthTransportQuantityLabel, withMorthManualDistance } from '../../lib/morthTransport';
+import { concreteTransportParameter } from '../../lib/morthMaterialLead';
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Pencil, X } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import {
   syncDataDashboardSnapshot,
   syncProjectDashboardSnapshot,
+  refreshMorthLeadSnapshot,
   collectDashboardItems,
   dashboardContextMatches,
 } from "../../lib/dashboardSync";
 import { fetchMorthRecipe } from "../../lib/morthEstimate";
-import { morthLeadIssues, morthTransportBinding, morthFinalRate } from "../../lib/morthMaterialLead";
+import { morthLeadIssues, morthTransportBinding, morthLeadPricingSignature, morthLeadScopes, morthLeadPricingReady, normalizeMorthLeadApplications } from "../../lib/morthMaterialLead";
+import { priceMorthLead, morthApplicationsAtPath } from "../../lib/morthLeadPricing";
 import type { LeadApplication, LeadVariant } from "../../types/project";
 import {
   record,
@@ -18,7 +23,6 @@ import {
 import {
   appendixForRecipe,
   collectMorthAppendices,
-  calculationBasisLabel,
   morthAbstract,
 } from "../../lib/morthAppendices";
 import type {
@@ -27,6 +31,7 @@ import type {
 } from "../../types/rateAnalysis";
 import type { IndividualCostAdoption } from "../../types/individualCosts";
 import SorPicker from "../sor/SorPicker";
+import { LeadAdditions } from '../rateanalysis/RateAnalysisTable';
 import "../morth/morth.css";
 import "./morthSheet.css";
 const money = new Intl.NumberFormat("en-IN", {
@@ -35,13 +40,17 @@ const money = new Intl.NumberFormat("en-IN", {
 });
 const qty = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 4 });
 type Parameters = Record<string, string | number | boolean>;
+const EMPTY_APPLICATIONS: LeadApplication[] = [];
+const EMPTY_VARIANTS: LeadVariant[] = [];
 export default function MorthAnalysisSheet({
   recipe: original,
+  itemNodeId,
   onRefresh,
-  leadApplications = [],
-  leadVariants = [],
+  leadApplications = EMPTY_APPLICATIONS,
+  leadVariants = EMPTY_VARIANTS,
 }: {
   recipe: RateAnalysisRecipe;
+  itemNodeId?: string;
   onRefresh?: () => void;
   leadApplications?: LeadApplication[];
   leadVariants?: LeadVariant[];
@@ -50,7 +59,10 @@ export default function MorthAnalysisSheet({
     base: RateAnalysisRecipe;
     recipe: RateAnalysisRecipe;
   }>();
-  const root = local?.base === original ? local.recipe : original;
+  const baseRoot = local?.base === original ? local.recipe : original;
+  const [priced, setPriced] = useState<{ base: RateAnalysisRecipe; signature: string; recipe: RateAnalysisRecipe }>();
+  const signature = morthLeadPricingSignature(leadApplications);
+  const root = priced?.base === baseRoot && priced.signature === signature ? priced.recipe : baseRoot;
   const appendices = useMemo(() => collectMorthAppendices([root]), [root]);
   const [selected, setSelected] = useState("main");
   const active = appendices.find((a) => a.key === selected),
@@ -66,6 +78,13 @@ export default function MorthAnalysisSheet({
   const [editing, setEditing] = useState<string>(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  useEffect(() => {
+    let live = true;
+    void priceMorthLead(baseRoot, leadApplications, leadVariants).then(recipe => {
+      if (live) setPriced({ base: baseRoot, signature: morthLeadPricingSignature(leadApplications), recipe });
+    }).catch(reason => { if (live) setError(String(reason)); });
+    return () => { live = false; };
+  }, [baseRoot, leadApplications, leadVariants]);
   useEffect(() => {
     if (recipe.morth?.startingSummary?.morthAbstract) return;
     let live = true;
@@ -130,7 +149,7 @@ export default function MorthAnalysisSheet({
         [],
         updated.meta.miscellaneousCosts,
       );
-      setLocal({ base: original, recipe: refreshed });
+      setLocal({ base: original, recipe: { ...refreshed, morth: mergeMorthTransport(refreshed, root) } });
       setEditing(undefined);
       onRefresh?.();
     } catch (e) {
@@ -139,14 +158,38 @@ export default function MorthAnalysisSheet({
       setBusy(false);
     }
   };
+  const saveDistance = async (parameter: string, km: number | undefined): Promise<void> => {
+    setBusy(true); setError('');
+    try {
+      const next = await priceMorthLead(withMorthManualDistance(root, scopePath, parameter, km), leadApplications, leadVariants);
+      setLocal({ base: original, recipe: next });
+      if (itemNodeId) {
+        useStore.getState().saveRateAnalysis(next, itemNodeId);
+        const current = useStore.getState().project!;
+        // A distance edit needs native recalculation, not a network refresh of
+        // the whole project's rates. Invalidate compiled totals for the next Sync.
+        const snapshot = await refreshMorthLeadSnapshot(current);
+        const latest = useStore.getState().project;
+        if (snapshot && latest === current && dashboardContextMatches(snapshot, latest)) useStore.getState().setDashboardSnapshot(snapshot);
+      }
+    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setBusy(false); }
+  };
   const openCosts = (): void => {
     useStore.getState().setActivity("data");
     useStore.getState().setDataDashboardSection("individual-costs");
   };
   const abstract = morthAbstract(recipe, summary),
     missing = summary?.missing ?? recipe.morth?.pending ?? [];
-  const leadIssues = active ? [] : morthLeadIssues(root, leadApplications, leadVariants);
-  const leadAmount = leadApplications.reduce((sum, application) => sum + application.grossAmount, 0);
+  const scopePath = active ? morthLeadScopes(root).find(scope => scope.recipe === recipe)?.path ?? [] : [];
+  const effectiveApplications = normalizeMorthLeadApplications(root, leadApplications, leadVariants);
+  const scopeApplications = active ? morthApplicationsAtPath(effectiveApplications, scopePath) : effectiveApplications;
+  const leadIssues = morthLeadIssues(recipe, scopeApplications, leadVariants);
+  const pricingReady = morthLeadPricingReady(recipe, scopeApplications);
+  const defaultTransport = Object.values(recipe.morth?.inputs ?? {}).some(input => {
+    const parameter = concreteTransportParameter(input.raw);
+    return parameter && morthTransportDistance(recipe, parameter).source === 'Default';
+  });
   return (
     <article className="rate-sheet morth-sheet">
       {appendices.length > 0 && (
@@ -180,7 +223,7 @@ export default function MorthAnalysisSheet({
             <ArrowLeft size={15} /> Back to MoRTH DATA
           </button>
           <span>
-            Shared appendix · used in {active.usages.length} analysis
+            Appendix · used in {active.usages.length} analysis
             {active.usages.length === 1 ? "" : "es"}
           </span>
         </div>
@@ -197,9 +240,10 @@ export default function MorthAnalysisSheet({
         </div>
       </header>
       <div className="rate-description">{recipe.description}</div>
-      {!active && leadIssues.length > 0 && (
+      {defaultTransport && <p className="morth-sheet-warning">Concrete transport uses a default plant-to-site distance of 1 km. Apply Concrete delivery in Lead or edit the kilometres below.</p>}
+      {leadIssues.length > 0 && (
         <details className="morth-sheet-warning" open>
-          <summary>Material Lead pending · final rate incomplete</summary>
+          <summary>Lead to add or review</summary>
           <ul>{leadIssues.map(issue => <li key={issue}>{issue}</li>)}</ul>
           <p>Apply the material Lead in the Lead workspace. An explicit zero-distance or included-delivery application can resolve a zero additional cost.</p>
         </details>
@@ -230,7 +274,7 @@ export default function MorthAnalysisSheet({
           </ul>
         </details>
       )}
-      {recipe.sections
+      {recipe.sections.map(section => ({ ...section, lines: section.lines.filter(line => recipe.morth?.inputs[line.id]?.raw.material_lead_charge !== true) }))
         .filter((s) => s.lines.length)
         .map((section) => (
           <section
@@ -316,20 +360,31 @@ export default function MorthAnalysisSheet({
                                 {appendix.name} →
                                 {record(input?.raw.price_lookup)
                                   .require_direct_cost_only === true
-                                  ? " · direct rate"
+                                  ? " · calculated rate"
+                                  : ""}
+                                {dependency?.morth?.leadPricingBaseAmount !== undefined &&
+                                  dependency.morth.startingSummary?.totalCost !== dependency.morth.leadPricingBaseAmount
+                                  ? " · includes material Lead"
                                   : ""}
                               </button>
                             ) : (
                               <small>
-                                {line.rateSource ?? line.individualCost?.label}
+                                {(line.rateSource ?? line.individualCost?.label)?.replace(
+                                  /^(Stored starting benchmark|Stored resource rate)(?!.*no SOR item adopted)(.*)$/,
+                                  '$1$2 · no SOR item adopted',
+                                )}
                               </small>
                             )}
+                            {concreteTransportParameter(input?.raw ?? {}) && <TransportDistanceEditor
+                              key={`${selected}:${line.id}:${morthTransportDistance(recipe, parameter).km}:${morthTransportDistance(recipe, parameter).source}`}
+                              recipe={recipe} parameter={parameter} busy={busy}
+                              onSave={km => saveDistance(parameter, km)} />}
                           </td>
                           <td className="morth-unit">{line.unit}</td>
                           <td>
                             {noQuantity
                               ? "Input needed"
-                              : qty.format(line.quantity)}
+                              : morthTransportQuantityLabel(recipe, input?.raw ?? {}) ?? qty.format(line.quantity)}
                           </td>
                           <td>
                             {noRate
@@ -344,7 +399,7 @@ export default function MorthAnalysisSheet({
                               : money.format(line.amount)}
                           </td>
                           <td>
-                            <button
+                            {input?.raw.material_lead_charge === true ? <small>Managed in Lead</small> : <button
                               className="morth-row-edit"
                               aria-label={`Edit ${line.description}`}
                               aria-expanded={editing === line.id}
@@ -356,7 +411,7 @@ export default function MorthAnalysisSheet({
                               }
                             >
                               <Pencil size={13} /> Edit
-                            </button>
+                            </button>}
                           </td>
                         </tr>
                         {editing === line.id && (
@@ -403,7 +458,7 @@ export default function MorthAnalysisSheet({
             <thead>
               <tr>
                 <th>Description</th>
-                <th>Calculation basis</th>
+                <th>Basis amount / quantity</th>
                 <th>Percentage</th>
                 <th>Amount (₹)</th>
               </tr>
@@ -418,13 +473,10 @@ export default function MorthAnalysisSheet({
                       : ""
                   }
                 >
-                  <td>{row.label}</td>
+                  <td>{row.formulaKind === "direct" ? "Subtotal (materials + machinery + labour)" : row.label}</td>
                   <td>
                     {row.percent !== undefined ? (
-                      <>
-                        <span>{calculationBasisLabel(row.base)}</span>
-                        <small>₹ {money.format(row.basisAmount ?? 0)}</small>
-                      </>
+                      <>₹ {money.format(row.basisAmount ?? 0)}</>
                     ) : row.formulaKind === "rate" ? (
                       `Total ÷ ${qty.format(recipe.outputQuantity)} ${recipe.unit}`
                     ) : (
@@ -438,7 +490,7 @@ export default function MorthAnalysisSheet({
               {!abstract.length && summary && (
                 <>
                   <tr>
-                    <th colSpan={3}>Direct cost</th>
+                    <th colSpan={3}>Subtotal (materials + machinery + labour)</th>
                     <td>{money.format(summary.baseCost)}</td>
                   </tr>
                   <tr>
@@ -459,23 +511,26 @@ export default function MorthAnalysisSheet({
                   </tr>
                 </>
               )}
-              {!active && summary && (
-                <>
-                  <tr><th colSpan={3}>Applied material Lead</th><td>{money.format(leadAmount)}</td></tr>
-                  <tr className="morth-abstract-total">
-                    <th colSpan={3}>Final rate per {recipe.unit} including Lead</th>
-                    <td>{leadIssues.length || missing.length ? 'Pending' : money.format(morthFinalRate(recipe, summary.totalCost, leadApplications))}</td>
-                  </tr>
-                </>
-              )}
             </tbody>
           </table>
         </div>
+        {Boolean(recipe.morth?.appliedLeadApplications?.length) && summary && <LeadAdditions
+          applications={recipe.morth?.appliedLeadApplications ?? []}
+          variants={recipe.morth?.appliedLeadVariants ?? leadVariants}
+          outputQuantity={recipe.outputQuantity}
+          baseFinalAmount={summary.totalCost - (summary.morthLeadAmount ?? 0)}
+          baseRate={(summary.totalCost - (summary.morthLeadAmount ?? 0)) / recipe.outputQuantity}
+          editing={false}
+        />}
         <div className="morth-sheet-footnote">
           <span>
-            {summary?.costReady === false
-              ? "Known costs shown; complete missing inputs before use."
-              : "Starting analysis · review adopted rates for this project."}
+            {missing.length || summary?.costReady === false
+              ? "Rate shown uses the available costs. Complete the missing inputs before finalising."
+              : leadIssues.length
+                ? "Rate shown includes current costs. Add or review the Lead listed above before finalising."
+                : !pricingReady
+                  ? "Rate will update after applied Lead is recalculated."
+                  : "Rate includes the Lead currently applied."}
           </span>
           <button onClick={openCosts}>Individual Costs & percentages</button>
         </div>
@@ -512,7 +567,7 @@ function MorthRowEditor({
   const project = useStore((s) => s.project)!,
     input = recipe.morth?.inputs[line.id],
     expression = record(input?.raw.quantity_expression);
-  const parameter = morthTransportBinding(input?.raw ?? {})?.mode === 'fixed' ? '' : String(expression.parameter ?? "");
+  const parameter = concreteTransportParameter(input?.raw ?? {}) || morthTransportBinding(input?.raw ?? {})?.mode === 'fixed' ? '' : String(expression.parameter ?? "");
   const groups = line.id.startsWith("machinery")
     ? rows(recipe.morth?.source._options)
     : [];
@@ -690,4 +745,19 @@ function MorthRowEditor({
       )}
     </div>
   );
+}
+
+function TransportDistanceEditor({ recipe, parameter, busy, onSave }: {
+  recipe: RateAnalysisRecipe; parameter: string; busy: boolean; onSave: (km: number | undefined) => Promise<void>;
+}): JSX.Element {
+  const distance = morthTransportDistance(recipe, parameter);
+  const [value, setValue] = useState(String(distance.km));
+  const valid = value.trim() !== '' && Number.isFinite(Number(value)) && Number(value) >= 0;
+  return <div className="morth-transport-distance">
+    <small><strong>{distance.source}</strong> · Lead = {qty.format(distance.km)} km · plant to site</small>
+    <label>Lead (km) <input aria-label="Concrete transport distance in km" type="number" min="0" step="any" value={value} onChange={event => setValue(event.target.value)} /></label>
+    <button disabled={busy || !valid} onClick={() => void onSave(Number(value))}>Apply km</button>
+    {distance.source === 'Manual' && <button disabled={busy} onClick={() => void onSave(undefined)}>Use Lead / default</button>}
+    <small>Original MoRTH machinery calculation. Manual km overrides Lead for this DATA usage. Zero km is allowed.</small>
+  </div>;
 }

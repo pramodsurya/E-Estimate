@@ -1,88 +1,35 @@
-import { ChevronRight, Layers3, Link2, Route } from 'lucide-react'
-import { dashboardContextMatches } from '../../lib/dashboardSync'
+import { useState } from 'react'
+import { ChevronRight, Layers3, Link2, RefreshCw, Route } from 'lucide-react'
+import { dashboardContextMatches, syncLeadDashboardSnapshot } from '../../lib/dashboardSync'
 import { conveyanceClassLabel } from '../../lib/lead'
-import {
-  canonicalLeadMaterialRef,
-  materialRefsForLeadInfo,
-  parseLeadInfo
-} from '../../lib/leadApplicability'
-import { projectDataForNode, projectDataLeadApplicability } from '../../lib/projectData'
-import { projectItemGroups } from '../../lib/projectItems'
+import { projectLeadMaterials } from '../../lib/leadMaterialSummary'
 import { useStore } from '../../store/useStore'
-import type { ConveyanceClass, PipeLeadSource } from '../../types/project'
-
-interface MaterialSummary {
-  key: string
-  name: string
-  conveyanceClass: ConveyanceClass
-  variants: number
-  applications: number
-  pipeLead?: PipeLeadSource
-}
 
 export default function LeadSidebarPanel(): JSX.Element {
   const project = useStore((state) => state.project)
   const setActivity = useStore((state) => state.setActivity)
   const openLeadMaterial = useStore((state) => state.openLeadMaterial)
-  const snapshotValid = project
-    ? dashboardContextMatches(project.dashboardSnapshot, project)
-    : false
-  const variants = snapshotValid
-    ? project?.dashboardSnapshot?.leadDashboardEntries ?? []
-    : []
-  const materialsByKey = new Map<string, MaterialSummary>()
-
-  for (const variant of variants) {
-    // Old snapshots may pre-date a backend class correction. Normalizing here keeps
-    // the sidebar truthful immediately; the next Dashboard Sync persists the recipe.
-    const canonical = canonicalLeadMaterialRef({
-      name: variant.materialName,
-      conveyanceClass: variant.conveyanceClass,
-      source: ''
-    })
-    const key = `${canonical.name.trim().toLowerCase()}:${canonical.conveyanceClass}`
-    const material = materialsByKey.get(key) ?? {
-      key,
-      name: canonical.name,
-      conveyanceClass: canonical.conveyanceClass,
-      variants: 0,
-      applications: 0,
-      pipeLead: variant.pipeLead
-    }
-    material.variants += 1
-    material.applications += variant.applications.length
-    materialsByKey.set(key, material)
-  }
-
-  if (project) {
-    for (const group of projectItemGroups(project.root)) {
-      if (group.source !== 'PROJECT_DATA') continue
-      const definition = projectDataForNode(project.projectData, group.usages[0]?.node)
-      if (!definition) continue
-      for (const ref of materialRefsForLeadInfo(
-        parseLeadInfo(projectDataLeadApplicability(definition)),
-        group.description
-      )) {
-        const key = `${ref.name.trim().toLowerCase()}:${ref.conveyanceClass}`
-        if (materialsByKey.has(key)) continue
-        materialsByKey.set(key, {
-          key,
-          name: ref.name,
-          conveyanceClass: ref.conveyanceClass,
-          variants: 0,
-          applications: 0
-        })
+  const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState('')
+  const materials = project ? projectLeadMaterials(project) : []
+  const variantCount = materials.reduce((total, item) => total + item.variantCount, 0)
+  const applicationCount = materials.reduce((total, item) => total + item.linkedCount, 0)
+  const syncMaterials = async (): Promise<void> => {
+    if (!project || syncing) return
+    setSyncing(true)
+    setSyncError('')
+    try {
+      const next = await syncLeadDashboardSnapshot(project)
+      const current = useStore.getState().project
+      if (current?.id === project.id && dashboardContextMatches(next, current)) {
+        useStore.getState().setDashboardSnapshot(next)
       }
+    } catch (reason) {
+      setSyncError(reason instanceof Error ? reason.message : 'Unable to sync Lead materials.')
+    } finally {
+      setSyncing(false)
     }
   }
-
-  const materials = Array.from(materialsByKey.values()).sort((left, right) =>
-    left.name.localeCompare(right.name, undefined, { numeric: true })
-  )
-  const applicationCount = variants.reduce(
-    (total, variant) => total + variant.applications.length,
-    0
-  )
 
   return (
     <div className="lead-sidebar-panel">
@@ -107,8 +54,8 @@ export default function LeadSidebarPanel(): JSX.Element {
         </div>
         <div>
           <Route size={13} />
-          <strong>{variants.length}</strong>
-          <span>Materials</span>
+          <strong>{variantCount}</strong>
+          <span>Routes</span>
         </div>
         <div>
           <Link2 size={13} />
@@ -118,16 +65,22 @@ export default function LeadSidebarPanel(): JSX.Element {
       </div>
 
       <div className="lead-sidebar-section-title">
-        <span>Synced materials</span>
+        <span>Project materials</span>
         <small>{materials.length}</small>
+        <button type="button" className="panel-iconbtn panel-sync-btn" aria-label="Sync Lead materials"
+          title="Sync Lead materials" disabled={!project || syncing} aria-busy={syncing}
+          onClick={() => void syncMaterials()}>
+          <RefreshCw size={14} className={syncing ? 'spin' : undefined} />
+        </button>
       </div>
 
+      {syncError && <div className="rate-warning">{syncError}</div>}
       <div className="lead-sidebar-list">
         {materials.length === 0 ? (
           <div className="lead-sidebar-empty">
             <Route size={20} />
-            <strong>No synced materials</strong>
-            <span>Open the Lead Dashboard and click Sync to build this list.</span>
+            <strong>No Lead materials</strong>
+            <span>Add DATA items or sync Lead to build this list.</span>
           </div>
         ) : (
           materials.map((material) => (
@@ -149,10 +102,10 @@ export default function LeadSidebarPanel(): JSX.Element {
               </span>
               <span className="lead-sidebar-material-copy">
                 <strong>{material.name}</strong>
-                <small>{conveyanceClassLabel(material.conveyanceClass)}</small>
+                <small>{material.name === 'Concrete delivery' ? 'MoRTH transport · distance in km' : conveyanceClassLabel(material.conveyanceClass)}</small>
                 <small>
-                  {material.variants} variant{material.variants === 1 ? '' : 's'} ·{' '}
-                  {material.applications} linked
+                  {material.variantCount} variant{material.variantCount === 1 ? '' : 's'} ·{' '}
+                  {material.linkedCount} linked
                 </small>
               </span>
               <ChevronRight size={15} />

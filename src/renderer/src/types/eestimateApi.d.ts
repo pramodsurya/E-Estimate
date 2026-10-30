@@ -188,6 +188,7 @@ export interface CanalBankBermStepInput {
   dropHeight: number
   shelfWidth: number
   slopeAfterBerm: number
+  clearance?: number
 }
 
 export interface CanalBankTierInput {
@@ -247,6 +248,8 @@ export interface SoilAllocationSummary {
 }
 
 export interface CanalEmbankmentInput {
+  /** Geometry sources for Rust's reach-based bank statement and Excel export. */
+  bankSchedule?: import('../lib/canalBankExport').CanalBankExportInput
   bedWidth: number
   fullSupplyDepth: number
   freeBoard: number

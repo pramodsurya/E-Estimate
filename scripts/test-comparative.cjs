@@ -223,12 +223,12 @@ console.log('comparative statement: engine and print guards passed')
 const sync = fs.readFileSync(path.join(root, 'src/renderer/src/lib/dashboardSync.ts'), 'utf8')
 assert.ok(
   /function repriceLeadApplications\(/.test(sync) &&
-    /\.\.\.repriceLeadApplications\(project, leadRates, leadMetadata, items\)/.test(sync),
+    /\.\.\.repriceLeadApplications\(project, leadRates, leadMetadata, items, merged\.recipes\)/.test(sync),
   'ordinary lead applications must be re-priced during the lead sync'
 )
 assert.ok(
-  /if \(application\.rateYear === year && application\.rateZone === zone && !leadRates\.some\(row => row\.source\)\) continue/.test(sync),
-  'only legacy charts skip same-year repricing; current annual source snapshots refresh on Sync'
+  /if \(item\?\.itemSource !== 'MORTH' && application\.rateYear === year && application\.rateZone === zone && !leadRates\.some\(row => row\.source\)\) continue/.test(sync),
+  'only legacy non-MoRTH charts skip same-year repricing; annual sources and MoRTH quantities refresh on Sync'
 )
 assert.ok(
   /if \(!variant \|\| variant\.pipeLead\) continue/.test(sync),

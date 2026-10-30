@@ -241,6 +241,7 @@ function loadBookApi() {
       findSharedContentSource: (root, id) => root.children?.find((node) => node.sharedSheetId === id) ?? null,
       findSharedPrintSource: (root, id) => root.children?.find((node) => node.sharedSheetId === id) ?? null
     },
+    './individualItemsTypst': {INDIVIDUAL_ITEMS_SCOPE:'individual-items',individualItemsCompileInputs:()=>({'ee-individual-items':'{}'}),resolvedIndividualItemsTypstSource:()=> '= Individual Items\n'},
     './dataTypst': {
       dataSheetsCompileInputs: () => ({ 'ee-data': '{}' }),
       dataSignatureSettings: () => ({ enabled: false, rows: [] }),
@@ -480,9 +481,9 @@ assert(kinds.includes('cover'), 'collector includes cover')
 assert(kinds.includes('abstract'), 'collector includes abstract')
 assert(kinds.includes('component'), 'collector includes component saved source')
 assert.deepEqual(
-  kinds.slice(-3),
-  ['lead', 'seigniorage', 'data'],
-  'project book ends with Lead, Seigniorage, then DATA'
+  kinds.slice(-4),
+  ['lead', 'seigniorage', 'data', 'individual-items'],
+  'project book includes Individual Items after DATA'
 )
 const componentPart = collected.find((part) => part.kind === 'component')
 assert(componentPart.source.includes('EE.component.name'), 'uses saved component Typst')

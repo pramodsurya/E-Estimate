@@ -105,8 +105,8 @@ pub fn canal_engine_export_embankment_excel(
     payload: CanalEmbankmentInput,
     prefer_path: Option<bool>,
 ) -> Result<CanalEmbankmentExcelExportResponse, String> {
-    let calc = calculate_canal_embankment(&payload);
-    match crate::canal_engine_embankment_excel::generate_canal_embankment_excel_bytes(&payload, &calc) {
+    let schedule = payload.bank_schedule.as_ref().ok_or_else(|| "Bank export requires the saved reach and section geometry. Reload Bank Design and export again.".to_string())?;
+    match crate::canal_engine_embankment_excel::generate_canal_embankment_excel_bytes(schedule) {
         Ok(bytes) => {
             if prefer_path.unwrap_or(true) {
                 let dir = std::env::temp_dir().join("e-estimate-compile-cache").join("excel");

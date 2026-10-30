@@ -1,0 +1,42 @@
+.gw-picker.canal-unified-code-picker {
+  position: fixed;
+  z-index: 40000;
+  right: auto;
+  bottom: auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: min(640px, calc(100vw - 24px));
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+}
+.canal-unified-code-picker > .gw-picker-head,
+.canal-unified-code-picker > .backend-data-source-tabs {
+  flex-shrink: 0;
+}
+.canal-unified-code-picker > .gw-picker-head > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.canal-unified-code-picker > .gw-picker-head small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-dim);
+}
+.unified-code-picker-content {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.unified-code-picker-content > .gw-picker {
+  position: static;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+}
+.canal-unified-code-picker > .unified-code-picker-content > .sor-picker {
+  height: auto;
+  max-height: none;
+}

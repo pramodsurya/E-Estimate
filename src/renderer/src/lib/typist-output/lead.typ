@@ -235,8 +235,8 @@
       )
     } else { () }),
     [],
-    [Adopted Rate per #material.rate_unit],
-    [*Rs. #material.rate*]
+    [#if material.at("native_transport", default: false) [Transport cost] else [Adopted Rate per #material.rate_unit]],
+    [#if material.at("native_transport", default: false) [*Calculated in MoRTH DATA*] else [*Rs. #material.rate*]]
   )
   #if material.calculation != none [
     #for note in material.calculation.notes [

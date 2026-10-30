@@ -174,6 +174,20 @@ async function main() {
   assert.equal(typeof freshCell.v, 'number', 'Excel-path type kept')
   console.log('✓ Excel contract: render data keeps typed values, formulas, verbatim patterns')
 
+  const sorItem = { ...itemA, itemSource: 'SOR', itemCode: 'SOR-P01-T01-R0090',
+    sorCatalogue: { annual: { item_code: '96', to_be_printed: { description: 'Published benching specification' } } } }
+  const sorComp = { ...comp, children: [sorItem] }
+  const sorProject = { ...project, root: { ...project.root, children: [sorComp] } }
+  const sorData = api.buildComponentRenderData(sorProject, sorComp)
+  assert.equal(sorData.items[0].code, '', 'SOR measurement heading has no code prefix')
+  assert.equal(sorData.items[0].name, 'Published benching specification')
+  assert.equal(sorData.abstract[0].code, '96', 'abstract uses the published Item Code column')
+  assert.equal(sorData.abstract[0].description, 'Published benching specification')
+  const noCodeItem = { ...sorItem, sorCatalogue: { annual: { ...sorItem.sorCatalogue.annual, item_code: null } } }
+  const noCodeComp = { ...comp, children: [noCodeItem] }
+  const noCodeProject = { ...project, root: { ...project.root, children: [noCodeComp] } }
+  assert.equal(api.buildComponentRenderData(noCodeProject, noCodeComp).abstract[0].code, '', 'no internal-key fallback')
+
   fs.mkdirSync(artifactDir, { recursive: true })
   fs.writeFileSync(path.join(artifactDir, 'component-ee-data.json'), JSON.stringify(data, null, 1))
   console.log(`✓ inputs artifact saved to ${artifactDir} (before assertions above)`)

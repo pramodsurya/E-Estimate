@@ -3,6 +3,7 @@ import { projectItemDisplayName } from '../lib/projectItems'
 import type { ProjectNode } from '../types/project'
 
 export function NodeIcon({ node, size = 15 }: { node: ProjectNode; size?: number }): JSX.Element {
+  const itemColor = node.itemSource === 'MORTH' ? 'var(--item-morth)' : node.itemSource === 'SOR' ? 'var(--item-sor)' : 'var(--item-ssr)'
   switch (node.kind) {
     case 'title':
       return <Box size={size} color="var(--title)" />
@@ -17,20 +18,20 @@ export function NodeIcon({ node, size = 15 }: { node: ProjectNode; size?: number
     case 'item':
     default:
       if (node.sharedSheetId) {
-        return <Hash size={size} color={node.itemSource === 'SOR' ? 'var(--item-sor)' : 'var(--item-ssr)'} />
+        return <Hash size={size} color={itemColor} />
       }
       if (node.itemEditorType === 'document') {
         return (
           <FileText
             size={size}
-            color={node.itemSource === 'SOR' ? 'var(--item-sor)' : 'var(--item-ssr)'}
+            color={itemColor}
           />
         )
       }
       return (
         <Table2
           size={size}
-          color={node.itemSource === 'SOR' ? 'var(--item-sor)' : 'var(--item-ssr)'}
+          color={itemColor}
         />
       )
   }

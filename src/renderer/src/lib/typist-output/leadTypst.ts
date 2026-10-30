@@ -98,6 +98,7 @@ export interface WeightedLeadTypstData {
 }
 
 export interface LeadBreakdownItem {
+  native_transport?: boolean
   sl: string
   name: string
   lead_km: string
@@ -465,10 +466,10 @@ export function buildLeadRenderData(
         sl: String(index + 1),
         name: resolveLeadMaterialPrintName(project, entry),
         quarry: route,
-        conveyance_class: entry.conveyanceClass,
+        conveyance_class: entry.rateSource === 'morth_transport' ? 'MoRTH transport' : entry.conveyanceClass,
         lead_km: `${fmtQty(entry.leadKm)} km`,
         lift_m: entry.liftM > 0 ? `${fmtQty(entry.liftM)} m` : '0.00',
-        rate: entry.variantRate != null
+        rate: entry.rateSource === 'morth_transport' ? 'Calculated in MoRTH DATA' : entry.variantRate != null
           ? `Rs. ${fmtMoney(entry.variantRate)} / ${entry.rateUnit || 'unit'}`
           : '—',
         rate_unit: entry.rateUnit || 'unit',
@@ -541,7 +542,8 @@ export function buildLeadRenderData(
         route = `Average Lead along ${variant.avgLead.componentName || 'component'} (${variant.avgLead.pointCount} points)`
       }
 
-      const calculation = entry.chargeBreakdown ?? null
+      const nativeTransport = entry.rateSource === 'morth_transport'
+      const calculation = nativeTransport ? null : entry.chargeBreakdown ?? null
       const chargedLiftM = calculation ? (calculation.liftRate > 0 ? Math.max(0, Math.ceil(entry.liftM - 3)) : 0) : null
       const steps: LeadBreakdownStep[] =
         entry.breakdown && entry.breakdown.length > 0
@@ -551,7 +553,7 @@ export function buildLeadRenderData(
               amount_value: s.amount,
               label: s.label,
               expression: s.expression,
-              amount: `Rs. ${fmtMoney(s.amount)}`
+              amount: nativeTransport ? 'In DATA machinery' : `Rs. ${fmtMoney(s.amount)}`
             }))
           : [
               {
@@ -569,9 +571,10 @@ export function buildLeadRenderData(
         name: resolveLeadMaterialPrintName(project, entry),
         lead_km: `${fmtQty(entry.leadKm)} km`,
         route,
-        conveyance_class: entry.conveyanceClass,
+        conveyance_class: entry.rateSource === 'morth_transport' ? 'MoRTH transport' : entry.conveyanceClass,
         rate: entry.variantRate != null ? fmtMoney(entry.variantRate) : '—',
         rate_unit: entry.rateUnit || 'unit',
+        native_transport: nativeTransport,
         steps,
         calculation,
         lift_m: entry.liftM,

@@ -1,10 +1,10 @@
 [workspace]
-members = [".", "estimate-core"]
+members = [".", "estimate-core", "canal-section-wasm"]
 resolver = "2"
 
 [package]
 name = "e-estimate"
-version = "0.1.18"
+version = "0.1.19"
 description = "E-Estimate desktop shell (Tauri 2)"
 authors = ["E-Estimate"]
 edition = "2021"

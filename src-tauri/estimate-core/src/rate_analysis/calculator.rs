@@ -120,7 +120,7 @@ fn summary(
         area_allowance_for_labour(labour_base_cost, recipe.area_allowance_percent);
     RateAnalysisSummary {
         cost_ready: None, missing: vec![], profit_amount: 0.0, allowance_amount: 0.0, computed_lines: None,
-        morth_abstract: None,
+        morth_abstract: None, morth_lead_amount: None,
         section_totals,
         labour_base_cost,
         area_allowance_percent: recipe.area_allowance_percent.max(0.0),

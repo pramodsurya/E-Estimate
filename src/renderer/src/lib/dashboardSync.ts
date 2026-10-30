@@ -9,7 +9,8 @@ import type {
 } from '../types/project'
 import type { RateAnalysisRecipe } from '../types/rateAnalysis'
 import { mergeSavedRecipe } from './recipeMerge'
-import { morthLeadIssues, morthLeadVariantSignature, morthFinalRate } from './morthMaterialLead'
+import { morthQuantityForLead, morthLeadIssues, morthLeadVariantSignature, morthFinalRate, morthLeadPricingReady, morthRecipeAtPath, morthLeadApplicability, morthScopeFactor, normalizeMorthLeadApplications } from './morthMaterialLead'
+import { priceMorthLead } from './morthLeadPricing'
 import {
   calculateLeadVariantChargeFromRows,
   fetchLeadRates,
@@ -32,7 +33,7 @@ import {
   projectDataRecipe
 } from './projectData'
 import { scopedLeadRateAddition } from './leadApplications'
-import { calculateRateAnalysis, fetchRateAnalysis } from './rateAnalysis'
+import { calculateRateAnalysis, fetchRateAnalysis, prepareRateAnalysis } from './rateAnalysis'
 import { fetchGstRateRules } from './projectTax'
 import {
   fetchSeigniorageCharges,
@@ -134,10 +135,9 @@ export function collectDashboardItems(node: ProjectNode): ProjectNode[] {
 
 export function dashboardItemSignature(item: ProjectNode): string {
   return JSON.stringify({
-    // Version 2 includes the published SSR `section_heading` in each compiled
-    // recipe. This makes older snapshots refresh instead of silently retaining
-    // a recipe that was saved before headings were available in DATA.
-    sourceShapeVersion: item.itemSource === 'SSR' ? 2 : item.itemSource === 'MORTH' ? 6 : 3,
+    // Refresh older SSR caches after fixing allowance adoption and unlabelled
+    // subtotals; both the sheet and project totals need the rebuilt abstract.
+    sourceShapeVersion: item.itemSource === 'SSR' ? 3 : item.itemSource === 'MORTH' ? 8 : 3,
     projectDataId: item.projectDataId ?? '',
     itemCode: item.itemCode ?? '',
     categoryKey: item.categoryKey ?? '',
@@ -298,7 +298,20 @@ async function fetchDashboardSourceGroup(
   const fetchedRate = fetchedRecipe ? await dashboardRateFromRecipe(fetchedRecipe) : null
   return Promise.all(group.map(async (item) => {
     const saved = rateAnalysisOverrideForNode(project, item)
-    const adjustedRate = fetchedRecipe && saved && (fetchedRecipe.miscellaneousDefaults || saved.miscellaneousDefaults) ? await dashboardRateFromRecipe(mergeSavedRecipe(fetchedRecipe,saved)) : fetchedRate
+    let recipe = fetchedRecipe ?? saved
+    if (recipe?.itemSource === 'SSR' && saved && fetchedRecipe) {
+      recipe = await prepareRateAnalysis({ ...mergeSavedRecipe(fetchedRecipe, saved), recalculation: undefined, calculationStale: true })
+    }
+    if (recipe?.morth) {
+      if (saved && fetchedRecipe) recipe = mergeSavedRecipe(fetchedRecipe, saved)
+      const key = projectItemKey(item)
+      const applications = (project.leadChart?.applications ?? []).filter(app => app.itemKey === key && (app.itemNodeId ? app.itemNodeId === item.id : group[0].id === item.id))
+      recipe = await priceMorthLead(recipe, applications, project.leadChart?.variants ?? [])
+    }
+    const adjustedRate = recipe?.itemSource === 'SSR' && saved
+      ? await dashboardRateFromRecipe(recipe)
+      : fetchedRecipe && saved && (fetchedRecipe.miscellaneousDefaults || saved.miscellaneousDefaults)
+        ? await dashboardRateFromRecipe(mergeSavedRecipe(fetchedRecipe, saved)) : fetchedRate
     const sourceFailure =
       fetchFailure && (item.itemSource === 'SSR' || item.itemSource === 'SOR' || item.itemSource === 'MORTH')
         ? {
@@ -308,8 +321,8 @@ async function fetchDashboardSourceGroup(
         : undefined
     return {
       id: item.id,
-      rate: adjustedRate,
-      recipe: fetchedRecipe ?? saved,
+      rate: recipe?.morth ? recipe.morth.startingSummary?.ratePerUnit ?? null : adjustedRate,
+      recipe,
       sourceFailure
     }
   }))
@@ -352,8 +365,8 @@ function leanSnapshotRecipe(recipe: RateAnalysisRecipe): RateAnalysisRecipe {
 }
 
 async function dashboardRateFromRecipe(recipe: RateAnalysisRecipe): Promise<number | null> {
-  const usesAdjustedInputs = Boolean(recipe.miscellaneousDefaults) || recipe.sections.some((section) =>
-    section.lines.some((line) => Boolean(line.linkedRate || line.rateOverride || line.individualCost))
+  const usesAdjustedInputs = Boolean(recipe.miscellaneousDefaults || recipe.calculationStale || recipe.removedLines?.length) || recipe.sections.some((section) =>
+    section.lines.some((line) => Boolean(line.linkedRate || line.rateOverride || line.individualCost || line.userAdded || line.editedFields?.length))
   )
   const isUnadjusted =
     !usesAdjustedInputs &&
@@ -503,6 +516,9 @@ export function dashboardDataCompileSignature(
         variantId: application.variantId,
         itemKey: application.itemKey,
         itemNodeId: application.itemNodeId,
+        morthAppendixPath: application.morthAppendixPath,
+        morthRootFactor: application.morthRootFactor,
+        morthLeadVariantSignature: application.morthLeadVariantSignature,
         addonId: application.addonId,
         grossAmount: application.grossAmount,
         rateAddition: application.rateAddition,
@@ -580,7 +596,7 @@ export function compileDataDashboardEntries(
     )
     const leadEdited = linkedLeadApplications.length > 0
     const manualEdited = typeof item.rate === 'number' && Number.isFinite(item.rate)
-    const scope: CompiledDataScope = manualEdited
+    const scope: CompiledDataScope = manualEdited || resolution.scope === 'item'
       ? 'item_edit'
       : leadEdited
         ? 'lead_edit'
@@ -616,20 +632,20 @@ export function compileDataDashboardEntries(
       // edited in, however long ago that was — the sheet would print the
       // current year over an old number.
       const priced = dashboardRecipeForNode(project, snapshot, item) ?? resolution.recipe
-      if (!priced.miscellaneousDefaults && typeof priced.publishedRate === 'number' && Number.isFinite(priced.publishedRate)) {
-        baseRate = priced.publishedRate
-      } else if (priced.recalculation?.calculatedRate != null && Number.isFinite(Number(priced.recalculation.calculatedRate))) {
+      if (!priced.calculationStale && priced.recalculation?.calculatedRate != null && Number.isFinite(Number(priced.recalculation.calculatedRate))) {
         baseRate = Number(priced.recalculation.calculatedRate)
+      } else if (!priced.calculationStale && !priced.miscellaneousDefaults && (priced.areaAllowancePercent ?? 0) <= 0 && typeof priced.publishedRate === 'number' && Number.isFinite(priced.publishedRate)) {
+        baseRate = priced.publishedRate
       }
     }
     const recipe = dashboardRecipeForNode(project, snapshot, item)
-    const leadPending = recipe?.morth && morthLeadIssues(recipe, linkedLeadApplications, project.leadChart?.variants ?? []).length > 0
+    const leadPending = recipe?.morth && (morthLeadIssues(recipe, linkedLeadApplications, project.leadChart?.variants ?? []).length > 0 || !morthLeadPricingReady(recipe, linkedLeadApplications))
     const currentLeadRate = recipe?.morth && recipe.outputQuantity > 0
-      ? linkedLeadApplications.reduce((sum, app) => sum + app.grossAmount, 0) / recipe.outputQuantity
+      ? ((recipe.morth.startingSummary?.totalCost ?? 0) - (recipe.morth.leadPricingBaseAmount ?? recipe.morth.startingSummary?.totalCost ?? 0)) / recipe.outputQuantity
       : leadRate
     const rate = baseRate === null || leadPending ? null : recipe?.morth
       ? morthFinalRate(recipe, !manualEdited && recipe.morth.startingSummary?.costReady === true
-        ? recipe.morth.startingSummary.totalCost : baseRate * recipe.outputQuantity, linkedLeadApplications)
+        ? recipe.morth.leadPricingBaseAmount ?? recipe.morth.startingSummary.totalCost : baseRate * recipe.outputQuantity, linkedLeadApplications)
       : baseRate + currentLeadRate
     const path = structuralPathLabel(project, item)
     const code = item.itemCode?.trim() || item.name
@@ -704,13 +720,13 @@ export function compileLeadDashboardEntries(
         breakdown = [
           { label: 'Adopted rate from Public Health Table 6/7', expression: `${pipeQuote.diameterMm} mm · ${pipeQuote.pipeClassGroup.replaceAll('_', ' / ')}`, amount: pipeQuote.leadRatePerMetre }
         ]
-      } else if (!variant.pipeLead && rates.length) {
+      } else if (!variant.pipeLead && (rates.length || variant.rateSource === 'morth_transport')) {
         try {
           const calc = calculateLeadVariantChargeFromRows(rates, {
             year: project.meta.sorYear,
             zone: project.meta.sorZone ?? 'zone_3',
             conveyanceClass: variant.conveyanceClass,
-            distanceKm: variant.leadKm,
+            distanceKm: variant.materialName === 'Concrete delivery' ? variant.actualLeadKm ?? variant.leadKm : variant.leadKm,
             quantity: 1,
             liftM: variant.liftM,
             includedInitialLiftM: 3,
@@ -744,7 +760,7 @@ export function compileLeadDashboardEntries(
             itemCode: item ? projectItemDisplayName(item) : application.itemCode,
             itemNodeId: application.itemNodeId,
             appliedAt: application.appliedAt,
-            appliedPath: item ? structuralPathLabel(project, item) : 'Shared DATA',
+            appliedPath: [item ? structuralPathLabel(project, item) : 'Shared DATA', application.morthAppendixLabel].filter(Boolean).join(' > '),
             unit: application.unit,
             quantity: application.quantity,
             variantRate: application.grossRate,
@@ -761,7 +777,7 @@ export function compileLeadDashboardEntries(
         variantName: variant.variantName?.trim() || variant.materialName,
         conveyanceClass: variant.conveyanceClass,
         active: variant.active !== false,
-        leadKm: variant.leadKm,
+        leadKm: variant.rateSource === 'morth_transport' ? variant.actualLeadKm ?? variant.leadKm : variant.leadKm,
         liftM: variant.liftM,
         rateSource: variant.rateSource,
         pipeLead: variant.pipeLead,
@@ -833,7 +849,8 @@ function repriceLeadApplications(
   project: EestimateProject,
   leadRates: LeadRateRow[],
   applicability: Map<string, unknown>,
-  items: ProjectNode[]
+  items: ProjectNode[],
+  recipes: Record<string, RateAnalysisRecipe> = {}
 ): LeadApplication[] {
   const year = project.meta.sorYear ?? ''
   const zone = project.meta.sorZone ?? 'zone_3'
@@ -842,22 +859,24 @@ function repriceLeadApplications(
   )
   const updates: LeadApplication[] = []
   for (const application of project.leadChart?.applications ?? []) {
-    if (application.rateYear === year && application.rateZone === zone && !leadRates.some(row => row.source)) continue
     const variant = variants.get(application.variantId)
     // Pipe lead has its own refresh, which re-derives quantity from the quote.
     if (!variant || variant.pipeLead) continue
     const item = application.itemNodeId
       ? items.find((candidate) => candidate.id === application.itemNodeId)
       : items.find((candidate) => projectItemKey(candidate) === application.itemKey)
-    const info = parseLeadInfo(applicability.get(item?.itemCode?.trim() ?? ''))
+    if (item?.itemSource !== 'MORTH' && application.rateYear === year && application.rateZone === zone && !leadRates.some(row => row.source)) continue
+    const scopeRecipe = item ? morthRecipeAtPath(recipes[item.id], application.morthAppendixPath) : undefined
+    const info = parseLeadInfo(scopeRecipe?.morth ? morthLeadApplicability(scopeRecipe, true) : applicability.get(item?.itemCode?.trim() ?? ''))
     const description = `${item?.itemDescription ?? ''} ${application.itemCode}`
     try {
+      const currentQuantity = scopeRecipe?.morth ? morthQuantityForLead(scopeRecipe, variant, true) : { quantity: application.quantity, unit: application.unit, source: application.quantitySource }
       const breakdown = calculateLeadVariantChargeFromRows(leadRates, {
         year,
         zone,
         conveyanceClass: variant.conveyanceClass,
-        distanceKm: variant.leadKm,
-        quantity: application.quantity,
+        distanceKm: variant.materialName === 'Concrete delivery' ? variant.actualLeadKm ?? variant.leadKm : variant.leadKm,
+        quantity: currentQuantity.quantity,
         liftM: variant.liftM,
         includedInitialLiftM: variant.includedInitialLiftM,
         includesAllLifts: variant.includesAllLifts,
@@ -871,9 +890,14 @@ function repriceLeadApplications(
         leadMultiplier: info.policy?.haulLegs ?? 1,
         leadRuleCode: info.sorRuleCode
       })
-      const outputQuantity = application.outputQuantity || 0
+      const outputQuantity = scopeRecipe?.morth ? scopeRecipe.outputQuantity : application.outputQuantity || 0
+      const rootFactor = item?.itemSource === 'MORTH' && recipes[item.id] ? morthScopeFactor(recipes[item.id], application.morthAppendixPath ?? []) : undefined
+      const rootOutput = item?.itemSource === 'MORTH' ? recipes[item.id]?.outputQuantity : undefined
       updates.push({
         ...application,
+        quantity: currentQuantity.quantity, unit: currentQuantity.unit, quantitySource: currentQuantity.source,
+        outputQuantity,
+        ...(rootFactor !== undefined && rootFactor !== null ? { morthRootFactor: rootFactor, morthRootOutputQuantity: rootOutput } : {}),
         morthLeadVariantSignature: item?.itemSource === 'MORTH' ? morthLeadVariantSignature(variant) : undefined,
         leadRate: breakdown.leadRate,
         loadingRate: breakdown.loadingRate,
@@ -882,7 +906,7 @@ function repriceLeadApplications(
         grossRate: breakdown.grossRate,
         grossAmount: breakdown.grossAmount,
         rateAddition:
-          outputQuantity > 0 ? breakdown.grossAmount / outputQuantity : application.rateAddition,
+          outputQuantity > 0 ? rootOutput ? breakdown.grossAmount * (rootFactor ?? 1) / rootOutput : breakdown.grossAmount / outputQuantity : application.rateAddition,
         netRate: breakdown.netRate,
         netAmount: breakdown.netAmount,
         calculation: breakdown.calculation,
@@ -1097,6 +1121,33 @@ export function compileComponentDashboardSnapshots(
 }
 
 /** Lead total Sync: refresh Lead rows and compile variants/applications. */
+export async function refreshMorthLeadSnapshot(
+  project: EestimateProject,
+  snapshot = project.dashboardSnapshot
+): Promise<DashboardDataSnapshot | undefined> {
+  if (!snapshot) return snapshot
+  const recipes = { ...snapshot.recipes }
+  const applicationUpdates = new Map((snapshot.leadApplicationUpdates ?? []).map(application => [application.id, application]))
+  let changed = false
+  for (const item of collectDashboardItems(project.root)) {
+    const recipe = dashboardRecipeForNode(project, snapshot, item)
+    if (!recipe?.morth) continue
+    const key = projectItemKey(item)
+    const storedApplications = (project.leadChart?.applications ?? []).filter(app => app.itemKey === key && app.itemNodeId === item.id)
+    const applications = normalizeMorthLeadApplications(recipe, storedApplications, project.leadChart?.variants ?? [])
+    applications.forEach((application, index) => {
+      if (application !== storedApplications[index]) {
+        applicationUpdates.set(application.id, application)
+        changed = true
+      }
+    })
+    if (morthLeadPricingReady(recipe, applications)) continue
+    recipes[item.id] = await priceMorthLead(recipe, applications, project.leadChart?.variants ?? [])
+    changed = true
+  }
+  return changed ? { ...snapshot, recipes, leadApplicationUpdates: [...applicationUpdates.values()], dataCompileSignature: undefined, dataSyncedAt: undefined, componentSyncedAt: {}, projectSyncedAt: undefined } : snapshot
+}
+
 export async function syncLeadDashboardSnapshot(
   project: EestimateProject,
   items = collectDashboardItems(project.root)
@@ -1143,16 +1194,17 @@ export async function syncLeadDashboardSnapshot(
     ...Object.entries(customLeadMetadata)
   ])
   const leadApplicationUpdates = [
-    ...repriceLeadApplications(project, leadRates, leadMetadata, items),
+    ...repriceLeadApplications(project, leadRates, leadMetadata, items, merged.recipes),
     ...(await refreshPipeLeadApplications(project, merged.recipes, items))
   ]
   const projectWithCurrentPipeLead = projectWithLeadApplicationUpdates(
     project,
     leadApplicationUpdates
   )
+  const priced = await refreshMorthLeadSnapshot(projectWithCurrentPipeLead, merged) ?? merged
   const syncedAt = new Date().toISOString()
   const withLead: DashboardDataSnapshot = {
-    ...merged,
+    ...priced,
     syncedAt,
     dataSyncedAt: undefined,
     componentSyncedAt: {},

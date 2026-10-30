@@ -15,7 +15,11 @@ npm install
 npm run dev
 ```
 
-While the first Rust/Typst compile runs (often a long time), open **http://localhost:5173** in a browser and keep working. Do not stop the terminal. Later `npm run dev` should reuse `%LOCALAPPDATA%\e-estimate\cargo-target` instead of rebuilding all 695 crates. For UI-only: `npm run dev:ui`.
+After the first successful desktop build, use **`npm run dev:fast` for React/CSS work**. It starts Vite and opens the existing debug desktop executable without waiting for Cargo. Native commands (including Typst) remain available from that build; saved frontend edits hot reload. Close the desktop window or press Ctrl+C to end the session. If Vite is already running, it is reused and left running when the fast session ends.
+
+Use **`npm run dev` after changing Rust, Cargo dependencies or Tauri configuration**. Fast mode deliberately uses the previous native build and prints a warning when native source files are newer. If there is no debug executable yet, it tells you to build one first. `npm run dev:fast -- --check` checks for that executable without launching anything.
+
+Cargo artifacts live under `%LOCALAPPDATA%\e-estimate`, outside OneDrive; Vite keeps using the existing dependency cache. While a first Rust/Typst build runs, **http://localhost:5173** is available in a browser. For browser-only UI work, use `npm run dev:ui`. Keep a development session running while editing; ordinary React/CSS edits do not require restarting it.
 
 ## Build for Windows
 

@@ -27,7 +27,7 @@ export interface ProjectItemGroup {
 
 export interface RateAnalysisOverrideResolution {
   recipe: RateAnalysisRecipe | null
-  scope: 'shared' | 'component'
+  scope: 'shared' | 'component' | 'item'
   scopeNodeId?: string
   scopeName?: string
 }
@@ -92,8 +92,8 @@ export function projectNodePath(root: ProjectNode, nodeId: string): ProjectNode[
 }
 
 /**
- * Resolve the recipe used by one Item usage. The nearest component/sub-component
- * override wins; otherwise every usage shares the project-wide DATA override.
+ * Resolve the recipe used by one Item usage. An item edit wins over the nearest
+ * component/sub-component edit and the project-wide DATA override.
  */
 export function rateAnalysisOverrideForNode(
   project: EestimateProject,
@@ -108,6 +108,10 @@ export function rateAnalysisOverrideResolution(
   node: ProjectNode
 ): RateAnalysisOverrideResolution {
   const itemKey = projectItemKey(node)
+  const itemOverride = project.rateAnalysisScopedOverrides?.[node.id]?.[itemKey]
+  if (itemOverride) {
+    return { recipe: itemOverride, scope: 'item', scopeNodeId: node.id, scopeName: node.name }
+  }
   const path = projectNodePath(project.root, node.id)
   for (let index = path.length - 1; index >= 0; index -= 1) {
     const ancestor = path[index]

@@ -1,7 +1,10 @@
+import { lazy } from 'react'
 import type { ProjectNode } from '../../types/project'
 import { NodeIcon, nodeDisplayName } from '../nodeVisual'
-import UniverDocument from './UniverDocument'
-import UniverSpreadsheet from './UniverSpreadsheet'
+
+// WorkArea supplies Suspense. Load only the editor this item actually uses.
+const UniverDocument = lazy(() => import('./UniverDocument'))
+const UniverSpreadsheet = lazy(() => import('./UniverSpreadsheet'))
 
 export default function ItemSpreadsheet({ node, focusedItemId }: { node: ProjectNode; focusedItemId?: string }): JSX.Element {
   if (node.itemEditorType === 'document') {

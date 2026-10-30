@@ -32,8 +32,22 @@ function canonical(value: unknown): unknown {
     );
   return value;
 }
-/** Identical analysis configurations share a sheet. Different adopted rates or inputs never merge. */
+/** Share a calculated appendix by code and adopted rates, independently of its route or usage. */
 export function morthAnalysisIdentity(recipe: RateAnalysisRecipe): string {
+  const summary = recipe.morth?.startingSummary;
+  if (summary && summary.costReady !== false &&
+      Number.isFinite(summary.ratePerUnit) && Number.isFinite(summary.baseCost) &&
+      Number.isFinite(recipe.outputQuantity) && recipe.outputQuantity > 0) {
+    return JSON.stringify({
+      code: recipe.itemCode,
+      unit: recipe.unit,
+      rate: summary.ratePerUnit,
+      // Parents can adopt either the final rate or the direct rate. Both must
+      // agree so sharing a live Excel reference cannot change a parent's cost.
+      directRate: (summary.baseCost + (summary.morthLeadAmount ?? 0)) / recipe.outputQuantity,
+    });
+  }
+  // Uncalculated/incomplete analyses have no reliable adopted rate to share.
   return JSON.stringify(
     canonical({
       code: recipe.itemCode,
@@ -48,6 +62,7 @@ export function morthAnalysisIdentity(recipe: RateAnalysisRecipe): string {
         ? undefined
         : recipe.morth?.parameters,
       calculation: recipe.morth?.source.calculation,
+      leadScopes: Object.values(recipe.morth?.inputs ?? {}).filter(input => input.raw.material_lead_charge === true).map(input => [input.raw.desc, input.raw.material_lead_route_signature]),
       sections: recipe.sections.map((s) => ({
         key: s.key,
         lines: s.lines.map((l) => ({
@@ -69,7 +84,7 @@ export function collectMorthAppendices(
   recipes: RateAnalysisRecipe[],
 ): MorthAppendix[] {
   const found = new Map<string, MorthAppendix>(),
-    expanded = new Set<string>();
+    expanded = new Set<RateAnalysisRecipe>();
   const visit = (
     parent: RateAnalysisRecipe,
     trail: Set<RateAnalysisRecipe>,
@@ -105,8 +120,10 @@ export function collectMorthAppendices(
       }
       const label = `${parent.morth?.printedItem || parent.itemCode} · ${parent.description}`;
       if (!entry.usages.includes(label)) entry.usages.push(label);
-      if (!expanded.has(identity)) {
-        expanded.add(identity);
+      // Equal outer rates can still contain different nested appendix rates.
+      // Inspect each usage tree even when its outer definition is shared.
+      if (!expanded.has(child)) {
+        expanded.add(child);
         visit(child, next);
       }
     }

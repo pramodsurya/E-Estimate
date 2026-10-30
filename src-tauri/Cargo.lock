@@ -508,6 +508,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "canal-section-wasm"
+version = "0.1.0"
+dependencies = [
+ "estimate-core",
+ "serde_json",
+]
+
+[[package]]
 name = "cargo-platform"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1318,7 +1326,7 @@ checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
 name = "e-estimate"
-version = "0.1.18"
+version = "0.1.19"
 dependencies = [
  "base64 0.22.1",
  "comemo",
@@ -1473,8 +1481,10 @@ dependencies = [
 name = "estimate-core"
 version = "0.1.0"
 dependencies = [
+ "rust_xlsxwriter",
  "serde",
  "serde_json",
+ "zip 8.6.0",
 ]
 
 [[package]]

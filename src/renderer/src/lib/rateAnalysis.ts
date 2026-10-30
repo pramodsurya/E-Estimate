@@ -150,8 +150,21 @@ export interface CalculatedOptionalAddition {
  * Rate analysis calculation is executed strictly by the native Rust engine.
  * No JavaScript fallback calculation is permitted.
  */
+export function rateAnalysisNeedsRecalculation(recipe: RateAnalysisRecipe): boolean {
+  const percent = Math.max(0, numberValue(recipe.areaAllowancePercent))
+  return recipe.itemSource === 'SSR' && Boolean(
+    recipe.calculationStale ||
+    (recipe.recalculation ? numberValue(recipe.recalculation.areaAllowancePercent) !== percent : percent > 0)
+  )
+}
+
+/** Keep the abstract rows and the native numeric summary on the same inputs. */
+export async function prepareRateAnalysis(recipe: RateAnalysisRecipe): Promise<RateAnalysisRecipe> {
+  return rateAnalysisNeedsRecalculation(recipe) ? recalculateRateAnalysis(recipe) : recipe
+}
+
 export async function calculateRateAnalysis(recipe: RateAnalysisRecipe): Promise<RateAnalysisSummary> {
-  if(recipe.itemSource==='SSR' && recipe.calculationStale) recipe=await recalculateRateAnalysis(recipe)
+  recipe = await prepareRateAnalysis(recipe)
   const result = await window.api.rateAnalysis.calculate(recipe)
   if(recipe.itemSource==='MORTH' && typeof result.costReady!=='boolean')throw new Error('The updated native MoRTH calculator is required. Restart the desktop app after building it.')
   if(result.costReady===false) throw new Error(`MoRTH starting cost pending: ${(result.missing ?? recipe.morth?.pending ?? []).join('; ')}`)
@@ -553,6 +566,7 @@ export async function recalculateRateAnalysis(recipe: RateAnalysisRecipe): Promi
       Number.NaN
     )
     const recalculation: RateAnalysisRecalculation = {
+      areaAllowancePercent: Math.max(0, numberValue(recipe.areaAllowancePercent)),
       sectionTotals: {
         materials: formatCalculated(sectionTotals.materials),
         machinery: formatCalculated(sectionTotals.machinery),
@@ -733,7 +747,9 @@ export async function recalculateRateAnalysis(recipe: RateAnalysisRecipe): Promi
         stepwiseDepthRate = calculatedRate
         variantBaseCalculatedRate = calculatedRate
       }
-    } else if (isTotalRow(text)) {
+    } else if (isTotalRow(text) || (!text && recorded !== null && !row.userAdded && !row.amountOverride)) {
+      // Published SSRs also print subtotal amounts without a caption. Those
+      // amounts must follow the running total when labour/allowances change.
       if (formulaSource && formulaAmount !== null) {
         amount = roundMoney(formulaAmount)
         current = amount
@@ -823,6 +839,7 @@ export async function recalculateRateAnalysis(recipe: RateAnalysisRecipe): Promi
   }
 
   const recalculation: RateAnalysisRecalculation = {
+    areaAllowancePercent: Math.max(0, numberValue(recipe.areaAllowancePercent)),
     sectionTotals: {
       materials: formatCalculated(sectionTotals.materials),
       machinery: formatCalculated(sectionTotals.machinery),

@@ -2,6 +2,13 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct CostTableLine {
+    #[serde(default)] pub kind: String,
+    #[serde(default)]
+    pub individual_key: Option<String>,
+    #[serde(default)]
+    pub amount_fixed: bool,
+    #[serde(default)]
+    pub group_id: Option<String>,
     #[serde(default)]
     pub appendix_key: Option<String>,
     #[serde(default)]
@@ -60,6 +67,7 @@ pub struct Totals {
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct LabourSummaryRow {
+    #[serde(default)] pub excel_formula: Option<String>,
     #[serde(default)]
     pub label: String,
     #[serde(default)]
@@ -72,6 +80,7 @@ pub struct LabourSummaryRow {
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct AbstractRow {
+    #[serde(default)] pub excel_formula: Option<String>,
     #[serde(default)]
     pub label: String,
     #[serde(default)]
@@ -96,6 +105,10 @@ pub struct LeadDeduction {
     pub label: String,
     #[serde(default, alias = "netRateText")]
     pub net_rate_text: Option<String>,
+    #[serde(default)]
+    pub full_rate_text: Option<String>,
+    #[serde(default)]
+    pub deducted_rate_text: Option<String>,
     #[serde(default)]
     pub unit: Option<String>,
 }
@@ -191,6 +204,14 @@ pub struct MultiRateNote {
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ExcelRecipe {
+    #[serde(default)] pub live_addition: Vec<CostTableLine>,
+    #[serde(default)] pub live_addition_output: Option<f64>,
+    #[serde(default)] pub live_addition_allowance: Option<f64>,
+    #[serde(default)] pub live_addition_overhead: Option<f64>,
+    #[serde(default)] pub live_multiplier: Option<f64>,
+    #[serde(default)] pub live_steps: Option<usize>,
+    #[serde(default)] pub live_step_percent: Option<f64>,
+    #[serde(default)] pub section_rules: Vec<serde_json::Value>,
     #[serde(default)]
     pub appendix_key: Option<String>,
     #[serde(default)]
@@ -281,4 +302,19 @@ pub struct MorthAbstractRow {
     #[serde(default)]
     pub base: Option<String>,
     pub formula_kind: String,
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct IndividualItemRow {
+    pub key: String,
+    pub owner: String,
+    pub kind: String,
+    pub description: String,
+    pub unit: String,
+    pub rate: Option<f64>,
+    #[serde(default)] pub source: String,
+    #[serde(default)] pub usages: Vec<String>,
+    #[serde(default)] pub local: bool,
+    #[serde(default)] pub derived_from: Option<String>,
+    #[serde(default)] pub factor: Option<f64>,
 }

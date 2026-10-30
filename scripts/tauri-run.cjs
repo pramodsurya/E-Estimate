@@ -21,8 +21,6 @@ const cacheRoot =
   path.join(os.homedir(), '.cache')
 const targetDir = process.env.CARGO_TARGET_DIR || path.join(cacheRoot, 'e-estimate', 'cargo-target')
 const exeName = process.platform === 'win32' ? 'e-estimate.exe' : 'e-estimate'
-const exePath = path.join(targetDir, 'debug', exeName)
-const lockPath = path.join(root, 'src-tauri', 'Cargo.lock')
 
 fs.mkdirSync(targetDir, { recursive: true })
 process.env.CARGO_TARGET_DIR = targetDir
@@ -37,15 +35,6 @@ if (!process.env.CARGO_TERM_PROGRESS_WIDTH) {
   process.env.CARGO_TERM_PROGRESS_WIDTH = '80'
 }
 
-function crateCount() {
-  try {
-    const n = (fs.readFileSync(lockPath, 'utf8').match(/\[\[package\]\]/g) || []).length
-    return n > 0 ? n : 695
-  } catch {
-    return 695
-  }
-}
-
 function formatElapsed(ms) {
   const s = Math.max(0, Math.floor(ms / 1000))
   const m = Math.floor(s / 60)
@@ -53,77 +42,64 @@ function formatElapsed(ms) {
   return m > 0 ? `${m}m ${rem}s` : `${rem}s`
 }
 
-function debugLastWrite() {
-  try {
-    return fs.statSync(path.join(targetDir, 'debug')).mtime.toLocaleTimeString()
-  } catch {
-    return 'not created yet'
-  }
-}
-
 const startedAt = Date.now()
 let progressTimer = null
+let phase = 'Starting the frontend dev server'
 
 if (command === 'dev' || command === 'build') {
-  const n = crateCount()
-  console.log('')
-  console.log(`  Cargo is compiling ~${n} crates into:`)
+  console.log('\n  Native build cache:')
   console.log(`    ${targetDir}`)
-  console.log('  First Typst/krilla debug build can take 30–90 minutes; the first')
-  console.log('  "Compiling ..." line can take several minutes. That is rustc working,')
-  console.log('  not a hang. "Watching src-tauri" is Tauri\'s file watcher — compile starts after it.')
-  console.log('  `--no-default-features` is normal (Tauri CLI). Do not cargo clean.')
   if (command === 'dev') {
-    console.log('  Vite UI while Rust compiles:  http://localhost:5173')
-    console.log('  Desktop window opens only after this compile finishes.')
+    console.log('  Cargo checks the native build before opening the desktop window.')
+    console.log('  For React/CSS work with the existing native build: npm run dev:fast')
+    console.log('  Keep this session running while editing; Vite hot reloads the UI.')
+    console.log('  Browser UI: http://localhost:5173')
   }
-  console.log('  Leave this terminal running — stopping it cancels the compile.')
   console.log('')
-}
-
-// A running exe is locked on Windows (EBUSY/EPERM when opened for write).
-// Needed because a no-op cargo build does not relink, so the mtime stays old.
-function exeIsRunning() {
-  if (process.platform !== 'win32') return false
-  try {
-    fs.closeSync(fs.openSync(exePath, 'r+'))
-    return false
-  } catch (e) {
-    return e && (e.code === 'EBUSY' || e.code === 'EPERM' || e.code === 'EACCES')
-  }
 }
 
 if (command === 'dev') {
   progressTimer = setInterval(() => {
-    let exeMtime = 0
-    try {
-      exeMtime = fs.statSync(exePath).mtimeMs
-    } catch {
-      exeMtime = 0
-    }
-    const elapsed = Date.now() - startedAt
-    if (exeMtime >= startedAt - 2000 || (exeMtime > 0 && exeIsRunning())) {
-      console.log(
-        `  [cargo] ${exeName} is ready (${formatElapsed(elapsed)}). The desktop window should open.`
-      )
-      clearInterval(progressTimer)
-      progressTimer = null
-      return
-    }
-    console.log(
-      `  [cargo] still compiling (${formatElapsed(elapsed)}) into LOCALAPPDATA — debug last write ${debugLastWrite()}. Keep waiting.`
-    )
+    console.log(`  [dev] ${phase} (${formatElapsed(Date.now() - startedAt)}).`)
   }, 30000)
 }
 
 const tauriCli = path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js')
 const child = spawn(process.execPath, [tauriCli, command, ...extra], {
   cwd: root,
-  stdio: 'inherit',
+  stdio: ['inherit', 'pipe', 'pipe'],
   env: process.env,
   windowsHide: false
 })
-child.on('exit', (code, signal) => {
+// Read Tauri/Cargo output rather than guessing readiness from a file timestamp
+// or a locked executable. A cached build need not write that executable at all.
+let output = ''
+let launched = false
+function forward(stream, chunk) {
+  stream.write(chunk)
+  if (command !== 'dev') return
+  output = (output + chunk.toString().replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '')).slice(-8192)
+  for (const line of output.split(/\r?\n/)) {
+    if (line.includes('Running DevCommand')) phase = 'Cargo checking/building the native app'
+    if (line.includes('Blocking waiting for file lock')) phase = 'Waiting for another Cargo process to release its lock'
+    if (/Compiling\s|Checking\s/.test(line)) phase = 'Cargo compiling the native app'
+    if (line.includes('Finished `dev` profile')) phase = 'Launching the desktop app'
+    if (!launched && line.includes('Running `') && line.includes(exeName)) {
+      launched = true
+      clearInterval(progressTimer)
+      progressTimer = null
+      console.log(`  [dev] Desktop process launched (${formatElapsed(Date.now() - startedAt)}).`)
+    }
+  }
+}
+child.stdout.on('data', (chunk) => forward(process.stdout, chunk))
+child.stderr.on('data', (chunk) => forward(process.stderr, chunk))
+child.on('error', (error) => {
+  if (progressTimer) clearInterval(progressTimer)
+  console.error(error.message)
+  process.exitCode = 1
+})
+child.on('close', (code, signal) => {
   if (progressTimer) clearInterval(progressTimer)
   if (signal) process.kill(process.pid, signal)
   process.exit(code ?? 1)

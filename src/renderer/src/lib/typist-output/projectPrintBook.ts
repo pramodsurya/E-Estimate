@@ -1,3 +1,4 @@
+import { INDIVIDUAL_ITEMS_SCOPE, individualItemsCompileInputs, resolvedIndividualItemsTypstSource } from './individualItemsTypst'
 import {upgradeBuiltInDataTemplate} from "./dataTemplateUpgrade"
 /**
  * Assembles the project estimate book from each studio's own Typst.
@@ -58,7 +59,7 @@ import {
 export interface ProjectTypstPart {
   id: string
   label: string
-  kind: 'cover' | 'page' | 'data' | 'lead' | 'seigniorage' | 'abstract' | 'component' | 'item'
+  kind: 'cover' | 'page' | 'data' | 'lead' | 'seigniorage' | 'abstract' | 'component' | 'item' | 'individual-items'
   source: string
   prelude: string
   inputs: Record<string, string>
@@ -479,7 +480,11 @@ export function collectProjectTypstParts(
     if (child.kind === 'component') emitComponentBranch(project, child, recipes, rateOf, parts, emittedSharedSheets, options?.deferBundInputs)
   }
 
-  parts.push(leadPart, seignioragePart, dataPart)
+  parts.push(leadPart, seignioragePart, dataPart, {
+    id:INDIVIDUAL_ITEMS_SCOPE, label:'Individual Items', kind:'individual-items',
+    source:resolvedIndividualItemsTypstSource(project), prelude:'',
+    inputs:individualItemsCompileInputs(project,dataSheets.map(sheet=>sheet.recipe))
+  })
 
   return parts
 }
@@ -612,6 +617,8 @@ export async function collectProjectTypstPartsWithAssets(
       signature: dataSignatureSettings(project)
     })
     dataPart.shadowFiles = figures.shadowFiles
+    const resourcesPart = parts.find(part=>part.kind === 'individual-items')
+    if(resourcesPart) resourcesPart.inputs=individualItemsCompileInputs(project,calculatedSheets.map(sheet=>sheet.recipe))
   }
   return parts
 }

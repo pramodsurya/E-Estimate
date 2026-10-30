@@ -30,7 +30,7 @@ function modules(supabase) {
       if (request === "./univerSpreadsheet")
         return {
           workbookFromRows: (_node, rows) => ({ rows }),
-          createUniverWorkbookData: () => ({
+          createUniverWorkbookData: (node) => node.spreadsheet ?? ({
             sheetOrder: ["main"],
             sheets: { main: { cellData: {} } },
           }),
@@ -80,6 +80,21 @@ async function main() {
     source = load("sorSource"),
     rules = load("sorRules"),
     estimate = load("sorEstimate");
+  const presentation = load("sorPresentation");
+  assert.equal(source.sorTemplateCode("RB_WORK_6411571526E0"), "SOR-P02-T03-R0118");
+  assert.equal(source.sorTemplateCode("RB Road Work 1(i)(b)"), "SOR-P02-T03-R0118");
+  assert.equal(source.sorTemplateCode("RB Road Work 8(a) — select/enter catalogue item"), "SOR-P02-T03-R0138");
+  assert.equal(source.sorTemplateCode("SOR-P02-T03-R0138"), "SOR-P02-T03-R0138");
+  assert.equal(source.sorTemplateCode("RB_WORK_UNKNOWN"), undefined, "Unknown retired identities must not be guessed");
+  assert.equal(source.sorTemplateCode("IRR-CAW-2-7"), undefined);
+  const published = {
+    ...fixture.details.sand.annual,
+    description: "Annual description",
+    to_be_printed: { description: "  Complete latest published specification  " },
+  };
+  assert.equal(presentation.sorItemDescription(published, { description: "Permanent recipe" }), "Complete latest published specification");
+  assert.equal(presentation.sorItemDescription({ ...published, to_be_printed: { description: "  " } }, { description: "Permanent recipe" }), "Annual description");
+  assert.equal(presentation.sorItemDescription(undefined, { description: "Permanent recipe" }), "Permanent recipe");
   assert.equal(source.sorNeedsConfiguration({ variants: null, addons: null }), false);
   assert.equal(source.sorNeedsConfiguration({ variants: {}, addons: { schema_version: 1 } }), false);
   assert.equal(source.sorNeedsConfiguration(fixture.details.sand.recipe), false);
@@ -102,6 +117,9 @@ async function main() {
   assert.equal(sand.rate, 777);
   assert.equal(sand.quantity, 10);
   assert.equal(sand.recipe.lead_applicability, "SAND");
+  const publishedSelection = { ...sand, annual: published };
+  assert.equal(source.sorMasterItem(publishedSelection).description, "Complete latest published specification");
+  assert.equal(estimate.sorRecipe({ itemSource: "SOR", itemCode: sand.recipeCode, sorCatalogue: publishedSelection }, publishedSelection).description, "Complete latest published specification");
   source.validateSorInsertion(
     [source.sorMasterItem(sand)],
     "2026-27",
@@ -156,12 +174,22 @@ async function main() {
   assert.equal(recipe.overheadPercent, 0);
   assert.equal(recipe.leadApplicability.materials.Sand, "EARTH");
   assert.equal(recipe.leadApplicability.sor_rule_code, "SOR-LEAD-2026-27-SAND");
-  assert.equal(estimate.seedSorMeasurement(node).spreadsheet.rows[1][1], 10);
-  assert.equal(
-    estimate.seedSharedSorMeasurements([node, { ...node, id: "second" }])[1]
-      .finalCell.row,
-    2,
-  );
+  const blank = estimate.seedSorMeasurement(node);
+  assert.deepEqual(blank.spreadsheet.rows, [], 'SOR measurements start blank');
+  assert.equal(blank.finalCell, undefined, 'Choosing SOR does not fix a quantity');
+  const shared = estimate.seedSharedSorMeasurements([node, { ...node, id: 'second' }]);
+  assert.deepEqual(shared[0].spreadsheet.sheets.main.cellData, {});
+  assert.equal(shared[1].finalCell, undefined);
+  assert.equal(shared[0].spreadsheet, shared[1].spreadsheet);
+  const existing = { sheetOrder: ['main'], sheets: { main: { cellData: { 4: { 2: { v: 125 } } } } } };
+  const extended = estimate.seedSharedSorMeasurements([{ ...node, spreadsheet: existing }, { ...node, id: 'new' }]);
+  assert.deepEqual(extended[1].spreadsheet, existing, 'Existing shared measurements receive no SOR rows');
+  assert.deepEqual(existing.sheets.main.cellData, { 4: { 2: { v: 125 } } });
+  assert.equal(presentation.printedItemCode(node), '');
+  const publishedNode = { ...node, sorCatalogue: { ...sand, annual: { ...sand.annual, item_code: '96', to_be_printed: { description: 'Published benching specification' } } } };
+  assert.equal(presentation.printedItemCode(publishedNode), '96');
+  assert.equal(presentation.printedItemDescription(publishedNode), 'Published benching specification');
+  assert.equal(presentation.printedItemCode({ ...node, itemSource: 'SSR', itemCode: 'SSR-1' }), 'SSR-1');
   const height = rules
     .sorAddons(fixture.details.centering)
     .find((row) => row.kind === "height");
@@ -296,8 +324,19 @@ async function main() {
       }),
       liveLoad = modules(publicClient),
       live = liveLoad("sorSource");
-    const navigation=await live.getSorTree('2026-27');
-    assert.deepEqual(navigation.nodes({},'part').map(node=>node.count),[454,369,6125,3733]);
+    const navigationTimes=[];
+    for(let attempt=0;attempt<3;attempt++) {
+      live.clearSorPickerCache();
+      const started=performance.now(),navigation=await live.getSorTree('2026-27');
+      navigationTimes.push(Math.round(performance.now()-started));
+      assert.deepEqual(navigation.nodes({},'part').map(node=>node.count),[454,369,6125,3733],
+        'A fresh public navigation request succeeds without a manual retry');
+    }
+    const previousNavigation=await live.getSorTree('2025-26');
+    assert.equal(previousNavigation.nodes({},'part').reduce((sum,node)=>sum+node.count,0),10341,
+      'Navigation remains isolated by edition');
+    assert.deepEqual((await live.getSorTree('missing-edition')).nodes({},'part'),[]);
+    console.log(`Public SOR navigation: three fresh requests completed in ${navigationTimes.join(', ')} ms`);
     assert.deepEqual(
       (await live.browseSor("2026-27", "part")).rows.map((row) => row.count),
       [454, 369, 6125, 3733],

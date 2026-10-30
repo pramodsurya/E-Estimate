@@ -1,4 +1,5 @@
 import type { MasterItem } from './masterData'
+import { catalogueSearchText } from './catalogueGuidance'
 
 export interface ParsedMasterSearch {
   raw: string
@@ -63,7 +64,7 @@ const CONCEPT_GROUPS = [
   ['aggregate', 'aggregates', 'metal']
 ] as const
 
-const EXACT_CONSTRAINT = /^(?:m\d{1,3}|np\d{1,2}|\d+(?:\.\d+)?(?:mm|cm|kg|sqm|cum|rm|nos))$/
+const EXACT_CONSTRAINT = /^(?:m\d{1,3}|np\d{1,2}|mix\d+x\d+|\d+(?:\.\d+)?(?:mm|cm|kg|sqm|cum|rm|nos))$/
 
 function stemToken(value: string): string {
   if (value.length > 5 && value.endsWith('ies')) return `${value.slice(0, -3)}y`
@@ -77,6 +78,7 @@ export function normalizeMasterSearchText(value: string): string {
     .replace(/\p{M}/gu, '')
     .toLocaleLowerCase()
     .replace(/\b(m|np)\s*[-–—]?\s*(\d{1,3})\b/gi, '$1$2')
+    .replace(/\b(\d+)\s*:\s*(\d+)\b/g, 'mix$1x$2')
     .replace(
       /\b(\d+(?:\.\d+)?)\s*(millimetres?|millimeters?|mm|centimetres?|centimeters?|cm|kilograms?|kg|square\s*metres?|sqm|cubic\s*metres?|cum|running\s*metres?|rm|numbers?|nos)\b/gi,
       (_match, amount: string, unit: string) => {
@@ -165,6 +167,8 @@ function bestFuzzyToken(queryToken: string, documentTokens: string[]): string | 
 }
 
 function displayConstraint(value: string): string {
+  const mix = value.match(/^mix(\d+)x(\d+)$/)
+  if (mix) return `${mix[1]}:${mix[2]} mortar exact`
   if (/^m\d+$/i.test(value)) return `${value.toUpperCase()} exact`
   if (/^np\d+$/i.test(value)) return `${value.toUpperCase()} exact`
   const measurement = value.match(/^(\d+(?:\.\d+)?)(mm|cm|kg|sqm|cum|rm|nos)$/)
@@ -199,15 +203,26 @@ function phraseFromDescription(description: string, matchedToken: string): strin
 
 function matchItem(item: MasterItem, parsed: ParsedMasterSearch): MasterSearchMatch | null {
   const key = masterSearchItemKey(item)
-  const description = normalizeMasterSearchText(item.description)
+  const description = normalizeMasterSearchText(catalogueSearchText(item))
   const code = normalizeMasterSearchText(item.code)
   const document = `${code} ${description} ${normalizeMasterSearchText(item.unit ?? '')}`.trim()
   const documentTokens = normalizedTokens(document)
   const documentTokenSet = new Set(documentTokens)
   const compactCode = item.code.toLocaleLowerCase().replace(/[^a-z0-9]/g, '')
+  const requestedSort = parsed.normalized.match(/\b(first|second) sort\b/)?.[1]
+  if (requestedSort) {
+    const primary = item.guidance?.choiceFacts?.find(row => row.label === 'Stone sort')?.value || item.description
+    if (!new RegExp(`\\b${requestedSort} sort\\b`, 'i').test(primary)) return null
+  }
 
   for (const constraint of parsed.exactConstraints) {
-    if (!documentTokenSet.has(constraint) && !document.includes(constraint)) return null
+    if (/^mix\d+x\d+$/.test(constraint)) {
+      const mortar = item.guidance?.choiceFacts?.find(row => row.label === 'Mortar')?.value
+      if (mortar && normalizeMasterSearchText(mortar) !== constraint) return null
+    }
+    if (/^m\d+$/.test(constraint) && item.guidance &&
+      !item.guidance.grades.includes(constraint.toUpperCase())) return null
+    if (!documentTokenSet.has(constraint)) return null
   }
 
   let score = 0

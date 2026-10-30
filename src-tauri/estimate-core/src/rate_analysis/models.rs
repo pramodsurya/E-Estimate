@@ -101,6 +101,8 @@ pub struct RateAnalysisSummary {
     pub computed_lines: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub morth_abstract: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub morth_lead_amount: Option<f64>,
     pub section_totals: RateAnalysisSectionTotals,
     pub labour_base_cost: f64,
     pub area_allowance_percent: f64,

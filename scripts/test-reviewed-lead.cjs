@@ -113,6 +113,11 @@ async function main() {
       'SOR material Lead rules cannot alter the independent SSR calculation')
   }
   assert.equal(calc({ includedBasis: 'all_leads' }).grossRate, 0)
+  const route=api.calculateLeadVariantChargeFromRows([], {...input,materialName:'Concrete delivery',distanceKm:10})
+  assert.equal(route.unit,'km')
+  assert.equal(route.grossAmount,0,'Route binding adds no SOR tariff; native machinery owns cost')
+  assert.equal(route.distanceKm,10)
+  assert.throws(()=>api.calculateLeadVariantChargeFromRows([], {...input,materialName:'Concrete delivery',distanceKm:-1}),/nonnegative/)
   assert.equal(calc({ leadMultiplier: 2, includedBasis: 'initial_1km' }).leadRate, 247.66)
   await assert.rejects(api.fetchLeadRates('2024-25'), /unavailable/)
   const count = calls.length

@@ -1,533 +1,709 @@
-use estimate_core::canal_engine::*;
-use rust_xlsxwriter::{Color, Format, FormatAlign, FormatBorder, Workbook, XlsxError};
+//! Excel rendering only. Group membership, measurements and quantities come
+//! from estimate-core::canal_engine::bank_statement, also usable by Typst.
+use estimate_core::canal_engine::bank_statement::*;
+use rust_xlsxwriter::{
+    Chart, ChartLine, ChartType, Color, Format, FormatAlign, Formula, Workbook, Worksheet,
+    XlsxError,
+};
+use std::collections::BTreeMap;
 
-fn write_fml(
-    ws: &mut rust_xlsxwriter::Worksheet,
-    r: u32,
-    c: u16,
-    fml: &str,
-    fmt: &Format,
+const HEADER: u32 = 9;
+const FIRST: u32 = HEADER + 3;
+
+struct Styles {
+    title: Format,
+    text: Format,
+    note: Format,
+    header: Format,
+    block: Format,
+    number: Format,
+    zero: Format,
+    total: Format,
+}
+impl Styles {
+    fn new() -> Self {
+        let text = Format::new()
+            .set_font_name("Arial")
+            .set_font_size(10)
+            .set_font_color(Color::RGB(0x172A3A))
+            .set_align(FormatAlign::VerticalCenter);
+        Self {
+            title: text.clone().set_bold().set_font_size(14).set_text_wrap(),
+            note: text
+                .clone()
+                .set_font_color(Color::RGB(0x526574))
+                .set_text_wrap(),
+            header: text
+                .clone()
+                .set_bold()
+                .set_font_color(Color::White)
+                .set_background_color(Color::RGB(0x244563))
+                .set_text_wrap()
+                .set_align(FormatAlign::Center),
+            block: text
+                .clone()
+                .set_bold()
+                .set_font_color(Color::White)
+                .set_background_color(Color::RGB(0x3E657C))
+                .set_align(FormatAlign::Center),
+            number: text
+                .clone()
+                .set_num_format("#,##0.000")
+                .set_align(FormatAlign::Right),
+            zero: text
+                .clone()
+                .set_num_format("0.000")
+                .set_font_color(Color::RGB(0x75828D))
+                .set_background_color(Color::RGB(0xF1F4F6)),
+            total: text
+                .clone()
+                .set_bold()
+                .set_num_format("#,##0.000")
+                .set_background_color(Color::RGB(0xE2EBF1)),
+            text,
+        }
+    }
+}
+fn formula(
+    ws: &mut Worksheet,
+    row: u32,
+    col: u16,
+    text: String,
+    value: f64,
+    style: &Format,
 ) -> Result<(), XlsxError> {
-    ws.write_formula_with_format(r, c, fml, fmt)?;
+    ws.write_formula_with_format(
+        row,
+        col,
+        Formula::new(text).set_result(value.to_string()),
+        style,
+    )?;
+    Ok(())
+}
+fn col(mut c: u16) -> String {
+    let mut out = String::new();
+    loop {
+        out.insert(0, (b'A' + (c % 26) as u8) as char);
+        if c < 26 {
+            break;
+        }
+        c = c / 26 - 1;
+    }
+    out
+}
+fn quoted(name: &str) -> String {
+    format!("'{}'", name.replace('\'', "''"))
+}
+fn base(ws: &mut Worksheet) -> Result<(), XlsxError> {
+    ws.set_screen_gridlines(false)
+        .set_print_gridlines(false)
+        .set_landscape()
+        .set_paper_size(8)
+        .set_print_scale(85);
+    ws.set_default_row_height(20);
+    Ok(())
+}
+fn merged(
+    ws: &mut Worksheet,
+    row: u32,
+    last: u16,
+    text: &str,
+    style: &Format,
+    height: f64,
+) -> Result<(), XlsxError> {
+    ws.merge_range(row, 0, row, last, text, style)?;
+    ws.set_row_height(row, height)?;
     Ok(())
 }
 
-pub fn generate_canal_embankment_excel_bytes(
-    input: &CanalEmbankmentInput,
-    calc: &CanalEmbankmentCalculationResponse,
-) -> Result<Vec<u8>, XlsxError> {
-    let mut workbook = Workbook::new();
+pub fn generate_canal_embankment_excel_bytes(input: &BankExportInput) -> Result<Vec<u8>, String> {
+    let statement = build_bank_statement(input)?;
+    render(input, &statement).map_err(|e| e.to_string())
+}
 
-    // Color Palette
-    let ink = Color::RGB(0x0F172A);
-    let header_bg = Color::RGB(0x1E3A5F);
-    let subheader_bg = Color::RGB(0x334E68);
-    let bank_bg = Color::RGB(0x2A4365);
-    let reach_bg = Color::RGB(0xF1F5F9);
-    let total_bg = Color::RGB(0xE2E8F0);
-    let white = Color::RGB(0xFFFFFF);
-    let border_color = Color::RGB(0xCBD5E1);
-    let cut_flag_bg = Color::RGB(0xFEF2F2);
-    let cut_flag_ink = Color::RGB(0x991B1B);
-
-    // Formats
-    let title_fmt = Format::new()
-        .set_font_name("Segoe UI")
-        .set_font_size(13)
-        .set_bold()
-        .set_font_color(ink)
-        .set_align(FormatAlign::Center)
-        .set_align(FormatAlign::VerticalCenter);
-
-    let subtitle_fmt = Format::new()
-        .set_font_name("Segoe UI")
-        .set_font_size(10)
-        .set_bold()
-        .set_font_color(Color::RGB(0x475569))
-        .set_align(FormatAlign::Center);
-
-    let param_label_fmt = Format::new()
-        .set_font_name("Segoe UI")
-        .set_font_size(9)
-        .set_bold()
-        .set_font_color(ink)
-        .set_background_color(reach_bg)
-        .set_border(FormatBorder::Thin)
-        .set_border_color(border_color);
-
-    let param_val_fmt = Format::new()
-        .set_font_name("Segoe UI")
-        .set_font_size(9)
-        .set_font_color(ink)
-        .set_border(FormatBorder::Thin)
-        .set_border_color(border_color)
-        .set_align(FormatAlign::Right)
-        .set_num_format("0.00");
-
-    let tbl_hdr_fmt = Format::new()
-        .set_font_name("Segoe UI")
-        .set_font_size(9)
-        .set_bold()
-        .set_font_color(white)
-        .set_background_color(header_bg)
-        .set_align(FormatAlign::Center)
-        .set_align(FormatAlign::VerticalCenter)
-        .set_text_wrap()
-        .set_border(FormatBorder::Thin)
-        .set_border_color(border_color);
-
-    let bank_hdr_fmt = Format::new()
-        .set_font_name("Segoe UI")
-        .set_font_size(9)
-        .set_bold()
-        .set_font_color(white)
-        .set_background_color(bank_bg)
-        .set_align(FormatAlign::Center)
-        .set_align(FormatAlign::VerticalCenter)
-        .set_border(FormatBorder::Thin)
-        .set_border_color(border_color);
-
-    let sub_hdr_fmt = Format::new()
-        .set_font_name("Segoe UI")
-        .set_font_size(9)
-        .set_bold()
-        .set_font_color(white)
-        .set_background_color(subheader_bg)
-        .set_align(FormatAlign::Center)
-        .set_align(FormatAlign::VerticalCenter)
-        .set_border(FormatBorder::Thin)
-        .set_border_color(border_color);
-
-    let cell_center = Format::new()
-        .set_font_name("Segoe UI")
-        .set_font_size(9)
-        .set_align(FormatAlign::Center)
-        .set_border(FormatBorder::Thin)
-        .set_border_color(border_color);
-
-    let cell_left = Format::new()
-        .set_font_name("Segoe UI")
-        .set_font_size(9)
-        .set_align(FormatAlign::Left)
-        .set_border(FormatBorder::Thin)
-        .set_border_color(border_color);
-
-    let cell_num2 = Format::new()
-        .set_font_name("Segoe UI")
-        .set_font_size(9)
-        .set_align(FormatAlign::Right)
-        .set_border(FormatBorder::Thin)
-        .set_border_color(border_color)
-        .set_num_format("0.00");
-
-    let cell_num3 = Format::new()
-        .set_font_name("Segoe UI")
-        .set_font_size(9)
-        .set_align(FormatAlign::Right)
-        .set_border(FormatBorder::Thin)
-        .set_border_color(border_color)
-        .set_num_format("0.000");
-
-    let cut_cell_center = Format::new()
-        .set_font_name("Segoe UI")
-        .set_font_size(9)
-        .set_font_color(cut_flag_ink)
-        .set_background_color(cut_flag_bg)
-        .set_align(FormatAlign::Center)
-        .set_border(FormatBorder::Thin)
-        .set_border_color(border_color);
-
-    let total_lbl_fmt = Format::new()
-        .set_font_name("Segoe UI")
-        .set_font_size(9)
-        .set_bold()
-        .set_font_color(ink)
-        .set_background_color(total_bg)
-        .set_border(FormatBorder::Thin)
-        .set_border_color(border_color)
-        .set_align(FormatAlign::Center);
-
-    let total_val_fmt = Format::new()
-        .set_font_name("Segoe UI")
-        .set_font_size(9)
-        .set_bold()
-        .set_font_color(Color::RGB(0x1E3A8A))
-        .set_background_color(total_bg)
-        .set_border(FormatBorder::Thin)
-        .set_border_color(border_color)
-        .set_align(FormatAlign::Right)
-        .set_num_format("#,##0.00");
-
-    // =========================================================================
-    // SHEET 1: ABSTRACT OF REACHES
-    // =========================================================================
-    let ws_reaches = workbook.add_worksheet();
-    ws_reaches.set_name("Abstract of Reaches")?;
-
-    ws_reaches.merge_range(0, 0, 0, 10, "CANAL FORMATION OF EMBANKMENT - ABSTRACT OF REACHES", &title_fmt)?;
-    ws_reaches.merge_range(1, 0, 1, 10, "Department of Irrigation & Public Works · Programmatic Reach Aggregation", &subtitle_fmt)?;
-
-    // Parameters
-    ws_reaches.write_string_with_format(2, 0, "Bed Width (m)", &param_label_fmt)?;
-    ws_reaches.write_number_with_format(2, 1, input.bed_width, &param_val_fmt)?;
-    ws_reaches.write_string_with_format(2, 2, "Full Supply Depth (m)", &param_label_fmt)?;
-    ws_reaches.write_number_with_format(2, 3, input.full_supply_depth, &param_val_fmt)?;
-    ws_reaches.write_string_with_format(2, 4, "Free Board (m)", &param_label_fmt)?;
-    ws_reaches.write_number_with_format(2, 5, input.free_board, &param_val_fmt)?;
-    ws_reaches.write_string_with_format(2, 6, "Stripping Depth (m)", &param_label_fmt)?;
-    ws_reaches.write_number_with_format(2, 7, input.stripping_depth, &param_val_fmt)?;
-
-    // Headers
-    let r_hdrs = [
-        "Reach No.",
-        "From Chainage (m)",
-        "To Chainage (m)",
-        "Length (m)",
-        "Bund Profile / Tier",
-        "Sections",
-        "Left Bank Vol (cu.m)",
-        "Right Bank Vol (cu.m)",
-        "Stripping Vol (cu.m)",
-        "Total Bank Vol (cu.m)",
-        "Status / Remarks",
-    ];
-
-    for (c, h) in r_hdrs.iter().enumerate() {
-        ws_reaches.write_string_with_format(4, c as u16, *h, &tbl_hdr_fmt)?;
+fn render(input: &BankExportInput, statement: &BankStatement) -> Result<Vec<u8>, XlsxError> {
+    let mut book = Workbook::new();
+    let styles = Styles::new();
+    book.add_worksheet().set_name("Statement of Quantities")?;
+    for group in &statement.groups {
+        book.add_worksheet().set_name(&group.sheet_name)?;
     }
-
-    ws_reaches.set_column_width(0, 10)?;
-    ws_reaches.set_column_width(1, 18)?;
-    ws_reaches.set_column_width(2, 18)?;
-    ws_reaches.set_column_width(3, 14)?;
-    ws_reaches.set_column_width(4, 25)?;
-    ws_reaches.set_column_width(5, 11)?;
-    ws_reaches.set_column_width(6, 18)?;
-    ws_reaches.set_column_width(7, 18)?;
-    ws_reaches.set_column_width(8, 18)?;
-    ws_reaches.set_column_width(9, 20)?;
-    ws_reaches.set_column_width(10, 24)?;
-
-    let reach_start_r = 5u32;
-    for (idx, rch) in calc.reaches.iter().enumerate() {
-        let r = reach_start_r + idx as u32;
-        ws_reaches.write_number_with_format(r, 0, rch.reach_index as f64, &cell_center)?;
-        ws_reaches.write_number_with_format(r, 1, rch.from_chainage, &cell_num2)?;
-        ws_reaches.write_number_with_format(r, 2, rch.to_chainage, &cell_num2)?;
-        ws_reaches.write_number_with_format(r, 3, rch.length, &cell_num2)?;
-        ws_reaches.write_string_with_format(r, 4, &rch.tier_name, &cell_left)?;
-        ws_reaches.write_number_with_format(r, 5, rch.section_count as f64, &cell_center)?;
-        ws_reaches.write_number_with_format(r, 6, rch.left_volume, &cell_num2)?;
-        ws_reaches.write_number_with_format(r, 7, rch.right_volume, &cell_num2)?;
-        ws_reaches.write_number_with_format(r, 8, rch.stripping_volume, &cell_num2)?;
-        ws_reaches.write_number_with_format(r, 9, rch.total_bank_volume, &cell_num2)?;
-
-        if rch.is_pure_cut {
-            ws_reaches.write_string_with_format(r, 10, "Cutting Reach (0 Bank)", &cut_cell_center)?;
-        } else {
-            ws_reaches.write_string_with_format(r, 10, "Active Formation", &cell_center)?;
-        }
+    let mut total_refs: BTreeMap<(usize, String), (u32, u16)> = BTreeMap::new();
+    let mut arrangements: BTreeMap<(String, String), usize> = BTreeMap::new();
+    for row in &statement.rows {
+        let count = arrangements
+            .entry((row.side.clone(), row.reach_id.clone()))
+            .or_default();
+        *count = (*count).max(row.design_variant);
     }
-
-    let reach_total_r = reach_start_r + calc.reaches.len() as u32;
-    let r_first_xl = reach_start_r + 1;
-    let r_last_xl = reach_total_r;
-
-    ws_reaches.merge_range(reach_total_r, 0, reach_total_r, 2, "GRAND TOTAL", &total_lbl_fmt)?;
-    if !calc.reaches.is_empty() {
-        write_fml(ws_reaches, reach_total_r, 3, &format!("=SUM(D{r_first_xl}:D{r_last_xl})"), &total_val_fmt)?;
-        ws_reaches.write_string_with_format(reach_total_r, 4, "-", &total_lbl_fmt)?;
-        ws_reaches.write_string_with_format(reach_total_r, 5, "-", &total_lbl_fmt)?;
-        write_fml(ws_reaches, reach_total_r, 6, &format!("=SUM(G{r_first_xl}:G{r_last_xl})"), &total_val_fmt)?;
-        write_fml(ws_reaches, reach_total_r, 7, &format!("=SUM(H{r_first_xl}:H{r_last_xl})"), &total_val_fmt)?;
-        write_fml(ws_reaches, reach_total_r, 8, &format!("=SUM(I{r_first_xl}:I{r_last_xl})"), &total_val_fmt)?;
-        write_fml(ws_reaches, reach_total_r, 9, &format!("=SUM(J{r_first_xl}:J{r_last_xl})"), &total_val_fmt)?;
-        ws_reaches.write_string_with_format(reach_total_r, 10, "-", &total_lbl_fmt)?;
-    }
-
-    // =========================================================================
-    // SHEET 2: DETAILED SECTION-BY-SECTION MEASUREMENTS
-    // =========================================================================
-    let ws = workbook.add_worksheet();
-    ws.set_name("Detailed Measurements")?;
-
-    // Title Row
-    ws.merge_range(0, 0, 0, 19, "STATEMENT SHOWING THE FORMATION OF EMBANKMENT OF MAIN CANAL", &title_fmt)?;
-    ws.merge_range(1, 0, 1, 19, "Department of Irrigation & Public Works · Native Rust Calculation Engine", &subtitle_fmt)?;
-
-    // Parameters Row (Row 2 & 3: Excel rows 3 & 4)
-    ws.write_string_with_format(2, 1, "Bed Width (m)", &param_label_fmt)?;
-    ws.write_number_with_format(2, 2, input.bed_width, &param_val_fmt)?;
-
-    ws.write_string_with_format(2, 3, "Full Supply Depth (m)", &param_label_fmt)?;
-    ws.write_number_with_format(2, 4, input.full_supply_depth, &param_val_fmt)?;
-
-    ws.write_string_with_format(2, 5, "Free Board (m)", &param_label_fmt)?;
-    ws.write_number_with_format(2, 6, input.free_board, &param_val_fmt)?;
-
-    ws.write_string_with_format(2, 7, "Stripping Depth (m)", &param_label_fmt)?;
-    ws.write_number_with_format(2, 8, input.stripping_depth, &param_val_fmt)?;
-
-    ws.write_string_with_format(3, 1, "Left Crest (Inspection)", &param_label_fmt)?;
-    ws.write_number_with_format(3, 2, input.left_bank.top_width, &param_val_fmt)?;
-
-    ws.write_string_with_format(3, 3, "Right Crest (Service)", &param_label_fmt)?;
-    ws.write_number_with_format(3, 4, input.right_bank.top_width, &param_val_fmt)?;
-
-    ws.write_string_with_format(3, 5, "Inner Side Slope", &param_label_fmt)?;
-    ws.write_number_with_format(3, 6, input.left_bank.inner_slope, &param_val_fmt)?;
-
-    ws.write_string_with_format(3, 7, "Outer Side Slope", &param_label_fmt)?;
-    ws.write_number_with_format(3, 8, input.left_bank.outer_slope, &param_val_fmt)?;
-
-    // Table Headers (Row 5 & 6)
-    ws.merge_range(5, 0, 6, 0, "Sl. No.", &tbl_hdr_fmt)?;
-    ws.merge_range(5, 1, 6, 1, "Chainage\n(m)", &tbl_hdr_fmt)?;
-    ws.merge_range(5, 2, 6, 2, "Length\n(m)", &tbl_hdr_fmt)?;
-    ws.merge_range(5, 3, 6, 3, "A.V.G.L.\n(m)", &tbl_hdr_fmt)?;
-    ws.merge_range(5, 4, 6, 4, "C.B.L.\n(m)", &tbl_hdr_fmt)?;
-    ws.merge_range(5, 5, 6, 5, "T.B.L.\n(m)", &tbl_hdr_fmt)?;
-
-    // Merged Header: TOTAL HEIGHT OF BANKING (Cols 6..=8)
-    ws.merge_range(5, 6, 5, 8, "TOTAL HEIGHT OF BANKING in m.", &bank_hdr_fmt)?;
-    ws.write_string_with_format(6, 6, "Net Height", &sub_hdr_fmt)?;
-    ws.write_string_with_format(6, 7, "Add Stripping", &sub_hdr_fmt)?;
-    ws.write_string_with_format(6, 8, "Gross Height", &sub_hdr_fmt)?;
-
-    // Merged Header: LEFT BANK (Cols 9..=11)
-    ws.merge_range(5, 9, 5, 11, "LEFT BANK (Inspection Path)", &bank_hdr_fmt)?;
-    ws.write_string_with_format(6, 9, "Top Width (m)", &sub_hdr_fmt)?;
-    ws.write_string_with_format(6, 10, "Bottom Width (m)", &sub_hdr_fmt)?;
-    ws.write_string_with_format(6, 11, "Area (sq.m)", &sub_hdr_fmt)?;
-
-    // Merged Header: RIGHT BANK (Cols 12..=14)
-    ws.merge_range(5, 12, 5, 14, "RIGHT BANK (Service Road)", &bank_hdr_fmt)?;
-    ws.write_string_with_format(6, 12, "Top Width (m)", &sub_hdr_fmt)?;
-    ws.write_string_with_format(6, 13, "Bottom Width (m)", &sub_hdr_fmt)?;
-    ws.write_string_with_format(6, 14, "Area (sq.m)", &sub_hdr_fmt)?;
-
-    // Stripping & Bank Area
-    ws.merge_range(5, 15, 6, 15, "Stripping Footprint\n(sq.m)", &tbl_hdr_fmt)?;
-    ws.merge_range(5, 16, 6, 16, "Total Bank Area\n(sq.m)", &tbl_hdr_fmt)?;
-    ws.merge_range(5, 17, 6, 17, "Embankment Vol.\n(cu.m)", &tbl_hdr_fmt)?;
-    ws.merge_range(5, 18, 6, 18, "Stripping Vol.\n(cu.m)", &tbl_hdr_fmt)?;
-    ws.merge_range(5, 19, 6, 19, "Bund Tier / Status", &tbl_hdr_fmt)?;
-
-    // Set Column Widths
-    ws.set_column_width(0, 8)?;   // Sl
-    ws.set_column_width(1, 13)?;  // Chainage
-    ws.set_column_width(2, 10)?;  // Length
-    ws.set_column_width(3, 11)?;  // AVGL
-    ws.set_column_width(4, 11)?;  // CBL
-    ws.set_column_width(5, 11)?;  // TBL
-    ws.set_column_width(6, 11)?;  // Net H
-    ws.set_column_width(7, 12)?;  // Add Strip
-    ws.set_column_width(8, 12)?;  // Gross H
-    ws.set_column_width(9, 13)?;  // Left Top
-    ws.set_column_width(10, 15)?; // Left Bot
-    ws.set_column_width(11, 13)?; // Left Area
-    ws.set_column_width(12, 13)?; // Right Top
-    ws.set_column_width(13, 15)?; // Right Bot
-    ws.set_column_width(14, 13)?; // Right Area
-    ws.set_column_width(15, 16)?; // Strip Area
-    ws.set_column_width(16, 16)?; // Total Bank Area
-    ws.set_column_width(17, 18)?; // Bank Vol
-    ws.set_column_width(18, 16)?; // Strip Vol
-    ws.set_column_width(19, 22)?; // Tier / Status
-
-    // Write Data Rows
-    let start_row: u32 = 7;
-    for (idx, sec) in calc.sections.iter().enumerate() {
-        let r = start_row + idx as u32;
-        let xl_r = r + 1; // 1-indexed Excel row
-
-        // Sl No
-        ws.write_number_with_format(r, 0, (idx + 1) as f64, &cell_center)?;
-
-        // Chainage
-        ws.write_number_with_format(r, 1, sec.chainage, &cell_num2)?;
-
-        // Length
-        if idx == 0 {
-            ws.write_string_with_format(r, 2, "-", &cell_center)?;
-        } else {
-            let prev_xl_r = xl_r - 1;
-            write_fml(ws, r, 2, &format!("=B{xl_r}-B{prev_xl_r}"), &cell_num2)?;
+    for (index, group) in statement.groups.iter().enumerate() {
+        let ws = book.worksheet_from_name(&group.sheet_name)?;
+        base(ws)?;
+        let last = (4 + 3 * group.works.len()) as u16;
+        let intro_last = last.min(10);
+        merged(ws, 1, intro_last, &group.name, &styles.title, 46.0)?;
+        for (i, line) in group.definition.iter().enumerate() {
+            merged(
+                ws,
+                3 + i as u32,
+                intro_last,
+                line,
+                &styles.note,
+                if i == 3 { 54.0 } else { 30.0 },
+            )?;
         }
-
-        // AVGL
-        ws.write_number_with_format(r, 3, sec.ground_level, &cell_num3)?;
-
-        // CBL
-        ws.write_number_with_format(r, 4, sec.bed_level, &cell_num3)?;
-
-        // TBL Formula: =E{xl_r}+$E$3+$G$3 (CBL + FSD + FB)
-        write_fml(ws, r, 5, &format!("=E{xl_r}+$E$3+$G$3"), &cell_num3)?;
-
-        // Net Height: =IF(F{xl_r}>D{xl_r}, F{xl_r}-D{xl_r}, 0)
-        write_fml(ws, r, 6, &format!("=IF(F{xl_r}>D{xl_r}, F{xl_r}-D{xl_r}, 0)"), &cell_num3)?;
-
-        // Add Stripping: =IF(G{xl_r}>0, $I$3, 0)
-        write_fml(ws, r, 7, &format!("=IF(G{xl_r}>0, $I$3, 0)"), &cell_num3)?;
-
-        // Gross Height: =G{xl_r}+H{xl_r}
-        write_fml(ws, r, 8, &format!("=G{xl_r}+H{xl_r}"), &cell_num3)?;
-
-        // Left Top Width:
-        ws.write_number_with_format(r, 9, sec.left_top_width, &cell_num2)?;
-
-        // Left Bottom Width:
-        ws.write_number_with_format(r, 10, sec.left_bottom_width, &cell_num2)?;
-
-        // Left Area:
-        ws.write_number_with_format(r, 11, sec.left_bank_area, &cell_num3)?;
-
-        // Right Top Width:
-        ws.write_number_with_format(r, 12, sec.right_top_width, &cell_num2)?;
-
-        // Right Bottom Width:
-        ws.write_number_with_format(r, 13, sec.right_bottom_width, &cell_num2)?;
-
-        // Right Area:
-        ws.write_number_with_format(r, 14, sec.right_bank_area, &cell_num3)?;
-
-        // Stripping Footprint Area: =IF(I{xl_r}>0, (K{xl_r}+N{xl_r})*H{xl_r}, 0)
-        write_fml(ws, r, 15, &format!("=IF(I{xl_r}>0, (K{xl_r}+N{xl_r})*H{xl_r}, 0)"), &cell_num3)?;
-
-        // Total Bank Area: =L{xl_r}+O{xl_r}
-        write_fml(ws, r, 16, &format!("=L{xl_r}+O{xl_r}"), &cell_num3)?;
-
-        // Volumes (between previous section and current section)
-        if idx == 0 {
-            ws.write_number_with_format(r, 17, 0.0, &cell_num2)?;
-            ws.write_number_with_format(r, 18, 0.0, &cell_num2)?;
-        } else {
-            let prev_xl_r = xl_r - 1;
-            write_fml(ws, r, 17, &format!("=(Q{prev_xl_r}+Q{xl_r})*0.5*C{xl_r}"), &cell_num2)?;
-            write_fml(ws, r, 18, &format!("=(P{prev_xl_r}+P{xl_r})*0.5*C{xl_r}"), &cell_num2)?;
+        merged(ws,7,intro_last,"Section values use the complete drawn bank profile, including berms. Net earth filling excludes the materials replacing it. Both filter columns are retained when either filter is measured.",&styles.note,30.0)?;
+        merged(ws,8,intro_last,"Each interval has its own From and To samples. Grey rows belong to another sheet or full cutting and contribute zero. Quantities = average section × interval length.",&styles.note,30.0)?;
+        let identifiers = [
+            "Chainage (m)",
+            "Bank",
+            "Reach / sheet reference",
+            "Length (m)",
+            "Bank design",
+        ];
+        for (c, label) in identifiers.iter().enumerate() {
+            ws.merge_range(
+                HEADER,
+                c as u16,
+                HEADER + 2,
+                c as u16,
+                *label,
+                &styles.header,
+            )?;
         }
-
-        // Tier / Status
-        if sec.net_banking_height <= 0.001 {
-            ws.write_string_with_format(r, 19, "Pure Cut (0 Bank)", &cut_cell_center)?;
-        } else {
-            ws.write_string_with_format(r, 19, &sec.left_tier_name, &cell_center)?;
+        ws.set_column_width(0, 14)?
+            .set_column_width(1, 9)?
+            .set_column_width(2, 34)?
+            .set_column_width(3, 13)?
+            .set_column_width(4, 25)?;
+        let mut blocks: Vec<(String, u16, u16)> = vec![];
+        for (i, work) in group.works.iter().enumerate() {
+            let c = 5 + i as u16 * 3;
+            ws.set_column_range_width(c, c + 2, 16)?;
+            if let Some(last) = blocks.last_mut() {
+                if last.0 == work.block {
+                    last.2 = c + 2;
+                } else {
+                    blocks.push((work.block.clone(), c, c + 2));
+                }
+            } else {
+                blocks.push((work.block.clone(), c, c + 2));
+            }
+            let label = format!(
+                "{}{}",
+                work.label,
+                if work.code.is_empty() {
+                    String::new()
+                } else {
+                    format!("\n{}", work.code)
+                }
+            );
+            ws.merge_range(HEADER + 1, c, HEADER + 1, c + 2, &label, &styles.header)?;
+            for (j, label) in [
+                format!("Section ({})", work.section_unit),
+                format!("Average ({})", work.section_unit),
+                format!("Quantity ({})", work.unit),
+            ]
+            .iter()
+            .enumerate()
+            {
+                ws.write_string_with_format(HEADER + 2, c + j as u16, label, &styles.header)?;
+            }
         }
-    }
-
-    // Grand Totals Row
-    let total_r = start_row + calc.sections.len() as u32;
-    let first_xl_r = start_row + 1;
-    let last_xl_r = total_r;
-
-    ws.merge_range(total_r, 0, total_r, 16, "GRAND TOTALS", &total_lbl_fmt)?;
-
-    if !calc.sections.is_empty() {
-        write_fml(
+        for (name, a, c) in blocks {
+            ws.merge_range(HEADER, a, HEADER, c, &name, &styles.block)?;
+        }
+        ws.set_row_height(HEADER, 24)?
+            .set_row_height(HEADER + 1, 60)?
+            .set_row_height(HEADER + 2, 34)?;
+        ws.set_freeze_panes(FIRST, 3)?;
+        ws.set_repeat_rows(HEADER, HEADER + 2)?;
+        ws.set_repeat_columns(0, 4)?;
+        let mut row = FIRST;
+        for span in &statement.rows {
+            let own = span.group_index == Some(index);
+            let reference = if own {
+                span.reach_id.clone()
+            } else if let Some(owner) = span.group_index {
+                format!("See sheet {}", statement.groups[owner].sheet_name)
+            } else if span.status == "cut" || span.status == "level" {
+                "Full cutting / no bank filling".into()
+            } else {
+                format!("{} / no bank filling", span.status)
+            };
+            for (offset, (ch, measurement)) in [(span.from, &span.start), (span.to, &span.end)]
+                .into_iter()
+                .enumerate()
+            {
+                let r = row + offset as u32;
+                ws.write_number_with_format(r, 0, ch, &styles.number)?;
+                ws.write_string_with_format(r, 1, &span.side, &styles.text)?;
+                ws.write_string_with_format(r, 2, &reference, &styles.note)?;
+                if offset == 0 {
+                    ws.write_number_with_format(r, 3, 0.0, &styles.number)?;
+                } else {
+                    formula(
+                        ws,
+                        r,
+                        3,
+                        format!("=A{}-A{}", r + 1, row + 1),
+                        span.to - span.from,
+                        &styles.number,
+                    )?;
+                }
+                let multiple = arrangements
+                    .get(&(span.side.clone(), span.reach_id.clone()))
+                    .copied()
+                    .unwrap_or(1)
+                    > 1;
+                let name = if !own {
+                    String::new()
+                } else if multiple {
+                    format!(
+                        "{} / arrangement {}",
+                        span.profile_name, span.design_variant
+                    )
+                } else {
+                    span.profile_name.clone()
+                };
+                ws.write_string_with_format(r, 4, &name, &styles.text.clone().set_text_wrap())?;
+                if own && multiple {
+                    ws.set_row_height(r, 32)?;
+                }
+                for (i, work) in group.works.iter().enumerate() {
+                    let c = 5 + i as u16 * 3;
+                    let value = if own {
+                        measurement.values.get(&work.key).copied().unwrap_or(0.0)
+                    } else {
+                        0.0
+                    };
+                    ws.write_number_with_format(
+                        r,
+                        c,
+                        value,
+                        if own { &styles.number } else { &styles.zero },
+                    )?;
+                    if offset == 0 || !own {
+                        ws.write_number_with_format(
+                            r,
+                            c + 1,
+                            0.0,
+                            if own { &styles.number } else { &styles.zero },
+                        )?;
+                        ws.write_number_with_format(
+                            r,
+                            c + 2,
+                            0.0,
+                            if own { &styles.number } else { &styles.zero },
+                        )?;
+                    } else {
+                        let start = span.start.values.get(&work.key).copied().unwrap_or(0.0);
+                        formula(
+                            ws,
+                            r,
+                            c + 1,
+                            format!("=AVERAGE({}{},{}{})", col(c), row + 1, col(c), r + 1),
+                            (start + value) / 2.0,
+                            &styles.number,
+                        )?;
+                        formula(
+                            ws,
+                            r,
+                            c + 2,
+                            format!("={}{}*$D{}", col(c + 1), r + 1, r + 1),
+                            span.quantities.get(&work.key).copied().unwrap_or(0.0),
+                            &styles.number,
+                        )?;
+                    }
+                }
+            }
+            row += 2;
+        }
+        ws.merge_range(row, 0, row, 4, "GROUP TOTAL", &styles.total)?;
+        for (i, work) in group.works.iter().enumerate() {
+            let c = 7 + i as u16 * 3;
+            formula(
+                ws,
+                row,
+                c,
+                format!("=SUM({}{}:{}{})", col(c), FIRST + 1, col(c), row),
+                group.totals.get(&work.key).copied().unwrap_or(0.0),
+                &styles.total,
+            )?;
+            total_refs.insert((index, work.key.clone()), (row, c));
+        }
+        row += 3;
+        merged(
             ws,
-            total_r,
-            17,
-            &format!("=SUM(R{first_xl_r}:R{last_xl_r})"),
-            &total_val_fmt,
+            row,
+            last,
+            "MEMBER REACHES AND DESIGN REFERENCES",
+            &styles.title,
+            26.0,
         )?;
-        write_fml(
+        row += 1;
+        for (c, label) in [
+            "From Ch (m)",
+            "Bank",
+            "Reach ID",
+            "To Ch (m)",
+            "Bank design",
+        ]
+        .iter()
+        .enumerate()
+        {
+            ws.write_string_with_format(row, c as u16, *label, &styles.header)?;
+        }
+        row += 1;
+        let mut members: Vec<(f64, f64, String, String, String)> = vec![];
+        for span in statement
+            .rows
+            .iter()
+            .filter(|r| r.group_index == Some(index))
+        {
+            if let Some(member) = members.iter_mut().rev().find(|m| {
+                m.2 == span.side && m.3 == span.reach_id && (m.1 - span.from).abs() < 1e-8
+            }) {
+                member.1 = span.to;
+            } else {
+                members.push((
+                    span.from,
+                    span.to,
+                    span.side.clone(),
+                    span.reach_id.clone(),
+                    span.profile_name.clone(),
+                ));
+            }
+        }
+        for (from, to, side, id, name) in members {
+            ws.write_number_with_format(row, 0, from, &styles.number)?;
+            ws.write_string_with_format(row, 1, &side, &styles.text)?;
+            ws.write_string_with_format(row, 2, &id, &styles.text)?;
+            ws.write_number_with_format(row, 3, to, &styles.number)?;
+            ws.write_string_with_format(row, 4, &name, &styles.text)?;
+            row += 1;
+        }
+        ws.set_print_area(0, 0, row, last)?;
+    }
+    {
+        let ws = book.worksheet_from_name("Statement of Quantities")?;
+        base(ws)?;
+        ws.set_tab_color(Color::RGB(0x244563));
+        let last = 3 + statement.groups.len() as u16;
+        ws.set_column_width(0, 49)?
+            .set_column_width(1, 20)?
+            .set_column_width(2, 10)?;
+        for c in 3..=last {
+            ws.set_column_width(c, 24)?;
+        }
+        merged(
             ws,
-            total_r,
-            18,
-            &format!("=SUM(S{first_xl_r}:S{last_xl_r})"),
-            &total_val_fmt,
+            1,
+            last,
+            "STATEMENT OF QUANTITIES — CANAL BANKS",
+            &styles.title,
+            30.0,
         )?;
-        ws.write_string_with_format(total_r, 19, "-", &total_lbl_fmt)?;
-    } else {
-        ws.write_number_with_format(total_r, 17, 0.0, &total_val_fmt)?;
-        ws.write_number_with_format(total_r, 18, 0.0, &total_val_fmt)?;
-        ws.write_string_with_format(total_r, 19, "-", &total_lbl_fmt)?;
+        merged(ws,3,last,&format!("Canal Ch 0.000–{:.3} m. {} Bank Design. Groups are divided by construction, then bank slope protection.",input.length_m,if input.mode=="manual"{"Manual"}else if input.mode=="tiered"{"Programmatic"}else{"Fixed"}),&styles.note,30.0)?;
+        merged(ws,4,last,"Sand Blanket & Filters and Others use the union of applicable work columns. Their presence does not split reach sheets. Berm earthwork is included in Filling / Casing.",&styles.note,30.0)?;
+        for (c, label) in ["Description of work", "Item / specification", "Unit"]
+            .iter()
+            .enumerate()
+        {
+            ws.write_string_with_format(6, c as u16, *label, &styles.header)?;
+        }
+        for (i, group) in statement.groups.iter().enumerate() {
+            ws.write_string_with_format(6, 3 + i as u16, &group.sheet_name, &styles.header)?;
+        }
+        ws.write_string_with_format(6, last, "TOTAL QUANTITY", &styles.header)?;
+        ws.set_row_height(6, 44)?;
+        for (i, work) in statement.works.iter().enumerate() {
+            let row = 7 + i as u32;
+            ws.write_string_with_format(row, 0, &work.label, &styles.text)?;
+            ws.write_string_with_format(row, 1, &work.code, &styles.text)?;
+            ws.write_string_with_format(row, 2, &work.unit, &styles.text)?;
+            for (g, group) in statement.groups.iter().enumerate() {
+                if let Some((r, c)) = total_refs.get(&(g, work.key.clone())) {
+                    formula(
+                        ws,
+                        row,
+                        3 + g as u16,
+                        format!("={}!{}{}", quoted(&group.sheet_name), col(*c), r + 1),
+                        group.totals.get(&work.key).copied().unwrap_or(0.0),
+                        &styles.number,
+                    )?;
+                } else {
+                    ws.write_number_with_format(row, 3 + g as u16, 0.0, &styles.zero)?;
+                }
+            }
+            if statement.groups.is_empty() {
+                ws.write_number_with_format(row, last, 0.0, &styles.total)?;
+            } else {
+                formula(
+                    ws,
+                    row,
+                    last,
+                    format!("=SUM(D{}:{}{})", row + 1, col(last - 1), row + 1),
+                    statement.totals.get(&work.key).copied().unwrap_or(0.0),
+                    &styles.total,
+                )?;
+            }
+        }
+        let mut row = 9 + statement.works.len() as u32;
+        if statement.groups.is_empty() {
+            merged(
+                ws,
+                7,
+                last,
+                "Full cutting throughout. No bank reach sheet is required.",
+                &styles.note,
+                40.0,
+            )?;
+            ws.write_string_with_format(8, 0, "Bank formation filling", &styles.text)?;
+            ws.write_string_with_format(8, 2, "m³", &styles.text)?;
+            ws.write_number_with_format(8, last, 0.0, &styles.total)?;
+        }
+        merged(
+            ws,
+            row,
+            last,
+            "REACH SHEET DEFINITIONS",
+            &styles.title,
+            26.0,
+        )?;
+        row += 2;
+        for group in &statement.groups {
+            merged(
+                ws,
+                row,
+                last,
+                &format!("{}: {}", group.sheet_name, group.name),
+                &styles.title,
+                54.0,
+            )?;
+            row += 1;
+            for line in &group.definition {
+                merged(ws, row, last, line, &styles.note, 40.0)?;
+                row += 1;
+            }
+            row += 1;
+        }
+        if !statement.materials.is_empty() {
+            merged(
+                ws,
+                row,
+                last,
+                "BANK FILL MATERIAL SOURCES",
+                &styles.title,
+                28.0,
+            )?;
+            row += 1;
+            for (c, label) in [
+                "Zone / material source",
+                "Item",
+                "Share (%)",
+                "Compaction / watering",
+                "Quantity (m³)",
+            ]
+            .iter()
+            .enumerate()
+            {
+                ws.write_string_with_format(row, c as u16, *label, &styles.header)?;
+            }
+            ws.set_row_height(row, 38)?;
+            row += 1;
+            for material in &statement.materials {
+                ws.write_string_with_format(
+                    row,
+                    0,
+                    format!("{} / {}", material.zone, material.source),
+                    &styles.text,
+                )?;
+                ws.write_string_with_format(row, 1, &material.code, &styles.text)?;
+                ws.write_number_with_format(row, 2, material.percentage, &styles.number)?;
+                ws.write_string_with_format(
+                    row,
+                    3,
+                    format!(
+                        "{}% / {}",
+                        material.compaction,
+                        if material.watering {
+                            "with water"
+                        } else {
+                            "without water"
+                        }
+                    ),
+                    &styles.note,
+                )?;
+                let key = if material.zone == "homogeneous" {
+                    "filling"
+                } else {
+                    material.zone.as_str()
+                };
+                let refs: Vec<_> = statement
+                    .works
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, w)| {
+                        w.key == key || material.zone == "hearting" && w.key == "cutoff_filling"
+                    })
+                    .map(|(i, _)| format!("{}{}", col(last), 8 + i))
+                    .collect();
+                formula(
+                    ws,
+                    row,
+                    4,
+                    format!("=({})*C{}/100", refs.join("+"), row + 1),
+                    material.quantity,
+                    &styles.number,
+                )?;
+                row += 1;
+            }
+            row += 2;
+        }
+        merged(ws,row,last,"Measured section cells contain saved design geometry values. Average, interval quantity, group totals and this statement are linked Excel formulas. Change the design in the app and export again to recalculate its geometry.",&styles.note,45.0)?;
+        ws.set_freeze_panes(7, 3)?;
+        ws.set_repeat_rows(6, 6)?;
+        ws.set_print_area(0, 0, row, last)?;
     }
-
-    // =========================================================================
-    // SHEET 3: SOIL ALLOCATION & MASS BALANCE STATEMENT
-    // =========================================================================
-    let ws_soil = workbook.add_worksheet();
-    ws_soil.set_name("Soil Allocation")?;
-
-    ws_soil.merge_range(0, 0, 0, 8, "CANAL EMBANKMENT SOIL ALLOCATION & MASS BALANCE STATEMENT", &title_fmt)?;
-    ws_soil.merge_range(1, 0, 1, 8, "Source Allocation: Canal Excavation Reuse vs Approved Borrow Areas", &subtitle_fmt)?;
-
-    // Summary Cards
-    let soil_alloc = &calc.soil_allocation;
-
-    ws_soil.write_string_with_format(3, 0, "Total Embankment Fill Required (cu.m)", &param_label_fmt)?;
-    ws_soil.write_number_with_format(3, 1, soil_alloc.total_fill_volume_m3, &param_val_fmt)?;
-
-    ws_soil.write_string_with_format(3, 3, "Suitable Cut Soil Available (cu.m)", &param_label_fmt)?;
-    ws_soil.write_number_with_format(3, 4, soil_alloc.suitable_cut_available_m3, &param_val_fmt)?;
-
-    ws_soil.write_string_with_format(4, 0, "Allocated from Canal Cut (cu.m)", &param_label_fmt)?;
-    ws_soil.write_number_with_format(4, 1, soil_alloc.allocated_from_cut_m3, &param_val_fmt)?;
-
-    ws_soil.write_string_with_format(4, 3, "Allocated from Borrow Area (cu.m)", &param_label_fmt)?;
-    ws_soil.write_number_with_format(4, 4, soil_alloc.allocated_from_borrow_m3, &param_val_fmt)?;
-
-    if soil_alloc.allocated_from_dump_m3 > 0.0 {
-        ws_soil.write_string_with_format(4, 6, "Allocated from Dump Area (cu.m)", &param_label_fmt)?;
-        ws_soil.write_number_with_format(4, 7, soil_alloc.allocated_from_dump_m3, &param_val_fmt)?;
+    if !statement.groups.is_empty() {
+        write_sections(&mut book, statement, &styles)?;
     }
+    book.save_to_buffer()
+}
 
-    // Allocation Items Table
-    let s_hdrs = [
-        "Sl. No.",
-        "Embankment Zone",
-        "Material Source",
-        "Share (%)",
-        "Quantity (cu.m)",
-        "Compaction",
-        "Watering",
-        "SSR Item Code",
-        "Schedule of Rates Description",
-    ];
-
-    for (c, h) in s_hdrs.iter().enumerate() {
-        ws_soil.write_string_with_format(6, c as u16, *h, &tbl_hdr_fmt)?;
+/// Native Excel XY diagrams with inspectable coordinates, one per saved bank
+/// reach/work arrangement, sampled at its largest measured section.
+fn write_sections(
+    book: &mut Workbook,
+    statement: &BankStatement,
+    styles: &Styles,
+) -> Result<(), XlsxError> {
+    let ws = book.add_worksheet();
+    ws.set_name("Bank Sections")?;
+    base(ws)?;
+    ws.set_column_range_width(0, 10, 12)?
+        .set_column_width(0, 32)?;
+    let mut exhibits: BTreeMap<
+        (usize, String, String, usize),
+        (&BankStatementRow, &BankMeasurement, f64),
+    > = BTreeMap::new();
+    for row in &statement.rows {
+        if let Some(group) = row.group_index {
+            for (m, ch) in [(&row.start, row.from), (&row.end, row.to)] {
+                let key = (
+                    group,
+                    row.side.clone(),
+                    row.reach_id.clone(),
+                    row.design_variant,
+                );
+                if m.gross_fill > exhibits.get(&key).map_or(0.0, |(_, m, _)| m.gross_fill) {
+                    exhibits.insert(key, (row, m, ch));
+                }
+            }
+        }
     }
-
-    ws_soil.set_column_width(0, 8)?;
-    ws_soil.set_column_width(1, 18)?;
-    ws_soil.set_column_width(2, 22)?;
-    ws_soil.set_column_width(3, 12)?;
-    ws_soil.set_column_width(4, 18)?;
-    ws_soil.set_column_width(5, 15)?;
-    ws_soil.set_column_width(6, 14)?;
-    ws_soil.set_column_width(7, 18)?;
-    ws_soil.set_column_width(8, 45)?;
-
-    let soil_start_r = 7u32;
-    for (idx, item) in soil_alloc.items.iter().enumerate() {
-        let r = soil_start_r + idx as u32;
-        ws_soil.write_number_with_format(r, 0, (idx + 1) as f64, &cell_center)?;
-        ws_soil.write_string_with_format(r, 1, &item.zone, &cell_left)?;
-        ws_soil.write_string_with_format(r, 2, &item.source, &cell_left)?;
-        ws_soil.write_number_with_format(r, 3, item.percentage, &cell_num2)?;
-        ws_soil.write_number_with_format(r, 4, item.volume_m3, &cell_num2)?;
-        ws_soil.write_string_with_format(r, 5, &format!("Not less than {}%", item.compaction), &cell_center)?;
-        ws_soil.write_string_with_format(r, 6, if item.watering { "Included" } else { "Excluded" }, &cell_center)?;
-        ws_soil.write_string_with_format(r, 7, &item.item_code, &cell_center)?;
-        ws_soil.write_string_with_format(r, 8, &item.item_description, &cell_left)?;
+    let mut row = 1;
+    let mut breaks = vec![];
+    for ((group, side, id, variant), (span, m, ch)) in exhibits {
+        if row > 1 {
+            breaks.push(row);
+        }
+        let title = format!(
+            "{} bank · {} · {} · Arrangement {} · Ch {:.3} m",
+            side, id, span.profile_name, variant, ch
+        );
+        merged(ws, row, 10, &title, &styles.title, 34.0)?;
+        merged(ws,row+1,10,&format!("Sheet: {}. Representative section at maximum measured bank area in this reach. Other section measurements remain in the reach schedule.",statement.groups[group].sheet_name),&styles.note,32.0)?;
+        let mut chart = Chart::new(ChartType::ScatterStraight);
+        chart.set_width(880).set_height(420);
+        chart.title().set_name(&format!(
+            "{} bank · {} · Ch {:.3} m",
+            side, span.profile_name, ch
+        ));
+        chart
+            .x_axis()
+            .set_name("Offset from canal centre (m)")
+            .set_num_format("0.0");
+        chart.y_axis().set_name("RL (m)").set_num_format("0.00");
+        let points: Vec<_> = m.shapes.iter().flat_map(|s| &s.points).collect();
+        let min = points.iter().map(|p| p.rl).fold(f64::INFINITY, f64::min);
+        let max = points
+            .iter()
+            .map(|p| p.rl)
+            .fold(f64::NEG_INFINITY, f64::max);
+        chart
+            .y_axis()
+            .set_min(min - (max - min).max(1.0) * 0.1)
+            .set_max(max + (max - min).max(1.0) * 0.15);
+        let xs: Vec<_> = m
+            .shapes
+            .iter()
+            .filter(|s| s.label != "Natural ground")
+            .flat_map(|s| s.points.iter().map(|p| p.offset))
+            .collect();
+        let xmin = xs.iter().copied().fold(f64::INFINITY, f64::min);
+        let xmax = xs.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        chart
+            .x_axis()
+            .set_min(xmin - (xmax - xmin) * 0.05)
+            .set_max(xmax + (xmax - xmin) * 0.05);
+        let coord_row = row + 25;
+        let mut source = coord_row + 1;
+        for (c, label) in ["Shape / material", "Offset (m)", "RL (m)"]
+            .iter()
+            .enumerate()
+        {
+            ws.write_string_with_format(coord_row, c as u16, *label, &styles.header)?;
+        }
+        for shape in &m.shapes {
+            if shape.points.len() < 2 {
+                continue;
+            }
+            let start = source;
+            for point in &shape.points {
+                ws.write_string_with_format(
+                    source,
+                    0,
+                    &shape.label,
+                    &styles.text.clone().set_text_wrap(),
+                )?;
+                if shape.label.len() > 30 {
+                    ws.set_row_height(source, 32)?;
+                }
+                ws.write_number_with_format(source, 1, point.offset, &styles.number)?;
+                ws.write_number_with_format(source, 2, point.rl, &styles.number)?;
+                source += 1;
+            }
+            let color = match shape.label.as_str() {
+                "Bank design" => 0x2682B6,
+                "Natural ground" => 0x74828E,
+                "Prepared level" => 0xBA8545,
+                "Impervious hearting" => 0xBF7644,
+                "Sand blanket" => 0x31AD8E,
+                "Rock toe" => 0xC39445,
+                label if label.starts_with("Open toe ditch") => 0x27A0B4,
+                label
+                    if label.starts_with("Slope protection")
+                        || label.starts_with("Berm shelf protection") =>
+                {
+                    0x339A5B
+                }
+                _ => 0x8B68B0,
+            };
+            chart
+                .add_series()
+                .set_name(&shape.label)
+                .set_categories(("Bank Sections", start, 1, source - 1, 1))
+                .set_values(("Bank Sections", start, 2, source - 1, 2))
+                .set_format(ChartLine::new().set_color(Color::RGB(color)).set_width(1.5));
+        }
+        chart.legend().set_hidden();
+        ws.insert_chart(row + 3, 0, &chart)?;
+        merged(ws,source+1,10,&format!("Gross bank area {:.3} m²; material replacement within bank {:.3} m². Coordinates above also supply the native section measurements.",m.gross_fill,m.deducted_fill),&styles.note,30.0)?;
+        row = (source + 4).max(row + 30);
     }
-
-    let soil_total_r = soil_start_r + soil_alloc.items.len() as u32;
-    let s_first_xl = soil_start_r + 1;
-    let s_last_xl = soil_total_r;
-
-    ws_soil.merge_range(soil_total_r, 0, soil_total_r, 3, "TOTAL ALLOCATED VOLUME", &total_lbl_fmt)?;
-    if !soil_alloc.items.is_empty() {
-        write_fml(ws_soil, soil_total_r, 4, &format!("=SUM(E{s_first_xl}:E{s_last_xl})"), &total_val_fmt)?;
-    } else {
-        ws_soil.write_number_with_format(soil_total_r, 4, 0.0, &total_val_fmt)?;
-    }
-    for col in 5..=8 {
-        ws_soil.write_string_with_format(soil_total_r, col, "-", &total_lbl_fmt)?;
-    }
-
-    let bytes = workbook.save_to_buffer()?;
-    Ok(bytes)
+    ws.set_page_breaks(&breaks)?;
+    ws.set_print_area(0, 0, row, 10)?;
+    Ok(())
 }

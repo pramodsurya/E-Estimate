@@ -1,6 +1,7 @@
 import type { MorthSelection } from '../types/individualCosts'
 import { supabase } from './supabase'
 import { normalizePlaceNameOrNull } from './placeNormalization'
+import { compareCatalogueCodes, readCatalogueGuidance, type CatalogueGuidance } from './catalogueGuidance'
 import type {
   ConveyanceClass,
   DataVariantSelection,
@@ -20,12 +21,12 @@ export interface SsrCategory {
 }
 
 export const SSR_CATEGORIES: SsrCategory[] = [
-  { key: 'IRR-TAW', label: 'TAW' },
-  { key: 'IRR-DAW', label: 'DAW' },
-  { key: 'IRR-CAW', label: 'CAW' },
-  { key: 'IRR-GAW', label: 'GAW' },
-  { key: 'IRR-CCDW', label: 'CCDW' },
-  { key: 'IRR-PMW', label: 'PMW' }
+  { key: 'IRR-TAW', label: 'Tunnel and Allied Works' },
+  { key: 'IRR-DAW', label: 'Dam and Allied Works' },
+  { key: 'IRR-CAW', label: 'Canal and Allied Works' },
+  { key: 'IRR-GAW', label: 'Gates and Allied Works' },
+  { key: 'IRR-CCDW', label: 'Canal and Cross Drainage Works' },
+  { key: 'IRR-PMW', label: 'Project Miscellaneous Works' }
 ]
 
 export interface MasterItem {
@@ -37,6 +38,8 @@ export interface MasterItem {
   code: string
   /** Display text (description for SSR, name for SOR). */
   description: string
+  /** Source-specific selection summary; never replaces the published description. */
+  guidance?: CatalogueGuidance
   /** Published SSR section heading that introduces this item, when provided. */
   sectionHeading?: string
   unit: string | null
@@ -57,7 +60,7 @@ const itemCache = new Map<string, Promise<MasterItem[]>>()
 let sorYearsCache: Promise<string[]> | null = null
 const SSR_ITEM_TABLE = 'ssr_item'
 const SSR_YEAR_TABLE = 'ssr_year'
-const CACHE_PREFIX = 'eestimate:master:v4:'
+const CACHE_PREFIX = 'eestimate:master:v8:'
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000
 
 /**
@@ -175,8 +178,8 @@ export async function fetchSsrItems(categoryKey: string): Promise<MasterItem[]> 
   if (!cat) return []
   return cachedPersistent(itemCache, `items:SSR:${categoryKey}`, async () => {
     const rows = await fetchAllRows(
-      SSR_ITEM_TABLE,
-      'code, description, section_heading, unit',
+      'ssr_catalogue_items',
+      'code, description, section_heading, unit, selection_guidance',
       'code',
       { column: 'subject', value: cat.key }
     )
@@ -186,10 +189,11 @@ export async function fetchSsrItems(categoryKey: string): Promise<MasterItem[]> 
         category: SSR_ITEM_TABLE,
         code: String(r.code ?? ''),
         description: String(r.description ?? ''),
+        guidance: readCatalogueGuidance(r.selection_guidance),
         sectionHeading: String(r.section_heading ?? '').trim() || undefined,
         unit: (r.unit as string) ?? null
       }))
-      .sort((a, b) => a.description.localeCompare(b.description))
+      .sort((a, b) => compareCatalogueCodes(a.code, b.code))
   })
 }
 
