@@ -11,6 +11,7 @@ require.extensions['.tsx'] = compile
 const canal = require('../src/renderer/src/lib/canal.ts')
 const drainage = require('../src/renderer/src/lib/canalDrainageDesign.ts')
 const Diagram = require('../src/renderer/src/components/canal/CanalSectionDiagram.tsx').default
+const { inCorePolygons } = require('../src/renderer/src/lib/canalCoreGeometry.ts')
 function fixture(rl = 100) {
   const data = canal.defaultCanalData()
   data.configured = true; data.lengthM = 100
@@ -27,6 +28,36 @@ const yValues = [...continuous[0].matchAll(/[ML] [\d.e+-]+ ([\d.e+-]+)/g)].map(m
 assert.ok(yValues.length >= 2 && yValues.every(y => Math.abs(y - yValues[0]) < 1e-8), 'Flat ground produces one straight horizontal prepared line')
 assert.equal(preparedPaths(draw(fixture(101))).length, 2, 'Mixed cutting retains separate prepared lines beneath the two banks')
 assert.equal(preparedPaths(draw(fixture(110))).length, 0, 'Full cutting has no bank prepared-level line')
+
+const area = points => Math.abs(points.reduce((sum,p,i) => {
+  const next=points[(i+1)%points.length];return sum+p.offset*next.rl-next.offset*p.rl
+},0))/2
+for(const construction of ['homogeneous','zoned']){
+  const data=fixture(98)
+  data.design.bankConfig.leftTiers=data.design.bankConfig.leftTiers.map(tier=>({...tier,sectionType:construction,heartingTopWidth:1,heartingSideSlope:.25}))
+  const geometry=canal.canalSectionGeometry(data,data.sections[0])
+  const fill=geometry.bands.filter(band=>!band.cutting).map(band=>band.points)
+  assert.ok(Math.abs(fill.reduce((sum,polygon)=>sum+area(polygon),0)-geometry.areas.filling)<.001,`${construction}: painted fill includes all measured bank foundation refill`)
+  const strip=geometry.bankSection.banks[0].strippingPolygons[0]
+  const x=Math.min(...strip.map(p=>p.offset))+.2
+  assert.ok(inCorePolygons(fill,x,97.7),`${construction}: casing below natural ground is visibly filled`)
+  assert.ok(inCorePolygons(fill,0,97.7),'The bed is stripped and refilled down to the prepared level')
+  assert.ok(Math.abs(geometry.bankSection.banks.reduce((sum,bank)=>sum+bank.values.stripping,0)-canal.canalEarthworkTotals(data).stripping/100)<.001,'The section and Earthwork chapter include the same stripping area')
+  assert.ok(!draw(data).includes('NaN'),'Foundation refill has finite SVG coordinates')
+}
+
+const connectedBed=fixture(96)
+connectedBed.design.heartingConnection='continuous'
+connectedBed.design.heartingTrenchEnabled=false
+connectedBed.design.bankConfig.leftTiers=connectedBed.design.bankConfig.leftTiers.map(tier=>({...tier,sectionType:'zoned',heartingTopWidth:1.5,heartingSideSlope:1}))
+const connectedCore=canal.canalHeartingSection(connectedBed,connectedBed.sections[0])
+assert.deepEqual(connectedCore.errors,[])
+assert.ok(inCorePolygons(connectedCore.profiles.flatMap(profile=>profile.pieces),0,95.5),'The connected impervious core fills the newly prepared central strip')
+const connectedGeometry=canal.canalSectionGeometry(connectedBed,connectedBed.sections[0])
+assert.ok(Math.abs(connectedCore.profiles.flatMap(profile=>profile.pieces).reduce((sum,poly)=>sum+area(poly),0)-connectedGeometry.bankSection.banks.reduce((sum,bank)=>sum+bank.values.hearting,0))<1e-6,'Painted core area and measured hearting agree, counting central overlap once')
+assert.ok(draw(connectedBed).includes('Continuous core beneath bed'),'The drawing recognises a core connected inside the bed refill')
+const separateBed={...connectedBed,design:{...connectedBed.design,heartingConnection:'separate'}}
+assert.ok(canal.canalHeartingSection(separateBed,separateBed.sections[0]).errors.some(error=>error.includes('overlap')),'Separate cores still reject overlaps in the newly prepared soil')
 
 const automaticBlanket = drainage.saveCanalDrainageTier(base, 'left', 'tier-low', { blanket: '5-4' })
 const blanketSections = canal.canalSandBlanketsAtSection(automaticBlanket, automaticBlanket.sections[0])
@@ -50,7 +81,15 @@ assert.ok(canal.canalSandBlanketsAtSection(mixedBlanket, mixedBlanket.sections[0
 const zonedBlanket = {...automaticBlanket,design:{...automaticBlanket.design,bankConfig:{...automaticBlanket.design.bankConfig,leftTiers:automaticBlanket.design.bankConfig.leftTiers.map(t=>({...t,sectionType:'zoned'}))}}}
 assert.ok(canal.canalSandBlanketsAtSection(zonedBlanket, zonedBlanket.sections[0]).every(b => b.side === 'left' ? b.to <= -1.5 : b.from >= 1.5), 'Impervious cores keep their separate blanket boundaries')
 const netBlanket = canal.canalBankVolumeTotals(automaticBlanket)
-assert.ok(Math.abs(netBlanket.totalFill - netBlanket.homogeneous - bankWidth * 100 * .25) < .01, 'Only blanket material inside the measured bank fill is deducted from bank earthwork')
+assert.ok(Math.abs(netBlanket.totalFill - netBlanket.homogeneous - (bankWidth + base.design.bedWidth) * 100 * .25) < .01, 'The bed blanket replaces the measured bed refill exactly once')
+
+const partialBed=fixture()
+partialBed.sections=partialBed.sections.map(section=>({...section,ground:[{offset:-40,rl:99.5},{offset:-1.5,rl:99.5},{offset:1.5,rl:100.5},{offset:40,rl:100.5}]}))
+const partialGeometry=canal.canalSectionGeometry(partialBed,partialBed.sections[0])
+const strip=partialGeometry.bankSection.banks.flatMap(bank=>bank.strippingPolygons)
+assert.ok(inCorePolygons(strip,-.75,99.4),'Bed in filling has prepared-level refill')
+assert.ok(!inCorePolygons(strip,.75,99.9),'Bed in cutting is not stripped again')
+assert.ok(Math.abs(strip.reduce((sum,poly)=>sum+area(poly),0)-canal.canalStrippingBands(partialBed,partialBed.sections[0]).reduce((sum,poly)=>sum+area(poly),0))<1e-6,'Native and core-adapter preparation agree across a sloping cutting boundary')
 
 let enabled = drainage.saveCanalDrainageTier(base, 'left', 'tier-low', {
   blanket: '5-4', horizontalFilter: true, filterThickness: 0.3, rockToe: true, rockToeSide: 'both', rockToeWidth: 0.5, rockToeHeight: 1,

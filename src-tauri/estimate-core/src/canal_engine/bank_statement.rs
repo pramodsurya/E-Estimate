@@ -266,7 +266,7 @@ pub fn measure_bank_section(input: &BankSectionInput) -> Result<BankSectionResul
         };
         banks.push(measurement);
     }
-    let (_, _, _, cut_polygons) = fill_geometry(sample, input.bed_width / 2.0);
+    let (_, _, _, cut_polygons, _) = fill_geometry(sample, input.bed_width / 2.0);
     let gross_fill = banks.iter().map(|m| m.gross_fill).sum();
     if !errors.is_empty() {
         for bank in &mut banks {
@@ -493,7 +493,13 @@ fn cells(polys: &[Polygon], mut apply: impl FnMut(f64, f64, f64)) {
 fn fill_geometry(
     sample: &BankExportSample,
     half_bed: f64,
-) -> (Vec<Polygon>, Vec<(f64, f64)>, bool, Vec<Polygon>) {
+) -> (
+    Vec<Polygon>,
+    Vec<(f64, f64)>,
+    bool,
+    Vec<Polygon>,
+    Vec<(f64, f64)>,
+) {
     let design = ordered(sample.design.clone());
     let ground = ordered(sample.ground.clone());
     let mut xs: Vec<_> = design
@@ -511,6 +517,7 @@ fn fill_geometry(
     xs.dedup_by(|a, c| (*a - *c).abs() < EPS);
     let mut fill = vec![];
     let mut footprints: Vec<(f64, f64)> = vec![];
+    let mut preparation: Vec<(f64, f64)> = vec![];
     let mut cutting = false;
     let mut cut_polygons = vec![];
     for w in xs.windows(2) {
@@ -525,6 +532,19 @@ fn fill_geometry(
             let c = z[1];
             let mid = (a + c) / 2.0;
             let delta = line_at(&design, mid) - line_at(&ground, mid);
+            // Strip and refill beneath the bed as well as the banks wherever
+            // the design is in filling or the bed is at natural-ground level.
+            // Split at the centre-line so each half is measured exactly once.
+            if delta > EPS || (mid.abs() < half_bed && delta >= -EPS) {
+                if let Some(last) = preparation
+                    .last_mut()
+                    .filter(|last| (last.1 - a).abs() < EPS && (last.0 < 0.0) == (mid < 0.0))
+                {
+                    last.1 = c;
+                } else {
+                    preparation.push((a, c));
+                }
+            }
             if delta < -EPS {
                 cutting = true;
                 cut_polygons.push(vec![
@@ -554,7 +574,7 @@ fn fill_geometry(
             }
         }
     }
-    (fill, footprints, cutting, cut_polygons)
+    (fill, footprints, cutting, cut_polygons, preparation)
 }
 fn raised_band(ground: &[Point], from: f64, to: f64, below: f64, thickness: f64) -> Polygon {
     if to - from <= EPS || thickness <= EPS {
@@ -667,7 +687,7 @@ fn measure(
     let mut m = BankMeasurement::default();
     let ground = ordered(sample.ground.clone());
     let half = input.bed_width / 2.0;
-    let (natural, footprints, cutting, _) = fill_geometry(sample, half);
+    let (natural, footprints, cutting, _, preparation) = fill_geometry(sample, half);
     let side = &bank.side;
     let t = &bank.treatment;
     let ranges: Vec<_> = footprints
@@ -687,7 +707,17 @@ fn measure(
         .map(|poly| clipped(poly, side))
         .filter(|p| polygon_area(p) > EPS)
         .collect();
-    let strip: Vec<_> = ranges
+    let strip_ranges: Vec<_> = preparation
+        .into_iter()
+        .filter(|(a, c)| {
+            if side == "left" {
+                *c <= EPS
+            } else {
+                *a >= -EPS
+            }
+        })
+        .collect();
+    let strip: Vec<_> = strip_ranges
         .iter()
         .map(|(a, c)| {
             raised_band(
@@ -1192,67 +1222,87 @@ fn measure(
         }
     }
     if b(t, "toeDrain") && selected(t, "toeDrainSide", side) {
-        let depth = n(t, "toeDrainDepth");
-        let width = n(t, "toeDrainBottomWidth");
-        let a = depth * n(t, "toeDrainLeftSlope");
-        let c = depth * n(t, "toeDrainRightSlope");
         let near = -n(t, "toeDrainBermWidth");
         let level = line_at(&ground, at(near, 0.0).offset);
-        let poly = vec![
-            at(near, level),
-            at(near - a, level - depth),
-            at(near - a - width, level - depth),
-            at(near - a - width - c, level),
-        ];
-        add(
-            &mut m,
-            registry,
-            "toe_ditch",
-            "Open toe-ditch excavation",
-            "IRR-CAW-1-1",
-            "Others",
-            true,
-            polygon_area(&poly),
-        );
-        let developed = depth.hypot(a) + width + depth.hypot(c);
-        if s(t, "toeDrainProtection") == "rubble" {
+        let graded = ["toeDrainInvertRl", "toeDrainStartChainage", "toeDrainSlope"]
+            .iter()
+            .any(|key| !t[*key].is_null());
+        let depth = if graded {
+            let start_rl = t["toeDrainInvertRl"].as_f64().filter(|v| v.is_finite());
+            let start_ch = t["toeDrainStartChainage"]
+                .as_f64()
+                .filter(|v| v.is_finite() && *v >= 0.0);
+            let slope = t["toeDrainSlope"]
+                .as_f64()
+                .filter(|v| v.is_finite() && *v > 0.0);
+            match (start_rl, start_ch, slope) {
+                (Some(rl), Some(ch), Some(n)) => (level - (rl - (sample.chainage - ch) / n)).max(0.0),
+                _ => return Err(format!("Complete the open toe-ditch first-section invert RL, reference chainage and positive longitudinal slope for the {side} bank.")),
+            }
+        } else {
+            // Preserve old saved projects until their ditch grading is edited.
+            n(t, "toeDrainDepth")
+        };
+        if depth > EPS {
+            let width = n(t, "toeDrainBottomWidth");
+            let a = depth * n(t, "toeDrainLeftSlope");
+            let c = depth * n(t, "toeDrainRightSlope");
+            let poly = vec![
+                at(near, level),
+                at(near - a, level - depth),
+                at(near - a - width, level - depth),
+                at(near - a - width - c, level),
+            ];
             add(
                 &mut m,
                 registry,
-                "ditch_rubble",
-                "Rubble protection to toe ditch",
-                "IRR-CAW-8-4",
-                "Others",
-                false,
-                developed,
-            );
-        }
-        if s(t, "toeDrainProtection") == "concrete" {
-            add(
-                &mut m,
-                registry,
-                "ditch_concrete",
-                "100 mm concrete lining to toe ditch",
-                "IRR-CAW-7-15",
+                "toe_ditch",
+                "Open toe-ditch excavation",
+                "IRR-CAW-1-1",
                 "Others",
                 true,
-                developed * 0.1,
+                polygon_area(&poly),
             );
+            let developed = depth.hypot(a) + width + depth.hypot(c);
+            if s(t, "toeDrainProtection") == "rubble" {
+                add(
+                    &mut m,
+                    registry,
+                    "ditch_rubble",
+                    "Rubble protection to toe ditch",
+                    "IRR-CAW-8-4",
+                    "Others",
+                    false,
+                    developed,
+                );
+            }
+            if s(t, "toeDrainProtection") == "concrete" {
+                add(
+                    &mut m,
+                    registry,
+                    "ditch_concrete",
+                    "100 mm concrete lining to toe ditch",
+                    "IRR-CAW-7-15",
+                    "Others",
+                    true,
+                    developed * 0.1,
+                );
+            }
+            let mut points = poly;
+            points.push(points[0]);
+            m.shapes.push(BankShape {
+                key: "toe_ditch".into(),
+                label: format!(
+                    "Open toe ditch{}",
+                    match s(t, "toeDrainProtection") {
+                        "rubble" => ", rubble protection",
+                        "concrete" => ", concrete lining",
+                        _ => ", unlined",
+                    }
+                ),
+                points,
+            });
         }
-        let mut points = poly;
-        points.push(points[0]);
-        m.shapes.push(BankShape {
-            key: "toe_ditch".into(),
-            label: format!(
-                "Open toe ditch{}",
-                match s(t, "toeDrainProtection") {
-                    "rubble" => ", rubble protection",
-                    "concrete" => ", concrete lining",
-                    _ => ", unlined",
-                }
-            ),
-            points,
-        });
     }
     let all: Vec<_> = envelope
         .iter()
@@ -1380,22 +1430,7 @@ fn measure(
             trench,
         );
     }
-    let prepared_ranges = if !cutting && !ranges.is_empty() {
-        vec![if side == "left" {
-            (
-                ranges.iter().map(|r| r.0).fold(f64::INFINITY, f64::min),
-                0.0,
-            )
-        } else {
-            (
-                0.0,
-                ranges.iter().map(|r| r.1).fold(f64::NEG_INFINITY, f64::max),
-            )
-        }]
-    } else {
-        ranges
-    };
-    for (a, c) in prepared_ranges {
+    for (a, c) in strip_ranges {
         let mut points = vec![p(a, line_at(&ground, a) - sample.stripping_depth)];
         points.extend(
             ground

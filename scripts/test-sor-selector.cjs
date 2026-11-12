@@ -81,9 +81,10 @@ async function main() {
     rules = load("sorRules"),
     estimate = load("sorEstimate");
   const presentation = load("sorPresentation");
-  assert.equal(source.sorTemplateCode("RB_WORK_6411571526E0"), "SOR-P02-T03-R0118");
-  assert.equal(source.sorTemplateCode("RB Road Work 1(i)(b)"), "SOR-P02-T03-R0118");
-  assert.equal(source.sorTemplateCode("RB Road Work 8(a) — select/enter catalogue item"), "SOR-P02-T03-R0138");
+  assert.equal(source.sorTemplateCode("RB_WORK_6411571526E0"), undefined);
+  assert.equal(source.sorTemplateCode("RB Road Work 1(i)(b)"), undefined);
+  assert.equal(source.sorTemplateCode("RB Road Work 8(a) — select/enter catalogue item"), undefined);
+  assert.equal(source.sorTemplateCode("SOR-P02-T03-R0118"), "SOR-P02-T03-R0118");
   assert.equal(source.sorTemplateCode("SOR-P02-T03-R0138"), "SOR-P02-T03-R0138");
   assert.equal(source.sorTemplateCode("RB_WORK_UNKNOWN"), undefined, "Unknown retired identities must not be guessed");
   assert.equal(source.sorTemplateCode("IRR-CAW-2-7"), undefined);

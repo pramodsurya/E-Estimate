@@ -83,16 +83,36 @@ export function measureCanalBankSection(data: CanalData, section: CanalSection):
 }
 export interface BankQuantityRow { from: number; to: number; side: 'left' | 'right'; reachId: string; profileId: string; quantities: Record<string, number>; grossFill: number; cutting: number }
 export interface BankQuantityResult { rows: BankQuantityRow[]; works: BankSectionWork[]; errors: string[] }
-const quantityCaches = new WeakMap<CanalData, Map<string, BankQuantityResult>>()
+// Keep only a few value snapshots, shared across immutable copies made by
+// migration and generated-item sync. The item registry is an output of the
+// measurement, not a geometry input. Including it invalidated every save.
+const quantityCaches = new Map<string, Map<string, BankQuantityResult>>()
 export function measureCanalBankQuantities(data: CanalData, boundaries: number[] = []): BankQuantityResult {
-  const input = buildCanalBankExportInput(data, { strict: false, boundaries })
-  const json = JSON.stringify({ operation: 'quantities', input })
-  const cache = quantityCaches.get(data) ?? new Map<string, BankQuantityResult>()
-  const saved = cache.get(json)
+  // Include input values so in-place design and survey edits stay detectable.
+  const snapshot = JSON.stringify({ ...data, materialItems: undefined })
+  let cache = quantityCaches.get(snapshot)
+  if (!cache) {
+    if (quantityCaches.size >= 4) quantityCaches.delete(quantityCaches.keys().next().value!)
+    cache = new Map<string, BankQuantityResult>()
+    quantityCaches.set(snapshot, cache)
+  }
+  // Scope endpoints usually exist in the base schedule already. Reuse it
+  // instead of measuring the entire canal again for each selection.
+  const base = cache.get('[]')
+  const endpoints = base ? new Set(base.rows.flatMap(row => [row.from, row.to])) : null
+  const extra = [...new Set(boundaries)].filter(ch => Number.isFinite(ch) && ch > 0 && ch < data.lengthM && !endpoints?.has(ch)).sort((a, b) => a - b)
+  const key = JSON.stringify(extra)
+  const saved = cache.get(key)
   if (saved) return saved
+  const input = buildCanalBankExportInput(data, { strict: false, boundaries: extra })
+  const json = JSON.stringify({ operation: 'quantities', input })
   const result = callEngine<BankQuantityResult>(json)
-  if (cache.size > 50) cache.clear()
-  cache.set(json, result); quantityCaches.set(data, cache)
+  // Bound custom-boundary entries without discarding the shared base result.
+  if (cache.size >= 8) {
+    const oldest = [...cache.keys()].find(candidate => candidate !== '[]')
+    if (oldest) cache.delete(oldest)
+  }
+  cache.set(key, result)
   return result
 }
 export function openSectionPolygon(points: CanalPoint[]): CanalPoint[] {

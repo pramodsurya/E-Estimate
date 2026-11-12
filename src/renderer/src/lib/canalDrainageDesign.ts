@@ -80,7 +80,8 @@ const drainageKeys = ['blanket', 'blanketWidthMode', 'blanketLeftWidth', 'blanke
   'horizontalFilter', 'filterLengthMode', 'filterLeftLength', 'filterRightLength', 'filterThickness',
   'rockToe', 'rockToeSide', 'rockToeWidth', 'rockToeHeight', 'toeFilter', 'toeFilterSide', 'toeFilterKind', 'toeFilterWidth', 'toeFilterDepth'] as const
 const toeKeys = ['rockToeProtection', 'rockToeProtectionSide', 'rockToeTopWidth', 'rockToeProtectionHeight', 'rockToeInnerSlope', 'rockToeFilter',
-  'toeDrain', 'toeDrainSide', 'toeDrainBottomWidth', 'toeDrainDepth', 'toeDrainLeftSlope', 'toeDrainRightSlope', 'toeDrainBermWidth', 'toeDrainProtection'] as const
+  'toeDrain', 'toeDrainSide', 'toeDrainBottomWidth', 'toeDrainInvertRl', 'toeDrainStartChainage', 'toeDrainSlope',
+  'toeDrainDepth', 'toeDrainLeftSlope', 'toeDrainRightSlope', 'toeDrainBermWidth', 'toeDrainProtection'] as const
 export function canalDrainageTreatmentAt(data: CanalData, ch: number, side: 'left' | 'right', base: CanalTierFoundationConfig, chapterKey: CanalBankWorkChapter = 'bankDrainage'): CanalTierFoundationConfig {
   const chapter = data.design[chapterKey]
   if (!chapter && chapterKey !== 'bankDrainage') return base

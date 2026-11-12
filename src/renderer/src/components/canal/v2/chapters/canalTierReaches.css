@@ -52,7 +52,7 @@
 
 .canal-tier-bracket-chip.canal-bank-reach-box {
   align-items: stretch;
-  cursor: default;
+  cursor: pointer;
 }
 
 .canal-tier-bracket-chip.canal-bank-reach-box:hover { transform: none; }

@@ -1,6 +1,6 @@
 {
     "name":  "e-estimate",
-    "version":  "0.1.19",
+    "version":  "0.1.20",
     "description":  "E-Estimate ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â construction cost estimation desktop app for Telangana SOR/SSR",
     "author":  "E-Estimate",
     "license":  "UNLICENSED",
@@ -93,8 +93,9 @@
                     "test:bund-new":  "node scripts/test-bund-new.cjs",
                     "test:bund-materials":  "node scripts/test-bund-materials.cjs",
                     "test:bund-simulation":  "node scripts/test-bund-simulation.cjs",
-                    "test:canal":  "node scripts/test-canal.cjs \u0026\u0026 node scripts/test-canal-cutting.cjs && node scripts/test-canal-diagram.cjs && node scripts/test-canal-bank-export.cjs \u0026\u0026 node scripts/test-canal-section-workflow.cjs \u0026\u0026 node scripts/test-canal-tier-reaches.cjs \u0026\u0026 node scripts/test-canal-bank-reaches.cjs \u0026\u0026 node scripts/test-canal-lining.cjs \u0026\u0026 node scripts/test-canal-cns.cjs \u0026\u0026 node scripts/test-canal-lining-chapter.cjs \u0026\u0026 node scripts/test-canal-joints.cjs \u0026\u0026 node scripts/test-canal-relief.cjs \u0026\u0026 node scripts/test-canal-bank-protection.cjs \u0026\u0026 node scripts/test-canal-data-abstract.cjs",
+                    "test:canal":  "node scripts/test-canal.cjs \u0026\u0026 node scripts/test-canal-cutting.cjs && node scripts/test-canal-diagram.cjs && node scripts/test-canal-bank-export.cjs \u0026\u0026 node scripts/test-canal-section-workflow.cjs \u0026\u0026 node scripts/test-canal-tier-reaches.cjs \u0026\u0026 node scripts/test-canal-bank-reaches.cjs \u0026\u0026 node scripts/test-canal-lining.cjs \u0026\u0026 node scripts/test-canal-cns.cjs \u0026\u0026 node scripts/test-canal-lining-chapter.cjs \u0026\u0026 node scripts/test-canal-joints.cjs \u0026\u0026 node scripts/test-canal-relief.cjs \u0026\u0026 node scripts/test-canal-bank-protection.cjs \u0026\u0026 node scripts/test-canal-data-abstract.cjs \u0026\u0026 node scripts/test-canal-drainage-performance.cjs",
                     "test:canal-bank-export": "node scripts/test-canal-bank-export.cjs --native",
+                    "test:canal-drainage": "node scripts/test-canal-drainage-performance.cjs",
                     "test:canal-joints":  "node scripts/test-canal-joints.cjs",
                     "test:canal-relief":  "node scripts/test-canal-relief.cjs",
                     "test:canal-lining-chapter":  "node scripts/test-canal-lining-chapter.cjs",

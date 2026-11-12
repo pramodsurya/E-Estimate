@@ -25,7 +25,7 @@ export default function CanalRoadsAccess({ data, onCommit }: { data: CanalData; 
   const addReach = (): void => {
     const from = sections[0]?.chainage ?? 0
     const to = sections[sections.length - 1]?.chainage ?? from
-    updateReaches([...reaches, { id: `road-${Date.now()}`, fromChainage: from, toChainage: to, side: 'left', heightMode: 'tbl', heightAboveBed: tblHeight, width: 4, shoulderWidth: 0.5, constructionType: 'earthen', hardMetalThickness: 0.05, hardMetalCode: 'RB_WORK_6411571526E0', blindageCode: 'RB Road Work 8(a) — select/enter catalogue item' }])
+    updateReaches([...reaches, { id: `road-${Date.now()}`, fromChainage: from, toChainage: to, side: 'left', heightMode: 'tbl', heightAboveBed: tblHeight, width: 4, shoulderWidth: 0.5, constructionType: 'earthen', hardMetalThickness: 0.05, hardMetalCode: 'SOR-P02-T03-R0118', blindageCode: 'SOR-P02-T03-R0138' }])
   }
   return <section className="canal-chapter canal-roads-chapter">
     <header className="canal-v2-section-header">

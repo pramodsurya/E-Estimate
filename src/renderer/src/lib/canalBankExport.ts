@@ -42,9 +42,10 @@ export interface CanalBankExportSample {
 export function buildCanalBankSectionInput(data: CanalData, section: CanalSection) {
   const sampled = section as CanalSection & { bankReachLookupChainage?: number; bankReachLookupChainageBySide?: Partial<Record<'left' | 'right', number>> }
   const lookup = sampled.bankReachLookupChainage ?? section.chainage
-  const view: CanalData = { ...data, design: { ...data.design,
-    serviceRoadReaches: (data.design.serviceRoadReaches ?? []).filter(r => lookup >= r.fromChainage && (lookup < r.toChainage || lookup === data.lengthM && r.toChainage === data.lengthM))
-  } }
+  const roads = data.design.serviceRoadReaches ?? []
+  const activeRoads = roads.filter(r => lookup >= r.fromChainage && (lookup < r.toChainage || lookup === data.lengthM && r.toChainage === data.lengthM))
+  const view: CanalData = activeRoads.length === roads.length ? data
+    : { ...data, design: { ...data.design, serviceRoadReaches: activeRoads } }
   const mode = view.design.bankConfig?.mode ?? 'legacy'
   const core = canalHeartingSection(view, section)
   const validationErrors = [...core.errors]
@@ -126,6 +127,7 @@ export function buildCanalBankExportInput(data: CanalData, options: { strict?: b
     ...(data.liningReaches ?? []).flatMap(r => [r.fromChainage, r.toChainage])
   ])]
   const intervals: CanalBankExportInput['intervals'] = []
+  const roadViews = new Map<string, CanalData>()
   for (let i = 1; i < stations.length; i++) {
     const a = stations[i - 1], b = stations[i]
     const cuts = [a.chainage, ...boundaries.filter(ch => ch > a.chainage && ch < b.chainage), b.chainage].sort((x, y) => x - y)
@@ -133,9 +135,14 @@ export function buildCanalBankExportInput(data: CanalData, options: { strict?: b
       const from = cuts[j - 1], to = cuts[j], lookup = (from + to) / 2
       // Road rules use inclusive ends in the editor. Select this interval's
       // active roads explicitly so a shared end cannot leak into its neighbour.
-      const view: CanalData = { ...data, design: { ...data.design,
-        serviceRoadReaches: (data.design.serviceRoadReaches ?? []).filter(r => lookup >= r.fromChainage && lookup < r.toChainage)
-      } }
+      const roads = data.design.serviceRoadReaches ?? []
+      const activeRoads = roads.filter(r => lookup >= r.fromChainage && lookup < r.toChainage)
+      const roadKey = JSON.stringify(activeRoads)
+      let view = data
+      if (activeRoads.length !== roads.length) {
+        view = roadViews.get(roadKey) ?? { ...data, design: { ...data.design, serviceRoadReaches: activeRoads } }
+        roadViews.set(roadKey, view)
+      }
       const sample = (chainage: number): CanalBankExportSample => {
         const source = chainage === a.chainage ? a : chainage === b.chainage ? b : canalInterpolateSection(a, b, chainage)
         const section = { ...source, chainage, bankReachLookupChainage: lookup } as CanalSection

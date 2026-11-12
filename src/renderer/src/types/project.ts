@@ -1113,6 +1113,12 @@ export interface CanalTierFoundationConfig {
   toeDrain: boolean;
   toeDrainSide: 'left' | 'right' | 'both';
   toeDrainBottomWidth: number;
+  /** Invert RL at the reference section; falls with increasing chainage. */
+  toeDrainInvertRl?: number | null;
+  toeDrainStartChainage?: number | null;
+  /** Longitudinal fall denominator N for 1 in N. */
+  toeDrainSlope?: number | null;
+  /** Legacy saved projects only. New edits use invert RL and longitudinal slope. */
   toeDrainDepth: number;
   toeDrainLeftSlope: number;
   toeDrainRightSlope: number;

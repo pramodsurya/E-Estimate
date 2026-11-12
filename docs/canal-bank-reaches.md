@@ -119,9 +119,18 @@ switching and project save/load. Drainage never changes the bank geometry.
 Rock Toe & Surface Drainage retains its separate chapter mode and work ranges.
 
 On a section without canal cutting, the prepared-level reference continues
-across both banks and beneath the canal bed as one line. Cutting sections keep
-separate bank preparation lines. This reference does not add stripping quantity
-beneath the bed. Section drawings show enabled sand blankets, horizontal and
+across both banks and beneath the canal bed as one line. Stripping and refill
+include the bed wherever its design level is at or above natural ground.
+Survey/design intersections split mixed sections, so bed areas in cutting
+receive no extra stripping or refill. Each calculation side owns its half of
+the bed preparation, avoiding duplicate quantities. Fill
+hatching uses the Rust measurement polygons, including the refill between
+natural ground and prepared level beneath the banks and eligible bed areas. Zoned sections
+overlay the actual impervious core on that fill; the remaining filled area is
+casing. Core overlap within the added bed refill follows the existing separate/
+continuous core rule. Bank footprint widths used for filters and blankets remain
+separate from the wider preparation footprint.
+Section drawings show enabled sand blankets, horizontal and
 chimney filters, graded/geotextile toe filters, rock toes with their filters,
 open ditches with their selected lining, and slope/berm protection. Their visible
 legend identifies the bank and SSR item. Toe shapes resolve the same saved
@@ -165,6 +174,31 @@ geological levels, edited boundaries, exact toe-filter/protection reach lengths,
 independent manual banks, height changes, unassigned billing, independent
 drainage modes, arbitrary work boundaries/gaps, mixed blanket units and save/load.
 
+## Bank Design editing and responsiveness
+
+Selecting a height tier, a reach or a bank side changes only the selected form.
+The heading button and the non-control area of each height card select its
+design. Bank Design settings remain local drafts until **Save & Calculate**
+applies them in one project update, refreshes quick-entry sections and updates
+the estimate items. **Cancel changes** discards the draft. Selecting another
+tier retains the pending edits. Manual reach forms must finish or cancel their
+own draft before the chapter can save. Export is disabled while changes remain
+unsaved. Diagrams, measured quantities and the reach abstract display the saved
+design until the chapter is saved; another Populate Design click is not needed.
+
+The shared Rust section engine runs as WebAssembly on the renderer thread.
+Typing and switching tiers must not invoke it or rebuild the preview. Repeated
+interval measurements check the saved-input cache before preparing geometry;
+the cache detects design, survey and work-boundary changes, including in-place
+edits. Geometry preparation reuses the same road arrangement across intervals
+so reach-resolution caches remain useful. Unrelated parent renders retain the
+migrated canal object instead of invalidating all calculations.
+
+Validation: `scripts/test-canal-section-workflow.cjs` checks tier selection,
+immediate zoning feedback, draft retention/cancel, one atomic save, unchanged
+preview geometry while editing, export gating and retry after a failed save.
+`scripts/test-canal-bank-export.cjs` checks early cache hits and invalidation.
+
 ## Bank Design Excel export
 
 The section engine in `estimate-core::canal_engine::bank_statement` owns both
@@ -182,40 +216,120 @@ screen. Rust also owns interval integration and the export's reporting model;
 Excel renders that model and its arithmetic formula links. A future Typst
 writer can consume the same result.
 
-There is one **Statement of Quantities**. Reporting sheets are divided in order
+There is one calculation sheet per reach group, followed by **Bank Sections**
+for diagrams. There is no separate **Statement of Quantities** overview. A
+canal with one reach group therefore exports exactly two worksheets. Reporting
+sheets are divided in order
 by homogeneous/zoned construction, then slope protection provided/not provided.
 Different tier names, manual profiles, berms, source choices and disjoint ranges
 do not make another group. Sand Blanket & Filters is one optional block; Others
 contains toe filters, rock toe, its graded filter, open ditch, ditch protection
-and horizontal berm protection. Include a work column when a group measures it
-anywhere, put zero on absent rows and omit all-empty optional works. When either
+and horizontal berm protection. Omit all-empty optional works. An Others item
+whose From and To measurements match within every applicable interval is moved
+out of the chainage columns into **OTHER WORKS — RANGE MEASUREMENTS** on the same
+sheet. Adjacent intervals combine only while their section, bank applicability,
+saved reach and arrangement remain the same. Zero-only ranges are omitted.
+Each range has its section, length, item Nos. and formula quantity; separate
+bank figures share one row when needed. Each item retains its own total.
+Others items whose measurements vary within an interval keep their detailed
+chainage columns. The main table also retains the other work blocks. When either
 internal filter is measured, retain both horizontal and vertical filter columns.
-Different blanket/lining units or protection item codes retain separate work
-columns within the same sheet.
+Different blanket/lining units or protection item codes retain separate item
+calculations within the same sheet.
+
+Constant section does not mean constant total quantity: the total still depends
+on applicable length and Nos. Berm protection uses actual included shelf widths,
+which can change when a shelf is omitted by height/clearance. Rock-toe area is
+`height × crest width + height² × (inner slope + actual outer slope) / 2`, so
+the last outer bank batter can change it. Open toe ditches use an entered
+**invert RL at the first section**, with that section's chainage shown, and a
+**longitudinal slope of 1 in N**. Invert RL at chainage Ch is
+`first invert RL − (Ch − first chainage) / N`; the positive denominator makes
+the ditch fall with increasing chainage. The first chainage is the earliest
+applicable tier range or the entered manual reach start, interpolating a survey
+section there when necessary. One grade continues across all ranges of a tier;
+gaps do not restart it. Each independent bank can have its own grade.
+
+Depth is calculated from the natural-ground RL at the bank-side ditch edge to
+the graded invert. It is no longer an editable input. The section area is
+`depth × bottom width + depth² × (bank-side slope + land-side slope) / 2`.
+An invert at or above ground contributes no excavation or ditch lining there.
+The schematic uses the first section's calculated depth and labels natural
+ground. Excavation and rubble/concrete protection follow each section's actual
+depth; the mean end-area/length rules and Excel formulas remain shared with
+the diagram. Variable ditch measurements remain in the chainage table.
+
+Old saved depth-only ditches retain their quantities until edited. Their first
+invert level is prefilled from the old depth, and saving requires a finite
+invert RL and positive slope. New saves store the reference chainage, invert
+RL and slope and clear the old depth parameter. Missing/invalid grades prevent
+saving or strict export; negative invert RLs are valid. Editing these controls
+keeps project quantities unchanged until Save, and Cancel restores saved values.
 
 Each sheet names and defines its group and records member reach IDs, sides,
 design names and From–To chainages. Both banks are assigned independently.
-Every sheet follows the full chainage order. Each interval has its own From and
-To section rows, average and quantity. An interval belonging to another sheet
-has zeros with that sheet's name; full cutting has zeros and no bank group.
+The opening view has two compact title/context rows and three header rows,
+followed immediately by the calculations at Excel row 6. Only these five rows
+and the first three identifier columns are frozen; their combined height is
+134 points so the frozen pane cannot consume an ordinary worksheet viewport.
+The workbook opens at 90% zoom. Displayed chainages appear
+exactly once in strictly increasing order. Every interval measured on the
+current sheet retains its start and end chainages. A measured row covers the interval ending at its chainage;
+the initial station has no preceding length or quantity. There are no separate
+bank rows or repeated From/To station rows.
+
+**Nos.** (No. of Times) is inside each item, not a global identifier column.
+An item normally has From section, To section, Average, Nos. and Quantity.
+Only items that differ between banks somewhere in a group expand to show LB
+and RB section/average/Nos. sets side by side on the same chainage row. Equal
+bank quantities use Nos. = 2 in the first set and zero in the second; differing
+end sections remain visible even when their quantities are equal. Unequal
+quantities use Nos. = 1 for each bank. Absent works use Nos. = 0. One item may
+therefore use 2 while another item on the same row uses 1/1 or 1/0. Each quantity
+formula is interval length × sum of (average section × item Nos.).
+
+From and To section cells are direct one-sided measurements for that interval.
+They prevent averaging across a design/work change or a cutting gap while
+keeping the chainage list unique. A boundary row notes changes after it.
+Chainage rows alternate backgrounds and quantity columns are highlighted.
+Consecutive intervals belonging entirely to another sheet, or with no bank
+filling, collapse to their start and end chainages. Both boundaries show the
+range and owning sheet in Remarks, for example `30.000–400.000 m: See sheet
+Zoned Unprotected`. Their measurement cells are blank. A boundary already
+measuring the preceding interval keeps its quantities and gains the range
+reference. Changes of owning sheets retain a shared boundary with both range
+references; differences between banks identify each destination. A row stays
+detailed whenever either bank belongs to the current sheet, even if some
+optional items are absent. Compact R01/R02 references link to the saved reach IDs,
+design names and LB/RB identifiers in the member register. Detailed group
+definitions and measurement notes are below the schedule
+and material allocations, outside the frozen area. Print pages repeat the
+three table header rows and identifier columns.
+Each measured interval has its own From and To section values, averages and
+quantity on one row. Excluded ranges contribute no quantities. Length formulas
+resume from the retained end boundary, so they never bridge an excluded gap.
 One-sided endpoint geometry prevents averaging across a design, road or work
 boundary. Missing survey coverage, unresolved bank assignments and invalid core
 layouts stop export with the affected location, instead of producing zero fill.
 
 Filling uses the whole drawn profile, including berms, above natural ground
-plus stripping beneath the actual bank footprints. Homogeneous sheets have one
-Filling work; zoned sheets have Hearting and Casing. Replacement materials are
+plus refill of stripping beneath the banks and eligible bed areas. Homogeneous
+sheets have one Filling work; zoned sheets have Hearting and Casing. Replacement materials are
 deducted only where their polygons intersect the bank envelope, once even when
 materials overlap. Continuous blanket billing includes its bed extension once;
-that extension does not invent bank stripping beneath the bed. CNS replacement
-and canal-lining replacement, plus cutoff excavation/filling, remain traceable. Toe-ditch rubble is measured in
+the bed preparation is measured once and blanket material replaces that refill.
+CNS and canal-lining replacement, plus cutoff excavation/filling, remain
+traceable. Toe-ditch rubble is measured in
 square metres and concrete in cubic metres. Material-source shares use the
 measured zone totals and the selected source/compaction/watering item, without
 an inferred excavation-availability cap.
 
 Measured Section cells are numeric source values. Average, interval quantities,
-group totals, the single statement and material allocations use linked Excel
-formulas with cached results. Geometry changes require another app export.
+group totals and material allocations use linked Excel formulas with cached
+results. Material sources appear below each group's reach schedule and allocate
+only that group's quantities, including cutoff filling for hearting. Full
+cutting exports one zero-quantity statement without a diagram sheet. Geometry
+changes require another app export.
 Bank Sections contains native Excel XY diagrams with coordinate tables, one
 maximum-area representative for each saved bank reach and work/road arrangement.
 Changing an arrangement creates an exhibit within the same reporting group,

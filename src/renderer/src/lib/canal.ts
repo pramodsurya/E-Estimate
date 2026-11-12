@@ -1,4 +1,4 @@
-import { measureCanalBankSection, measureCanalBankQuantities, openSectionPolygon } from './canalBankSection'
+import { measureCanalBankSection, measureCanalBankQuantities, openSectionPolygon, type BankQuantityResult } from './canalBankSection'
 import { canalStrataTopRl, ermClassIndex, ermLastEnteredLayer } from './canalErm'
 import { bankProtectionQuantities } from './canalBankProtection'
 import { canalBankReachAt, canalBankReaches, canalBankReachAssignments, alignCanalBankReachAssignments, type CanalAssignedBankReach } from './canalTierReaches'
@@ -594,10 +594,8 @@ export function migrateCanalData(raw: CanalData): CanalData {
         shoulderWidth: Math.max(0, Number.isFinite(reach.shoulderWidth) ? reach.shoulderWidth : 0.5),
         constructionType: reach.constructionType === 'traditional-metal' ? 'traditional-metal' : 'earthen',
         hardMetalThickness: Math.max(0, Number.isFinite(reach.hardMetalThickness) ? reach.hardMetalThickness : 0.05),
-        hardMetalCode: reach.hardMetalCode === 'RB Road Work 1(i)(b)'
-          ? 'RB_WORK_6411571526E0'
-          : typeof reach.hardMetalCode === 'string' ? reach.hardMetalCode : 'RB_WORK_6411571526E0',
-        blindageCode: typeof reach.blindageCode === 'string' ? reach.blindageCode : 'RB Road Work 8(a) — select/enter catalogue item'
+        hardMetalCode: typeof reach.hardMetalCode === 'string' ? reach.hardMetalCode : 'SOR-P02-T03-R0118',
+        blindageCode: typeof reach.blindageCode === 'string' ? reach.blindageCode : 'SOR-P02-T03-R0138'
       }))
     : []
   design.zonedReaches = Array.isArray(design.zonedReaches)
@@ -2205,6 +2203,36 @@ export function canalFillFootprintWidth(data: CanalData, section: CanalSection):
   return canalBundFootprintRanges(data, section).reduce((sum, [from, to]) => sum + Math.max(0, to - from), 0)
 }
 
+/** Stripping/refill includes bed areas in filling or at natural-ground level. */
+export function canalStrippingFootprintRanges(data: CanalData, section: CanalSection): Array<[number, number]> {
+  const ranges = canalBundFootprintRanges(data, section)
+  const ground = orderCanalPoints(section.ground)
+  const bed = canalBedLevelAt(data, section.chainage)
+  const half = Math.max(0, data.design.bedWidth / 2)
+  if (section.designPopulated === false || ground.length < 2 || bed == null || !(half > 0)) return ranges
+  const offsets = [...new Set([-half, 0, half, ...ground.filter(p => p.offset > -half && p.offset < half).map(p => p.offset)])].sort((a,b) => a-b)
+  const level = (x: number): number => canalGroundLevelAt(ground, Math.max(ground[0].offset, Math.min(ground.at(-1)!.offset, x)))!
+  for (let i = 1; i < offsets.length; i++) {
+    const from = offsets[i-1], to = offsets[i]
+    const a = bed-level(from), b = bed-level(to)
+    const cuts = a*b < 0 ? [from, from+(to-from)*a/(a-b), to] : [from,to]
+    for (let j = 1; j < cuts.length; j++) {
+      if (bed-level((cuts[j-1]+cuts[j])/2) >= -1e-8) ranges.push([cuts[j-1],cuts[j]])
+    }
+  }
+  // Preserve the centre-line ownership split while joining touching ranges.
+  return ranges.sort((a,b) => a[0]-b[0]).reduce<Array<[number, number]>>((joined, range) => {
+    const previous = joined.at(-1)
+    if (previous && Math.abs(previous[1]-range[0]) < 1e-8 && (previous[0] < 0) === (range[0] < 0)) previous[1] = range[1]
+    else joined.push([...range])
+    return joined
+  }, [])
+}
+
+function canalStrippingFootprintWidth(data: CanalData, section: CanalSection): number {
+  return canalStrippingFootprintRanges(data, section).reduce((sum, [from,to]) => sum+to-from, 0)
+}
+
 /** Foundation-excavation polygons beneath the bund footprint at a section. */
 export function canalFoundationExcavationBands(data: CanalData, section: CanalSection): CanalPoint[][] {
   const foundationRl = canalFoundationRlAt(data, section.chainage)
@@ -2737,7 +2765,16 @@ export function canalSectionGeometry(data: CanalData, section: CanalSection) {
       ...(design.at(-1)!.offset > ground.at(-1)!.offset + 1e-6 ? [{ offset: design.at(-1)!.offset, rl: ground.at(-1)!.rl }] : [])
     ]
   }
-  const bands = design.length >= 2 ? profileDifferenceBands(ground, design) : []
+  // Include the refill down to prepared level. The survey/design difference
+  // alone omits casing in the stripped bank foundation even though Rust
+  // measures that soil as part of the bank filling.
+  const bands = bankSection
+    ? [
+        ...bankSection.cutPolygons.map(points => ({ points, cutting: true })),
+        ...bankSection.banks.flatMap(bank => [...bank.fillPolygons, ...bank.strippingPolygons])
+          .map(points => ({ points, cutting: false }))
+      ]
+    : design.length >= 2 ? profileDifferenceBands(ground, design) : []
   return { design, ground, bands, bankSection,
     cutPolygons: bankSection?.cutPolygons.map((points, index) => ({ points, area: bankSection.cutPolygonAreas[index] })) ?? [],
     areas: { cutting: round3(bankSection?.cutting ?? 0), filling: round3(bankSection?.grossFill ?? 0) }
@@ -2824,13 +2861,13 @@ export function canalStrippedOrCutLevelAt(
   return proposedRl == null ? strippedRl : Math.min(strippedRl, proposedRl)
 }
 
-/** Stripping polygons below existing ground beneath the bund footprint at a section. */
+/** Stripping polygons below existing ground beneath the banks and bed refill. */
 export function canalStrippingBands(data: CanalData, section: CanalSection): CanalPoint[][] {
   const depth = canalStrippingDepthAt(data, section.chainage)
   const ground = orderCanalPoints(section.ground)
   if (!(depth > 0) || ground.length < 2) return []
 
-  const ranges = canalBundFootprintRanges(data, section)
+  const ranges = canalStrippingFootprintRanges(data, section)
   const out: CanalPoint[][] = []
   for (const [rFrom, rTo] of ranges) {
     const topOffsets = [
@@ -2859,7 +2896,7 @@ export interface CanalEarthworkTotals {
 export function canalEarthworkTotals(data: CanalData): CanalEarthworkTotals {
   const rows = canalBankIntegrationSections(data).filter((section) => canalMeasurableSection(data, section)).map((section) => {
     const areas = canalSectionAreas(data, section)
-    const strippingWidth = canalFillFootprintWidth(data, section)
+    const strippingWidth = canalStrippingFootprintWidth(data, section)
     const coreSection = canalHeartingSection(data, section)
     const trenches = coreSection.trenches
     const cutoffTrench = data.mode === 'new' && !coreSection.errors.length
@@ -2985,7 +3022,7 @@ export function canalStrippingReachTotal(data: CanalData, reach: CanalFoundation
   if (reach.kind !== 'stripping') return 0
   const rows = orderedCanalSections(data).filter((section) =>
     section.chainage >= reach.fromChainage && section.chainage <= reach.toChainage && canalMeasurableSection(data, section)
-  ).map((section) => ({ chainage: section.chainage, area: canalFillFootprintWidth(data, section) * Math.max(0, reach.strippingDepth) }))
+  ).map((section) => ({ chainage: section.chainage, area: canalStrippingFootprintWidth(data, section) * Math.max(0, reach.strippingDepth) }))
   let volume = 0
   for (let index = 1; index < rows.length; index += 1) {
     volume += (rows[index - 1].area + rows[index].area) / 2 * Math.max(0, rows[index].chainage - rows[index - 1].chainage)
@@ -3020,6 +3057,10 @@ export interface CanalTierFoundationSummary {
 /** Compute foundation filling, blanket, and filter quantities for a specific tier (or across all tiers). */
 export function canalTierFoundationQuantities(data: CanalData, tierId?: string, scope?: CanalBankWorkScope): CanalTierFoundationSummary {
   const result = measureCanalBankQuantities(data, scope ? [scope.from, scope.to, ...(scope.ranges ?? []).flatMap(r => [r.from, r.to])] : [])
+  return summarizeCanalTierFoundation(result, tierId, scope)
+}
+
+function summarizeCanalTierFoundation(result: BankQuantityResult, tierId?: string, scope?: CanalBankWorkScope): CanalTierFoundationSummary {
   const rows = result.rows.filter(row => (!tierId || row.profileId === tierId) && (!scope ||
     (!scope.side || scope.side === row.side) && (row.from + row.to) / 2 >= scope.from && (row.from + row.to) / 2 < scope.to &&
     (!scope.ranges || scope.ranges.some(r => (row.from + row.to) / 2 >= r.from && (row.from + row.to) / 2 < r.to))))
@@ -3038,6 +3079,10 @@ export function canalTierFoundationItems(data: CanalData): Array<{ role: CanalIt
   if (!isTiered) return []
 
   const items: Array<{ role: CanalItemRole; code: string; label: string; quantity: number; unit: string }> = []
+  // The shared schedule already splits at every bank/drainage boundary.
+  // Measure it once; a scoped request per reach used to rebuild the whole
+  // canal repeatedly and overflow the quantity cache on longer canals.
+  let measured: BankQuantityResult | undefined
   // Each reach can select a different blanket code/unit. Never bill all ranges
   // under the last code encountered in a project-wide summary.
   for (const side of ['left', 'right'] as const) {
@@ -3048,7 +3093,8 @@ export function canalTierFoundationItems(data: CanalData): Array<{ role: CanalIt
     if (reach?.status !== 'fill') continue
     const treatment = canalDrainageTreatmentAt(data, ch, side, canalBankTreatmentForReach(data, side, reach))
     if (treatment.blanket === 'none' && !treatment.horizontalFilter && !treatment.rockToe) continue
-    const summary = canalTierFoundationQuantities(data, undefined, { from, to, side })
+    measured ??= measureCanalBankQuantities(data)
+    const summary = summarizeCanalTierFoundation(measured, undefined, { from, to, side })
     for (const blanket of summary.blanketItems) {
       items.push({ role: 'sand-blanket', code: blanket.code, label: blanket.label, quantity: blanket.quantity, unit: blanket.unit })
     }
@@ -3117,6 +3163,23 @@ export interface CanalSectionToeWork {
   extraPolygons?: CanalPoint[][]
   lines?: CanalPoint[][]
   lining?: 'rubble' | 'concrete'
+}
+
+/** The ditch invert follows its saved longitudinal grade, independent of ground RL. */
+export function canalToeDitchAtSection(data: CanalData, section: CanalSection, side: 'left' | 'right', treatment = canalSectionBankTreatment(data, section, side)) {
+  const toe = canalSideProfile(data, section, side).at(-1)
+  if (!toe) return null
+  const offset = toe.offset + (side === 'left' ? -1 : 1) * Math.max(0, treatment.toeDrainBermWidth)
+  const ground = orderCanalPoints(section.ground)
+  if (ground.length < 2) return null
+  const groundRl = canalGroundLevelAt(ground, Math.max(ground[0].offset, Math.min(ground.at(-1)!.offset, offset)))!
+  const graded = treatment.toeDrainInvertRl != null || treatment.toeDrainStartChainage != null || treatment.toeDrainSlope != null
+  const valid = Number.isFinite(treatment.toeDrainInvertRl) && Number.isFinite(treatment.toeDrainStartChainage) && treatment.toeDrainStartChainage! >= 0
+    && Number.isFinite(treatment.toeDrainSlope) && treatment.toeDrainSlope! > 0
+  const invertRl = graded
+    ? valid ? treatment.toeDrainInvertRl! - (section.chainage - treatment.toeDrainStartChainage!) / treatment.toeDrainSlope! : null
+    : groundRl - Math.max(0, treatment.toeDrainDepth ?? 0.6)
+  return { groundRl, invertRl, depth: invertRl == null ? 0 : Math.max(0, groundRl - invertRl), graded, valid: !graded || valid }
 }
 
 /** Section geometry for enabled bank-toe works, using the same resolved reach settings as measurement. */

@@ -17,21 +17,10 @@ import type {
   SorZone,
 } from "../types/sor";
 export const SOR_CATEGORY = "SOR_Recipie";
-/** Exact retired road references, for display and opening the current picker only.
- * A current quote/configuration is saved only after the user chooses Apply.
- */
+/** Current catalogue identities used to open the template picker. */
 export function sorTemplateCode(code: string): string | undefined {
   const value = code.trim();
-  if (/^SOR-/i.test(value)) return value;
-  switch (value) {
-    case "RB_WORK_6411571526E0":
-    case "RB Road Work 1(i)(b)":
-      return "SOR-P02-T03-R0118";
-    case "RB Road Work 8(a) — select/enter catalogue item":
-      return "SOR-P02-T03-R0138";
-    default:
-      return undefined;
-  }
+  return /^SOR-/i.test(value) ? value : undefined;
 }
 const browserCache = new SorRequestCache(80);
 const detailCache = new SorRequestCache(128);

@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from 'react'
 import { Droplets, LockKeyhole, Pickaxe, Plus } from 'lucide-react'
 import type { CanalData, CanalDrainageReach, CanalTierFoundationConfig } from '../../../../types/project'
-import { canalSectionBankTier, canalSideProfile, canalTierToeProtectionQuantities, defaultCanalTierFoundationConfig, orderedCanalSections, tierOuterToeSlope } from '../../../../lib/canal'
+import { canalSectionBankTier, canalSideProfile, canalTierToeProtectionQuantities, canalToeDitchAtSection, defaultCanalTierFoundationConfig, tierOuterToeSlope } from '../../../../lib/canal'
 import { canalDrainageTiers, canalDrainageTierTreatment, canalDrainageWorkRanges, canalManualDrainageReaches, saveCanalDrainageTier, saveCanalManualDrainageReach, removeCanalManualDrainageReach } from '../../../../lib/canalDrainageDesign'
 import { bankReachLabel } from './CanalBankReachPicker'
 import { bankProtectionSectionAt } from '../../../../lib/canalBankProtection'
@@ -113,33 +113,56 @@ export function ToeFilterSketch({ kind, width, depth }: { kind: '5-7' | '5-12' |
   </svg>
 }
 
-function CanalToeWorkEditor({ data, activeSide, ranges, title, saved, startEditing = false, onSave, onCancel }: {
+export function CanalToeWorkEditor({ data, activeSide, ranges, title, saved, startEditing = false, onSave, onCancel }: {
   data: CanalData; activeSide: 'left' | 'right'; ranges: Array<{ from: number; to: number }>; title: string;
   saved: CanalTierFoundationConfig; startEditing?: boolean;
   onSave: (patch: Partial<CanalTierFoundationConfig>) => boolean; onCancel?: () => void
 }): JSX.Element {
   const [draft, setDraft] = useState<Partial<CanalTierFoundationConfig> | null>(startEditing ? {} : null)
+  const [validation, setValidation] = useState('')
   const treatment = { ...saved, ...draft }
-  const { tierSummary, outerToeSlope, representativeChainage } = useMemo(() => {
-    const sections = orderedCanalSections(data)
-    const section = ranges.length ? bankProtectionSectionAt(data, ranges[0].from)
-      : sections.find(s => s.designPopulated !== false && s.ground.length >= 2)
+  const { tierSummary, outerToeSlope, firstSection } = useMemo(() => {
+    const start = ranges.length ? Math.min(...ranges.map(range => range.from)) : undefined
+    const section = start == null ? undefined : bankProtectionSectionAt(data, start)
     const tier = section ? canalSectionBankTier(data, section, activeSide) : null
     return {
       tierSummary: canalTierToeProtectionQuantities(data, undefined, { from: 0, to: data.lengthM, ranges, side: data.design.bankConfig?.linkSymmetrical ? undefined : activeSide }),
       outerToeSlope: tierOuterToeSlope(tier, section ? canalSideProfile(data, section, activeSide) : undefined),
-      representativeChainage: section?.chainage
+      firstSection: section
     }
   }, [data, activeSide, ranges])
-  const toeDrainTopWidth = Math.max(0, treatment.toeDrainBottomWidth) +
-    Math.max(0, treatment.toeDrainDepth) *
+  const representativeChainage = firstSection?.chainage
+  const previewSide = treatment.toeDrainSide === 'both' ? activeSide : treatment.toeDrainSide
+  const legacyDitch = saved.toeDrain && saved.toeDrainInvertRl == null && saved.toeDrainSlope == null
+  const original = firstSection ? canalToeDitchAtSection(data, firstSection, previewSide, saved) : null
+  const invertRl = treatment.toeDrainInvertRl === undefined && legacyDitch ? original?.invertRl ?? null
+    : treatment.toeDrainInvertRl == null ? null
+    : Number.isFinite(treatment.toeDrainStartChainage) && treatment.toeDrainSlope != null && treatment.toeDrainSlope > 0 && representativeChainage != null
+      ? treatment.toeDrainInvertRl - (representativeChainage - treatment.toeDrainStartChainage!) / treatment.toeDrainSlope
+      : treatment.toeDrainInvertRl
+  const graded = invertRl != null && Number.isFinite(invertRl) && treatment.toeDrainSlope != null && Number.isFinite(treatment.toeDrainSlope) && treatment.toeDrainSlope > 0
+  const preview = firstSection ? canalToeDitchAtSection(data, firstSection, previewSide, graded
+    ? { ...treatment, toeDrainInvertRl: invertRl, toeDrainStartChainage: representativeChainage }
+    : saved) : null
+  const ditchDepth = preview?.depth ?? 0
+  const toeDrainTopWidth = Math.max(0, treatment.toeDrainBottomWidth) + ditchDepth *
     (Math.max(0, treatment.toeDrainLeftSlope) + Math.max(0, treatment.toeDrainRightSlope))
-  const patchTreatment = (patch: Partial<CanalTierFoundationConfig>): void => setDraft(current => current ? { ...current, ...patch } : current)
+  const patchTreatment = (patch: Partial<CanalTierFoundationConfig>): void => { setValidation(''); setDraft(current => current ? { ...current, ...patch } : current) }
+  const saveTreatment = (): void => {
+    if (!draft) return
+    if (treatment.toeDrain && (!firstSection || !graded)) {
+      setValidation('Enter an invert RL at the first surveyed section and a positive longitudinal slope (1 in N).')
+      return
+    }
+    const patch = treatment.toeDrain ? { ...draft, toeDrainInvertRl: invertRl, toeDrainStartChainage: representativeChainage, toeDrainSlope: treatment.toeDrainSlope, toeDrainDepth: undefined } : draft
+    if (onSave(patch)) { setDraft(null); setValidation('') }
+  }
   const cardHeader = (icon: JSX.Element, title: string, subtitle: string, enabled: boolean, toggle: (enabled: boolean) => void): JSX.Element => <header><span className="canal-work-icon">{icon}</span><div><strong>{title}</strong><small>{subtitle}</small></div><label className="canal-card-switch"><input type="checkbox" aria-label={`Include ${title}`} checked={enabled} onChange={(event) => toggle(event.target.checked)} /><span>{enabled ? 'Included' : 'Not included'}</span></label></header>
 
   return <section className="canal-tier-toe-panel">
       <header><div><strong>{title} · {data.design.bankConfig?.linkSymmetrical ? 'Both banks' : activeSide === 'left' ? 'Left bank' : 'Right bank'}</strong><small>Edit the options, then save to recalculate. Quantities show saved settings.</small>{representativeChainage != null && <small>Schematic batter at Ch {representativeChainage.toLocaleString('en-IN')} m: {outerToeSlope}H:1V. Measurements follow each section’s actual bank profile.</small>}</div></header>
-      <div className="canal-protection-choices">{draft ? <><button type="button" onClick={() => { if (onSave(draft)) setDraft(null) }}>{startEditing ? 'Save reach' : 'Save toe protection & drainage'}</button><button type="button" onClick={() => { setDraft(null); onCancel?.() }}>Cancel</button></> : <button type="button" onClick={() => setDraft({})}>Edit toe protection &amp; drainage</button>}</div>
+      <div className="canal-protection-choices">{draft ? <><button type="button" onClick={saveTreatment}>{startEditing ? 'Save reach' : 'Save toe protection & drainage'}</button><button type="button" onClick={() => { setDraft(null); setValidation(''); onCancel?.() }}>Cancel</button></> : <button type="button" onClick={() => setDraft({ toeDrainInvertRl: invertRl, toeDrainStartChainage: representativeChainage })}>Edit toe protection &amp; drainage</button>}</div>
+      {validation && <p role="alert" className="canal-protection-pending">{validation}</p>}
       <fieldset className="canal-reach-work-fields" disabled={!draft}>
       <div className="canal-tier-toe-grid">
         {/* 1. Rock Toe (Left side) */}
@@ -257,16 +280,18 @@ function CanalToeWorkEditor({ data, activeSide, ranges, title, saved, startEditi
           {treatment.toeDrain ? (
             <div className="canal-tier-side-card-body">
               <div className="canal-toe-visual-frame">
-                <BundToeDiagram
+                {ditchDepth > 0 && (graded || legacyDitch) ? <BundToeDiagram
                   topWidth={toeDrainTopWidth}
                   bottomWidth={treatment.toeDrainBottomWidth}
-                  depth={treatment.toeDrainDepth}
+                  depth={ditchDepth}
                   leftSlope={treatment.toeDrainLeftSlope}
                   rightSlope={treatment.toeDrainRightSlope}
                   bermWidth={treatment.toeDrainBermWidth}
+                  groundLabel="natural ground"
                   lined={treatment.toeDrainProtection !== 'none'}
-                />
+                /> : <p className="settings-note">{graded ? 'The ditch invert is at or above ground at this section; excavation is zero here.' : 'Enter the first-section invert RL and longitudinal slope to draw the ditch.'}</p>}
               </div>
+              {representativeChainage != null && <p className="settings-note">First section: Ch {n2(representativeChainage)} m{preview?.groundRl != null && <> · Ground RL {n2(preview.groundRl)} m</>}{graded && <> · Invert RL {n2(invertRl)} m · Calculated depth {n2(ditchDepth)} m</>}</p>}
 
               <div className="canal-toe-live-metric">
                 <div className="canal-toe-metric-info">
@@ -304,13 +329,9 @@ function CanalToeWorkEditor({ data, activeSide, ranges, title, saved, startEditi
                     suffix="m"
                     onChange={(toeDrainBottomWidth) => patchTreatment({ toeDrainBottomWidth })}
                   />
-                  <NumberInput
-                    label="Depth"
-                    value={treatment.toeDrainDepth}
-                    suffix="m"
-                    onChange={(toeDrainDepth) => patchTreatment({ toeDrainDepth })}
-                  />
+                  <label className="canal-bank-field"><span>Invert RL at first section{representativeChainage != null ? ` — Ch ${n2(representativeChainage)} m` : ''}</span><div className="canal-input-with-suffix"><input type="number" step="any" value={invertRl ?? ''} onChange={event => patchTreatment({ toeDrainInvertRl: event.target.value === '' ? null : Number(event.target.value), toeDrainStartChainage: representativeChainage })}/><b>m</b></div></label>
                 </div>
+                <label className="canal-bank-field"><span>Longitudinal slope — 1 in</span><input type="number" min="0" step="any" value={treatment.toeDrainSlope ?? ''} onChange={event => patchTreatment({ toeDrainSlope: event.target.value === '' ? null : Number(event.target.value), toeDrainInvertRl: invertRl, toeDrainStartChainage: representativeChainage })}/><small>Falls with increasing chainage. Depth is calculated from the ground at each section.</small></label>
 
                 <div className="canal-bank-grid">
                   <NumberInput
@@ -388,7 +409,7 @@ export default function CanalFiltersDrains(props: DrainageChapterProps): JSX.Ele
 const toeStatus = (treatment: Partial<CanalTierFoundationConfig>): string =>
   [treatment.rockToeProtection && 'Rock Toe', treatment.toeDrain && 'Open Toe Ditch'].filter(Boolean).join(' + ') || 'No works'
 
-function CanalToeDrainageDesigner({ data, onCommit }: DrainageChapterProps): JSX.Element {
+export function CanalToeDrainageDesigner({ data, onCommit }: DrainageChapterProps): JSX.Element {
   const [side, setSide] = useState<'left' | 'right'>('left')
   const [selectedId, setSelectedId] = useState('')
   const [editing, setEditing] = useState<{ id: string; from: string; to: string; original?: CanalDrainageReach } | null>(null)
@@ -401,10 +422,11 @@ function CanalToeDrainageDesigner({ data, onCommit }: DrainageChapterProps): JSX
   const manual = useMemo(() => canalManualDrainageReaches(data, side, 'bankToeDrainage'), [data, side])
   const selectedTier = tiers.find(t => t.id === selectedId) ?? tiers[0]
   const selectedManual = manual.find(r => r.id === selectedId) ?? manual[0]
-  const editorRange = editing ? editing.original : selectedManual
   const editorRanges = useMemo(() => mode === 'programmatic'
     ? ranges.filter(r => r.tierId === selectedTier?.id)
-    : editorRange ? [editorRange] : [], [mode, ranges, selectedTier?.id, editorRange])
+    : editing ? editing.from.trim() && editing.to.trim() && Number(editing.to) > Number(editing.from)
+      ? [{ from: Number(editing.from), to: Number(editing.to) }] : []
+    : selectedManual ? [selectedManual] : [], [mode, ranges, selectedTier?.id, editing, selectedManual])
 
   const resetSelection = (): void => { setSelectedId(''); setEditing(null); setError('') }
   const chooseMode = (next: 'programmatic' | 'manual'): void => {

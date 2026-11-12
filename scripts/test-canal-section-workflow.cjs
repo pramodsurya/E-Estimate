@@ -10,7 +10,7 @@ require.extensions['.ts'] = (mod, filename) => mod._compile(ts.transpileModule(f
 const canal = require('../src/renderer/src/lib/canal.ts')
 
 // Execute the real page event handlers with local hook state, without maps or files.
-function page(file, overrides = {}) {
+function page(file, overrides = {}, exportName = 'default') {
   const slots = []
   let cursor = 0
   const hooks = {
@@ -22,7 +22,12 @@ function page(file, overrides = {}) {
     },
     useRef(initial) { const i = cursor++; if (!(i in slots)) slots[i] = {current:initial}; return slots[i] },
     useEffect() {},
-    useMemo(factory) { return factory() },
+    useMemo(factory, deps) {
+      const i = cursor++
+      const previous = slots[i]
+      if (!previous || !deps || deps.some((value, index) => !Object.is(value, previous.deps[index]))) slots[i] = {deps, value:factory()}
+      return slots[i].value
+    },
     useCallback(callback) { return callback }
   }
   const filename = path.resolve(__dirname, '../src/renderer/src/components/canal/v2/chapters', file)
@@ -34,7 +39,7 @@ function page(file, overrides = {}) {
   mod._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop:true }
   }).outputText, filename)
-  return props => { cursor = 0; return mod.exports.default(props) }
+  return props => { cursor = 0; return mod.exports[exportName](props) }
 }
 function elements(node, predicate) {
   if (Array.isArray(node)) return node.flatMap(child => elements(child, predicate))
@@ -195,4 +200,158 @@ async function testCutPreview() {
   }
   console.log('Cutting workflow: original geometry, full/mixed sections, shared quantities, coordinate/formula export, saved drafts and no independent native calculator passed.')
 }
-testCutPreview().catch(error => {console.error(error); process.exitCode = 1})
+async function testBankDesign() {
+  require.extensions['.css'] = () => {}
+  require.extensions['.tsx'] = (mod, file) => mod._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), {
+    compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}
+  }).outputText,file)
+  const Diagram = () => null
+  let calculations = 0, previews = 0, failSave = false
+  const sectionEngine = require('../src/renderer/src/lib/canalBankSection.ts')
+  const bankPage = page('CanalBankDesign.tsx', {
+    '../../CanalSectionDiagram': {__esModule:true, default:Diagram},
+    '../../../../lib/canal': {...canal,
+      canalEarthworkTotals:()=>{throw new Error('Unused earthwork must not run during bank form rendering')},
+      canalGroundProfileBetweenToes:(...args)=>{previews++;return canal.canalGroundProfileBetweenToes(...args)}
+    },
+    '../../../../lib/canalBankSection': {...sectionEngine,canalBankReachSummary:(current)=>{calculations++;return sectionEngine.canalBankReachSummary(current)}}
+  })
+  let bank = canal.defaultCanalData()
+  bank.lengthM = 200
+  Object.assign(bank.design,{bedLevelAtStart:100,bedSlope:0,heartingTrenchEnabled:false})
+  bank.sections = [0,100,200].map(chainage=>({id:`bank-${chainage}`,chainage,designPopulated:true,strataTopRl:100,
+    ground:[{offset:-80,rl:98},{offset:80,rl:98}]}))
+  const commits = []
+  const props = () => ({data:bank,sections:bank.sections,onCommit:patch=>{
+    if(failSave)throw new Error('Could not save bank design')
+    commits.push(patch); bank={...bank,design:{...bank.design,...patch}}
+  }})
+  let tree = bankPage(props())
+  const button = label => elements(tree,n=>n.type==='button'&&text(n).includes(label))[0]
+  const heading = name => elements(tree,n=>n.type==='button'&&n.props['aria-label']===`Select ${name} bank design`)[0]
+  const preview = () => elements(tree,n=>n.type===Diagram)[0]
+  button('Recalculate').props.onClick()
+  tree = bankPage(props())
+  assert.equal(calculations,1)
+  const originalPreview = preview().props.section
+  const originalPreviewCount = previews
+  heading('High Bund').props.onClick()
+  tree = bankPage(props())
+  assert.equal(heading('High Bund').props['aria-pressed'],true)
+  const lowCard = elements(tree,n=>n.type==='article'&&text(n).includes('Low Bund'))[0]
+  lowCard.props.onClick({target:{closest:()=>null}})
+  tree = bankPage(props())
+  assert.equal(heading('Low Bund').props['aria-pressed'],true,'The card body also selects its tier')
+  heading('High Bund').props.onClick()
+  tree = bankPage(props())
+  button('Impervious Zoned').props.onClick()
+  tree = bankPage(props())
+  assert.ok(button('Impervious Zoned').props.className.includes('active-zoned'),'Zoning responds before recalculation')
+  assert.equal(bank.design.bankConfig.leftTiers.find(t=>t.id==='tier-high').sectionType,'homogeneous')
+  assert.equal(bank.design.heartingTrenchEnabled,false)
+  const crest = () => elements(tree,n=>typeof n.type==='function'&&n.props.label==='Crest Width')[0]
+  crest().props.onChange(7)
+  tree = bankPage(props())
+  heading('Medium Bund').props.onClick()
+  tree = bankPage(props())
+  heading('High Bund').props.onClick()
+  tree = bankPage(props())
+  assert.equal(crest().props.value,7,'Switching tiers retains edits')
+  assert.equal(commits.length,0,'Typing and selecting must not rebuild the project')
+  assert.equal(calculations,1,'Draft edits do not recalculate saved totals')
+  assert.equal(previews,originalPreviewCount,'Draft edits do not rebuild preview geometry')
+  assert.equal(preview().props.section,originalPreview)
+  assert.equal(button('Export Bank Quantities').props.disabled,true,'Save before exporting changed designs')
+  button('Cancel changes').props.onClick()
+  tree = bankPage(props())
+  assert.ok(button('Homogeneous Fill').props.className.includes('active-homo'))
+  assert.equal(button('Save & Calculate').props.disabled,true)
+  assert.equal(commits.length,0)
+
+  const previousWindow = global.window
+  global.window = {requestAnimationFrame:callback=>callback(),setTimeout:callback=>callback()}
+  try {
+    button('Impervious Zoned').props.onClick()
+    tree = bankPage(props())
+    crest().props.onChange(7)
+    tree = bankPage(props())
+    button('Save & Calculate').props.onClick()
+    await new Promise(resolve=>setImmediate(resolve))
+    tree = bankPage(props())
+    assert.equal(commits.length,1,'Save applies zoning, cutoff and dimensions in one update')
+    for(const side of ['leftTiers','rightTiers']){
+      const high = bank.design.bankConfig[side].find(t=>t.id==='tier-high')
+      assert.equal(high.sectionType,'zoned');assert.equal(high.crestWidth,7)
+    }
+    assert.equal(bank.design.heartingTrenchEnabled,true)
+    assert.equal(button('Save & Calculate').props.disabled,true)
+    assert.notEqual(preview().props.section,originalPreview,'Saved changes rebuild the preview')
+    crest().props.onChange(8)
+    tree = bankPage(props())
+    failSave = true
+    button('Save & Calculate').props.onClick()
+    await new Promise(resolve=>setImmediate(resolve))
+    tree = bankPage(props())
+    assert.equal(commits.length,1)
+    assert.equal(crest().props.value,8,'A failed save retains the draft')
+    assert.ok(text(tree).includes('Could not save bank design'))
+    assert.equal(button('Save & Calculate').props.disabled,false,'Failed saves can be retried')
+  } finally {
+    if(previousWindow===undefined)delete global.window
+    else global.window=previousWindow
+  }
+  console.log('Bank design: tier/card selection, responsive zoning, local drafts, cancel, one save, saved preview and retry passed.')
+}
+
+function testToeDitchGradeEditor() {
+  const data=canal.defaultCanalData();data.configured=true;data.lengthM=300
+  Object.assign(data.design,{bedLevelAtStart:100,bedSlope:0})
+  data.sections=[0,100,200,300].map(chainage=>({id:`ditch-${chainage}`,chainage,designPopulated:true,ground:[{offset:-80,rl:98},{offset:80,rl:98}]}))
+  const ranges=[{from:100,to:200}]
+  let saved={...canal.defaultCanalTierFoundationConfig(),toeDrain:true,toeDrainDepth:.6}
+  let summaries=0
+  const codeTag={'../../../templates/SsrCode':{__esModule:true,default:()=>null}}
+  const editor=page('CanalFiltersDrains.tsx',{...codeTag,'../../../../lib/canal':{...canal,canalTierToeProtectionQuantities:(...args)=>{summaries++;return canal.canalTierToeProtectionQuantities(...args)}}},'CanalToeWorkEditor')
+  const changes=[]
+  const props=()=>({data,activeSide:'left',ranges,title:'Ditch reach',saved,onSave:patch=>{changes.push(patch);saved={...saved,...patch};return true}})
+  let tree=editor(props())
+  const button=label=>elements(tree,node=>node.type==='button'&&text(node)===label)[0]
+  const field=label=>elements(elements(tree,node=>node.type==='label'&&text(node).includes(label))[0],node=>node.type==='input')[0]
+  assert.ok(text(tree).includes('Ch 100.00 m'),'The invert field identifies the first applicable chainage')
+  assert.equal(elements(tree,node=>typeof node.type==='function'&&node.props.label==='Depth').length,0,'Ditch depth is not an editable input')
+  button('Edit toe protection & drainage').props.onClick();tree=editor(props())
+  button('Save toe protection & drainage').props.onClick();tree=editor(props())
+  assert.equal(changes.length,0,'Legacy ditch edits require a new longitudinal slope')
+  assert.ok(elements(tree,node=>node.props.role==='alert').length)
+  field('Invert RL at first section').props.onChange({target:{value:'97'}});tree=editor(props())
+  field('Longitudinal slope').props.onChange({target:{value:'0'}});tree=editor(props())
+  button('Save toe protection & drainage').props.onClick();tree=editor(props())
+  assert.equal(changes.length,0,'Zero slope denominator is invalid')
+  field('Longitudinal slope').props.onChange({target:{value:'1000'}});tree=editor(props())
+  assert.ok(text(tree).includes('Calculated depth 1.00 m'))
+  assert.equal(summaries,1,'Editing the grade does not recalculate the project schedule')
+  button('Save toe protection & drainage').props.onClick();tree=editor(props())
+  assert.equal(changes.length,1)
+  assert.equal(saved.toeDrainStartChainage,100)
+  assert.equal(saved.toeDrainInvertRl,97)
+  assert.equal(saved.toeDrainSlope,1000)
+  assert.equal(saved.toeDrainDepth,undefined,'New grading clears the legacy editable depth')
+  button('Edit toe protection & drainage').props.onClick();tree=editor(props())
+  field('Invert RL at first section').props.onChange({target:{value:'-2'}});tree=editor(props())
+  assert.equal(field('Invert RL at first section').props.value,-2,'Negative invert RL is accepted')
+  button('Cancel').props.onClick();tree=editor(props())
+  assert.equal(field('Invert RL at first section').props.value,97,'Cancel restores the saved invert')
+
+  data.design.bankToeDrainage={mode:'manual',leftReaches:[]}
+  const designer=page('CanalFiltersDrains.tsx',codeTag,'CanalToeDrainageDesigner')
+  let parent=designer({data,onCommit:()=>{}})
+  elements(parent,node=>node.type==='button'&&text(node)==='Add reach')[0].props.onClick();parent=designer({data,onCommit:()=>{}})
+  const rangeField=label=>elements(elements(parent,node=>node.type==='label'&&text(node)===label)[0],node=>node.type==='input')[0]
+  rangeField('From Ch (m)').props.onChange({target:{value:'150'}});parent=designer({data,onCommit:()=>{}})
+  rangeField('To Ch (m)').props.onChange({target:{value:'250'}});parent=designer({data,onCommit:()=>{}})
+  const child=elements(parent,node=>typeof node.type==='function'&&node.type.name==='CanalToeWorkEditor')[0]
+  assert.deepEqual(child.props.ranges,[{from:150,to:250}],'A new manual reach uses its entered start chainage')
+  console.log('Toe ditch grading: first chainage, invert RL, slope validation, save/cancel, negative levels, local edits and manual reach limits passed.')
+}
+
+testCutPreview().then(testBankDesign).then(testToeDitchGradeEditor).catch(error => {console.error(error); process.exitCode = 1})

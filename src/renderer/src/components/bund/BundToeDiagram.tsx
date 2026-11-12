@@ -10,6 +10,7 @@ export default function BundToeDiagram({
   leftSlope,
   rightSlope,
   bermWidth = 0,
+  groundLabel,
   lined,
   solid = false
 }: {
@@ -19,6 +20,7 @@ export default function BundToeDiagram({
   leftSlope?: number
   rightSlope?: number
   bermWidth?: number
+  groundLabel?: string
   lined: boolean
   solid?: boolean
 }): JSX.Element {
@@ -57,7 +59,7 @@ export default function BundToeDiagram({
       {/* stripped-level platform, including the standard berms beside a D/S drain */}
       <line x1={16} y1={groundY} x2={W - 16} y2={groundY} className="bund-toe-ground" />
       <text x={20} y={groundY - 6} className="bund-toe-note">
-        {bermWidth > 0 ? 'stripped level' : 'ground'}
+        {groundLabel ?? (bermWidth > 0 ? 'stripped level' : 'ground')}
       </text>
       {bermWidth > 0 && (
         <>

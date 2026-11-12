@@ -28,7 +28,6 @@ import { formatCanalReachChainage } from '../../../../lib/canalTierReaches'
 import {
   canalBankRepairItems,
 
-  canalEarthworkTotals,
   recommendedCanalCrestWidth,
   defaultCanalBankDesignConfig,
   canalSectionBankTier,
@@ -113,13 +112,22 @@ function CoreConnection({ design, name, onCommit }: { design: CanalDesign; name:
 export default function CanalBankDesign({
   data,
   sections,
-  onCommit
+  onCommit: saveDesign
 }: {
   data: CanalData
   sections: CanalSection[]
   onCommit: (patch: Partial<CanalDesign>) => void
 }): JSX.Element {
-  const { design } = data
+  const [draft, setDraft] = useState<{ base: CanalDesign; patch: Partial<CanalDesign> } | null>(null)
+  const pendingPatch = draft?.base === data.design ? draft.patch : null
+  const design = useMemo(() => pendingPatch ? { ...data.design, ...pendingPatch } : data.design, [data.design, pendingPatch])
+  const editorData = useMemo(() => design === data.design ? data : { ...data, design }, [data, design])
+  const [isSaving, setIsSaving] = useState(false)
+  // Editing changes only the form. One save refreshes sections and estimate items.
+  const onCommit = useCallback((patch: Partial<CanalDesign>): void => {
+    if (isSaving) return
+    setDraft(previous => ({ base: data.design, patch: { ...(previous?.base === data.design ? previous.patch : {}), ...patch } }))
+  }, [data.design, isSaving])
   const [activeSide, setActiveSide] = useState<'left' | 'right'>('left')
   const [selectedSectionId, setSelectedSectionId] = useState<string>('')
   const [selectedTierId, setSelectedTierId] = useState<string>('')
@@ -131,6 +139,21 @@ export default function CanalBankDesign({
   const [isExporting, setIsExporting] = useState<boolean>(false)
   const [exportNotice, setExportNotice] = useState<string | null>(null)
   const [calcError, setCalcError] = useState<string | null>(null)
+
+  const saveAndCalculate = async (): Promise<void> => {
+    if (!pendingPatch || isSaving) return
+    setIsSaving(true)
+    setCalcError(null)
+    // Let the saving state paint before the full saved-design calculation.
+    await new Promise<void>(resolve => window.requestAnimationFrame(() => { window.setTimeout(resolve, 0) }))
+    try {
+      saveDesign(pendingPatch)
+      setDraft(null)
+    } catch (error) {
+      setCalcError(String(error))
+    }
+    setIsSaving(false)
+  }
 
   const bankConfig: CanalBankDesignConfig = design.bankConfig ?? defaultCanalBankDesignConfig(data.mode)
   const mode = bankConfig.mode
@@ -284,7 +307,6 @@ export default function CanalBankDesign({
   // Legacy variables
   const zoned = design.bankSectionType === 'zoned'
   const recommended = recommendedCanalCrestWidth(design.discharge)
-  const earthwork = useMemo(() => canalEarthworkTotals(data), [data])
   // Rust engine payload builder
   const buildPayload = useCallback((): CanalEmbankmentInput => {
     return {
@@ -408,6 +430,7 @@ export default function CanalBankDesign({
   // Handle Excel Export with Native File Selector Dialog
   const handleExportExcel = async (): Promise<void> => {
     if (!window.api?.canal?.exportEmbankmentExcel) return
+    if (pendingPatch || manualDraft) { setExportNotice('Save the bank design changes before exporting.'); return }
     setIsExporting(true)
     setExportNotice(null)
     try {
@@ -500,18 +523,18 @@ export default function CanalBankDesign({
   }
 
   // Cross-section diagram preview (filtered to filling sections)
-  const populatedSections = sections.filter(s => s.designPopulated !== false && s.ground.length >= 2)
-  const fillingSections = populatedSections.filter((s) => {
-    const bed = canalBedLevelAt(data, s.chainage) ?? design.bedLevelAtStart
-    const tbl = bed + canalSectionDepth(design)
+  const populatedSections = useMemo(() => sections.filter(s => s.designPopulated !== false && s.ground.length >= 2), [sections])
+  const fillingSections = useMemo(() => populatedSections.filter((s) => {
+    const bed = canalBedLevelAt(data, s.chainage) ?? data.design.bedLevelAtStart
+    const tbl = bed + canalSectionDepth(data.design)
     const groundRls = (s.ground ?? []).map((p) => p.rl)
     const minGround = groundRls.length > 0 ? Math.min(...groundRls) : bed
     return tbl - minGround > 0.05
-  })
+  }), [data, populatedSections])
   const availablePreviewSections = fillingSections.length > 0 ? fillingSections : populatedSections
   const selectedSection = availablePreviewSections.find((s) => s.id === selectedSectionId) ?? availablePreviewSections[0]
 
-  const previewSection = (() => {
+  const previewSection = useMemo(() => {
     if (!selectedSection) return null
     const points = selectedSection.ground ?? []
     if (points.length < 2) return { ...selectedSection, ground: points.map(p => ({ ...p })) }
@@ -522,10 +545,11 @@ export default function CanalBankDesign({
       return { ...selectedSection, ground: expandedGround }
     }
     return { ...selectedSection, ground: points.map(p => ({ ...p })) }
-  })()
+  }, [data, selectedSection])
+  const sectionDiagram = useMemo(() => previewSection ? <CanalSectionDiagram data={data} section={previewSection} /> : null, [data, previewSection])
 
-  const previewBed = previewSection ? (canalBedLevelAt(data, previewSection.chainage) ?? design.bedLevelAtStart) : 0
-  const previewTbl = previewBed + canalSectionDepth(design)
+  const previewBed = previewSection ? (canalBedLevelAt(data, previewSection.chainage) ?? data.design.bedLevelAtStart) : 0
+  const previewTbl = previewBed + canalSectionDepth(data.design)
   const previewGroundPoints = previewSection?.ground ?? []
   const previewLeftGround = previewGroundPoints[0]?.rl ?? previewBed
   const previewRightGround = previewGroundPoints[previewGroundPoints.length - 1]?.rl ?? previewBed
@@ -545,10 +569,14 @@ export default function CanalBankDesign({
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button type="button" className="btn ghost" disabled={!pendingPatch || isSaving} onClick={() => { setDraft(null); setManualDraft(null); setCalcError(null) }}>Cancel changes</button>
+          <button type="button" className="btn primary" disabled={!pendingPatch || isSaving || isCalculating || Boolean(manualDraft)} onClick={() => void saveAndCalculate()}>
+            <Check size={15} /> {isSaving ? 'Saving & calculating...' : 'Save & Calculate'}
+          </button>
           <button
             type="button"
             className="btn ghost"
-            disabled={isCalculating}
+            disabled={isCalculating || isSaving || Boolean(pendingPatch)}
             onClick={() => void runRustCalculation()}
             title="Recalculate with Rust Engine"
           >
@@ -559,7 +587,7 @@ export default function CanalBankDesign({
           <button
             type="button"
             className="btn primary"
-            disabled={isExporting || isCalculating}
+            disabled={isExporting || isCalculating || isSaving || Boolean(pendingPatch) || Boolean(manualDraft)}
             onClick={() => void handleExportExcel()}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
@@ -568,6 +596,10 @@ export default function CanalBankDesign({
           </button>
         </div>
       </header>
+
+      <p className="canal-bank-recommendation" role="status">{pendingPatch
+        ? 'Unsaved bank design changes. Save & Calculate updates the sections, quantities and estimate items together. Cancel changes restores the saved design.'
+        : 'Select a tier or reach to edit its bank design. Save & Calculate applies your changes once. Diagrams and quantities show the saved design.'}</p>
 
       {exportNotice && (
         <div style={{ margin: '8px 0 16px 0', padding: '10px 14px', borderRadius: 6, background: exportNotice.startsWith('Export Error') ? '#fee2e2' : '#ecfdf5', color: exportNotice.startsWith('Export Error') ? '#991b1b' : '#065f46', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
@@ -670,7 +702,7 @@ export default function CanalBankDesign({
           )}
 
           {/* Continuous Height Bracket Continuum Bar */}
-          {isManual && <CanalManualReachDesigner data={data} side={activeSide} selectedProfileId={currentTier?.id} draft={manualDraft} onDraftChange={setManualDraft} onSelect={setSelectedTierId} onChange={config => onCommit({ bankConfig: config })} />}
+          {isManual && <CanalManualReachDesigner data={editorData} side={activeSide} selectedProfileId={currentTier?.id} draft={manualDraft} onDraftChange={setManualDraft} onSelect={setSelectedTierId} onChange={config => onCommit({ bankConfig: config })} />}
           {isProgrammatic && <div className="canal-tier-continuum">
             {isProgrammatic && <p className="settings-note">Reach boundaries use entered Soil Strata and Sections chainages. Each interval uses its starting chainage’s height tier. Soil Strata Top RL takes priority; populated sections supply bank ground where Top RL is absent.</p>}
             <div className="canal-tier-continuum-header">
@@ -682,19 +714,22 @@ export default function CanalBankDesign({
             </div>
 
             <div className="canal-tier-bracket-track canal-bank-reach-track">
-              {sortedTiers.map(tier => <article key={tier.id}
+              {sortedTiers.map(tier => <article key={tier.id} onClick={event => {
+                if ((event.target as HTMLElement).closest('button, input, select, textarea, form, details, a')) return
+                setSelectedTierId(tier.id)
+              }}
                 className={`canal-tier-bracket-chip canal-bank-reach-box ${tier.sectionType === 'zoned' ? 'is-zoned' : 'is-homogeneous'} ${tier.id === currentTier?.id ? 'selected' : ''}`}>
-                <button type="button" className="canal-reach-box-heading" onClick={() => setSelectedTierId(tier.id)} aria-pressed={tier.id === currentTier?.id}>
+                <button type="button" className="canal-reach-box-heading" aria-label={`Select ${tier.name} bank design`} onClick={() => setSelectedTierId(tier.id)} aria-pressed={tier.id === currentTier?.id}>
                   <strong>{tier.name}</strong><small>{isProgrammatic && <>{tier.minFillHeight.toFixed(1)} m – {tier.maxFillHeight === 9999 ? 'Max (∞)' : tier.maxFillHeight.toFixed(1) + ' m'} · </>}{tier.sectionType === 'zoned' ? 'Zoned' : 'Homogeneous'}</small>
                 </button>
                 <CanalTierHeightEditor key={`${activeSide}:${tier.id}:${tier.minFillHeight}:${tier.maxFillHeight}`} tier={tier} first={tier.id === sortedTiers[0]?.id} last={tier.id === sortedTiers[sortedTiers.length - 1]?.id} onSave={saveTierHeights} />
-                <CanalBankReachEditor data={data} side={activeSide} tier={tier} onChange={saveReaches} />
+                <CanalBankReachEditor data={editorData} side={activeSide} tier={tier} onChange={saveReaches} />
               </article>)}
             </div>
             <div className="canal-bank-other-reaches">
               {(['level', 'unassigned', 'missing'] as const).map(status => <article className="canal-bank-reach-box" key={status}>
                 <strong>{status === 'level' ? 'At bank-top level' : status === 'missing' ? 'Missing Top RL' : 'Unassigned reaches'}</strong>
-                <CanalBankReachEditor data={data} side={activeSide} status={status} onChange={saveReaches} />
+                <CanalBankReachEditor data={editorData} side={activeSide} status={status} onChange={saveReaches} />
               </article>)}
             </div>
             <p className="settings-note">Height limits share boundaries: the upper limit belongs to the next tier. Click Edit heights, then Save heights to adjust neighbouring tiers and recalculate reaches. Saving height changes replaces reach edits. Reach edits adjust adjoining bund ranges. Mixed filling and cutting is allowed; pure cutting cannot be assigned to a bund. Each reach shows From Ch, To Ch and every underlying chainage interval.</p>
@@ -1294,8 +1329,8 @@ export default function CanalBankDesign({
                 >
                   {availablePreviewSections.map((s) => {
                     const originalIdx = sections.findIndex((item) => item.id === s.id)
-                    const bed = canalBedLevelAt(data, s.chainage) ?? design.bedLevelAtStart
-                    const tbl = bed + canalSectionDepth(design)
+                    const bed = canalBedLevelAt(data, s.chainage) ?? data.design.bedLevelAtStart
+                    const tbl = bed + canalSectionDepth(data.design)
                     const groundRls = (s.ground ?? []).map((p) => p.rl)
                     const minGround = groundRls.length > 0 ? Math.min(...groundRls) : bed
                     const fillH = Math.max(0, tbl - minGround)
@@ -1343,7 +1378,7 @@ export default function CanalBankDesign({
 
         {previewSection ? (
           <div className="canal-earthwork-section-view">
-            <CanalSectionDiagram data={data} section={previewSection} />
+            {sectionDiagram}
           </div>
         ) : (
           <div className="canal-diagram-empty">
